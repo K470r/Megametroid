@@ -57,7 +57,7 @@ Reglas de Edwin (no negociables):
   y `_Multibox`), salto con bomba (`SamusProjectileInteractionHandler` → `SetupBombJump` → `Samus_HandleTransitionsB_3`
   → `Samus_MoveHandler_BombJumpStart/Main`) y el rebote de la bola al caer (`Samus_HandleTransFromBlockColl_1_1..3`,
   `Samus_MorphBallBounce*`). `check` contra el SNES: 0 diferencias (700 cuadros con bombas, saltos y bloques rotos en
-  el aterrizaje; 3600 cuadros al azar en 4 salas). Faltan: bombas de poder, bombas en abanico (rayo cargado).
+  el aterrizaje; 3600 cuadros al azar en 4 salas). Faltan: bombas de poder (las bombas en abanico: crateria14).
 - **Claves de enemigos de todas las salas de Crateria y Brinstar** desde la ROM (`mkzkeys.py` sobre todas las salas
   alcanzables por puertas, áreas 0 y 1; antes solo las jugadas): 31 salas no tenían ninguna (enemigos invisibles).
   Norfair, Maridia y demás: cuando se llegue (inflan la ROM).
@@ -95,6 +95,12 @@ Reglas de Edwin (no negociables):
   - RAM: 7E:3000-3FFF es un solo arreglo (`cinematic_text_tilemap[2048]`; `menu_tilemap` y `cinematic_bg_tilemap`
     son alias, `alias` en `vars_extra.txt`): 2 KB menos. `md_ssf2.ld` falla si `_bend` pasa de 0xE0FFE3F0 (con
     menos memoria para SGDK la consola no arranca).
+- **crateria14** (2026-10-22, rama `charge-beam`, docs/49): **rayo cargado** (`HudSelectionHandler_NothingOrPowerBombs`
+  entera, `FireChargedBeam`, `FireSba` sin los rayos que faltan), **destello de la carga** (`HandleChargingBeamGfxAudio`,
+  `DrawFlareAnimationComponent`) y **bombas en abanico** (`BombSpread`, `ProjPreInstr_SpreadBomb`, `BlockCollSpreadBomb`).
+  Claves del rayo cargado y del destello en `mkmd.zebes_proj_keys`; la VRAM de `mkzobj` lleva los tiles y la paleta
+  del rayo. `check` en la sala del Charge Beam (`tools/rooms/chargebeam.sh`): 0 diferencias en 2126 cuadros.
+  Regresión: 62 cuadros "distintos" en Ceres (antes 19), todos corridos en el tiempo como los de docs/48 (docs/49).
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 
@@ -109,7 +115,8 @@ Reglas de Edwin (no negociables):
 1. (Hecho en crateria13) Caja de mensaje, pelea con Bomb Torizo, niebla/neblina como tinte. Falta: las nubes de la
    niebla (forma), el degradado de la neblina (hoy un color medio), la muerte de Samus (c11).
 2. Ojos de las estatuas (paleta/2 líneas del BG), agua del FX 0x26 (BG3), Spore Spawn en BG2 sin probar.
-3. **Bombas de poder** y bombas en abanico (las bombas normales ya están).
+3. **Bombas de poder** (las bombas normales y las de abanico ya están). Rayos de onda, hielo, spazer y plasma (y sus
+   ataques especiales `FireSba_Fire*`): `nt_unimpl` en proj.c.
 4. Secuencia de muerte (`HandleSamusOutOfHealthAndGameTile`), menú de pausa y mapa.
 5. **Sonido**: hoy solo las voces de la intro. Falta el controlador del Z80 (música y efectos; la cola del motor ya
    existe: `music_upload`, `music_play`, `QueueSfx*`). Ej.: el ojo pide el efecto 0x17 de la biblioteca 2.

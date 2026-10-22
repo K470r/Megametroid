@@ -128,6 +128,12 @@ def enemy_vram(rom, tilesets_ptr):
     for c in range(16):
         pal[128 + c] = rom.w(0x9AFC00 + 2 * c)
         pal[208 + c] = rom.w(0x9A8000 + 2 * (208 + c))
+    # el rayo (UpdateBeamTilesAndPalette $90:AC8D): 8 tiles de kBeamTilePtrs ($90:C3B1, $9A) -> VRAM $6300 (tiles
+    # 0x30-0x37, vacíos en los comunes) y sus colores, la línea 6 (kBeamPalettePtrs $90:C3C9); los del rayo normal:
+    # los usan el rayo cargado, sus estelas y el destello de la carga
+    vram[0xC600:0xC700] = rom.bytes(0x9A0000 | rom.w(0x90C3B1), 0x100)
+    for c in range(16):
+        pal[224 + c] = rom.w(0x900000 | (rom.w(0x90C3C9) + 2 * c))
     off = 2048
     e = 0xB40000 | tilesets_ptr
     while True:

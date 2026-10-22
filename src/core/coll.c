@@ -811,6 +811,42 @@ static void BlockColl_BombExplosion(CollInfo *ci, uint16 k) {  // 0x949CF4
   }
 }
 
+/* bombas en abanico (ProjPreInstr_SpreadBomb $90:D8F7): mientras vuelan chocan con los bloques; al explotar, como
+   una bomba */
+uint8 BlockCollSpreadBomb(uint16 k) {  // 0x94A621
+  int v1 = k >> 1;
+  uint16 r26 = projectile_x_pos[v1];
+  uint16 r28 = projectile_y_pos[v1];
+  cur_block_index = 0;
+  CalculateBlockAt(r26, r28, 0, 0);
+  CollInfo ci = { .ci_r24 = 0, .ci_r26 = r26, .ci_r28 = r28, .ci_r30 = 0, .ci_r32 = 0 };
+  if (!projectile_variables[v1]) {
+    BlockColl_BombExplosion(&ci, k);
+    return 0;
+  }
+  if (cur_block_index == 0xFFFF)
+    return 1;
+  uint8 rv;
+  do {
+    switch ((level_block(cur_block_index) & 0xF000) >> 12) {   /* kBlockCollSpreadBomb */
+    case 0: case 2: case 3: case 6: case 7: rv = 0; break;       // ClearCarry_9
+    case 1:                                                      // sub_949D5D
+      if ((bts_get(cur_block_index) & 0x1F) < 5) {
+        rv = 1;
+      } else {
+        uint16 div = SnesDivide(cur_block_index, room_width_in_blocks);   // BlockShotReactVert_Slope_NonSquare $94:A543
+        rv = ((projectile_y_pos[projectile_index >> 1] >> 4) == div)
+             ? BlockShotReact_Slope_NonSquare(&ci, projectile_index, cur_block_index) : 0;
+      }
+      break;
+    case 5: rv = BlockReact_HorizExt(); break;
+    case 13: rv = BlockReact_VertExt(); break;
+    default: rv = 1; break;                                      // SetCarry_0
+    }
+  } while (rv & 0x80);
+  return rv;
+}
+
 void BombOrPowerBomb_Func1(uint16 v0) {  // 0x949CAC
   uint16 temp_collision_DD2 = BlockFunc_9C73(v0);
   int v1 = v0 >> 1;

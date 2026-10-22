@@ -196,6 +196,11 @@ pp2 = words(0x90C7DF, NUM_POSES)
 arr('uint16', 'kPlayerPoseToPtr', pp2, fmt='0x{:X}')
 blob('kBank90_ArmCannon', 0x90, 0xC7A5, 0xCD00)
 H.append('static inline const uint8 *bank90_armcannon(uint16 a) { return kBank90_ArmCannon + (uint16)(a - 0xC7A5); }')
+# destello de la carga del rayo (HandleChargingBeamGfxAudio $90:BAFC): kFlareAnimDelays ($90:C481, 3 punteros) y sus
+# listas de tiempos (bytes; 255 vuelve al principio, 254 n retrocede n)
+blob('kBank90_Flare', 0x90, 0xC481, 0xC4B5)
+H.append('static inline const uint8 *bank90_flare(uint16 a) { return kBank90_Flare + (uint16)(a - 0xC481); }')
+H.append('static inline uint16 bank90_flare_word(uint16 a) { const uint8 *p = bank90_flare(a); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }')
 
 # pendientes (arreglos del decomp, sm_94.c)
 for name in ('kAlignYPos_Tab0', 'kTab948E54', 'kBlockColl_Horiz_Slope_NonSquare_Tab'):
@@ -415,7 +420,7 @@ arr('uint16', 'kBeamPalettes', sum((words(0x900000 | x, 16) for x in bp), []), f
 # ------------------------------------------------------------------ proyectiles (banco $93) y estelas ($90, $9B)
 # Las listas de instrucciones de proyectil empiezan en direcciones impares: se emiten como palabras desde una base
 # impar (todas las direcciones que usa el juego tienen la misma paridad; el motor lo comprueba).
-B93_LO, B93_HI = 0x83C1, 0xA201
+B93_LO, B93_HI = 0x83C1, 0xA20D   # hasta el final de g_off_93A1A1 (spritemaps del destello de la carga)
 arr('uint16', 'kBank93', words(0x930000 | B93_LO, (B93_HI - B93_LO) // 2), fmt='0x{:X}')
 H.append(f'#define BANK93_LO 0x{B93_LO:X}')
 H.append(f'#define BANK93_HI 0x{B93_HI:X}')

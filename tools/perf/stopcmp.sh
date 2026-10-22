@@ -1,8 +1,8 @@
 #!/bin/sh
 # stopcmp.sh N...: captura de la ROM vieja (prepipe) y la nueva congeladas en el cuadro N del motor
 for N in "$@"; do
-  (cd /tmp/claude-0/prepipe/native/md && SKIP_DATA=1 TEST=1 STOP_AT=$N sh build.sh >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/so_$N.bin)
-  (cd /home/claude/mm/native/md && SKIP_DATA=1 TEST=1 STOP_AT=$N sh build.sh >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/sn_$N.bin)
+  (cd /tmp/claude-0/prepipe && TEST=1 STOP_AT=$N make rom >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/so_$N.bin)
+  (cd /home/claude/mm && TEST=1 STOP_AT=$N make rom >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/sn_$N.bin)
   E=$((N * 12 / 10 + 300))
   for v in so sn; do printf "hold $E -\nshot ${v}_$N.ppm\n" > ${v}_$N.txt; RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx/genesis_plus_gx_libretro.so ${v}_$N.bin ${v}_$N.txt >/dev/null 2>&1 & done
   wait

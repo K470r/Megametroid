@@ -24,17 +24,17 @@ compila.
 
 | Ruta | Qué es |
 |---|---|
-| `native/src/` | el motor nativo de 68000 (C), incluido `port_gen.c/.h` (generado del decomp, sin datos de la ROM) |
-| `native/md/*.c *.h *.ld build.sh`, `native/md/front/` | la parte propia de la Genesis (VDP, dibujo, sonido, enlace) |
-| `native/host/*.c *.h build.sh` | el motor compilado en el PC: `check`, `mkinit`, `zcover`, `tour`... (sin los binarios) |
-| `native/tools/*.py` | conversores: `mkdata`, `mkmd`, `mkzebes`, `mkzobj`, `mkzkeys`, `mkintro`, `mkvoice`... |
+| `src/core/` | el motor nativo de 68000 (C), incluido `port_gen.c/.h` (generado del decomp, sin datos de la ROM) |
+| `Makefile`, `src/platform/`, `inc/platform/`, `src/front/`, `inc/front/`, `src/boot/` | la parte propia de la Genesis (VDP, dibujo, sonido, cabecera, enlace) |
+| `host/*.c *.h build.sh` | el motor compilado en el PC: `check`, `mkinit`, `zcover`, `tour`... (sin los binarios) |
+| `tools/conv/*.py` | conversores: `mkdata`, `mkmd`, `mkzebes`, `mkzobj`, `mkzkeys`, `mkintro`, `mkvoice`... |
 | `tools/port/` | el traductor del decomp (docs/42), `roots.txt` |
 | `tools/genesis_convert/`, `tools/emu_harness/`, `tools/snes_ref/` | conversores, `retrorun`, grabador del SNES (`hlref`) — solo fuentes y scripts |
 | `tools/setup/`, `tools/inputs/` | instalar las herramientas; rehacer desde la ROM todo lo que no se sube (docs/45) |
 | `tools/check_rom.py` | la comprobación de la ROM |
 | `tests/regress/regress.sh`, `tests/regress/inputs/` | la prueba de regresión y las entradas de mando grabadas |
 | `tests/regress/golden/*.rows.gz` | hashes por línea de la imagen aprobada (no se puede reconstruir la imagen con ellos) |
-| `native/md/snes_ref/*.log` | listas de claves de dibujo (`zdraw.log`, `draw.log`, `hud.log`...): solo direcciones, sin gráficos |
+| `res/snes_ref/*.log` | listas de claves de dibujo (`zdraw.log`, `draw.log`, `hud.log`...): solo direcciones, sin gráficos |
 | `docs/` | toda la documentación (en español) |
 | `.gitignore`, `README.md` (por escribir), licencia (por decidir) | |
 
@@ -46,21 +46,21 @@ copiado. Ojo: hoy hay dos copias (`sm/src` y la de trabajo del traductor); antes
 | Ruta | Por qué |
 |---|---|
 | `sm/sm.smc`, `sm.smc` y cualquier `*.smc` / `*.sfc` | la ROM del SNES |
-| `*.bin` de la raíz (`MegaMetroid_*.bin`, `Samus Play Concept.bin`, `Paletas nivles.bin`...), `native/md/out/`, `out/` | ROM de Genesis compiladas / datos de la ROM |
+| `*.bin` de la raíz (`MegaMetroid_*.bin`, `Samus Play Concept.bin`, `Paletas nivles.bin`...), `out/`, `out/` | ROM de Genesis compiladas / datos de la ROM |
 | `data/` (`extracted_full`, `genesis`, `rom`...) | todo lo extraído de la ROM |
-| `native/gen/`, `native/md/gen/` | tablas y gráficos generados desde la ROM (se rehacen al compilar) |
-| `native/md/snes_ref/*.bin`, `*.rec`, `*.npz`, `*.json` de capturas, `menu_snaps/` | capturas de VRAM/RAM del SNES corriendo la ROM |
+| `res/gen/engine/`, `res/gen/md/` | tablas y gráficos generados desde la ROM (se rehacen al compilar) |
+| `res/snes_ref/*.bin`, `*.rec`, `*.npz`, `*.json` de capturas, `menu_snaps/` | capturas de VRAM/RAM del SNES corriendo la ROM |
 | `res/` | archivos sueltos de trabajo (WAV, covers en mp3): no los usa la compilación |
 | grabaciones `hlref` (`ref*.bin`), estados del SNES | llevan RAM y VRAM del juego |
 | `repomix-output-*.xml` | volcado de otro repositorio |
-| binarios compilados (`native/host/check`, `mkinit`, `zcover`..., `retrorun`) | se compilan |
+| binarios compilados (`host/check`, `mkinit`, `zcover`..., `retrorun`) | se compilan |
 
 ## Hecho (2026-10-21) y pendiente
 
 Hecho: la copia limpia (`/home/claude/MegaMetroid_repo`), `README.md`, `tools/setup/setup_tools.sh` (decomp, SGDK,
 emulador, snes9x, retrorun en versiones fijas), `tools/inputs/make_inputs.sh` (todas las grabaciones y capturas
-desde la ROM de cada quien, comprobadas byte a byte: docs/45), rutas sin `/home/claude` en `native/md/build.sh`,
-`native/host/build.sh` y `tests/regress/regress.sh`. Una sola copia del decomp (`sm/`, la baja setup_tools.sh).
+desde la ROM de cada quien, comprobadas byte a byte: docs/45), rutas sin `/home/claude` en `Makefile`,
+`host/build.sh` y `tests/regress/regress.sh`. Una sola copia del decomp (`sm/`, la baja setup_tools.sh).
 
 Pendiente:
 1. `git init`, primer commit y el repositorio remoto: cuando Edwin lo diga.
@@ -73,5 +73,5 @@ Pendiente:
     sh tools/setup/setup_tools.sh
     python3 tools/check_rom.py ~/volcados/super_metroid.smc     # -> sm/sm.smc
     sh tools/inputs/make_inputs.sh                                # capturas del SNES desde su ROM
-    . work/inputs/env.sh && sh native/md/build.sh                 # -> native/md/out/rom.bin
+    . work/inputs/env.sh && make full                 # -> out/rom.bin
     sh tests/regress/regress.sh                                   # comprobar que la imagen es la aprobada

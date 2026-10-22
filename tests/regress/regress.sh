@@ -17,10 +17,10 @@
 # Variables: RETRORUN, CORE (Genesis Plus GX libretro)
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
-MD=${MD:-$HERE/../../native/md}
-RETRORUN=${RETRORUN:-$HERE/../../tools/bin/retrorun}
-CORE=${CORE:-$HERE/../../tools/bin/genesis_plus_gx_libretro.so}
-WORK=${WORK:-$HERE/../../work/regress}
+ROOT=$(cd $HERE/../.. && pwd)
+RETRORUN=${RETRORUN:-$ROOT/tools/bin/retrorun}
+CORE=${CORE:-$ROOT/tools/bin/genesis_plus_gx_libretro.so}
+WORK=${WORK:-$ROOT/work/regress}
 mkdir -p $WORK
 scenes=${*:-intro ceres zebes}
 fail=0
@@ -31,10 +31,10 @@ for sc in $scenes; do
     zebes) IN=zebes_shoot.s; EXTRA_ENV=""; FR=11400 ;;
     *) echo "escena desconocida: $sc"; exit 2 ;;
   esac
-  cp $HERE/inputs/$IN $MD/gen/test_input.s
-  (cd $MD && env SKIP_DATA=1 TEST=1 $EXTRA_ENV sh build.sh > $WORK/build_$sc.log 2>&1) || { echo "$sc: no compila (ver $WORK/build_$sc.log)"; exit 1; }
-  cp $MD/out/rom.bin $WORK/$sc.bin
-  A=$(m68k-linux-gnu-nm $MD/out/rom.out | awk '$3=="md_shown_frame"{print $1}')
+  cp $HERE/inputs/$IN $ROOT/res/gen/md/test_input.s
+  (env TEST=1 $EXTRA_ENV make -C $ROOT rom > $WORK/build_$sc.log 2>&1) || { echo "$sc: no compila (ver $WORK/build_$sc.log)"; exit 1; }
+  cp $ROOT/out/rom.bin $WORK/$sc.bin
+  A=$(m68k-linux-gnu-nm $ROOT/out/rom.out | awk '$3=="md_shown_frame"{print $1}')
   printf "rowhashseq $WORK/$sc.rows $A\nhold $FR -\nunrowhashseq\n" > $WORK/$sc.txt
   (cd $WORK && $RETRORUN $CORE $sc.bin $sc.txt > /dev/null 2>&1)
   G=$HERE/golden/$sc.rows.gz

@@ -4,8 +4,8 @@ Estado: solo las voces de la intro. La música y los efectos vendrán con un con
 
 ## Cómo pide el motor la música
 
-Igual que el SNES (`HandleMusicQueue`, `native/src/door.c`): `music_upload(conjunto)` al cargar un conjunto de música
-y `music_play(pista)` al tocar una pista. La capa de la Genesis es `native/md/md_snd.c`.
+Igual que el SNES (`HandleMusicQueue`, `src/core/door.c`): `music_upload(conjunto)` al cargar un conjunto de música
+y `music_play(pista)` al tocar una pista. La capa de la Genesis es `src/platform/md_snd.c`.
 
 ## Voces de la intro
 
@@ -15,9 +15,9 @@ controlador PCM de SGDK (un canal, 16 kHz, 8 bits).
 
 Los datos salen de tu ROM: son muestras del SPC que `tools/sm_extract/extract_all.py` deja en
 `data/extracted_full/audio` ("The last Metroid" y "is in captivity" en el songset 3F, "The galaxy" e "is at peace" en el
-42: `sample_18_B516` y `sample_19_*`). `native/tools/mkvoice.py` (lo llama `native/md/build.sh`) las toma como
+42: `sample_18_B516` y `sample_19_*`). `tools/conv/mkvoice.py` (lo llama `Makefile`) las toma como
 16 kHz (el extractor las rotula a 32 kHz; la intro las toca a la mitad), las pasa a 8 bits con signo y genera
-`native/md/gen/md_voice.s`. Antes se usaban WAV en `res/` con las mismas muestras; ya no hacen falta.
+`res/gen/md/md_voice.s`. Antes se usaban WAV en `res/` con las mismas muestras; ya no hacen falta.
 
 ## El bus del Z80
 

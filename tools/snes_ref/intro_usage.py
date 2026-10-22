@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Qué usa la intro del SNES en cada escena (lo lee native/tools/mkintro.py; docs/38).
+"""Qué usa la intro del SNES en cada escena (lo lee tools/conv/mkintro.py; docs/38).
 
 Entrada: la RAM del SNES cuadro a cuadro desde que empieza la intro (grabación de hlref con HL_ANY desde el cuadro
 siguiente a CinematicFunction_Intro_Initial, como /tmp/.../ref_intro.bin) y los gráficos extraídos de tu ROM
 (data/extracted_full: el mapa inicial de BG3, $97:8D12).
 
-Escenas: las de IntroScene (native/src/intro.c), con la misma lógica (fundido cruzado incluido). Por escena:
+Escenas: las de IntroScene (src/core/intro.c), con la misma lógica (fundido cruzado incluido). Por escena:
   * bgA: palabras del mapa que se ve en el plano A de la Genesis (BG3 en $4C00, o BG1 en $5C00 en "SPACE COLONY").
     Se sigue lo que el SNES tiene en la VRAM: el mapa inicial y, mientras el juego lo manda
     (HandleCinematicBgObjects: objetos y mapa activados, fuera del modo 7), las filas 0-29 de 7E:3000.
@@ -40,7 +40,7 @@ def fb_scene(sc):
 
 
 def scene_of(r, shown):
-    """IntroScene (native/src/intro.c): escena y brillo (0-64)"""
+    """IntroScene (src/core/intro.c): escena y brillo (0-64)"""
     tm, sc = int(r[0x69]), int(r[0x58]) & 0xFC
     if tm != 0x06:
         if tm == 0x04:

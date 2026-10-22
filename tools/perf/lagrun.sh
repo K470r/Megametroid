@@ -1,7 +1,7 @@
 #!/bin/sh
 # lagrun.sh BASE EMU: cuadros con imagen repetida (md_lag_log > 1) desde BASE (2048 cuadros), ROM actual
 B=$1; E=$2
-cd /home/claude/mm/native/md && SKIP_DATA=1 TEST=1 LAGLOG=1 LAG_BASE=$B EXPFL="-DMD_LAG_N=2048 $XFL" sh build.sh >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/lg.bin; cp out/rom.out /tmp/claude-0/it/lg.out
+cd /home/claude/mm && TEST=1 LAGLOG=1 LAG_BASE=$B EXPFL="-DMD_LAG_N=2048 $XFL" make rom >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/lg.bin; cp out/rom.out /tmp/claude-0/it/lg.out
 cd /tmp/claude-0/it && printf "hold $E -\ndumpram lg.ram\n" > lg.txt && RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx/genesis_plus_gx_libretro.so lg.bin lg.txt >/dev/null 2>&1
 python3 - $B <<'PY'
 import subprocess,sys

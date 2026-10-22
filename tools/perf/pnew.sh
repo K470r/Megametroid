@@ -1,8 +1,8 @@
 #!/bin/sh
-# pnew.sh A B [función]: perfil exacto de los cuadros A..B del motor (versión actual, entrada de gen/test_input.s)
+# pnew.sh A B [función]: perfil exacto de los cuadros A..B del motor (versión actual, entrada de res/gen/md/test_input.s)
 A=$1; B=$2; F=$3; E=$((B + B / 5 + 400))
-cd /home/claude/mm/native/md
-for K in $A $B; do SKIP_DATA=1 TEST=1 STOP_AT=$K sh build.sh >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/pn_$K.bin; done
+cd /home/claude/mm
+for K in $A $B; do TEST=1 STOP_AT=$K make rom >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/pn_$K.bin; done
 cp out/rom.out /tmp/claude-0/it/pn.out; m68k-linux-gnu-nm -n out/rom.out > /tmp/claude-0/it/pn_sym.txt
 cd /tmp/claude-0/t7 && printf "hold $E -\n" > hE.txt
 for K in $A $B; do MM_PROF=/tmp/claude-0/t7/pn_$K.prof RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx_prof/genesis_plus_gx_libretro.so /tmp/claude-0/it/pn_$K.bin hE.txt >/dev/null 2>&1 & done

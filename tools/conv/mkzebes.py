@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+POOL_CHUNK = 1024          # tiles por trozo del depósito común (32 KB)
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent / "tools" / "genesis_convert"))
 from convert_rooms import snes_to_genesis, gen_to_cram, gen_to_rgb, color_dist, genesis_tile_bytes, snes_tile, \
@@ -626,7 +627,9 @@ def main():
     # ---- salida
     H = ['/* Generado por tools/conv/mkzebes.py desde la ROM del SNES: no editar. */',
          '#ifndef GEN_ZEBES_H', '#define GEN_ZEBES_H', '#include "nt.h"',
-         'typedef struct { uint8 page, npal; uint16 ntiles, nmeta; const uint8 *tiles; const uint16 *src;',
+         'typedef struct { const uint8 *tiles; uint8 page; } ZebesPool;   /* un trozo del depósito de tiles */',
+         '/* runs: nruns tramos (índice en el depósito de tiles kZebesPool, cantidad): los tiles de la sala en orden */',
+         'typedef struct { uint8 page, npal; uint16 ntiles, nmeta, nruns; const uint16 *runs; const uint16 *src;',
          '                 const uint16 *ids; const uint16 *cells; const uint16 *l2; const uint16 *bg2; uint8 sky, eye;',
          '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; } ZebesGfx;',
          '/* anim: tiles animados, nanim x (origen en $87, VRAM del SNES, desplazamiento en anim_data, cantidad) ordenados;',
@@ -635,7 +638,7 @@ def main():
          '   bg2: fondo de biblioteca ya convertido (64x32 celdas) o NULL; con sky, el cielo de la superficie: 160 filas',
          '   de 32 celdas (la fila R, píxel R * 8 de la sala) */',
          'typedef struct { uint16 state; uint16 gfx; uint16 obj; } ZebesState;   /* obj: 0xFFFF sin objetos */',
-         'typedef struct { uint8 page; uint16 ntiles, nkeys; const uint8 *tiles; const uint16 *src; const uint16 *keys;',
+         'typedef struct { uint8 page; uint16 ntiles, nkeys, nruns; const uint16 *runs; const uint16 *src; const uint16 *keys;',
          '                 const uint16 *recs; uint16 base; } ZebesObj;   /* base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala) */',
          '/* objetos: tiles desde ZOBJ_BASE; src: 15 índices de palette_buffer (colores 1-15 de la línea 3 debajo del HUD: 9-13 el rayo,',
          '   0xFFFF sin uso); keys: (spritemap, paleta, tiles, desplazamiento en recs) ordenadas; recs: como los de md_data */',
@@ -677,19 +680,58 @@ def main():
             pg = next_page(pg)
         fill[pg] = need
         return pg
+    # tiles en un depósito común (docs/48): cada tile distinto una sola vez, en trozos de POOL_CHUNK tiles repartidos
+    # en las páginas; cada sala y cada juego de objetos guarda sus tramos (índice en el depósito, cantidad) y la
+    # Genesis los copia a la VRAM en el mismo orden de siempre (md_zebes.c, zebes_dma_runs): la VRAM queda igual
+    pool_idx, pool = {}, []
+
+    def to_runs(tiles):
+        runs = []
+        for k in range(len(tiles) // 32):
+            t = tiles[k * 32:k * 32 + 32]
+            if t not in pool_idx:
+                pool_idx[t] = len(pool)
+                pool.append(t)
+            j = pool_idx[t]
+            if runs and runs[-1][0] + runs[-1][1] == j and runs[-1][1] < 0xFFFF:
+                runs[-1][1] += 1
+            else:
+                runs.append([j, 1])
+        return [v for r in runs for v in r]
+    for e in entries:
+        e["runs"] = to_runs(bytes(e["tiles"]))
+    for d in obj_list:
+        d["runs"] = to_runs(bytes(d["tiles"]))
+    for e in entries + obj_list:                   # comprobación: los tramos rehacen los tiles de siempre
+        rr = e["runs"]
+        assert b"".join(pool[j + k] for j, n in zip(rr[0::2], rr[1::2]) for k in range(n)) == bytes(e["tiles"])
+    assert len(pool) <= 0xFFFF, "zebes: el depósito de tiles pasa de 65535"
+    nchunks = (len(pool) + POOL_CHUNK - 1) // POOL_CHUNK
+    print(f"zebes: tiles {sum(len(e['tiles']) for e in entries + obj_list) // 32} -> depósito {len(pool)} "
+          f"({nchunks} trozos), tramos {sum(len(e['runs']) for e in entries + obj_list) // 2}", file=sys.stderr)
     # los más grandes primero (primer hueco decreciente): las páginas quedan más llenas
-    g_need = [len(e["tiles"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
+    g_need = [2 * len(e["runs"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
               sum(8 + 34 * len(v) for v in e["anims"].values()) +
               2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries]
-    o_need = [len(d["tiles"]) + 24 + 8 * len(d["keys"]) + 2 * len(d["recs"]) for d in obj_list]
-    pages, obj_pages = [0] * len(entries), [0] * len(obj_list)
-    for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(g_need)] + [(n, 1, i) for i, n in enumerate(o_need)],
-                              reverse=True):
-        (pages if kind == 0 else obj_pages)[i] = place(n_)
+    o_need = [2 * len(d["runs"]) + 24 + 8 * len(d["keys"]) + 2 * len(d["recs"]) for d in obj_list]
+    p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
+    pages, obj_pages, pool_pages = [0] * len(entries), [0] * len(obj_list), [0] * nchunks
+    for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(g_need)] + [(n, 1, i) for i, n in enumerate(o_need)] +
+                              [(n, 2, i) for i, n in enumerate(p_need)], reverse=True):
+        (pages, obj_pages, pool_pages)[kind][i] = place(n_)
+    for c in range(nchunks):
+        tb = b"".join(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK])
+        C.append(f'NT_BANK({pool_pages[c]}) static const uint8 kZP{c}[{len(tb)}] __attribute__((aligned(2))) = {{' +
+                 ','.join(str(x) for x in tb) + '};')
+    H.append(f'#define ZEBES_POOL_CHUNK {POOL_CHUNK}')
+    H.append(f'extern const ZebesPool kZebesPool[{nchunks}];')
+    C.append(f'const ZebesPool kZebesPool[{nchunks}] = {{')
+    C += [f'  {{ kZP{c}, {pool_pages[c]} }},' for c in range(nchunks)]
+    C.append('};')
     for i, e in enumerate(entries):
         page = pages[i]
-        C.append(f'NT_BANK({page}) static const uint8 kZG{i}_tiles[{len(e["tiles"])}] __attribute__((aligned(2))) = {{' +
-                 ','.join(str(x) for x in e["tiles"]) + '};')
+        C.append(f'NT_BANK({page}) static const uint16 kZG{i}_runs[{len(e["runs"])}] = {{' +
+                 ','.join(str(x) for x in e["runs"]) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZG{i}_src[{16 * e["npal"]}] = {{' +
                  ','.join(str(x) for row in e["src"] for x in row) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZG{i}_ids[{len(e["ids"])}] = {{' +
@@ -714,8 +756,8 @@ def main():
                      ','.join('0x%X' % x for x in e["bg2"]) + '};')
     for i, d in enumerate(obj_list):
         page = obj_pages[i]
-        C.append(f'NT_BANK({page}) static const uint8 kZO{i}_tiles[{len(d["tiles"])}] __attribute__((aligned(2))) = {{' +
-                 ','.join(str(x) for x in d["tiles"]) + '};')
+        C.append(f'NT_BANK({page}) static const uint16 kZO{i}_runs[{len(d["runs"])}] = {{' +
+                 ','.join(str(x) for x in d["runs"]) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_src[15] = {{' + ','.join(str(x) for x in d["src"]) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_keys[{4 * len(d["keys"])}] = {{' +
                  ','.join('0x%X' % v for k in d["keys"] for v in k) + '};')
@@ -724,7 +766,7 @@ def main():
     H.append(f'extern const ZebesObj kZebesObj[{max(1, len(obj_list))}];')
     C.append(f'const ZebesObj kZebesObj[{max(1, len(obj_list))}] = {{')
     for i, d in enumerate(obj_list):
-        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, kZO{i}_tiles, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]} }},')
+        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["runs"]) // 2}, kZO{i}_runs, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]} }},')
     if not obj_list:
         C.append('  { 0 },')
     C.append('};')
@@ -733,7 +775,7 @@ def main():
     H.append(f'extern const ZebesGfx kZebesGfx[{len(entries)}];')
     C.append(f'const ZebesGfx kZebesGfx[{len(entries)}] = {{')
     for i, e in enumerate(entries):
-        C.append(f'  {{ {pages[i]}, {e["npal"]}, {e["ntiles"]}, {len(e["ids"])}, kZG{i}_tiles, kZG{i}_src, '
+        C.append(f'  {{ {pages[i]}, {e["npal"]}, {e["ntiles"]}, {len(e["ids"])}, {len(e["runs"]) // 2}, kZG{i}_runs, kZG{i}_src, '
                  f'kZG{i}_ids, kZG{i}_cells, {"kZG%d_l2" % i if e["l2"] else "0"}, '
                  f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {len(e["anims"])}, '
                  f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"} }},  /* sala {e["key"][3]:04X} */')

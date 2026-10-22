@@ -643,7 +643,7 @@ def main():
     C = ['/* Generado por tools/conv/mkzebes.py desde la ROM del SNES: no editar. */', '#include "zebes.h"',
          '#include "tables.h"']
     # páginas de la intro (mkintro.py: INTRO_PAGE y las de la nave, secciones .bankN de md_intro_data.c): se saltan
-    idat = HERE.parent / "md" / "gen" / "md_intro_data.c"
+    idat = HERE.parent.parent / "res" / "gen" / "md" / "md_intro_data.c"
     busy = {int(x) for x in re.findall(r'section\(\\?"\.bank(\d+)', idat.read_text())} if idat.exists() else set()
     busy = busy or {19, 20}
     # lo que ocupa la intro en sus páginas (de las declaraciones de md_intro_data.c, con margen): el resto de esas

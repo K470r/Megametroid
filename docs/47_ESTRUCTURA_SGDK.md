@@ -94,5 +94,15 @@ escriben los conversores), y las variables y enumeraciones generadas de verdad d
 - `host/`: las mismas unidades preprocesadas (cambia solo el texto que escribe `mkinit`);
 - rescomp: un `.res` de prueba compila y enlaza.
 
-Falta lo que solo se puede hacer con la ROM: `make full` y `sh tests/regress/regress.sh` (0 distintos), y comparar
-el md5 de `out/rom.bin` con el de la última entrega.
+Con la ROM (Japón / EE. UU., SHA-1 `da957f0d…c613`), desde cero: `setup_tools.sh`, `make_inputs.sh` (las grabaciones
+y capturas del SNES: las 113 de la huida de Ridley, los 385 juegos de registros del vuelo de la intro, los 2840
+cuadros del título...) y `make full`:
+- `out/rom.bin` (Makefile) y `native/md/out/rom.bin` (`build.sh` del árbol anterior, con los mismos datos): md5
+  `99ad962575d5f7bee9f4e64ff55d3693` los dos;
+- `sh tests/regress/regress.sh`: intro 8453, Ceres 10650 y Zebes 11113 cuadros comparados, 0 distintos;
+- lo generado en `res/gen/` es igual a lo de `native/gen/` y `native/md/gen/` (salvo los comentarios con la ruta y
+  las líneas `#include`).
+
+La primera vez no salió: `mkzebes.py` busca qué ocupa la intro en las páginas 19-20 en `md_intro_data.c` con una
+ruta propia (no por argumento) y, si no lo encuentra, supone las páginas vacías y el enlace falla ("la pagina 19
+pasa de 512 KB"). Ahora la ruta es `res/gen/md/md_intro_data.c`.

@@ -10,7 +10,7 @@ falta: [docs/46](docs/46_ESTADO_Y_CONTINUACION.md). Índice de la documentación
 ## Qué hace falta
 
 - Linux (Debian/Ubuntu probado): `sudo apt install git build-essential gcc-m68k-linux-gnu python3 python3-numpy
-  python3-pil util-linux`
+  python3-pil util-linux default-jre-headless` (Java: lo usan rescomp y lz4w de SGDK)
 - Tu volcado de **Super Metroid (Japón / EE. UU.)**, 3 MB, sin cabecera de copiadora (la quita `check_rom.py`):
   SHA-1 `da957f0d63d14cb441d215462904c4fa8519c613`, MD5 `21f3e98df4780ee1c667b84e57d88675`.
 

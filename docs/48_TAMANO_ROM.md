@@ -72,11 +72,24 @@ es igual (mismos cuadros); en las cinemáticas, las dos ROM muestran las mismas 
 alguna cambia unos cuadros del motor antes o después y a veces se saltea una intermedia distinta (antes la 38, ahora
 la 2). No hay datos rotos. Falta la aprobación de Edwin (docs/41).
 
+## Hecho: título comprimido
+
+`make_title_data.py` comprime con LZ4W (`$GDK/bin/lz4w.jar`, en paralelo) los tiles de cada escena en bloques
+independientes de 3200 bytes (100 tiles: lo que el título carga por cuadro, `FRAME_BYTES`) y cada mitad de los mapas
+de los tamaños del alejamiento (14 filas x 64 celdas). Los mapas de las tomas 1-3 quedan sin comprimir (se leen por
+columnas en el paneo). `title.c` descomprime cada paso con `lz4w_unpack` de SGDK en `enemy_ram7800` (RAM del juego,
+8 KB: mientras se ve el título el juego no corre y `reset_game_vars` la pone en cero al empezar la partida) y la lista
+de DMA lo copia desde ahí en el vblank, como antes desde la ROM. En un cuadro va a lo sumo un bloque y una mitad.
+
+Resultado: 620 KB → 270 KB; la sección del título bajó de 746 a 380 KB y toda la parte fija (título incluido)
+termina en 0x30A216, debajo de 0x380000. Comprobación: los 3000 primeros cuadros de la consola (logo, letras, tomas,
+alejamiento y pantalla de título: 827 imágenes distintas) son iguales cuadro a cuadro a la ROM anterior (`hashseq` de
+retrorun). `make full` desde cero da el mismo md5.
+
 ## Lo que sigue (en este orden)
 
 | Paso | Ganancia medida | Costo / riesgo |
 |---|---|---|
-| Título comprimido en bloques (LZ4W, 4 KB) | 750 → 312 KB de parte fija | el zoom carga un tamaño mientras muestra el anterior: hay CPU libre |
 | Recortar las copias de bancos (`kBankXXB`, 782 KB) a lo que se lee | sin medir | todas las lecturas pasan por `A6W`/`BW_86`...: medir en `host/` con las grabaciones |
 | LZ4W sobre el depósito (bloques de 4 KB) | depósito 1266 → ~940 KB | búfer de 4 KB en la puerta (`cinematic_text_tilemap`); peor sala ~49 bloques: 0,2-0,4 s |
 | `make size`: parte fija libre y llenado de cada página | — | que falle antes de pasarse |

@@ -209,6 +209,23 @@ const MdRoom *zebes_use(void) {
   return &zroom;
 }
 
+/* tiles de la sala o de sus objetos: los tramos (en la página rp) dicen qué tiles del depósito común (kZebesPool,
+   mkzebes.py) van, en orden, desde el tile vt de la VRAM */
+static void zebes_dma_runs(uint8 rp, const uint16 *r, uint16 nr, uint16 vt) {
+  for (; nr; nr--, r += 2) {
+    map_page(rp);
+    uint16 j = r[0], n = r[1];
+    while (n) {
+      uint16 o = j & (ZEBES_POOL_CHUNK - 1), k = ZEBES_POOL_CHUNK - o;
+      const ZebesPool *pc = &kZebesPool[j / ZEBES_POOL_CHUNK];
+      if (k > n) k = n;
+      map_page(pc->page);
+      vdp_dma_vram(pc->tiles + (uint32)o * 32, vt * 32, k * 16);
+      vt += k; j += k; n -= k;
+    }
+  }
+}
+
 /* (pantalla apagada) tiles de la sala, los de los objetos de la sala base y los planos */
 void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   const MdRoom *base = &kMdRooms[ZEBES_BASE_ROOM];
@@ -217,12 +234,8 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
     vdp_dma_vram(base->tiles + base->bg_tiles * 32, (BG_BASE + base->bg_tiles) * 32,
                  (base->tiles_total - base->bg_tiles) * 16);
   uint8 lp = md_cur_page;
-  map_page(zg->page);
-  vdp_dma_vram(zg->tiles, ZT_BASE * 32, zg->ntiles * 16);
-  if (zo) {
-    map_page(zo->page);
-    vdp_dma_vram(zo->tiles, zo->base * 32, zo->ntiles * 16);
-  }
+  zebes_dma_runs(zg->page, zg->runs, zg->nruns, ZT_BASE);
+  if (zo) zebes_dma_runs(zo->page, zo->runs, zo->nruns, zo->base);
   map_page(lp);
   vdp_fill_vram(MD_VRAM_PLANE_A, 0, 0x1000);
   vdp_fill_vram(MD_VRAM_PLANE_B, 0, 0x1000);

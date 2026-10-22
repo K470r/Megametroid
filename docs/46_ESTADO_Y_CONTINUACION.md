@@ -113,10 +113,13 @@ Reglas de Edwin (no negociables):
 4. Secuencia de muerte (`HandleSamusOutOfHealthAndGameTile`), menú de pausa y mapa.
 5. **Sonido**: hoy solo las voces de la intro. Falta el controlador del Z80 (música y efectos; la cola del motor ya
    existe: `music_upload`, `music_play`, `QueueSfx*`). Ej.: el ojo pide el efecto 0x17 de la biblioteca 2.
-6. **Música en CD (Mega CD, modo 1)**: decidido un **controlador propio** (programa para el procesador del Mega CD).
-   Sin Mega CD o sin disco de MegaMetroid suena la música del cartucho; con disco válido, las pistas del CD. Edwin
-   junta versiones (covers) en `res/` (mp3) para el disco. Ojo: SSF2 accede solo bajo 0x400000, compatible con el
-   modo 1. La X3 no tiene CD: siempre la del cartucho.
+6. **Música en CD (Mega CD, modo 1)**: al encender se busca el BIOS del Mega CD; si está, se carga un programa en
+   su procesador que revisa el disco; con el disco de MegaMetroid la música sale del CD, si no (sin Mega CD o disco
+   no válido) suena la del cartucho. Protocolo: MSU-MD salvo que aparezca algo mejor. Detalle y condiciones (música
+   del cartucho primero, ventana 6 para el Z80, permisos de los covers): docs/48. La X3 no tiene CD.
+6b. **Tamaño de la ROM** (docs/48): hecho el depósito común de tiles (12,0 → 10,5 MB). Lo urgente es la parte fija
+   (~290 KB libres para todo el código que falta): cinemáticas de Ceres a páginas, título comprimido, recortar las
+   copias de bancos.
 7. Rendimiento: salas pesadas pierden ~61 cuadros cada 600 (docs/44: 92B3 la peor). El haz del ojo ya no quita
    cuadros (crateria12). Ver "Lo que queda" en docs/44. Los rayos X (más adelante) podrán usar el mismo armado por pasos.
 8. Después de Crateria: el resto de Zebes (la sala de Kraid y otras se ven mal en el visor: esperado).

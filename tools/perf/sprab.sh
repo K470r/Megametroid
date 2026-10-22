@@ -1,10 +1,10 @@
 #!/bin/sh
 # sprab.sh BASE REF "XFL_A" "XFL_B": compara la lista de sprites (MD_SPRSUM) de dos variantes de la ROM, 256 cuadros
 B=$1; REF=$2; A=$3; Bf=$4
-cd /home/claude/mm/native/md && python3 ../tools/mk_test_input.py $REF 98 $((B + 400)) gen/test_input.s >/dev/null
+cd /home/claude/mm && python3 tools/conv/mk_test_input.py $REF 98 $((B + 400)) res/gen/md/test_input.s >/dev/null
 for v in a b; do
   F=$A; [ $v = b ] && F=$Bf
-  SKIP_DATA=1 TEST=1 EXPFL="-DMD_SPRSUM=$B $F" sh build.sh >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/sp_$v.bin && cp out/rom.out /tmp/claude-0/it/sp_$v.out || { echo FALLO $v; exit 1; }
+  TEST=1 EXPFL="-DMD_SPRSUM=$B $F" make rom >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/sp_$v.bin && cp out/rom.out /tmp/claude-0/it/sp_$v.out || { echo FALLO $v; exit 1; }
 done
 cd /tmp/claude-0/it
 E=$(( B * 13 / 10 + 900 ))

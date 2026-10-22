@@ -10,23 +10,23 @@ Decisión (Edwin): **todo el código se reescribe a mano para la Genesis**. La l
 se escribe en C para el 68000; los datos se preparan en el PC. La Genesis no interpreta ni convierte nada del SNES.
 El port mecánico queda solo como referencia en el PC.
 
-## Estructura (`native/`)
+## Estructura (ver docs/47)
 
 | Carpeta | Qué hay |
 |---|---|
-| `src/` | el motor: C escrito a mano, igual en PC y en la Genesis |
-| `gen/` | lo generado: variables, tablas de la ROM, enumeraciones (no se edita) |
-| `tools/` | `gen_vars.py` (variables), `mkdata.py` (tablas de la ROM del usuario) |
+| `src/core/`, `inc/core/` | el motor: C escrito a mano, igual en PC y en la Genesis |
+| `res/gen/engine/` | lo generado: variables, tablas de la ROM, enumeraciones (no se edita) |
+| `tools/conv/` | `gen_vars.py` (variables), `mkdata.py` (tablas de la ROM del usuario) |
 | `host/` | `check.c`: comprobación contra el SNES cuadro a cuadro |
-| `md/` | la capa de la Genesis: dibujo, VDP, mando, sonido (pendiente) |
+| `src/platform/`, `inc/platform/` | la capa de la Genesis: dibujo, VDP, mando, sonido |
 
 ### Reglas del motor
 
 - **Nombres del decomp.** Funciones y variables se llaman igual que en snesrev/sm, con la dirección del SNES en
   un comentario (`// 0x90A383`), para poder seguir la biblia línea por línea.
-- **Variables nativas.** `gen_vars.py` busca en `src/` los nombres de `variables.h` del decomp y declara cada uno
+- **Variables nativas.** `gen_vars.py` busca en `src/core/` e `inc/core/` los nombres de `variables.h` del decomp y declara cada uno
   como variable global con su tipo (uint8/uint16; arreglos con su tamaño). Las que no tienen nombre en el decomp
-  van en `src/vars_extra.txt` con su dirección (`uint8 samus_x_decel_mult_hi @0xB4D`).
+  van en `src/core/vars_extra.txt` con su dirección (`uint8 samus_x_decel_mult_hi @0xB4D`).
 - **Mismas cuentas.** Aritmética de 16 bits con desborde igual al 65816 (`uint16`/`int16`, `add_hilo`,
   `PAIR32`...). Los defectos del original se conservan.
 - **Punteros del SNES.** Lo que el juego guarda como puntero de 16 bits a la ROM (p. ej. la tabla de retardos de

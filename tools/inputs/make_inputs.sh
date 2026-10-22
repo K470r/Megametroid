@@ -3,11 +3,11 @@
 #
 #   1. data/extracted_full           recursos extraídos de la ROM (tools/sm_extract/extract_all.py)
 #   2. grabaciones del SNES (hlref, el decomp corriendo tu ROM) con las entradas guardadas del bot:
-#        ref_full.bin   Ceres -> Zebes (REF de native/md/build.sh: estado inicial, cuadro 97)
+#        ref_full.bin   Ceres -> Zebes (REF de Makefile: estado inicial, cuadro 97)
 #        ref_intro0.bin la intro, desde el cuadro 2201 (REF_INTRO: su cabecera es el estado inicial de la intro)
 #        ref_intro.bin  la intro entera desde el 2202 (intro_usage.json)
 #        ref_tu.bin     Ceres con el tiempo agotado (cinemática y menú de fin)
-#   3. native/md/snes_ref/           capturas de VRAM de las salas y cinemáticas, regs.json, cine_traj.json,
+#   3. res/snes_ref/           capturas de VRAM de las salas y cinemáticas, regs.json, cine_traj.json,
 #                                    getaway.npz (huida de Ridley), intro_usage.json
 #   4. con snes9x (SNES9X=núcleo libretro): title.rec, title.rec.grad, menu_snaps/
 # Cada paso se comprobó contra los archivos con que se compiló el estado actual: salen iguales byte a byte.
@@ -23,7 +23,7 @@ SMSRC=${SMSRC:-$ROOT/sm/src}
 RETRORUN=${RETRORUN:-$ROOT/tools/bin/retrorun}
 SNES9X=${SNES9X:-$ROOT/tools/bin/snes9x_libretro.so}
 WORK=${WORK:-$ROOT/work/inputs}
-SNAP=$ROOT/native/md/snes_ref
+SNAP=$ROOT/res/snes_ref
 BOT=$ROOT/tools/snes_ref/ceres_bot
 mkdir -p $WORK $SNAP
 [ -f "$SMROM" ] || { echo "falta la ROM: python3 tools/check_rom.py <tu volcado> (la deja en sm/sm.smc)"; exit 1; }
@@ -52,15 +52,15 @@ echo "   ref_tu.bin (tiempo agotado) + capturas"
 HL_VRAM="20400:$SNAP/CINE1_TU.bin,20750:$SNAP/MENU.bin" run $HL "$SMROM" $BOT/in_timeup.txt $WORK/ref_tu.bin 10600
 
 echo "== 3. snes_ref"
-python3 $ROOT/native/tools/snap_regs.py $WORK/ref_full.bin 10659 $SNAP DF45:10780 DF8D:11400 DFD7:11800 E021:12150 \
+python3 $ROOT/tools/conv/snap_regs.py $WORK/ref_full.bin 10659 $SNAP DF45:10780 DF8D:11400 DFD7:11800 E021:12150 \
   E06B:12400 E0B5:12620 E0B5_ESC:16220 E06B_E097:16360 E021_E04D:16660 DFD7_E003:16960 DF8D_DFB9:17460 DF45_DF71:18160 > /dev/null
-python3 $ROOT/native/tools/snap_cine.py $SNAP/cine_traj.json $WORK/ref_full.bin $WORK/ref_tu.bin
+python3 $ROOT/tools/conv/snap_cine.py $SNAP/cine_traj.json $WORK/ref_full.bin $WORK/ref_tu.bin
 python3 $ROOT/tools/snes_ref/intro_usage.py $WORK/ref_intro.bin $ROOT/data/extracted_full $SNAP/intro_usage.json
 # huida de Ridley: la imagen con y sin la capa del modo 7 (HL_NOM7), 113 cuadros desde el 15776
 mkdir -p $WORK/ga/a $WORK/ga/b
 HL_SHOTS=15776,1,15890,$WORK/ga/a/s run $HL "$SMROM" $BOT/ceres_completo_in.txt /dev/null 10600 15900
 HL_NOM7=1 HL_SHOTS=15776,1,15890,$WORK/ga/b/s run $HL "$SMROM" $BOT/ceres_completo_in.txt /dev/null 10600 15900
-python3 $ROOT/native/tools/snap_getaway.py $WORK/ga/a $WORK/ga/b 15776 $SNAP/getaway.npz
+python3 $ROOT/tools/conv/snap_getaway.py $WORK/ga/a $WORK/ga/b 15776 $SNAP/getaway.npz
 rm -rf $WORK/ga
 
 echo "== 4. título y menú (snes9x)"
@@ -72,8 +72,8 @@ else
 fi
 
 cat > $WORK/env.sh <<EOF
-# para native/md/build.sh y las herramientas que leen las grabaciones
+# para Makefile y las herramientas que leen las grabaciones
 export REF=$WORK/ref_full.bin
 export REF_INTRO=$WORK/ref_intro0.bin
 EOF
-echo "listo. Para compilar:  . $WORK/env.sh && sh native/md/build.sh"
+echo "listo. Para compilar:  . $WORK/env.sh && make full"

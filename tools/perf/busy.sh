@@ -1,8 +1,8 @@
 #!/bin/sh
 # busy.sh BASE EMU: líneas por cuadro del motor desde BASE (viejo y nuevo, misma entrada de prueba)
 B=$1; E=$2
-cd /tmp/claude-0/old/native/md && SKIP_DATA=1 TEST=1 EXPFL="-DMD_BUSYLOG=$B" sh build.sh >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/bo.bin && cp out/rom.out /tmp/claude-0/it/bo.out
-cd /home/claude/mm/native/md && SKIP_DATA=1 TEST=1 EXPFL="-DMD_BUSYLOG=$B" sh build.sh >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/bn.bin && cp out/rom.out /tmp/claude-0/it/bn.out
+cd /tmp/claude-0/old && TEST=1 EXPFL="-DMD_BUSYLOG=$B" make rom >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/bo.bin && cp out/rom.out /tmp/claude-0/it/bo.out
+cd /home/claude/mm && TEST=1 EXPFL="-DMD_BUSYLOG=$B" make rom >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/bn.bin && cp out/rom.out /tmp/claude-0/it/bn.out
 cd /tmp/claude-0/it
 for v in bo bn; do printf "hold $E -\ndumpram $v.ram\n" > $v.txt; RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx/genesis_plus_gx_libretro.so $v.bin $v.txt >/dev/null 2>&1 & done
 wait

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Copia el decomp (snesrev/sm, src/) a otra carpeta y le agrega el filtro de enemigos del visor de salas:
 con g_viewer_noenemy = 1 (hlref lo enciende con HL_WARP) las salas de Zebes se cargan sin enemigos, salvo la nave
-de Samus, igual que el visor de la Genesis (native/src/viewer.c).
+de Samus, igual que el visor de la Genesis (src/core/viewer.c).
 Uso: patch_decomp.py smsrc/src destino"""
 import shutil, sys
 from pathlib import Path

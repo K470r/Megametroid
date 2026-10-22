@@ -13,7 +13,7 @@ nativo:
 Las ROMs `_demo.bin` y `_demo_tiempo.bin` (entrada de la grabación del SNES) empiezan directo en Ceres, para poder
 compararlas cuadro a cuadro.
 
-## Cómo está armado (`native/md`)
+## Cómo está armado (`src/platform`)
 
 | Qué | Dónde |
 |---|---|

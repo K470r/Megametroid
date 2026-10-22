@@ -12,11 +12,11 @@ crateria7) y la regresión da 0 diferencias.
     python3 tools/check_rom.py ~/super_metroid.smc   # comprueba el hash y la deja en sm/sm.smc
     sh tools/inputs/make_inputs.sh                # ~2 min y ~4 GB en work/: extracción, grabaciones, capturas
     . work/inputs/env.sh                          # REF y REF_INTRO
-    sh native/md/build.sh                         # -> native/md/out/rom.bin
+    make full                                     # -> out/rom.bin
     sh tests/regress/regress.sh                   # 0 distintos = la imagen aprobada
 
 Las voces de la intro salen de las muestras del SPC extraídas (`data/extracted_full/audio`, songsets 3F y 42:
-`native/tools/mkvoice.py`, docs/40). No hace falta ningún archivo aparte.
+`tools/conv/mkvoice.py`, docs/40). No hace falta ningún archivo aparte.
 
 ## Qué rehace `make_inputs.sh` y con qué
 
@@ -50,7 +50,7 @@ rehacerla.
 
 ## Cuidado al cambiar el motor
 
-`native/md/build.sh` sin `SKIP_DATA` vuelve a generar el estado inicial (`mkinit`) con la lista de variables del
+`make full` (o `make data`) vuelve a generar el estado inicial (`mkinit`) con la lista de variables del
 motor de ese momento. Hasta el 2026-10-21 la carpeta de trabajo compilaba siempre con `SKIP_DATA=1` y el estado
 inicial era del 14 de octubre (le faltaban las variables nuevas); ahora es el de las grabaciones. Si se agregan
 variables al motor, conviene una compilación completa de vez en cuando y aprobar la regresión.

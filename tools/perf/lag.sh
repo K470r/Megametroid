@@ -1,7 +1,7 @@
 #!/bin/sh
 # lag.sh B1 B2...: cuadros de retraso de la intro (prueba con la entrada de la grabación), ventanas de 1024 cuadros
-cd /home/claude/mm/native/md
-for B in "$@"; do SKIP_DATA=1 TEST=1 TEST_INTRO=1 LAGLOG=1 LAG_BASE=$B EXPFL="-DMD_LAG_N=1024" sh build.sh >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/lag_$B.bin; cp out/rom.out /tmp/claude-0/it/lag_$B.out; done
+cd /home/claude/mm
+for B in "$@"; do TEST=1 TEST_INTRO=1 LAGLOG=1 LAG_BASE=$B EXPFL="-DMD_LAG_N=1024" make rom >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/lag_$B.bin; cp out/rom.out /tmp/claude-0/it/lag_$B.out; done
 cd /tmp/claude-0/it
 for B in "$@"; do E=$((B * 105 / 100 + 1100)); printf "hold $E -\ndumpram l_$B.ram\n" > l_$B.txt; RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx/genesis_plus_gx_libretro.so lag_$B.bin l_$B.txt >/dev/null 2>&1 & done
 wait

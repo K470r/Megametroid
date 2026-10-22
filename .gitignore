@@ -16,20 +16,21 @@ tools/bin/
 work/
 # lo extraído y generado desde la ROM
 data/
-res/
-native/gen/
-native/md/gen/
-native/md/out/
-native/md/out_hdr/
-native/md/snes_ref/*
-!native/md/snes_ref/*.log
+res/gen/
+res/snes_ref/*
+!res/snes_ref/*.log
+# compilación (make)
+out/
 # binarios del PC
-native/host/check
-native/host/mkinit
-native/host/simsum
-native/host/tour
-native/host/vardump
-native/host/zcover
+host/check
+host/mkinit
+host/simsum
+host/tour
+host/vardump
+host/zcover
+*.d
 *.o
 *.so
 __pycache__/
+# arte propio derivado de la ROM (redibujos): fuera del repositorio público (docs/47)
+res/private/

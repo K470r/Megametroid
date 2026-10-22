@@ -1,7 +1,7 @@
 # Pruebas por sala (docs/41, 44)
 
 Graban en el SNES (`hlref` con `HL_WARP`: salta a cada sala con la transición del ascensor) un lote de salas con un
-patrón de disparos y lo comparan con el motor en el PC (`native/host/check` con las mismas variables).
+patrón de disparos y lo comparan con el motor en el PC (`host/check` con las mismas variables).
 
 - `crall.sh`: las 34 salas de Crateria con enemigos (lotes `rooms_cNN.txt`, en paralelo de a 8) → una línea por sala:
   `cuadros 2-30000: N con diferencias` y lo que se llamó sin portar.

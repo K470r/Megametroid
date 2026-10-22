@@ -1,13 +1,13 @@
 # 42 — Traductor del decomp (enemigos de Crateria)
 
 Los enemigos y sus proyectiles no se escriben a mano uno por uno: `tools/port` traduce las funciones del decomp
-(`sm/src`, la biblia) al motor nativo de 68000. El resultado es `native/src/port_gen.c` / `port_gen.h` (generados:
+(`sm/src`, la biblia) al motor nativo de 68000. El resultado es `src/core/port_gen.c` / `port_gen.h` (generados:
 no se editan; se cambia el traductor o se escribe la función a mano en otro archivo y deja de generarse).
 
 ## Uso
 
     python3 tools/port/port.py          # lee tools/port/roots.txt, escribe port_gen.c/.h y tools/port/banks.txt
-    sh native/host/build.sh             # mkdata.py saca de la ROM de cada quien los bancos de banks.txt (kBankXXB)
+    sh host/build.sh             # mkdata.py saca de la ROM de cada quien los bancos de banks.txt (kBankXXB)
 
 ## Piezas
 
@@ -19,8 +19,8 @@ no se editan; se cambia el traductor o se escribe la función a mano en otro arc
   (`port_CallEnemyAi`, `port_CallEnemyInstr`, `port_CallEnemyPreInstr`, `port_CallEprojInit/PreInstr/Instr`,
   `port_call_void`) y declara las funciones escritas a mano que usa lo traducido (con su prototipo nativo).
   Lo de bancos que no se traducen y no está escrito a mano queda vacío y avisa (SIN PORTAR).
-- `native/src/dcompat.h`: LOBYTE/HIBYTE, multiplicaciones y divisiones del SNES, etc. para el 68000.
-- `native/src/port_lib.c`: funciones pequeñas de otros bancos (Multiply16x16...).
+- `inc/core/dcompat.h`: LOBYTE/HIBYTE, multiplicaciones y divisiones del SNES, etc. para el 68000.
+- `src/core/port_lib.c`: funciones pequeñas de otros bancos (Multiply16x16...).
 
 ## Detalles que importan
 
@@ -41,7 +41,7 @@ muere (la secuencia de muerte, estados 19-24, falta portar). Las grabaciones de 
 ## Gráficos de los enemigos en la Genesis (claves de dibujo)
 
 Cada sala lleva ya convertidos los spritemaps que sus enemigos pueden dibujar (`mkzobj.py`, dentro de `mkzebes.py`).
-La lista sale de `native/md/snes_ref/zdraw.log`, que junta:
+La lista sale de `res/snes_ref/zdraw.log`, que junta:
 
 - `zcover` (fuzz en el PC con `MM_DRAWLOG`): entra a cada sala y juega con un mando al azar, Samus sin morir;
 - `mkzkeys.py` (recorrido estático de las listas de instrucciones): todo lo que una lista puede mostrar, también las

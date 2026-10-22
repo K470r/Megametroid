@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MegaMetroid — genera native/src/port_gen.c (docs/42): las funciones del decomp que necesitan los enemigos de
+"""MegaMetroid — genera src/core/port_gen.c (docs/42): las funciones del decomp que necesitan los enemigos de
 tools/port/roots.txt (y todo lo que llaman y no está escrito a mano en el motor nativo), traducidas por xlate.py,
 más los despachos (IA, instrucciones, pre-instrucciones) de esas funciones.
 Uso: port.py [roots.txt]"""
@@ -7,7 +7,8 @@ import os, re, sys, glob
 sys.path.insert(0, os.path.dirname(__file__))
 from xlate import Xlate, SRC
 HERE = os.path.dirname(os.path.abspath(__file__))
-NAT = os.path.join(HERE, '..', '..', 'native', 'src')
+NAT = os.path.join(HERE, '..', '..', 'src', 'core')
+NAT_INC = os.path.join(HERE, '..', '..', 'inc', 'core')
 OUT = os.path.join(NAT, 'port_gen.c')
 
 NATIVE_PROTOS = {}      # función escrita a mano -> su prototipo (para declararla en port_gen.c)
@@ -308,7 +309,7 @@ def main():
     open(os.path.join(HERE, 'banks.txt'), 'w').write(' '.join('%02X' % b for b in banks) + '\n')
     h = ['/* Generado por tools/port/port.py: lectura de los bancos de la ROM (kBankXXB, gen/tables.c) */',
          '#ifndef PORT_GEN_H', '#define PORT_GEN_H', '#include "nt.h"', '#include "dcompat.h"', '#include "samus.h"',
-         '#include "game.h"', '#include "enemies.h"', '#include "plm.h"', '#include "hdmaobj.h"', '#include "room.h"', '#include "nmath.h"', '#include "../gen/tables.h"']
+         '#include "game.h"', '#include "enemies.h"', '#include "plm.h"', '#include "hdmaobj.h"', '#include "room.h"', '#include "nmath.h"', '#include "tables.h"']
     for b in banks:
         h.append('static inline uint16 BW_%02X(uint16 a) { const uint8 *p = kBank%02XB + (uint16)(a - 0x8000); '
                  'uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }' % (b, b))
@@ -354,7 +355,7 @@ def main():
     h += ['uint8 port_CallEnemyAi(uint32 ea);', 'uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok);',
           'uint8 port_CallEnemyPreInstr(uint32 ea);', 'uint16 EnemyInstrWord(uint8 bank, uint16 a);',
           '#define IW_EN(a) EnemyInstrWord(gEnemyData(k)->bank, (a))  /* lista del banco del enemigo k */', 'uint8 port_bank_word(uint8 bank, uint16 a, uint16 *w);', '#endif']
-    open(os.path.join(NAT, 'port_gen.h'), 'w').write('\n'.join(h) + '\n')
+    open(os.path.join(NAT_INC, 'port_gen.h'), 'w').write('\n'.join(h) + '\n')
     out2 = ['void CallEnemyPreInstr(uint32 ea) { if (!port_CallEnemyPreInstr(ea)) { nt_unimpl_v("CallEnemyPreInstr", (uint16)(ea >> 8)); nt_unimpl_v("CallEnemyPreInstr lo", (uint16)ea); } }', '']
     out2 += ['uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, por su dirección */', '  switch (ea) {']
     for n in funcs:

@@ -51,5 +51,5 @@ Cuadros perdidos en las 11 peores salas: 143 → 58 (la peor, 990D: 41 → 5).
 GCC (13, m68k) junta dos lecturas de byte como `p[1] | p[2] << 8` en una lectura de palabra y un `ror.w #8` (paso
 "bswap"), aunque la dirección pueda ser impar: en el 68000 eso es un ADDRESS ERROR (pasaba al hacerse bola:
 `Samus_AnimDelayFunc_9/12`, tabla de bytes $91:B010). `-mstrict-align` no lo evita; se compila con
-`-fdisable-tree-bswap` (build.sh). Costo medido: 58 → 61 cuadros perdidos en las 9 salas más pesadas.
+`-fdisable-tree-bswap` (`Makefile`). Costo medido: 58 → 61 cuadros perdidos en las 9 salas más pesadas.
 Para buscar casos: en el desensamblado, `move.w/move.l (aN)` seguido de `ror.w #8`.

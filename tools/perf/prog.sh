@@ -1,6 +1,6 @@
 #!/bin/sh
 # prog.sh nombre emu1 emu2...: md_frame_count de la ROM de prueba actual en esos cuadros del emulador
-cd /home/claude/mm/native/md && SKIP_DATA=1 TEST=1 $EXTRA sh build.sh >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/p.bin; cp out/rom.out /tmp/claude-0/it/p.out
+cd /home/claude/mm && TEST=1 $EXTRA make rom >/dev/null 2>&1; cp out/rom.bin /tmp/claude-0/it/p.bin; cp out/rom.out /tmp/claude-0/it/p.out
 cd /tmp/claude-0/it
 for e in "$@"; do printf "hold $e -\ndumpram p_$e.ram\n" > p_$e.txt; RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx/genesis_plus_gx_libretro.so p.bin p_$e.txt >/dev/null 2>&1 & done
 wait

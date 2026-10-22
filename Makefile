@@ -81,7 +81,7 @@ MD_C   := $(SRC)/platform/md_engine.c $(SRC)/platform/md_zebes.c $(SRC)/platform
 GEN_C  := $(GEN)/md_data.c $(GEN)/md_getaway.c $(GEN)/md_m7.c $(GEN)/md_intro_data.c $(GEN)/init_state.c
 SGDK_C := $(SRC)/platform/md_main.c $(SRC)/platform/md_snd.c
 FRONT  := title menu sound front
-GEN_S  := md_bins init_blob md_voice
+GEN_S  := md_bins md_cine init_blob md_voice
 
 # los nombres de los objetos son los de siempre: el enlace los toma en el orden de `ls` (docs/45)
 OBJS := $(patsubst %.c,$(OBJ)/%.o,$(notdir $(CORE_C) $(MD_C) $(GEN_C) $(SGDK_C))) \

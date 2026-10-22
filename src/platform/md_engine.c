@@ -43,6 +43,7 @@ volatile uint8_t *const md_post_log = (volatile uint8_t *)cinematic_text_tilemap
 #include "md_zebes.h"
 #include "md_getaway.h"
 #include "md_m7.h"
+#include "md_cine.h"                     /* página del SSF2 de cada bloque de las cinemáticas (mkzebes.py) */
 #include "hdmaobj.h"
 #include "init_state.h"
 
@@ -1356,7 +1357,10 @@ static void ga_union_rows(const GetawayFrame *F, int16 y0, int16 y1) {
     if (F->x0 > ga_ux0)
       md_dma_rows(pb + fy0 * 64 + ga_ux0, MD_VRAM_PLANE_B + (fy0 * 64 + ga_ux0) * 2, F->x0 - ga_ux0, n, 128);
     const uint16 *fm = kGetawayMaps + F->moff + (ga_reg ? F->w * F->h : 0) + (fy0 - F->y0) * F->w;
+    uint8 lp = md_cur_page;
+    map_page_ext(CINE_PAGE_kGetawayMaps);
     md_dma_rows(fm, MD_VRAM_PLANE_B + (fy0 * 64 + F->x0) * 2, F->w, n, F->w * 2);
+    map_page_ext(lp);
     int16 fx1 = F->x0 + F->w, ux1 = ga_ux0 + ga_uw;
     if (ux1 > fx1)
       md_dma_rows(pb + fy0 * 64 + fx1, MD_VRAM_PLANE_B + (fy0 * 64 + fx1) * 2, ux1 - fx1, n, 128);
@@ -1401,7 +1405,10 @@ static void ga_vblank(void) {
     if (b <= 0) return;
     if (n > (uint16)b) n = b;
     if (n > ga_budget) n = ga_budget;
+    uint8 lp = md_cur_page;
+    map_page_ext(CINE_PAGE_kGetawayTiles);
     vdp_dma_vram(kGetawayTiles + F->toff + ga_done * 32, (GETAWAY_TILE0 + ga_reg * GETAWAY_REGION + ga_done) * 32, n * 16);
+    map_page_ext(lp);
     ga_done += n;
     return;                                       /* el cambio de celdas, en un vblank propio */
   }
@@ -1700,10 +1707,13 @@ static void cine_frame(void) {   /* md_frame: qué imagen del modo 7 se quiere, 
       uint16 base = m7_tile0() + m7_load_half * m7_region() - 1;
       const uint16 *src = kM7Maps + I->moff;
       uint16 n = I->w * I->h;
+      uint8 lp = md_cur_page;
+      map_page_ext(CINE_PAGE_kM7Maps);
       for (uint16 i = 0; i < n; i++) {
         uint16 w = src[i];
         m7_cells[i] = w ? (uint16)(0x8000 | ((w & 0xF800) + base + (w & 0x7FF))) : 0;   /* prioridad: encima de los sprites de prioridad 0 */
       }
+      map_page_ext(lp);
     }
   }
   /* sin la ventana del HUD no hacen falta las 2 líneas de más del juego (medido contra el SNES) */
@@ -1746,8 +1756,11 @@ static void cine_vblank(void) {   /* armar la imagen siguiente en la otra mitad,
       uint16 n = nt - m7_loaded;
       if (n > 16) n = 16;
       if (!m7_fits(n * 16)) return;
+      uint8 lp = md_cur_page;
+      map_page_ext(CINE_PAGE_kM7Tiles);
       vdp_dma_vram(kM7Tiles + I->toff + (uint32)m7_loaded * 32,
                    (m7_tile0() + m7_load_half * m7_region() + m7_loaded) * 32, n * 16);
+      map_page_ext(lp);
       m7_loaded += n;
     }
     m7_step = 1; m7_row = 0;

@@ -26,6 +26,28 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+# compresión LZ4W de SGDK (bin/lz4w.jar; lz4w_unpack en la Genesis): los tiles de las escenas en bloques
+# independientes de ZBLOCK bytes (lo que el título carga por cuadro: FRAME_BYTES de title.c) y las mitades de los
+# mapas de los tamaños (14 filas de 64 celdas), cada una aparte (docs/48)
+ZBLOCK = 3200
+GDK = Path(os.environ.get("GDK", HERE.parent.parent / "third_party" / "SGDK"))
+
+
+def lz4w_many(blocks):
+    """comprime cada bloque con lz4w.jar (en paralelo); cada resultado con largo par"""
+    import subprocess, tempfile
+    from concurrent.futures import ThreadPoolExecutor
+    jar = GDK / "bin" / "lz4w.jar"
+    with tempfile.TemporaryDirectory() as td:
+        def one(k):
+            src, dst = Path(td) / f"{k}.in", Path(td) / f"{k}.lz"
+            src.write_bytes(blocks[k])
+            subprocess.run(["java", "-jar", str(jar), "p", str(src), str(dst), "s"], check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            z = dst.read_bytes()
+            return z + bytes(len(z) & 1)
+        with ThreadPoolExecutor(8) as ex:
+            return list(ex.map(one, range(len(blocks))))
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "title_logos"))
 sys.path.insert(0, str(HERE.parent / "snes_ref"))
@@ -446,15 +468,15 @@ def main():
     NS = 4 + NKF
     c.append(f"const u16 g_title_num_scenes = {NS};")
     c.append(f"const u16 g_title_tile_base = {TILE_BASE};")
-    c.append(f"const TitleScene g_title_scenes[{NS}] = {{")
     rows_c = []
+    zjobs = []                                      # (símbolo, [bloques]): se comprimen todos juntos al final
     for s in range(NS):
         if s not in scene_data:
             rows_c.append("    { 0 },")
             continue
         tiles, mp = scene_data[s]
         H, W = len(mp), len(mp[0])
-        incbin(f"ttl_tiles_{s}", tiles)
+        zjobs.append((f"ttl_tiles_{s}", [tiles[k:k + ZBLOCK] for k in range(0, len(tiles), ZBLOCK)]))
         colmajor = s in (1, 2)                     # tomas con paneo horizontal: se dibujan por columnas
         if colmajor:
             incbin(f"ttl_map_{s}", b"".join(struct.pack(f">{H}H", *[mp[y][x] for y in range(H)]) for x in range(W)))
@@ -463,14 +485,31 @@ def main():
             # transferencia desde la ROM) con la base de tiles de su banco ya sumada; las celdas vacías
             # apuntan al tile 0 de la escena (vacío) y las columnas 32-63 quedan en 0
             base = TILE_BASE + ((s - 4) & 1) * BANK_TILES
-            incbin(f"ttl_map_{s}", b"".join(struct.pack(">64H", *([(w + base) if w & 0x7FF else (w | base) for w in r[:32]] + [0] * 32))
-                                            for r in mp[:28]))
+            mb = b"".join(struct.pack(">64H", *([(w + base) if w & 0x7FF else (w | base) for w in r[:32]] + [0] * 32))
+                          for r in mp[:28])
+            zjobs.append((f"ttl_map_{s}", [mb[:len(mb) // 2], mb[len(mb) // 2:]]))
         else:
             incbin(f"ttl_map_{s}", b"".join(struct.pack(f">{W}H", *r) for r in mp))
         incbin(f"ttl_pal_{s}", bytes(v for p in scene_tab[s] for v in p))
         x0, y0 = geo.get(s, (0, 0))
-        rows_c.append(f"    {{ {len(tiles) // 32}, {W}, {H}, {x0}, {y0}, {int(colmajor)}, (const u32 *) ttl_tiles_{s}, "
-                      f"(const u16 *) ttl_map_{s}, ttl_pal_{s} }},")
+        zmap = f"ttl_map_{s}_blk" if s >= 4 else "0"
+        rows_c.append(f"    {{ {len(tiles) // 32}, {W}, {H}, {x0}, {y0}, {int(colmajor)}, ttl_tiles_{s}, ttl_tiles_{s}_blk, "
+                      f"(const u16 *) ttl_map_{s}, {zmap}, ttl_pal_{s} }},")
+    zall = [b for _, bl in zjobs for b in bl]
+    zout = lz4w_many(zall)
+    k = 0
+    for sym, bl in zjobs:
+        z = zout[k:k + len(bl)]
+        k += len(bl)
+        offs, o = [], 0
+        for zb in z:
+            offs.append(o)
+            o += len(zb)
+        assert o < 0x10000, sym
+        incbin(sym, b"".join(z))
+        c.append(f"static const u16 {sym}_blk[{len(offs)}] = {{ {', '.join(map(str, offs))} }};")
+    print(f"título: {sum(len(b) for b in zall) // 1024} KB -> LZ4W {sum(len(b) for b in zout) // 1024} KB", file=sys.stderr)
+    c.append(f"const TitleScene g_title_scenes[{NS}] = {{")
     c += rows_c + ["};", ""]
     if baby:
         incbin("ttl_baby", b"".join(baby[1]))

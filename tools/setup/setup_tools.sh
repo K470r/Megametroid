@@ -10,7 +10,7 @@
 #   tools/bin/retrorun                      tools/emu_harness/retrorun.c (corre núcleos libretro sin pantalla)
 #
 # Requisitos del sistema (Debian/Ubuntu): sudo apt install git build-essential gcc-m68k-linux-gnu python3 \
-#   python3-numpy python3-pil util-linux
+#   python3-numpy python3-pil util-linux default-jre-headless
 # Uso: sh tools/setup/setup_tools.sh [--prof]
 set -e
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)

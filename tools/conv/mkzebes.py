@@ -26,6 +26,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 POOL_CHUNK = 1024          # tiles por trozo del depósito común (32 KB)
+CINE_BLOBS = ("kM7Tiles", "kM7Maps", "kGetawayTiles", "kGetawayMaps")   # cinemáticas de Ceres en páginas (docs/48)
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent / "tools" / "genesis_convert"))
 from convert_rooms import snes_to_genesis, gen_to_cram, gen_to_rgb, color_dist, genesis_tile_bytes, snes_tile, \
@@ -715,10 +716,25 @@ def main():
               2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries]
     o_need = [2 * len(d["runs"]) + 24 + 8 * len(d["keys"]) + 2 * len(d["recs"]) for d in obj_list]
     p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
-    pages, obj_pages, pool_pages = [0] * len(entries), [0] * len(obj_list), [0] * nchunks
+    # cinemáticas de Ceres (mkm7.py, mkgetaway.py: corren antes): se usan una vez por partida, van en páginas y no en
+    # la parte fija (docs/48). La Genesis pone la página de cada bloque antes de leerlo (md_cine.h)
+    cine_dir = HERE.parent.parent / "res" / "gen" / "md"
+    cine = [s_ for s_ in CINE_BLOBS if (cine_dir / "bins" / f"{s_}.bin").exists()]
+    assert len(cine) == len(CINE_BLOBS), "zebes: faltan los bloques de las cinemáticas (correr mkm7.py y mkgetaway.py antes)"
+    c_need = [(cine_dir / "bins" / f"{s_}.bin").stat().st_size + 16 for s_ in cine]
+    pages, obj_pages, pool_pages, cine_pages = [0] * len(entries), [0] * len(obj_list), [0] * nchunks, [0] * len(cine)
     for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(g_need)] + [(n, 1, i) for i, n in enumerate(o_need)] +
-                              [(n, 2, i) for i, n in enumerate(p_need)], reverse=True):
-        (pages, obj_pages, pool_pages)[kind][i] = place(n_)
+                              [(n, 2, i) for i, n in enumerate(p_need)] + [(n, 3, i) for i, n in enumerate(c_need)],
+                              reverse=True):
+        (pages, obj_pages, pool_pages, cine_pages)[kind][i] = place(n_)
+    cs = ["/* Generado por tools/conv/mkzebes.py: bloques de las cinemáticas de Ceres en páginas del SSF2 (md_cine.h) */"]
+    ch = ["/* Generado por tools/conv/mkzebes.py: página del SSF2 de cada bloque de las cinemáticas */",
+          "#ifndef MD_CINE_H", "#define MD_CINE_H"]
+    for s_, pg in zip(cine, cine_pages):
+        cs += [f'    .section .bank{pg},"a"', "    .align 2", f"    .global {s_}", f"{s_}:", f'    .incbin "bins/{s_}.bin"']
+        ch.append(f"#define CINE_PAGE_{s_} {pg}")
+    (cine_dir / "md_cine.s").write_text("\n".join(cs) + "\n")
+    (cine_dir / "md_cine.h").write_text("\n".join(ch + ["#endif"]) + "\n")
     for c in range(nchunks):
         tb = b"".join(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK])
         C.append(f'NT_BANK({pool_pages[c]}) static const uint8 kZP{c}[{len(tb)}] __attribute__((aligned(2))) = {{' +

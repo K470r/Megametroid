@@ -128,10 +128,6 @@ H = ["/* Generado por tools/conv/mkgetaway.py (docs/33). No editar. */", "#ifnde
      "extern const GetawayFrame kGetaway[GETAWAY_FRAMES];", "extern const uint8_t kGetawayTiles[];",
      "extern const uint16_t kGetawayMaps[];", "#endif"]
 (gen / "md_getaway.h").write_text("\n".join(H) + "\n")
-s = (gen / "md_bins.s").read_text()
-for sym in ("kGetawayTiles", "kGetawayMaps"):
-    if sym not in s:
-        s += f"    .section .rodata\n    .align 2\n    .global {sym}\n{sym}:\n    .incbin \"bins/{sym}.bin\"\n"
-(gen / "md_bins.s").write_text(s)
+# kGetawayTiles y kGetawayMaps van en páginas del SSF2: las reparte mkzebes.py (md_cine.s, md_cine.h; docs/48)
 print(f"huida: {len(frames)} cuadros, {len(tiles_blob) // 32} tiles, máx. {max_t} por cuadro (mitad: {REG}), "
       f"mapas {len(maps_blob)} bytes")

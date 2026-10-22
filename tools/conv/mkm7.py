@@ -322,10 +322,6 @@ H = ["/* Generado por tools/conv/mkm7.py (docs/35). No editar. */", "#ifndef MD_
      "extern const M7Image kM7Images[M7_IMAGES];", "extern const M7Key kM7Keys[M7_KEYS];",
      "extern const uint8_t kM7Tiles[];", "extern const uint16_t kM7Maps[];", "#endif"]
 (gen / "md_m7.h").write_text("\n".join(H) + "\n")
-s = (gen / "md_bins.s").read_text()
-for sym in ("kM7Tiles", "kM7Maps"):
-    if sym not in s:
-        s += f"    .section .rodata\n    .align 2\n    .global {sym}\n{sym}:\n    .incbin \"bins/{sym}.bin\"\n"
-(gen / "md_bins.s").write_text(s)
+# kM7Tiles y kM7Maps van en páginas del SSF2: las reparte mkzebes.py (md_cine.s, md_cine.h; docs/48)
 print(f"modo 7: {len(images)} imágenes, {len(tiles_blob) // 32} tiles ({len(tiles_blob) // 1024} KB), máx. {max_t} "
       f"por imagen (mitades: {REG}), mapas {len(maps_blob) // 1024} KB, {len(ks)} claves")

@@ -1,0 +1,125 @@
+# enemigos que se traducen del decomp (docs/42): familias (Prefijo_*) o funciones
+# Crateria (y lo de Brinstar hasta la Morph Ball y los dos misiles)
+Beetom_*
+BlueBrinstarFaceBlock_*
+BouncingGoofball_*
+BrinstarPipeBug_*
+Crab_*
+Elevator_*
+EscapeDachora_*
+EscapeEtecoon_*
+FastMovingSlowSinkingPlatform_*
+Flies_*
+Gripper_*
+HirisingSlowfalling_*
+Kago_*
+KiHunter_*
+KiHunterWings_*
+MaridiaFish_*
+MorphBallEye_*
+NinjaSpacePirates_*
+PlatformThatFallsWithSamus_*
+Rio_*
+Ripper_*
+Roach_*
+CallRoachFunc
+Skree_*
+StoneZoomer_*
+Zoomer_*
+FireZoomer_*
+sub_A3E168
+Torizo_*
+TourianEntranceStatue_*
+WalkingLavaSeahorse_*
+WalkingSpacePirates_*
+WallSpacePirates_*
+Waver_*
+WreckedShipOrangeZoomer_*
+YappingMaw_*
+JetPowerRipper_Shot
+GoldTorizo_Touch
+# IA comunes de cada banco
+Enemy_NormalFrozenAI_A2
+Enemy_NormalFrozenAI_A3
+Enemy_NormalFrozenAI_A8
+Enemy_NormalFrozenAI_AA
+Enemy_NormalFrozenAI_B2
+Enemy_NormalFrozenAI_B3
+Enemy_NormalShotAI_A2
+Enemy_NormalShotAI_A3
+Enemy_NormalShotAI_A8
+Enemy_NormalShotAI_B3
+Enemy_NormalTouchAI_A2
+Enemy_NormalTouchAI_A3
+Enemy_NormalTouchAI_A8
+Enemy_NormalTouchAI_B3
+# instrucciones comunes de los enemigos ($A0, copiadas en cada banco)
+EnemyInstr_*
+# proyectiles enemigos ($86) de los enemigos de Crateria
+EprojInstr_*
+EprojInit_BombTorizo*
+EprojInit_TorizoSonicBoom
+EprojPreInstr_TorizoSonicBoom
+EprojPreInstr_BombTorizosChozoOrbs
+EprojInit_EnemyDeathExplosion
+EprojInit_GoldenTorizo*
+EprojInit_F337
+EprojInit_TourianLandingDustCloudsRightFoot
+EprojInit_TourianStatue*
+EprojPreInstr_BA42
+EprojInit_YappingMawsBody
+EprojPreInstr_Empty2
+EprojPreInstr_TourianStatueStuff
+EprojInstr_QueueSfx*
+JetPowerRipper_*
+BigEyeBugs_*
+Etecoon_*
+EprojInstr_EEAF
+SpacePirates_*
+EnemyInstr_Rio_Instr_1
+EprojInstr_ECE3
+EprojInstr_ED17
+ChozoStatue_*
+# Brinstar (alrededor de la Morph Ball)
+SpikeShootingPlant_*
+Sidehopper_*
+BrinstarYellowPipeBug_*
+EprojInit_KiHunterAcidSpitLeft
+EprojInit_KiHunterAcidSpitRight
+sub_86CFD5
+sub_86CFE6
+sub_86CFF8
+EprojInstr_HandleRespawningEnemy
+# láser de los piratas ($86:9F4D...): la instrucción A050 pone la pre-instrucción y la corre (A05C/A07A)
+EprojInstr_SetPreInstrAndRun
+EprojPreInstr_PirateMotherBrainLaser_MoveLeft
+EprojPreInstr_PirateMotherBrainLaser_MoveRight
+# Brinstar entero (área 1): las familias de todas sus poblaciones (salvo Kraid)
+Dachora_*
+Boulder_*
+FakeKraid_*
+Fireflea_*
+Metalee_*
+ShootableShutter_*
+Slug_*
+SporeSpawn_*
+ThinHoppingBlobs_*
+TimedShutter_*
+RisingFallingPlatform_*
+# instrucciones del banco $A5 que usan las listas de Spore Spawn (comunes con Draygon)
+# instrucciones de $A5:E7xx-E9xx (el decomp las llama Draygon_Instr_*; las usan Spore Spawn y Draygon)
+Draygon_Instr_*
+EprojPreInstr_A977
+sub_86A887
+# instrucciones comunes de cada banco de enemigos ($XX:80xx-81xx)
+Enemy_SetAiPreInstr_*
+Enemy_ClearAiPreInstr_*
+EnemyInstr_StopScript_*
+EnemyInstr_SetTimer_*
+EnemyInstr_DecTimerAndGoto2_*
+EnemyInstr_DecTimerAndGoto_*
+EnemyInstr_Call_*
+EnemyInstr_EnableOffScreenProcessing_*
+EnemyInstr_DisableOffScreenProcessing_*
+# instrucciones de los proyectiles enemigos ($86) que pide la pelea con Bomb Torizo
+EprojInstr_SpawnEnemyDrops

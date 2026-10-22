@@ -1,0 +1,12 @@
+# variables nativas que no tienen nombre en variables.h (tipo nombre @dirección_del_SNES para comparar)
+uint8 samus_prev_pose_x_dir_A10 @0xA10
+uint8 samus_x_decel_mult_hi @0xB4D
+alias menu_tilemap = cinematic_text_tilemap + 0x300   # 7E:3600: tilemap del BG1 de los menús (ram3000.menu.menu_tilemap)
+uint16 statue_bg2_ypos @0x9E00   # 7E:9E00 (hdma_window_1_left_pos[0]): posición del BG2 de la estatua de Tourian que baja
+uint16 cinematic_text_tilemap[2048] @0x3000   # 7E:3000-3FFF: mapa del texto de las cinemáticas (BG3; ram3000.pause_menu_map_tilemap) y lo que sigue (ram3800)
+alias cinematic_bg_tilemap = cinematic_text_tilemap + 0x400   # 7E:3800: mapa del fondo de los recuerdos de la intro (ram3800)
+uint16 cinematic_glow_ptr[8] @0x19F7          # intro: objetos de brillo del texto (letra que aparece)
+uint16 cinematic_glow_timer[8] @0x1A07
+uint16 cinematic_glow_x[8] @0x1A17
+uint16 cinematic_glow_y[8] @0x1A27
+uint16 cinematic_glow_pal[8] @0x1A37

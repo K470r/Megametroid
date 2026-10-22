@@ -1,0 +1,48 @@
+diff --git a/libretro/libretro.c b/libretro/libretro.c
+index 798c6cc..0341478 100644
+--- a/libretro/libretro.c
++++ b/libretro/libretro.c
+@@ -3751,6 +3751,8 @@ void *retro_get_memory_data(unsigned id)
+          return sram.on ? sram.sram : NULL;
+       case RETRO_MEMORY_SYSTEM_RAM:
+          return work_ram;
++      case RETRO_MEMORY_VIDEO_RAM:
++         return vram;   /* MegaMetroid: arnés de pruebas */
+       default:
+          return NULL;
+    }
+@@ -3783,6 +3785,8 @@ size_t retro_get_memory_size(unsigned id)
+          return 0;
+       }
+ 
++      case RETRO_MEMORY_VIDEO_RAM:
++         return 0x10000;
+       case RETRO_MEMORY_SYSTEM_RAM:
+       {
+          /* 16-bit hardware */
+@@ -4014,3 +4018,14 @@ void retro_run(void)
+ }
+ 
+ #undef  CHUNKSIZE
++
++/* MegaMetroid: arnés de pruebas (retrorun "regs"): registros del 68000 */
++RETRO_API unsigned mm_m68k_reg(int r)
++{
++   return m68k_get_reg((m68k_register_t)r);
++}
++/* MegaMetroid: CRAM del VDP (formato interno del núcleo, 64 colores x 2 bytes) */
++RETRO_API void *mm_cram(void) { return cram; }
++/* MegaMetroid: VSRAM y registros del VDP (prueba de regresión por estado del VDP) */
++RETRO_API void *mm_vsram(void) { return vsram; }
++RETRO_API void *mm_vdpreg(void) { return reg; }
+diff --git a/libretro/link.T b/libretro/link.T
+index b0c262d..8814ca3 100644
+--- a/libretro/link.T
++++ b/libretro/link.T
+@@ -1,5 +1,5 @@
+ {
+-   global: retro_*;
++   global: retro_*; mm_*;
+    local: *;
+ };
+ 

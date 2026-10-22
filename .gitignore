@@ -1,0 +1,35 @@
+# MegaMetroid — nada que salga de la ROM de Nintendo (docs/43, docs/45)
+*.smc
+*.sfc
+*.bin
+*.rec
+*.npz
+*.wav
+*.mp3
+*.gen
+*.md.rom
+*.ppm
+# lo que baja tools/setup/setup_tools.sh (el decomp, SGDK, emuladores) y lo que compila
+sm/
+third_party/
+tools/bin/
+work/
+# lo extraído y generado desde la ROM
+data/
+res/
+native/gen/
+native/md/gen/
+native/md/out/
+native/md/out_hdr/
+native/md/snes_ref/*
+!native/md/snes_ref/*.log
+# binarios del PC
+native/host/check
+native/host/mkinit
+native/host/simsum
+native/host/tour
+native/host/vardump
+native/host/zcover
+*.o
+*.so
+__pycache__/

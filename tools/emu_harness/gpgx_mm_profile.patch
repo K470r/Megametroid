@@ -1,0 +1,78 @@
+diff --git a/core/m68k/m68kcpu.c b/core/m68k/m68kcpu.c
+index 07d2514..be17d9f 100644
+--- a/core/m68k/m68kcpu.c
++++ b/core/m68k/m68kcpu.c
+@@ -18,6 +18,14 @@ extern int vdp_68k_irq_ack(int int_level);
+ #include "m68kconf.h"
+ #include "m68kcpu.h"
+ #include "m68kops.h"
++#include <stdio.h>
++#include <stdlib.h>
++static unsigned int *mm_prof;
++static void mm_prof_dump(void) { const char *e = getenv("MM_PROF"); FILE *f = e ? fopen(e, "wb") : 0; if (f) { fwrite(mm_prof, 4, 0x200000, f); fclose(f); } }
++static void mm_prof_add(unsigned int pc, unsigned int c) {
++  if (!mm_prof) { if (!getenv("MM_PROF")) return; mm_prof = calloc(0x200000, 4); atexit(mm_prof_dump); }
++  mm_prof[pc >> 1] += c;
++}
+ 
+ /* ======================================================================== */
+ /* ================================= DATA ================================= */
+@@ -296,6 +304,7 @@ void m68k_run(unsigned int cycles)
+       cpu_hook(HOOK_M68K_E, 0, REG_PC, 0);
+ #endif
+ 
++    unsigned int mm_pc = REG_PC, mm_c0 = m68k.cycles;
+     /* Decode next instruction */
+     REG_IR = m68ki_read_imm_16();
+ 
+@@ -312,6 +321,7 @@ void m68k_run(unsigned int cycles)
+ 
+     /* Trace m68k_exception, if necessary */
+     m68ki_exception_if_trace(); /* auto-disable (see m68kcpu.h) */
++    if (mm_pc < 0x400000) mm_prof_add(mm_pc, m68k.cycles - mm_c0);
+   }
+ 
+   /* Reset aimed cycle count to indicate end of CPU execution frame */
+diff --git a/libretro/libretro.c b/libretro/libretro.c
+index 798c6cc..b3cec75 100644
+--- a/libretro/libretro.c
++++ b/libretro/libretro.c
+@@ -3751,6 +3751,8 @@ void *retro_get_memory_data(unsigned id)
+          return sram.on ? sram.sram : NULL;
+       case RETRO_MEMORY_SYSTEM_RAM:
+          return work_ram;
++      case RETRO_MEMORY_VIDEO_RAM:
++         return vram;   /* MegaMetroid: arnés de pruebas */
+       default:
+          return NULL;
+    }
+@@ -3783,6 +3785,8 @@ size_t retro_get_memory_size(unsigned id)
+          return 0;
+       }
+ 
++      case RETRO_MEMORY_VIDEO_RAM:
++         return 0x10000;
+       case RETRO_MEMORY_SYSTEM_RAM:
+       {
+          /* 16-bit hardware */
+@@ -4014,3 +4018,9 @@ void retro_run(void)
+ }
+ 
+ #undef  CHUNKSIZE
++
++/* MegaMetroid: arnés de pruebas (retrorun "regs"): registros del 68000 */
++RETRO_API unsigned mm_m68k_reg(int r)
++{
++   return m68k_get_reg((m68k_register_t)r);
++}
+diff --git a/libretro/link.T b/libretro/link.T
+index b0c262d..8814ca3 100644
+--- a/libretro/link.T
++++ b/libretro/link.T
+@@ -1,5 +1,5 @@
+ {
+-   global: retro_*;
++   global: retro_*; mm_*;
+    local: *;
+ };
+ 

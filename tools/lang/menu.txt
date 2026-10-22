@@ -1,0 +1,32 @@
+# Textos del menú (una clave por línea: clave | inglés | español).
+# Letras disponibles en la fuente grande: A-Z, 0-9, ! ? + - ( ) y las vocales con tilde y la Ñ.
+# Fuente pequeña (NO DATA, EXIT, pie): A-Z, 0-9, !
+fsel_title   | SAMUS DATA              | DATOS DE SAMUS
+slot         | SAMUS                   | SAMUS
+no_data      | NO DATA                 | SIN DATOS
+time         | TIME                    | TIEMPO
+exit         | EXIT                    | SALIR
+opt_title    | OPTION MODE             | OPCIONES
+start_game   | START GAME              | INICIAR JUEGO
+lang_en      | ENGLISH TEXT            | TEXTO EN INGLÉS
+lang_es      | SPANISH TEXT            | TEXTO EN ESPAÑOL
+controller   | CONTROLLER SETTING MODE | CONFIGURAR CONTROL
+special      | SPECIAL SETTING MODE    | AJUSTES ESPECIALES
+foot_select  | SELECT                  | ELEGIR
+foot_ok      | OK!                     | OK!
+foot_cancel  | CANCEL                  | CANCELAR
+ctl_title    | CONTROLLER              | CONTROL
+ctl_jump     | C  JUMP                 | C  SALTAR
+ctl_run      | A  DASH                 | A  CORRER
+ctl_shoot    | B  SHOOT                | B  DISPARAR
+ctl_aim6     | X-Z  AIM DOWN-UP        | X-Z  APUNTAR ABAJO-ARRIBA
+ctl_sel6     | Y  ITEM   MODE  CANCEL  | Y  ARMA   MODE  CANCELAR
+ctl_pad3     | 3 BUTTON PAD            | CONTROL DE 3 BOTONES
+ctl_pad6     | 3 BUTTONS START UP DOWN AIM | 3 BOTONES START ARRIBA ABAJO
+sp_title     | SPECIAL SETTING         | AJUSTES ESPECIALES
+sp_icon      | ICON CANCEL             | CANCELAR ÍCONO
+sp_moon      | MOON WALK               | CAMINAR HACIA ATRÁS
+sp_auto      | AUTO                    | AUTO
+sp_manual    | MANUAL                  | MANUAL
+sp_on        | ON                      | SÍ
+sp_off       | OFF                     | NO

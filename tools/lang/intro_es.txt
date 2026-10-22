@@ -1,0 +1,17 @@
+# Texto de la intro en español. Lo escribes tú: el texto en inglés sale de tu ROM al compilar
+# (make_menu_data.py) y aquí va la traducción. Una sección por página; cada línea de la sección es una
+# línea en pantalla (máximo 30 letras en las páginas del diario, 24 en la primera). Si una página
+# queda vacía, se muestra en inglés.
+# Letras: A-Z, 0-9, . , ' : ! ? y las vocales con tilde, Ñ, ¿ ¡.
+[captivity]
+
+[page1]
+
+[page2]
+
+[page3]
+
+[page4]
+
+[page5]
+

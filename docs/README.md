@@ -26,6 +26,7 @@ Empezar por [46 — Estado y cómo continuar](46_ESTADO_Y_CONTINUACION.md).
 | 46 | Estado del proyecto y cómo continuar |
 | 47 | Estructura del proyecto (SGDK), `Makefile`, recursos propios y privados |
 | 48 | Tamaño de la ROM (depósito de tiles, lo que sigue), Mega CD, traducción |
+| 49 | El ojo (MorphBallEye) y su haz: claves del ojo, tiles del haz en dos bancos, métodos evaluados |
 
 Los documentos 01-25 (análisis y prototipos anteriores al motor nativo) quedaron en la carpeta de trabajo, fuera del
 repositorio.

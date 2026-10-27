@@ -42,8 +42,11 @@ uint8 zebes_eye_room(void);        /* sala con el ojo: celdas con prioridad alta
 #define CONE_FULL CONE_TILE0            /* 4 tiles llenos (sprites de hasta 4 de ancho) */
 #define CONE_EDGE (CONE_TILE0 + 4)      /* bordes rectos fijos: 92 tiles (cone_edge_tiles) */
 #define CONE_NEDGE 92
-#define CONE_DYN (CONE_EDGE + CONE_NEDGE)   /* tiles armados en el cuadro (bandas que no son dos bordes rectos) */
-#define CONE_DYN_MAX (128 - 4 - CONE_NEDGE)
+#define CONE_DYN (CONE_EDGE + CONE_NEDGE)   /* tiles armados (bandas que no son dos bordes rectos): 32 aquí */
+#define CONE_WIN 1802                   /* y 54 en las filas 5-31 del plano Window (no se ven: la ventana solo muestra
+                                           el HUD; también las usa la caja de mensaje, después se recarga el haz) */
+#define CONE_DYN_BUF 85                 /* tiles de un banco como mucho (cone_buf) */
+#define CONE_UP_MAX 24                  /* tiles armados que sube como mucho cada vblank */
 #define CONE_SPR_MAX 44
 /* el armado del haz se hace de a pasos cortos (md_cone_idle y md_cone_frame): cuánto hace cada paso. Con tiempo
    libre: líneas de la tabla, líneas de bandas, tiles armados; sin tiempo libre (uno por cuadro): lo mismo, menos */
@@ -73,15 +76,40 @@ uint8 zebes_eye_room(void);        /* sala con el ojo: celdas con prioridad alta
 #define MAX_SPR 64
 
 static uint8 cone_on, cone_on_shown, cone_fixed_ok, sh_on;
-static uint16 cone_ndyn;                /* tiles armados de este cuadro (los copia el vblank) */
+/* Los tiles armados del haz nuevo van al banco que no se muestra (pend) y los sube el vblank de a poco, con lo que le
+   sobra (md_cone_vblank): el haz nuevo se muestra cuando están todos. Así ningún vblank sube más de CONE_UP_MAX. */
+static volatile uint8 up_on;            /* hay tiles del banco pend para subir */
+static volatile uint16 up_n;            /* los que ya subió (desde el principio del banco) */
+static uint8 pend;                      /* el banco que se arma (0 o 1) */
+/* Lugares de los tiles armados: tres tramos de la VRAM, uno detrás del otro: los tiles libres después de los objetos
+   de la sala (hasta el 1279; en 9A90, 68), los 32 de CONE_DYN y los 54 de CONE_WIN. Se parten en dos bancos iguales
+   (el del haz que se muestra y el del que se arma); cada banco toca como mucho dos tramos (cone_build: split). */
+static uint16 seg_s[4], seg_t[3];       /* primer lugar de cada tramo y su tile (seg_s[3]: el total) */
+static uint16 bank_s[3];                /* banco b: lugares bank_s[b] .. bank_s[b + 1] - 1 */
+static uint8 layout_ok;
+uint16 zebes_obj_end(void);             /* md_zebes.c: primer tile después de los objetos de la sala */
+static void dyn_layout(void) {
+  uint16 f = 1280 - zebes_obj_end();
+  if (f < 22) f = 0;                      /* (pocos: un banco tocaría los tres tramos) */
+  if (f > 2 * CONE_DYN_BUF - 86) f = 2 * CONE_DYN_BUF - 86;
+  seg_s[0] = 0; seg_t[0] = 1280 - f;
+  seg_s[1] = f; seg_t[1] = CONE_DYN;
+  seg_s[2] = f + 32; seg_t[2] = CONE_WIN;
+  seg_s[3] = f + 86;
+  bank_s[0] = 0; bank_s[1] = (f + 86) >> 1; bank_s[2] = f + 86;
+  layout_ok = 1;
+}
+static uint16 seg_of(uint16 s) { return s >= seg_s[2] ? 2 : s >= seg_s[1] ? 1 : 0; }
 extern uint16 beam_tab_version;
 void beam_job_start(void);           /* hdmaobj.c: la tabla del haz, por partes */
 uint8 xray_job_run(uint16 budget);
+int16 md_vb_lines_left(void);           /* md_engine.c: líneas del vblank que quedan */
 static uint32 cache_a[2 * CONE_SPR_MAX];
 static uint32 *cache = cache_a;         /* los sprites del haz que se muestran */
 /* el que se arma (el otro): en el texto de las cinemáticas (la intro), que no se usa en Zebes (la RAM es justa) */
-#define cone_buf ((uint32 *)cinematic_bg_tilemap)   /* 2 KB: solo los usan la intro y las cinemáticas */
-#define CACHE_B ((uint32 *)((uint8 *)cinematic_text_tilemap + 1600))
+/* en Zebes, del texto de las cinemáticas solo usa la caja de mensaje los bytes 512-1003 */
+#define CACHE_B ((uint32 *)((uint8 *)cinematic_text_tilemap + 1024))   /* 352 bytes */
+#define cone_buf ((uint32 *)((uint8 *)cinematic_text_tilemap + 1376))  /* hasta el final (4 KB): 85 tiles */
 static uint32 *cache_b;
 static uint16 cache_n, cpar[4];         /* sprites que se muestran; con qué valores del haz se armaron */
 /* El haz nuevo se arma en el tiempo que le sobra a los cuadros (md_cone_idle, mientras la consola espera): primero
@@ -89,7 +117,8 @@ static uint16 cache_n, cpar[4];         /* sprites que se muestran; con qué val
    está, md_cone_frame lo cambia por el que se muestra. Si un cuadro no deja tiempo, el haz anterior sigue (corrido
    con la cámara) un poco más: el juego nunca espera al haz. */
 static uint8 job;                       /* 0 nada, 1 la tabla, 2 los sprites, 3 listo */
-static uint16 jpar[4], jn, jndyn;
+static uint16 jpar[4], jn;
+static volatile uint16 jndyn;           /* lugar del próximo tile armado (desde 0, con el banco) */
 typedef struct { const uint8 *tp; uint32 *o, *omax; uint16 *fb; uint16 link, y; } ConeArgs;
 static ConeArgs jca;
 static uint16 jfby[2];
@@ -398,7 +427,10 @@ const int16 kBuildIdx[1279] __attribute__((used)) = {
   32, 32, 32, 32, 32, 32, 32,
 };
 int16 cone_fc0 __attribute__((used)), cone_fc1 __attribute__((used));   /* columnas llenas de la banda */
-typedef struct { const uint8 *tp; uint32 *tb, *o, *omax; uint16 ndyn, ndyn_max, link, y; int16 col0; uint16 cap; } BuildArgs;
+/* ndyn: lugar del próximo tile armado; su tile es base_lo + ndyn antes de split y base_hi + ndyn después (dos tramos
+   de la VRAM: un sprite no cruza el corte) */
+typedef struct { const uint8 *tp; uint32 *tb, *o, *omax; uint16 ndyn, ndyn_max, link, y; int16 col0; uint16 cap;
+                 uint16 split, base_lo, base_hi; } BuildArgs;
 void cone_build(BuildArgs *a);
 __asm__(
   "    .text\n"
@@ -513,7 +545,19 @@ __asm__(
   "    ble 11f\n"
   "    moveq #4,%d3\n"
   "11: move.w 16(%a6),%d0\n"
-  "    add.w %d3,%d0\n"
+  "    cmp.w 28(%a6),%d0\n"                  /* un sprite no cruza el corte de la VRAM (split): se salta hasta él */
+  "    bcc 15f\n"
+  "    move.w %d0,%d1\n"
+  "    add.w %d3,%d1\n"
+  "    cmp.w 28(%a6),%d1\n"
+  "    bls 15f\n"
+  "    move.w 28(%a6),%d1\n"
+  "    sub.w %d0,%d1\n"
+  "    lsl.w #5,%d1\n"
+  "    adda.w %d1,%a1\n"                      /* (esos tiles quedan sin usar) */
+  "    move.w 28(%a6),%d0\n"
+  "    move.w %d0,16(%a6)\n"
+  "15: add.w %d3,%d0\n"
   "    cmp.w 18(%a6),%d0\n"
   "    bgt 30f\n"
   "    cmp.w 26(%a6),%d0\n"
@@ -526,9 +570,13 @@ __asm__(
   "    or.w 20(%a6),%d0\n"
   "    move.w %d0,(%a4)+\n"
   "    addq.w #1,20(%a6)\n"
-  "    move.w 16(%a6),%d0\n"
-  "    add.w #0xE7E0,%d0\n"                   /* 0xE000 | CONE_DYN (2016) */
-  "    move.w %d0,(%a4)+\n"
+  "    move.w 16(%a6),%d0\n"                 /* el tile del lugar ndyn: antes o después del corte */
+  "    cmp.w 28(%a6),%d0\n"
+  "    bcs 16f\n"
+  "    add.w 32(%a6),%d0\n"
+  "    bra 17f\n"
+  "16: add.w 30(%a6),%d0\n"
+  "17: move.w %d0,(%a4)+\n"
   "    move.w %d4,%d0\n"
   "    lsl.w #3,%d0\n"
   "    add.w #128,%d0\n"
@@ -709,14 +757,16 @@ static uint8 job_step(uint8 small) {
       jca.omax = cache_b + 2 * (CONE_SPR_MAX - 6);
       jca.link = 1;
       jca.y = 128 + CONE_TOP;
-      jtb = cone_buf;
-      jndyn = 0;
+      jtb = cone_buf;                          /* (el primer tile del banco) */
+      up_on = 0;
+      jndyn = bank_s[pend];
+      up_n = 0;
+      up_on = 1;
       jcol = -1;
     }
     return 0;
   }
   if (job != 2) return job == 3;
-  if (cone_ndyn) return 0;                     /* el vblank todavía no copió los tiles del haz anterior */
   { uint16 st = small ? CONE_BAND_SMALL : CONE_BAND_STEP;
     cone_ymax = jca.y + st < 352 ? jca.y + st : 352; }
   if (jcol < 0) {
@@ -727,7 +777,11 @@ static uint8 job_step(uint8 small) {
     BuildArgs ba;
     ba.tp = (const uint8 *)(&ERAM(0x9100) + CONE_TOP - 2) + 2 * (jfby[0] - 128 - CONE_TOP);
     ba.tb = jtb; ba.o = jca.o; ba.omax = jca.omax;
-    ba.ndyn = jndyn; ba.ndyn_max = CONE_DYN_MAX; ba.link = jca.link; ba.y = jfby[0];
+    ba.ndyn = jndyn; ba.ndyn_max = bank_s[pend + 1]; ba.link = jca.link; ba.y = jfby[0];
+    { uint16 k = seg_of(bank_s[pend]);       /* el tramo donde empieza el banco y el siguiente */
+      ba.split = k < 2 ? seg_s[k + 1] : 0xFFFF;
+      ba.base_lo = 0xE000 | (seg_t[k] - seg_s[k]);
+      ba.base_hi = k < 2 ? 0xE000 | (seg_t[k + 1] - seg_s[k + 1]) : 0; }
     ba.col0 = jcol;
     ba.cap = jndyn + (small ? CONE_DYN_SMALL : CONE_DYN_STEP);   /* tiles armados por paso (cada uno cuesta) */
     cone_build(&ba);
@@ -747,25 +801,30 @@ static uint8 job_step(uint8 small) {
 
 /* el tiempo libre del cuadro (md_main.c y md_engine.c, mientras esperan al vblank) */
 static uint8 idle_ran;                  /* este cuadro hubo tiempo libre */
+static uint8 cone_live;                 /* md_cone_frame pidió el haz (la sala con el ojo, encendido)... */
+static uint16 live_frame;               /* ...en este cuadro del motor (si no se llamó, no vale) */
 void md_cone_idle(void) {
   idle_ran = 1;
-  if (job == 1 || job == 2) job_step(0);
+  /* solo mientras se juega en la sala (sus búferes son del texto de las cinemáticas: no en la muerte ni en la caja) */
+  if (cone_live && (uint16)(md_frame_count - live_frame) <= 1 && (job == 1 || job == 2)) job_step(0);
 }
 
 uint16 md_cone_frame(void) {
   cone_on = 0;
-  cone_ndyn = 0;
   uint8 eye = zebes_eye_room();
 #ifndef CONE_NOSPRFIX
   if (eye) eye_room_sprites();
 #endif
+  cone_live = 0;
   if (!eye || fx_layer_blending_config_c != 16 || !zebes_cone_slot(CONE_COLOR)) return 0;
   uint16 k = reg_COLDATA[0] & 31;          /* la intensidad del SNES (R = G) */
   if (k < 4 || (k < 8 && (nmi_frame_counter_word & 1))) return 0;
 #ifdef CONE_NODRAW
   return 0;
 #endif
+  cone_live = 1; live_frame = md_frame_count;
   if (!rows_ok) make_rows();
+  if (!layout_ok) dyn_layout();
   uint16 nfree = (uint16)(spr + MAX_SPR - sp_ptr);
   if (nfree > CONE_SPR_MAX) nfree = CONE_SPR_MAX;
   if (nfree < 8) return 0;
@@ -773,22 +832,25 @@ uint16 md_cone_frame(void) {
      es la misma forma corrida: se muestran los sprites armados corridos. */
   uint16 p[4];
   beam_params(p);                             /* x, y del ojo en la pantalla, ángulo, ancho */
-  if (!cache_ok) {                            /* nada que mostrar todavía: todo en este cuadro */
+  if (!cache_ok && !job) {                   /* nada que mostrar todavía: se arma todo en este cuadro (sus tiles los
+                                                 sube el vblank: se muestra en uno o dos cuadros) */
     beam_job_start();
     for (uint16 i = 0; i < 4; i++) jpar[i] = p[i];
     job = 1;
     while (!job_step(0)) {}
   }
-  if (job == 3) {                             /* el haz nuevo está armado: se muestra desde este cuadro */
+  if (job == 3 && up_n >= jndyn - bank_s[pend]) {   /* el haz nuevo está armado y sus tiles en la VRAM: se
+                                                            muestra desde este cuadro */
     uint32 *t = cache; cache = cache_b; cache_b = t;
     cache_n = jn;
-    cone_ndyn = jndyn;                          /* sus tiles: los copia el vblank */
+    up_on = 0;
+    pend ^= 1;
     for (uint16 i = 0; i < 4; i++) cpar[i] = jpar[i];
     cache_serial++;
     cache_ok = 1;
     job = 0;
-
   }
+  if (!cache_ok) return 0;                    /* el primero todavía sube sus tiles */
   int16 dx = (int16)(p[0] - cpar[0]), dy = (int16)(p[1] - cpar[1]);
   /* el ángulo: se rearma si cambió 2 o más (1/128 de vuelta); un paso de 1/256 no se ve */
   int8 da = (int8)(uint8)(p[2] - cpar[2]);
@@ -844,7 +906,22 @@ void md_cone_vblank(void) {
         }
     cone_fixed_ok = 1;
   }
-  if (cone_on && cone_ndyn && cone_fixed_ok) vdp_dma_vram(cone_buf, CONE_DYN * 32, cone_ndyn * 16);
+  if (up_on) {                                 /* tiles armados del haz que se arma (banco pend): los que haya */
+    uint16 b0 = bank_s[pend], s = b0 + up_n, e = jndyn;
+    int16 left = (int16)(md_vb_lines_left() - 16);   /* (lo demás del vblank) */
+    int16 n = (int16)(e - s), lim = left > 0 ? (int16)((left * 70) >> 4) : 0;   /* 70 palabras por línea (H32) */
+    if (lim > CONE_UP_MAX) lim = CONE_UP_MAX;
+    if (n > lim) n = lim;
+    if (n > 0) {
+      e = s + n;
+      while (s < e) {                          /* por tramos de la VRAM */
+        uint16 k = seg_of(s), e1 = e < seg_s[k + 1] ? e : seg_s[k + 1];
+        vdp_dma_vram(cone_buf + 8 * (s - b0), (seg_t[k] + s - seg_s[k]) * 32, (e1 - s) * 16);
+        s = e1;
+      }
+      up_n += n;
+    }
+  }
   uint8 want = zebes_eye_room();          /* en las salas con el ojo, siempre (todo tiene prioridad alta) */
   if (want != sh_on) { vdp_reg(0x0C, want ? 0x08 : 0x00); sh_on = want; }
   cone_on_shown = cone_on;
@@ -852,6 +929,6 @@ void md_cone_vblank(void) {
 
 /* la VRAM de 0xF000 se vuelve a llenar al cambiar de sala (la pueden usar las cinemáticas) */
 void md_cone_room(void) {
-  cone_fixed_ok = 0; cache_ok = 0; job = 0;
+  cone_fixed_ok = 0; cache_ok = 0; job = 0; up_on = 0; layout_ok = 0;
   bank_sig[0].serial = bank_sig[1].serial = 0;
 }

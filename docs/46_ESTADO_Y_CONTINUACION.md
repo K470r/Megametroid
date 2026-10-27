@@ -44,6 +44,10 @@ Reglas de Edwin (no negociables):
   la forma solo se suman x e y. Cuadros del motor en 300: 300 quieta, caminando y dando vueltas bajo el haz (antes
   294); barridos en las 3 salas: 72 de 72. Lo que se paga: el haz sigue a Samus con unos cuadros de demora (cada
   ~8-10 cuadros uno nuevo; más en la sala 9A90, con el haz casi horizontal: cada uno cuesta ~250 líneas).
+- **Ojo y haz arreglados** (eye-beam, docs/49): faltaban las claves de 12 de los 14 cuadros del ojo (lista calculada
+  de `MorphBallEye_Func_3`, ahora en `mkzkeys.py`): por eso desaparecía parte del ojo. Los bordes del haz ya no se
+  vuelven escalones de 8 px: los tiles armados van en dos bancos (el que se muestra y el que se arma) sobre tres tramos
+  de VRAM (libres después de los objetos, `0xFC00`, filas ocultas del Window) y se suben de a poco en cada vblank.
 - **Enemigos con spritemaps extendidos** (crateria11: los piratas de la sala del pozo y otras): `mkzkeys.py` ahora
   expande las partes (`extra_properties & 4` de la población, como `WriteEnemyOams`). Eran los invisibles que hacían
   daño al volver de Brinstar con la bola y los misiles.
@@ -169,6 +173,8 @@ Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escr
 - **Colores**: línea 3 debajo del HUD = objetos de la sala (10 colores) + rayo (9-13); la cambia una interrupción.
 - **Perfil**: los `poke` dependen de las direcciones de cada compilación: regenerar el guion al recompilar.
 - **H32**: 64 sprites, 16 por línea; el cono va al final de la lista (detrás de todo, se recorta primero).
+- **VRAM del haz** (docs/49): además de 0xF000-0xFFFF usa los tiles libres después de los objetos de la sala y las
+  filas 5-31 del Window (como la caja de mensaje). RAM: `cinematic_text_tilemap` desde el byte 1024.
 - La regresión marca "corrimientos" cuando cambia la velocidad del código: comparar a ojo (lado a lado con la ROM
   anterior) antes de aprobar.
 

@@ -486,6 +486,7 @@ const uint16 *zebes_obj_find(uint16 sm, uint16 pal, uint16 tiles) {
 
 /* proyectiles enemigos de Zebes (md_engine.c): la página de los objetos puesta mientras se dibujan */
 uint8 zebes_obj_page(void) { return zo ? zo->page : 0xFF; }
+uint16 zebes_obj_end(void) { return zo ? zo->base + zo->ntiles : ZOBJ_BASE; }   /* md_cone.c: tiles libres hasta 1279 */
 
 /* claves ya buscadas (por dispersión del spritemap): casi siempre el mismo enemigo con el mismo cuadro */
 static struct { uint16 sm, pal, tiles; const uint16 *rec; const void *zo; } zcache[64];

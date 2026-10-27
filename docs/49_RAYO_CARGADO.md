@@ -67,3 +67,20 @@ Notas:
   cambia la imagen comparada). Comprobado: la imagen del cuadro 7330 del motor (cuadro 7474 de la consola) es
   idéntica píxel por píxel a la que muestra la rama base un cuadro de consola más tarde; las de los cuadros 8689
   y 9360 son iguales a la vista. No se aprobaron (`UPDATE=1`): lo decide Edwin.
+
+## Corrección: la estela del rayo cargado (2026-10-27)
+
+Edwin, probando en la Genesis: la estela del disparo cargado salía detrás de Samus, al nivel del suelo, y no a la
+altura de la bola. Causa: `ProjectileTrail_Func5` ($9B:A3CC) lee la tabla por dirección de cada rayo
+(`g_off_9BA4CB[tipo]` → $9B:A98F para el cargado normal) y esas tablas, salvo la del rayo normal, no están en
+`kBank9B_TrailPtrs` ($9B:A4B3-A56E) sino dentro del bloque de bytes de los desplazamientos (`kBank9B_TrailOffsets`,
+$9B:A56F-B3A7). `b9bt` leía fuera del arreglo: en el PC detrás está justo ese bloque y los bytes, en un PC
+little-endian, forman la misma palabra (por eso `check` daba 0 diferencias); en el 68000 leía otra cosa. Ahora `b9bt`
+lee esas direcciones del bloque de bytes (byte bajo primero) y avisa con `nt_unimpl` si una cae fuera.
+
+Comprobado en la Genesis (retrorun, RAM tras cada cuadro): la bola en y=134 y las estelas en y=130 (el sprite de 8x8
+centrado), detrás de la bola. `chargebeam.sh`: 0 diferencias. `regress.sh`: igual que antes (intro 0; Ceres y Zebes
+62, los mismos cuadros).
+
+Lección: `check` corre en el PC; una lectura fuera de un arreglo puede salir bien allí y mal en la Genesis. Al mirar
+una función nueva en la Genesis, comparar también su RAM con la del PC (aquí: `projectiletrail_*`).

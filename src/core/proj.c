@@ -962,7 +962,18 @@ static void FireChargedBeam(void) {  // 0x90B986
 
 /* ------------------------------------------------------------------ estelas ($90:B657, $9B:A3CC) */
 static uint16 b90t(uint16 a) { return kBank90_Trails[(uint16)(a - BANK90_TRAILS_LO) >> 1]; }
-static uint16 b9bt(uint16 a) { return kBank9B_TrailPtrs[(uint16)(a - BANK9B_TRAILPTRS_LO) >> 1]; }
+/* $9B: las tablas de punteros de las estelas. Las de primer nivel ($9B:A4B3-A56E) y las del rayo normal están en
+   kBank9B_TrailPtrs; las de los rayos cargados y demás ($9B:A58F, A98F...) caen dentro del bloque de bytes de los
+   desplazamientos (kBank9B_TrailOffsets, $9B:A56F-B3A7): se leen de ahí (byte bajo primero, como el SNES) */
+static uint16 b9bt(uint16 a) {
+  if (a < 0xA56F)
+    return kBank9B_TrailPtrs[(uint16)(a - BANK9B_TRAILPTRS_LO) >> 1];
+  if (a >= 0xB3A6) nt_unimpl("b9bt (dirección fuera de las tablas de estelas preparadas)");
+  const uint8 *p = &kBank9B_TrailOffsets[(uint16)(a - 0xA56F)];
+  uint8 hi = p[1];
+  __asm__("" : "+r"(hi));
+  return (uint16)(p[0] | hi << 8);
+}
 
 static void ProjectileTrail_Func5(uint16 k, uint16 j) {  // 0x9BA3CC
   uint16 R22 = ProjectileInsts_GetValue(k);

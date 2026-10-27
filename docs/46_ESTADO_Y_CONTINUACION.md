@@ -95,6 +95,11 @@ Reglas de Edwin (no negociables):
   - RAM: 7E:3000-3FFF es un solo arreglo (`cinematic_text_tilemap[2048]`; `menu_tilemap` y `cinematic_bg_tilemap`
     son alias, `alias` en `vars_extra.txt`): 2 KB menos. `md_ssf2.ld` falla si `_bend` pasa de 0xE0FFE3F0 (con
     menos memoria para SGDK la consola no arranca).
+- **spore-spawn** (2026-10-22, docs/49): Spore Spawn giraba a toda velocidad por un error del traductor (`jp[n]` leía
+  `jp + 4n`; también afectaba a `Draygon_Instr_1/14`, `Torizo_Instr_25/26/45` y `SpacePirates_Instr_15`). Portado lo
+  que faltaba para la pelea (`EprojInstr_DC5A`, `EprojInstr_SpawnEnemyDrops_0`, `CreateADudShot`; `kraid_unk9000` =
+  `ERAM(0x9000)`) y el cuelgue al morir en la Genesis (palabra en dirección impar en `boss_bits_for_area`). Pelea
+  entera contra el SNES con `tools/rooms/spore_fight.py`: 0 diferencias hasta la muerte.
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 
@@ -108,7 +113,7 @@ Reglas de Edwin (no negociables):
    mientras está encendido, prioridad alta en el plano del fondo y en los sprites (si no, todo queda en sombra).
 1. (Hecho en crateria13) Caja de mensaje, pelea con Bomb Torizo, niebla/neblina como tinte. Falta: las nubes de la
    niebla (forma), el degradado de la neblina (hoy un color medio), la muerte de Samus (c11).
-2. Ojos de las estatuas (paleta/2 líneas del BG), agua del FX 0x26 (BG3), Spore Spawn en BG2 sin probar.
+2. Ojos de las estatuas (paleta/2 líneas del BG), agua del FX 0x26 (BG3). (Spore Spawn: hecho, docs/49.)
 3. **Bombas de poder** y bombas en abanico (las bombas normales ya están).
 4. Secuencia de muerte (`HandleSamusOutOfHealthAndGameTile`), menú de pausa y mapa.
 5. **Sonido**: hoy solo las voces de la intro. Falta el controlador del Z80 (música y efectos; la cola del motor ya

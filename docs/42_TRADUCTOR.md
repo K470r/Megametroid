@@ -32,6 +32,10 @@ no se editan; se cambia el traductor o se escribe la función a mano en otro arc
 - Bancos poco usados (81, 82, 86, 8B, 8D) están como bytes y no como palabras: la parte fija de la ROM (4 MB) no
   alcanzaba.
 
+- Argumentos de las instrucciones: `jp[n]` es la palabra n después de la instrucción → `IW_XX(jp + 2n)`, y `jp + n`
+  avanza n palabras → `jp + 2n`. Se reemplaza primero `jp + n` y después `jp[n]`; al revés, el `jp + 2n` de `jp[n]` se
+  volvía a duplicar (`jp[1]` leía `jp + 4`: Spore Spawn giraba a toda velocidad, docs/49).
+
 ## Verificación
 
 `tools/rooms/crall.sh` (ver docs/41): las 34 salas de Crateria con enemigos, grabadas en el SNES con un patrón de

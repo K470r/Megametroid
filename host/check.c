@@ -188,10 +188,10 @@ int main(int argc, char **argv) {
     for (; t && nwarp < 64; t = strtok(0, ",")) { warp_n[nwarp] = atol(t); warp_door[nwarp] = strtoul(strchr(t, ':') + 1, 0, 16); nwarp++; }
   }
   /* HL_SETXY="n:x:y,...": como hlref, Samus a (x, y) antes del cuadro grabado n */
-  static long sxy_n[32]; static int sxy_x[32], sxy_y[32]; int nsxy = 0, isxy = 0;
+  static long sxy_n[256]; static int sxy_x[256], sxy_y[256]; int nsxy = 0, isxy = 0;
   if (getenv("HL_SETXY")) {
     char *ss = strdup(getenv("HL_SETXY")), *t = strtok(ss, ",");
-    for (; t && nsxy < 32; t = strtok(0, ",")) { sscanf(t, "%ld:%d:%d", &sxy_n[nsxy], &sxy_x[nsxy], &sxy_y[nsxy]); nsxy++; }
+    for (; t && nsxy < 256; t = strtok(0, ",")) { sscanf(t, "%ld:%d:%d", &sxy_n[nsxy], &sxy_x[nsxy], &sxy_y[nsxy]); nsxy++; }
   }
   for (long f = from + 1; f <= to; f++) {
     cur_frame = f;

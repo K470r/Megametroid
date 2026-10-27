@@ -95,6 +95,12 @@ Reglas de Edwin (no negociables):
   - RAM: 7E:3000-3FFF es un solo arreglo (`cinematic_text_tilemap[2048]`; `menu_tilemap` y `cinematic_bg_tilemap`
     son alias, `alias` en `vars_extra.txt`): 2 KB menos. `md_ssf2.ld` falla si `_bend` pasa de 0xE0FFE3F0 (con
     menos memoria para SGDK la consola no arranca).
+- **crateria14** (2026-10-27, docs/49): el **Bomb Torizo se dibuja como en el SNES** (cuerpo entero, colores de
+  estatua, despertar, destellos, ojo, trozos de la estatua, orbes). Jefes con colores propios (`mkzobj.BOSS_PALETTES`):
+  sus paletas salen de las funciones del decomp que las escriben; en sus estados la sala va en una línea y la línea 1 es
+  de los objetos (`ZebesObj.src` de 30). `port.py` marca `nt_pal_dirty` cuando el código escribe `palette_buffer`.
+  `mkzkeys.py`: proyectiles de PLMs (`plm_walk`), tablas de listas, pre-instrucciones puestas por lista. Comparación
+  lado a lado con el SNES cuadro a cuadro: `tools/compare/lado_a_lado.sh` (ROM de prueba con `MD_TEST_WARP_AT`).
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 
@@ -167,6 +173,10 @@ Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escr
   (tiles 1920-2047): ahí van los del cono y, con la caja de mensaje, los de la caja (después se recarga el cono).
   Mapa en `inc/platform/md.h`.
 - **Colores**: línea 3 debajo del HUD = objetos de la sala (10 colores) + rayo (9-13); la cambia una interrupción.
+  En los estados con un jefe de `BOSS_PALETTES` (hoy el Torizo) la sala usa solo la línea 0 y la línea 1 es del jefe
+  (docs/49). Toda escritura a `palette_buffer` fuera de las funciones del motor tiene que marcar `nt_pal_dirty`.
+- **Una llamada más por cuadro** en el camino común (`md_post`) corre los tiempos de Ceres y la regresión lo marca
+  (19 → 99 cuadros, todos corrimientos): lo que depende de la sala se decide al cargarla.
 - **Perfil**: los `poke` dependen de las direcciones de cada compilación: regenerar el guion al recompilar.
 - **H32**: 64 sprites, 16 por línea; el cono va al final de la lista (detrás de todo, se recorta primero).
 - La regresión marca "corrimientos" cuando cambia la velocidad del código: comparar a ojo (lado a lado con la ROM

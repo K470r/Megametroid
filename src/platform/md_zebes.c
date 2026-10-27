@@ -189,7 +189,11 @@ const MdRoom *zebes_use(void) {
   zroom.room = room_ptr;
   zroom.state = roomdefroomstate_ptr;
   zroom.plane_w = 64; zroom.plane_h = 64;
-  zroom.planeA = 0; zroom.planeB = 0; zroom.b_mode = 0;
+  zroom.planeA = 0; zroom.planeB = 0;
+  /* fondo de biblioteca (64x32 celdas en el plano B, como el BG2 del SNES): b_mode 1, el plano B se mueve con los
+     registros del SNES (BG2HOFS = bg2_x_scroll + layer2_x_pos, door.c); p. ej. 9804, la sala del Bomb Torizo, con
+     bg2_x_scroll = 256 */
+  zroom.b_mode = !zg->l2 && !zg->sky && zg->bg2 ? 1 : 0;
   zroom.patch = 0; zroom.npatch = 0; zroom.wall = 0; zroom.door_sm = 0; zroom.flash_line = 0;
   memcpy(zsrc, base->src, 64);
   uint8 lp = md_cur_page;
@@ -198,9 +202,34 @@ const MdRoom *zebes_use(void) {
     zsrc[i] = i < (uint16)zg->npal * 16 ? (uint8)zg->src[i] : 0xFF;
   memset(meta_idx, 0, META_IDX_BYTES);
   for (uint16 i = 0; i < zg->nmeta; i++) meta_idx[zg->ids[i] & 0x3FF] = i + 1;
+  if (zo && zg->npal == 1) {                 /* jefe de colores propios (mkzobj.BOSS_LINE): la línea 1 es de los objetos */
+    map_page(zo->page);
+    for (uint16 i = 1; i < 16; i++) {
+      uint16 s = zo->src[14 + i];
+      zsrc[16 + i] = s == 0xFFFF ? 0xFF : (uint8)s;
+    }
+  }
   map_page(lp);
   zsrc[0] = 0;                               /* color de fondo: palette_buffer[0] */
   zroom.src = zsrc;
+  /* lista del fundido (NT_FADE_LIST, AdvancePaletteFadeForAllPalettes): la de la sala base (Samus, HUD, rayo) más
+     los colores de esta sala y de sus objetos (el despertar del Bomb Torizo es un fundido de sus paletas) */
+  {
+    static uint8 zfade[256];
+    uint8 seen[32];
+    uint16 n = 0;
+    memset(seen, 0, sizeof seen);
+    #define ZFADE_ADD(c) do { uint8 c_ = (c); if (!(seen[c_ >> 3] & (1 << (c_ & 7)))) { seen[c_ >> 3] |= 1 << (c_ & 7); zfade[n++] = c_; } } while (0)
+    for (uint16 i = 0; i < base->nfade; i++) ZFADE_ADD(base->fade[i]);
+    for (uint16 i = 1; i < 64; i++) if (zsrc[i] != 0xFF) ZFADE_ADD(zsrc[i]);
+    if (zo) {
+      map_page(zo->page);
+      for (uint16 i = 0; i < 30; i++) if (zo->src[i] != 0xFFFF) ZFADE_ADD((uint8)zo->src[i]);
+      map_page(lp);
+    }
+    #undef ZFADE_ADD
+    zroom.fade = zfade; zroom.nfade = n;
+  }
   md_zebes = 1;
   drawn[0] = drawn[1] = 0;
   ncol = nrow = nblk = nsky = 0;

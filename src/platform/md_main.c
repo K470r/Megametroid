@@ -47,6 +47,29 @@ static u16 start_frames;
 
 static u16 read_joy(void) {
 #ifdef MD_TEST_INPUT
+#ifdef MD_TEST_WARP_AT
+  /* pruebas (EXPFL="-DMD_TEST_WARP_AT=n -DMD_TEST_WARP_DOOR=0x8BC2 ..."): lo mismo que HL_WARP / HL_SETXY de hlref en
+     el cuadro n de la entrada, para comparar la imagen con la del SNES cuadro a cuadro en cualquier sala */
+  { extern uint16_t game_state, door_def_ptr, door_transition_function, samus_health, samus_max_health;
+    static u8 warped;
+    if (!warped && test_pos >= MD_TEST_WARP_AT && game_state == 8) {
+      warped = 1;
+      door_def_ptr = MD_TEST_WARP_DOOR;
+      door_transition_function = 0xE17D;           /* DoorTransitionFunction_HandleElevator */
+      game_state = 9;
+      samus_health = samus_max_health;
+    }
+#ifdef MD_TEST_SETXY_AT
+    extern uint16_t samus_x_pos, samus_y_pos, samus_prev_x_pos, samus_prev_y_pos;
+    static u8 placed;
+    if (!placed && test_pos >= MD_TEST_SETXY_AT && game_state == 8) {
+      placed = 1;
+      samus_x_pos = samus_prev_x_pos = MD_TEST_SETXY_X;
+      samus_y_pos = samus_prev_y_pos = MD_TEST_SETXY_Y;
+    }
+#endif
+  }
+#endif
   if (test_pos < kTestInputLen) return kTestInput[test_pos++];
 #endif
   u16 pad = JOY_readJoypad(JOY_1);

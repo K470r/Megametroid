@@ -1349,7 +1349,7 @@ uint16 EprojInstr_WriteColorsToPalette(uint16 k, uint16 epjp) {  // 0x8682D5
   int n = BB_86((uint16)(epjp + 4));
   uint16 v4 = BW_86(epjp);
   do {
-    palette_buffer[v3 >> 1] = BW_86(v4);
+    { palette_buffer[v3 >> 1] = BW_86(v4); nt_pal_dirty((uint8)(v3 >> 1), (uint8)(v3 >> 1)); }
     v4 += 2;
     v3 += 2;
   } while ((--n & 0x8000) == 0);
@@ -2002,7 +2002,7 @@ static void EprojInit_TourianStatueEyeGlow(uint16 j) {  // 0x86B88E
   eproj_y_pos[v3] = ((uint16)BW_86(0xB916 + 2 * (v2)));
   uint16 v4 = 4 * v1;
   for (int i = 498; i != 506; i += 2) {
-    palette_buffer[i >> 1] = ((uint16)BW_86(0xB91E + 2 * (v4 >> 1)));
+    { palette_buffer[i >> 1] = ((uint16)BW_86(0xB91E + 2 * (v4 >> 1))); nt_pal_dirty((uint8)(i >> 1), (uint8)(i >> 1)); }
     v4 += 2;
   }
 }
@@ -6578,11 +6578,11 @@ uint16 Draygon_Instr_20(uint16 k, uint16 jp) {  // 0xA5E8BA
 uint16 Draygon_Instr_29(uint16 k, uint16 jp) {  // 0xA5E8CA
   uint16 v2 = IW_A5((uint16)(jp + 0));
   for (int i = 0; i != 32; i += 2)
-    palette_buffer[(i >> 1) + 144] = ((uint16)BW_A5(0xE3F9 + 2 * ((v2 + i) >> 1)));
+    { palette_buffer[(i >> 1) + 144] = ((uint16)BW_A5(0xE3F9 + 2 * ((v2 + i) >> 1))); nt_pal_dirty((uint8)((i >> 1) + 144), (uint8)((i >> 1) + 144)); }
   for (int i = 0; i != 32; i += 2)
-    palette_buffer[(i >> 1) + 64] = ((uint16)BW_A5(0xE4F9 + 2 * ((v2 + i) >> 1)));
+    { palette_buffer[(i >> 1) + 64] = ((uint16)BW_A5(0xE4F9 + 2 * ((v2 + i) >> 1))); nt_pal_dirty((uint8)((i >> 1) + 64), (uint8)((i >> 1) + 64)); }
   for (int i = 0; i != 32; i += 2)
-    palette_buffer[(i >> 1) + 112] = ((uint16)BW_A5(0xE5D9 + 2 * ((v2 + i) >> 1)));
+    { palette_buffer[(i >> 1) + 112] = ((uint16)BW_A5(0xE5D9 + 2 * ((v2 + i) >> 1))); nt_pal_dirty((uint8)((i >> 1) + 112), (uint8)((i >> 1) + 112)); }
   return (uint16)(jp + 2);
 }
 uint16 Draygon_Instr_19(uint16 k, uint16 jp) {  // 0xA5E91C
@@ -6839,7 +6839,7 @@ void SporeSpawn_Func_6(void) {  // 0xA5EDF3
 void SporeSpawn_Func_7(uint16 a) {  // 0xA5EE4A
   uint16 v1 = a;
   for (int i = 0; i != 32; i += 2) {
-    palette_buffer[(i >> 1) + 144] = ((uint16)BW_A5(0xE379 + 2 * (v1 >> 1)));
+    { palette_buffer[(i >> 1) + 144] = ((uint16)BW_A5(0xE379 + 2 * (v1 >> 1))); nt_pal_dirty((uint8)((i >> 1) + 144), (uint8)((i >> 1) + 144)); }
     v1 += 2;
   }
 }
@@ -8999,7 +8999,7 @@ void BlueBrinstarFaceBlock_Func_1(void) {  // 0xA8E86E
     uint16 v1 = 8 * variables_for_enemy_graphics_drawn_hook[1];
     int n = 4;
     do {
-      palette_buffer[(v0 >> 1) + 137] = ((uint16)BW_A8(0xE7CC + 2 * (v1 >> 1)));
+      { palette_buffer[(v0 >> 1) + 137] = ((uint16)BW_A8(0xE7CC + 2 * (v1 >> 1))); nt_pal_dirty((uint8)((v0 >> 1) + 137), (uint8)((v0 >> 1) + 137)); }
       v1 += 2;
       v0 += 2;
     } while (--n);
@@ -9610,8 +9610,8 @@ void Torizo_C298(void) {  // 0xAAC298
 void Torizo_C2B0(void) {  // 0xAAC2B0
   for (int i = 30; i >= 0; i -= 2) {
     int v1 = i >> 1;
-    palette_buffer[v1 + 160] = ((uint16)BW_AA(0x8727 + 2 * (v1)));
-    palette_buffer[v1 + 144] = ((uint16)BW_AA(0x8707 + 2 * (v1)));
+    { palette_buffer[v1 + 160] = ((uint16)BW_AA(0x8727 + 2 * (v1))); nt_pal_dirty((uint8)(v1 + 160), (uint8)(v1 + 160)); }
+    { palette_buffer[v1 + 144] = ((uint16)BW_AA(0x8707 + 2 * (v1))); nt_pal_dirty((uint8)(v1 + 144), (uint8)(v1 + 144)); }
   }
 }
 uint16 Torizo_Instr_7(uint16 k, uint16 jp) {  // 0xAAC2C8
@@ -9835,8 +9835,8 @@ void Torizo_Hurt(void) {  // 0xAAC67E
   if (gEnemyData(cur_enemy_index)->flash_timer & 1) {
     for (int i = 30; i >= 0; i -= 2) {
       int v2 = i >> 1;
-      palette_buffer[v2 + 160] = 0x7FFF;
-      palette_buffer[v2 + 144] = 0x7FFF;
+      { palette_buffer[v2 + 160] = 0x7FFF; nt_pal_dirty((uint8)(v2 + 160), (uint8)(v2 + 160)); }
+      { palette_buffer[v2 + 144] = 0x7FFF; nt_pal_dirty((uint8)(v2 + 144), (uint8)(v2 + 144)); }
     }
   } else {
     Torizo_C2B0();

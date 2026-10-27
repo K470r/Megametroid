@@ -129,11 +129,23 @@ static inline int16 it_x9(uint16 x) { return (int16)(x << 7) >> 7; }
 
 /* ------------------------------------------------------------------ la nave del vuelo (modo 7) */
 #define SHIP_BUDGET 5600                        /* bytes por vblank para la nave */
+/* Cuándo se muestra el cuadro que se prepara no depende de cuánto vblank sobra (así la imagen de cada cuadro del
+   motor es siempre la misma, docs/50): cada cuadro de la nave cuesta sus bytes (ship_bytes) y cada cuadro del motor
+   cuenta SHIP_STEP. Se muestra cuando ese presupuesto alcanza y está cargado; la carga de verdad (ship_vblank) usa lo
+   que sobra del vblank y va adelante. */
+#ifndef SHIP_STEP
+#define SHIP_STEP 2400
+#endif
 static int8 ship_front = -1;                    /* plano que se ve (0 = A, 1 = B), -1 = ninguno */
 static int16 ship_shown = -1, ship_load = -1, ship_now = -1;
 static uint16 ship_hint, ship_tile_done;
 static uint8 ship_lo[2], ship_hi[2];            /* filas con algo de la nave en cada plano */
 static uint8 ship_rlo, ship_rhi, ship_map_done, ship_ready;
+static uint16 ship_credit;                      /* presupuesto que le falta al cuadro que se prepara */
+static uint8 ship_go;                           /* el vblank de este cuadro lo muestra (lo decide ship_update) */
+#ifdef MD_M7LOG
+volatile uint16 md_ship_wait;                   /* (medición) cuadros en que el presupuesto alcanzaba y la carga no */
+#endif
 
 static int16 ship_find(void) {
   uint16 key[8] = { reg_M7A, reg_M7B, reg_M7C, reg_M7D, reg_M7X, reg_M7Y, reg_BG1HOFS, reg_BG1VOFS };
@@ -163,18 +175,21 @@ static void ship_hdr(int16 id, uint16 *nc, uint16 *nt) {
   it_page();
 }
 
-/* vblanks que tarda en llegar un cuadro */
+/* bytes que cuesta un cuadro (sus tiles y el mapa) */
+static uint16 ship_bytes(uint16 nt) { return (uint16)(nt * 32 + 28 * 64); }
+
+/* vblanks que tarda en llegar un cuadro (se ve en el último) */
 static uint16 ship_cost(int16 id) {
   uint16 nc, nt;
   ship_hdr(id, &nc, &nt);
   if (!nc) return 1;
-  return (uint16)(((uint32)nt * 32 + 28 * 64 + SHIP_BUDGET - 1) / SHIP_BUDGET);
+  return (uint16)((ship_bytes(nt) + SHIP_STEP - 1) / SHIP_STEP);
 }
 
 /* empieza a preparar el cuadro id para el plano de atrás: el mapa en la RAM (con ceros donde estaba el anterior) */
 static void ship_begin(int16 id) {
   const uint16 *r = ship_rec(id);
-  uint16 nc = r[0];
+  uint16 nc = r[0], nt = r[1];
   if (!nc) { it_page(); return; }               /* cuadro demasiado grande: queda el anterior */
   uint8 back = ship_front < 0 ? 0 : ship_front ^ 1;
   uint16 *map = it_buf.ship;
@@ -195,15 +210,27 @@ static void ship_begin(int16 id) {
   ship_rhi = nhi > hi ? nhi : hi;
   ship_lo[back] = nlo; ship_hi[back] = nhi;
   ship_load = id;
+  ship_credit = ship_bytes(nt);
+  ship_go = 0;
   ship_tile_done = 0;
   ship_map_done = 0;
   ship_ready = 0;
 }
 
-/* en cada cuadro de la lógica: qué cuadro de la nave preparar (el primero que alcanza a llegar a tiempo) */
+static void ship_pick(void);
+/* en cada cuadro de la lógica (md_post): qué cuadro de la nave preparar (el primero que alcanza a llegar a tiempo) y si
+   el vblank de este cuadro lo muestra */
 static void ship_update(void) {
   ship_now = ship_find();
-  if (ship_now < 0 || ship_load >= 0 || ship_now == ship_shown) return;
+  if (ship_load < 0) ship_pick();
+  if (ship_load >= 0) {                         /* lo que cuenta el vblank de este cuadro; ¿se muestra en él? */
+    uint16 step = it_load >= 0 ? 0 : SHIP_STEP;   /* (ese vblank carga un grupo nuevo: no queda para la nave) */
+    ship_credit = ship_credit > step ? ship_credit - step : 0;
+    ship_go = !ship_credit && ship_now >= ship_load;
+  }
+}
+static void ship_pick(void) {
+  if (ship_now < 0 || ship_now == ship_shown) return;
   int16 last = INTRO_SHIP_N - 1, t = ship_now;
   uint16 nc, nt;
   for (int16 c = ship_now; c <= last && c <= ship_now + 12; c++) {
@@ -247,7 +274,11 @@ static void ship_vblank(void) {
     if (ship_tile_done == nt) ship_ready = 1;
     it_page();
   }
-  if (ship_ready && ship_now >= ship_load) {
+#ifdef MD_M7LOG
+  if (ship_go && !ship_ready) md_ship_wait++;
+#endif
+  if (ship_go && ship_ready) {                  /* (si la carga no llegó, espera: no debería pasar) */
+    ship_go = 0;
     ship_front = (int8)back;
     ship_shown = ship_load;
     ship_load = -1;
@@ -256,7 +287,7 @@ static void ship_vblank(void) {
 }
 
 static void ship_reset(void) {
-  ship_front = -1; ship_shown = ship_load = ship_now = -1; ship_hint = 0;
+  ship_front = -1; ship_shown = ship_load = ship_now = -1; ship_hint = 0; ship_go = 0;
   ship_lo[0] = ship_lo[1] = 28; ship_hi[0] = ship_hi[1] = 0;
 }
 
@@ -409,6 +440,7 @@ static void intro_frame(void) {
 static void intro_vblank(void) {
   it_page();
   if (it_load >= 0) {                           /* grupo nuevo: con la pantalla apagada (la escena está en negro) */
+    md_vb_room = 1;                             /* (no cuenta para md_vb_need) */
     const IntroGroup *G = &kIntroGroups[it_load];
     vdp_display(0);
     vdp_reg(0x10, 0x01);                        /* planos de 64x32 */

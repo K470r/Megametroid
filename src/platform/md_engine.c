@@ -227,6 +227,8 @@ __asm__(
   "    .text\n"
   "    .global md_hint\n"
   "md_hint:\n"
+  "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank (interrupción pendiente de antes, al encenderlas): */
+  "    bcc.s 1f\n"                         /* nada (si no, se comería la primera banda: docs/50) */
   "    move.l %a0,-(%sp)\n"
   "    movea.l hz_bdp,%a0\n"
   "    move.l #0xC0000000,0xC00004\n"
@@ -234,7 +236,7 @@ __asm__(
   "    move.w (%a0)+,0xC00004\n"
   "    move.l %a0,hz_bdp\n"
   "    movea.l (%sp)+,%a0\n"
-  "    rte\n");
+  "1:  rte\n");
 
 /* Zebes: debajo del HUD, los colores 1-15 de la línea 3 pasan a ser los de los enemigos de la sala y el rayo (en el
    vblank vuelven los del HUD). Una sola interrupción por cuadro: se apaga a sí misma. */
@@ -470,6 +472,9 @@ static void md_vint_top(void) {
   *(volatile uint32_t *)0xC00004 = 0xC0000000u;
   *(volatile uint16_t *)0xC00000 = cram[0];
   hz_bdp = hz_bd[hz_back ^ 1];
+  /* y la primera interrupción: la última del cuadro dejó el registro 10 en 0xFF (sin más interrupciones), así que un
+     cuadro que se ve dos veces salía la segunda vez sin el degradado (docs/50) */
+  if (hz_cnt[hz_back ^ 1]) vdp_reg(0x0A, hz_first[hz_back ^ 1]);
 }
 
 /* el vblank del cuadro publicado: con la página del nivel puesta (la lógica puede estar en medio de otra) */
@@ -510,16 +515,31 @@ static void vb_exit(uint16 sv) {
   if (sv & 0x8000) *(volatile uint16 *)0xA11100 = 0x0000;
 }
 static void md_vblank_lag(void);
+static int16 vb_lines_left(void);
+/* líneas que necesita el vblank de un cuadro (lo que tardaron los últimos, con margen): un cuadro que llega con el
+   vblank empezado se toma solo si quedan tantas; si no, en el vblank siguiente (docs/50). Si el vblank se pasara a
+   la imagen, sus DMA irían a la velocidad de la imagen y las interrupciones horizontales empezarían tarde. */
+static int16 md_vb_need = 20;
+static uint8 md_vb_room;                       /* este vblank cargó una sala (con la pantalla apagada: no cuenta) */
 static void md_vblank_run(uint16 late) {
   md_vb_tick = vtimer;
+  int16 l0 = vb_lines_left();
 #ifdef MD_M7LOG
   md_m7_start = late << 8 | VDP_VCOUNT >> 8;
 #endif
   uint8 snd = md_snd_frames != 0;
   if (snd) md_snd_frames--;
   uint16 sv = vb_enter(snd);
+  md_vb_room = 0;
   md_vblank(late);
   vb_exit(sv);
+  if (!md_vb_room) {
+    int16 l1 = vb_lines_left();
+    int16 used = l1 > 0 ? l0 - l1 + 2 : l0 + 4;     /* (si se pasó a la imagen, más de lo que había) */
+    md_vb_need = used > md_vb_need - 1 ? used : md_vb_need - 1;
+    if (md_vb_need < 8) md_vb_need = 8;
+    if (md_vb_need > 36) md_vb_need = 36;
+  }
 #ifdef MD_LAGLOG
   { uint16 k = (uint16)(md_pub_frame - 1 - LAG_BASE); md_lag_log[k < MD_LAG_N ? k : MD_LAG_N - 1] = (uint8)(vtimer - lag_last); lag_last = vtimer; }
 #endif
@@ -538,7 +558,7 @@ void md_vint(void) {
 #define LATE_MAX 0xEA
 #endif
 /* (fuera de las interrupciones) el cuadro está listo: lo toma el próximo vblank. Si el vblank ya empezó sin cuadro
-   (el anterior tardó) y todavía queda (hasta la línea 234; el trabajo del vblank son ~14 líneas), se escribe ya */
+   (el anterior tardó) y todavía queda lo que necesita (md_vb_need), se escribe ya */
 void md_publish(void) {
   spr_out = spr; nspr_out = nspr; ncone_out = ncone;
   spr = spr == spr_bank[0] ? spr_bank[1] : spr_bank[0];
@@ -548,8 +568,9 @@ void md_publish(void) {
   __asm__ volatile("move.w %%sr,%0\n\tmove.w #0x2700,%%sr" : "=d"(sr) : : "memory");
   md_pub = 1;
   uint16 vc = VDP_VCOUNT >> 8;
-  if ((*(volatile uint16 *)0xC00004 & 8) && vc >= 0xE0 && vc <= LATE_MAX && vtimer != md_vb_tick)
-    md_vblank_run(1);                           /* (y si este vblank todavía no tomó un cuadro) */
+  if ((*(volatile uint16 *)0xC00004 & 8) && vc >= 0xE0 && vc <= LATE_MAX && vtimer != md_vb_tick &&
+      vb_lines_left() >= md_vb_need)
+    md_vblank_run(1);                           /* (y si este vblank todavía no tomó un cuadro y alcanza) */
   __asm__ volatile("move.w %0,%%sr" : : "d"(sr) : "memory");
 }
 uint8 md_published(void) { return md_pub; }
@@ -1815,7 +1836,8 @@ static uint8 m7_row_ok(int16 y) {
 
 /* ¿cabe todavía una DMA de n palabras en lo que queda del vblank? Se mira el contador de líneas en cada paso (el
    68000 queda parado durante cada DMA, así que el contador ya incluye lo hecho), con 4 líneas de margen. */
-static uint8 m7_fits(uint16 n) { return vb_lines_left() - 4 > (int16)(n / GA_WORDS_LINE) + 1; }
+static int16 m7_keep;          /* líneas que se dejan además (vblank sin cuadro: las de un cuadro que llegue tarde) */
+static uint8 m7_fits(uint16 n) { return vb_lines_left() - 4 - m7_keep > (int16)(n / GA_WORDS_LINE) + 1; }
 
 static void m7_build(void) {   /* armar la imagen siguiente en la otra mitad, con lo que queda del vblank */
   if (!m7_busy || m7_step == 3) return;
@@ -1889,7 +1911,9 @@ static void md_vblank_lag(void) {
   uint16 sv = vb_enter(md_snd_frames != 0);
   md_vdp_busy = 1;
   vdp_reg(0x0F, 0x02);                         /* (el círculo la deja en 0) */
+  m7_keep = md_vb_need;
   m7_build();
+  m7_keep = 0;
   if (cv_active) vdp_reg(0x0F, 0x00);          /* la dirección del VDP para el círculo la repone md_vint_top */
   md_vdp_busy = 0;
   vb_exit(sv);
@@ -2344,6 +2368,7 @@ void md_vblank(uint16_t late) {
   vdp_reg(0x0F, 0x02);                        /* (la del círculo la deja en 0) */
   if (room_pending) {
     room_pending = 0;
+    md_vb_room = 1;
     load_room_vram();
     md_cone_room();
     hud_dirty_all = 1;

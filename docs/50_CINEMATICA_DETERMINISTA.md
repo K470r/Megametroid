@@ -32,8 +32,7 @@ cambio empeoraba esa parte.
 |---|---|---|
 | imagen distinta de la que pide el motor (7000-9900) | 253 cuadros | 230 |
 | imagen nueva en la explosión (fin de la nave gigante) | 8691 | 8676 |
-| cuadros perdidos en la cinemática (7000-9900, `perdidos`) | 106 | 97 |
-| cuadros perdidos en el resto de Ceres / Zebes | 65 / 29 | 66 / 29 |
+| cuadros perdidos (ver abajo, con los vblanks tardíos) | 65 / 106 / 29 | 68 / 106 / 30 |
 | secuencia de imágenes del modo 7 con 1, 2, 50, 300 `nop` en el vblank | cambia | igual (0 esperas) |
 
 Cuadros perdidos: cuadros de la consola que repiten el cuadro del motor (la grabación de `regress.sh`).
@@ -43,24 +42,60 @@ Costo de una fila: en Genesis Plus GX cada DMA corta (una fila de ~30 celdas) ta
 sigue siendo el margen de `m7_fits`). Presupuestos probados (esperas con 0 / 300 / 600 `nop`): 700/450 → 0/1/14;
 650/400 → 0/0/3; 600/400 → 0/0/1, pero sigue peor a la imagen pedida (268).
 
+## La nave del vuelo a Ceres (intro, `md_intro.c`)
+
+El mismo problema y la misma solución. `ship_vblank` carga el cuadro de la nave con lo que sobra del vblank y antes lo
+mostraba en cuanto terminaba. Ahora `ship_update` (en `md_post`) decide cuándo se muestra: cada cuadro de la nave
+cuesta sus tiles más el mapa (`ship_bytes`) y cada cuadro del motor cuenta `SHIP_STEP` = 2400 bytes (el vblank de un
+cuadro que carga un grupo nuevo de la intro no cuenta). Se muestra en el vblank del cuadro en que el presupuesto
+alcanza, si ya está cargado. `ship_pick` elige el cuadro que alcanza a llegar con ese presupuesto.
+
+Medido (`tools/perf/nave.sh`): la carga real hace ~90 tiles (~2900 bytes) por vblank. Con 4000 había 5 esperas, con
+3000 una, con 2400 ninguna, ni con 300 `nop`. La nave sigue igual de cerca de la que pide el motor: 344 cambios de
+cuadro en el vuelo contra 363 de antes, y 383 cuadros con otra nave que la pedida contra 384.
+
+## El haze y los vblanks tardíos
+
+Tres arreglos (`md_engine.c`), que juntos dejan la alarma de la huida y el degradado de Ceres sin depender del tiempo:
+
+1. **Un cuadro que llega con el vblank empezado se toma solo si alcanza.** `md_publish` lo tomaba hasta la línea 0xEA
+   (`LATE_MAX`). Un 0xEA de la segunda vuelta es la línea 240 y deja 22 líneas. En el pozo de la huida, la DMA de la
+   tabla de scroll (448 palabras) caía en la imagen, donde la DMA es lenta, y el vblank terminaba en la línea 0x26-0x42.
+   Ahora se toma si quedan `md_vb_need` líneas: lo que tardó el último vblank más 2, que baja de a una por cuadro
+   (las cargas de sala y de grupos de la intro, con la pantalla apagada, no cuentan). Si no alcanza, el cuadro va
+   entero en el vblank siguiente. El armado del modo 7 en los vblanks sin cuadro deja libres esas líneas (`m7_keep`).
+2. **Cuadro que se ve dos veces.** En un vblank sin cuadro nuevo, `md_vint_top` reponía el color de arriba y la tabla,
+   pero no la primera interrupción. La última del cuadro deja el registro 10 en 0xFF, así que la segunda vez se veía
+   sin el degradado. Pasaba en todos los cuadros repetidos con haze: en la grabación de Ceres, 106 cuadros repetidos
+   tenían dos imágenes distintas; ahora 18 (las cargas de sala y el borde del círculo).
+3. **Interrupción pendiente.** Al encender las interrupciones horizontales al final del vblank, una pendiente de antes
+   se atendía ahí mismo y se comía la primera banda: las bandas salían corridas. `md_hint` ahora no hace nada si
+   todavía es el vblank, igual que `md_hint_obj`.
+
 ## Regresión: lo que todavía cambia con el tiempo
 
-Con un `nop` en `md_cone_vblank` (`EXPFL=-DMD_VB_NOPS=1`), contra la referencia nueva, quedan 9-40 cuadros
-"distintos" según cómo quede alineado el código (antes 112). Ninguno es de la imagen del modo 7:
+Con 1, 2, 7 y 50 `nop` en `md_cone_vblank` (`EXPFL=-DMD_VB_NOPS=n`), contra la referencia nueva:
 
-- **Borde derecho del círculo de la explosión** (8628-8700): la interrupción horizontal que escribe el scroll vertical
-  de cada línea llega unos ciclos antes o después según qué instrucción corre el 68000, y en algunas líneas el borde
-  derecho (x ≥ 190) sale con el de la línea vecina (hasta 19 píxeles). Es el mismo tipo de corrimiento que docs/41
-  acepta para las líneas, pero de lado; `regress.sh` lo cuenta como distinto porque son muchas filas.
-- **Alarma roja de la huida** (7497, 7548, 7956-7958): un vblank que empieza tarde (`md_publish`, camino "tarde")
-  termina dentro de la imagen (medido: hasta la línea 0x26) y ese cuadro no tiene el degradado del haze.
-- Filas sueltas del degradado (8002-8178): corrimientos de una línea, ya aceptados.
+- intro: 0 cuadros distintos (antes, con 50 `nop`, 10 en el vuelo);
+- ceres: solo el **borde derecho del círculo de la explosión** (8628-8702, 21-39 cuadros según el caso). La
+  interrupción horizontal que escribe el scroll vertical de cada línea llega unos ciclos antes o después según qué
+  instrucción corre el 68000, y en algunas líneas el borde derecho (x ≥ 190) sale con el de la línea vecina (hasta 19
+  píxeles). Es el mismo tipo de corrimiento que docs/41 acepta para las líneas, pero de lado; `regress.sh` lo cuenta
+  como distinto porque son muchas filas. Se podría contar como corrimiento: queda para que Edwin decida.
 
-Lo mismo pasa en la intro: el vuelo a Ceres (`md_intro.c`, `ship_vblank`) también carga con lo que sobra del vblank
-(`vb_lines_left`), y con este cambio 7780-7785 muestran un tamaño de la nave un cuadro antes.
+Cuadros perdidos (cuadros de la consola que repiten el cuadro del motor, grabación de `regress.sh ceres`):
+
+| | antes | ahora |
+|---|---|---|
+| Ceres hasta 7000 | 65 | 68 |
+| huida y cinemática (7000-9900) | 106 | 106 |
+| Zebes | 29 | 30 |
+
+Los 3+1 de más son cuadros tardíos que ya no se toman a medias.
 
 ## Herramientas
 
+- `tools/perf/nave.sh [salida.csv]`: lo mismo para la nave del vuelo a Ceres en la intro (`md_ship_wait`).
 - `tools/perf/m7.sh [salida.csv]` (`XFL=...`): por cuadro de la consola, el cuadro del motor, la imagen pedida y la
   que se ve, el paso del armado, las líneas del vblank al entrar y salir del armado, las esperas y cómo empezó el
   vblank (`MD_M7LOG`).
@@ -70,6 +105,8 @@ Lo mismo pasa en la intro: el vuelo a Ceres (`md_intro.c`, `ship_vblank`) tambi�
 ## Aprobación
 
 Las imágenes nuevas no están aprobadas: después de mirarlas lado a lado (rama de hoy contra la nueva), `UPDATE=1 sh
-tests/regress/regress.sh intro ceres zebes` (docs/41). Contra la referencia aprobada: intro 5 distintos (7780-7785),
-ceres y zebes 240 (5118 y la cinemática 7105-9868; 5118 es el primer cuadro del degradado al empezar la pelea con
-Ridley, que ahora sale un cuadro antes).
+tests/regress/regress.sh intro ceres zebes` (docs/41). Contra la referencia aprobada:
+
+- intro: 41 distintos, todos en el vuelo (7738-7802): tamaños de la nave en otro cuadro.
+- ceres y zebes: 232 distintos. 5118-5126 es el degradado al empezar la pelea con Ridley; 7105-7950 son la alarma de
+  la huida (ahora en todos los cuadros); desde 8186, la cinemática.

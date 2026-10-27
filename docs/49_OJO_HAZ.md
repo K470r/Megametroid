@@ -91,3 +91,5 @@ anterior si no llega, así que cambia con cualquier diferencia de tiempo. Contro
 en `md_cone_vblank` da 112 distintos; con relleno de código o de RAM que no se ejecuta, los mismos 19. Ver también
 docs/48 (la misma sensibilidad en la llegada a Zebes y el pozo). Hay que mirarlos lado a lado antes de aprobar
 (`UPDATE=1`, docs/41): no se aprobaron.
+
+Resuelto en docs/50: la imagen del modo 7 de cada cuadro del motor ya no depende del tiempo.

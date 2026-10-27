@@ -16,3 +16,5 @@ Guiones de trabajo (rutas del entorno de desarrollo: ajustar `retrorun`, el núc
   (copia en otro directorio) contra la actual.
 - `ssum.sh BASE REF`: suma del estado de la Genesis contra el motor del PC (`host/simsum`), 256 cuadros.
 - `sprab.sh BASE REF "A" "B"`: lista de sprites de dos variantes de compilación (`MD_SPRSUM`).
+- `m7.sh [salida.csv]`: cinemática de Ceres cuadro a cuadro: imagen del modo 7 pedida y mostrada, armado, líneas
+  del vblank y esperas (`MD_M7LOG`, docs/50). Con `XFL="-DMD_VB_NOPS=1"`, el vblank un `nop` más lento.

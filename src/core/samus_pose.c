@@ -1072,13 +1072,16 @@ static uint8 SamusFunc_F468_Running(void) {  // 0x91F50C
 }
 
 static uint8 SamusFunc_F468_NormalJump(void) {  // 0x91F543
-  if (samus_pose == kPose_4E_FaceL_Jump_NoAim_NoMove_NoGun || samus_pose == kPose_16_FaceL_Jump_AimU
-      || samus_pose == kPose_6A_FaceL_Jump_AimUL || samus_pose == kPose_4D_FaceR_Jump_NoAim_NoMove_NoGun
-      || samus_pose == kPose_15_FaceR_Jump_AimU || samus_pose == kPose_69_FaceR_Jump_AimUR) {
-    if (samus_shine_timer) {
-      nt_unimpl("SamusFunc_F468_NormalJump (shinespark)");
-      return 1;
-    }
+  bool left = samus_pose == kPose_4E_FaceL_Jump_NoAim_NoMove_NoGun || samus_pose == kPose_16_FaceL_Jump_AimU
+      || samus_pose == kPose_6A_FaceL_Jump_AimUL;
+  bool right = samus_pose == kPose_4D_FaceR_Jump_NoAim_NoMove_NoGun || samus_pose == kPose_15_FaceR_Jump_AimU
+      || samus_pose == kPose_69_FaceR_Jump_AimUR;
+  if ((left || right) && samus_shine_timer) {   /* salto con el brillo del speed booster: shinespark */
+    samus_pose = left ? kPose_C8_FaceL_ShinesparkWindup_Vert : kPose_C7_FaceR_ShinesparkWindup_Vert;
+    Projectile_Func7_Shinespark();
+    if (samus_prev_movement_type2 == kMovementType_02_NormalJumping)
+      samus_prev_y_pos = --samus_y_pos;
+    return 1;
   }
   if (samus_x_extra_run_speed || samus_x_extra_run_subspeed)
     samus_x_accel_mode = 2;
@@ -1239,6 +1242,35 @@ static uint8 SamusFunc_F468_MorphBall(void) {  // 0x91F9F4
   return 0;
 }
 
+static uint8 SamusFunc_F468_Springball(void) {  // 0x91FA56
+  if (samus_prev_movement_type2 == kMovementType_11_SpringBallOnGround
+      || samus_prev_movement_type2 == kMovementType_12_SpringBallInAir
+      || samus_prev_movement_type2 == kMovementType_13_SpringBallFalling)
+    samus_anim_frame_skip = FUNC16(Samus_InputHandler);
+  SamusFunc_FA0A();
+  return 0;
+}
+
+static const uint16 kSamusFunc_F468_Shinespark[6] = {  // 0x91FACA
+  FUNC16(Samus_MoveHandler_Shinespark_Horiz), FUNC16(Samus_MoveHandler_Shinespark_Horiz),
+  FUNC16(Samus_MoveHandlerVerticalShinespark), FUNC16(Samus_MoveHandlerVerticalShinespark),
+  FUNC16(Samus_MoveHandler_Shinespark_Diag), FUNC16(Samus_MoveHandler_Shinespark_Diag),
+};
+
+static uint8 SamusFunc_F468_Shinespark(void) {  // 0x91FAD6
+  if (sign16(samus_pose - kPose_CF_FaceR_Ranintowall_AimUR)) {
+    samus_movement_handler = kSamusFunc_F468_Shinespark[samus_pose - 201];
+    samus_input_handler = FUNC16(nullsub_152);
+    speed_echoes_index = 0;
+    speed_echo_xspeed[0] = 0;
+    speed_echo_xspeed[1] = 0;
+    speed_echo_xpos[0] = 0;
+    speed_echo_xpos[1] = 0;
+    QueueSfx3_Max9(0xF);
+  }
+  return 0;
+}
+
 static uint8 SamusFunc_F468_call(uint8 mt) {
   switch (mt) {
   case 0: return SamusFunc_F468_Standing();
@@ -1249,6 +1281,8 @@ static uint8 SamusFunc_F468_call(uint8 mt) {
   case 5: return SamusFunc_F468_Crouching();
   case 6: return SamusFunc_F468_Falling();
   case 7: case 9: case 10: case 11: case 12: case 13: case 21: case 22: case 26: return 0;
+  case 17: case 18: case 19: return SamusFunc_F468_Springball();
+  case 27: return SamusFunc_F468_Shinespark();
   case 14: return SamusFunc_F468_TurningAroundOnGround();
   case 15: return SamusFunc_F468_CrouchTransEtc();
   case 16: return SamusFunc_F468_Moonwalking();
@@ -1327,7 +1361,11 @@ void HandleJumpTransition(void) {  // 0x91FBBB
     if ((samus_pose == 0x65 && samus_prev_pose == 100) || (samus_pose == 0x66 && samus_prev_pose == 99))
       Samus_InitJump();
     break;
-  case 18: nt_unimpl("HandleJumpTransition_SpringBallInAir"); break;
+  case 18:                                    // HandleJumpTransition_SpringBallInAir ($91:FC18)
+    if ((samus_pose == kPose_7F_FaceR_Springball_Air || samus_pose == kPose_80_FaceL_Springball_Air)
+        && samus_prev_movement_type2 == kMovementType_11_SpringBallOnGround)
+      Samus_InitJump();
+    break;
   case 20:                                    // 0x91FC08
     if (samus_prev_movement_type2 != kMovementType_14_WallJumping)
       Samus_InitWallJump();

@@ -150,5 +150,10 @@ void DrawSamusSpritemap(uint16 idx, uint16 x, uint16 y);
 void SetSamusTilesDefsForCurAnim(void);
 void HandleAtmosphericEffects(void);
 void Samus_DrawEchoes(void);
+void Samus_DrawEcho(uint16 j);
+void Samus_DrawShinesparkCrashEchoProjectiles(void);
+void Projectile_Func7_Shinespark(void);
+Point16U Projectile_SinLookup(uint16 j, uint16 a);
+void InitializeShinesparkEchoOrSpazerSba(uint16 k);
 
 #endif

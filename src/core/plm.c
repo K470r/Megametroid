@@ -454,14 +454,14 @@ uint8 SpawnPLM(uint16 a) {  // 0x8484E7: PLM del bloque que se toca (cur_block_i
 }
 
 /* palabra de una instrucción de dibujo: del banco $84 o, si la dirección es de la RAM, la instrucción de un bloque
-   que arma PlmInstr_DrawPlmBlock en 7E:1E6D (custom_draw_instr_*) */
+   que arma PlmInstr_DrawPlmBlock en 7E:1E67 (custom_draw_instr_*) */
 static uint16 DrawW(uint16 a) {
   if (a & 0x8000)
     return B84W(a);
   switch (a) {
-  case 0x1E6D: return custom_draw_instr_num_blocks;
-  case 0x1E6F: return custom_draw_instr_plm_block;
-  case 0x1E71: return custom_draw_instr_zero_terminator;
+  case 0x1E67: return custom_draw_instr_num_blocks;
+  case 0x1E69: return custom_draw_instr_plm_block;
+  case 0x1E6B: return custom_draw_instr_zero_terminator;
   default: nt_unimpl("ProcessPlmDrawInstruction (instrucción en la RAM)"); return 0;
   }
 }
@@ -907,7 +907,7 @@ static uint16 PlmInstr_DrawPlmBlock(uint16 p, uint16 k) {  // 0x848B17
   custom_draw_instr_num_blocks = 1;
   custom_draw_instr_zero_terminator = 0;
   plm_instruction_timer[v2] = 1;
-  plm_instruction_draw_ptr[v2] = 0x1E6D;       /* ADDR16_OF_RAM(custom_draw_instr_num_blocks): la instrucción en la RAM */
+  plm_instruction_draw_ptr[v2] = 0x1E67;       /* ADDR16_OF_RAM(custom_draw_instr_num_blocks): la instrucción en la RAM */
   plm_instr_list_ptrs[v2] = p;
   ProcessPlmDrawInstruction(k);
   uint16 v4 = plm_id;

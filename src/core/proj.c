@@ -577,6 +577,44 @@ void InitializeProjectile(uint16 k) {  // 0x938000
   projectile_bomb_instruction_timers[v1] = 1;
 }
 
+void InitializeShinesparkEchoOrSpazerSba(uint16 k) {  // 0x938163
+  int v1 = k >> 1;
+  int r18 = projectile_dir[v1] & 0xF;
+  uint16 v3 = b93(kShinesparkEchoSpazer_ProjectileData + 2 * (LO8(projectile_type[v1]) - 34));
+  uint16 damage = b93(v3);
+  projectile_damage[v1] = damage;
+  if (sign16(damage))
+    nt_unimpl("InitializeShinesparkEchoOrSpazerSba (daño negativo: InvalidInterrupt_Crash)");
+  projectile_bomb_instruction_ptr[v1] = b93(v3 + 2 + 2 * r18);
+  projectile_bomb_instruction_timers[v1] = 1;
+}
+
+/* los ecos del choque del shinespark que salen volando ($90:D4D2): proyectiles 3 y 4; su posición va también en
+   speed_echo_xpos/ypos[2..3] (el SNES la escribe por desplazamiento desde speed_echoes_index) */
+static void ProjPreInstr_SpeedEcho(uint16 k) {  // 0x90D4D2
+  int v1 = k >> 1, e = v1 - 1;
+  projectile_bomb_x_speed[v1] += 8;
+  Point16U pt = Projectile_SinLookup(projectile_variables[v1], LO8(projectile_bomb_x_speed[v1]));
+  uint16 v2 = pt.x + samus_x_pos;
+  speed_echo_xpos[e] = v2;
+  projectile_x_pos[v1] = v2;
+  int16 v3 = v2 - layer1_x_pos;
+  bool off = v3 < 0 || !sign16(v3 - 256);
+  if (!off) {
+    uint16 v4 = pt.y + samus_y_pos;
+    speed_echo_ypos[e] = v4;
+    projectile_y_pos[v1] = v4;
+    int16 v5 = v4 - layer1_y_pos;
+    off = v5 < 0 || !sign16(v5 - 256);
+  }
+  if (off) {
+    speed_echo_xspeed[e] = 0;
+    speed_echo_xpos[e] = 0;
+    speed_echo_ypos[e] = 0;
+    ClearProjectile(k);
+  }
+}
+
 static void KillProjectileInner(uint16 k) {  // 0x9380CF
   int v1 = k >> 1;
   if (projectile_type[v1] & 0xF00) {
@@ -1441,6 +1479,7 @@ static void CallProjPreInstr(uint16 f, uint16 k) {
   case FUNC16(ProjPreInstr_Func1): ProjPreInstr_Func1(k); return;
   case FUNC16(ProjPreInstr_Bomb): ProjPreInstr_Bomb(k); return;
   case FUNC16(ProjPreInstr_SpreadBomb): ProjPreInstr_SpreadBomb(k); return;
+  case FUNC16(ProjPreInstr_SpeedEcho): ProjPreInstr_SpeedEcho(k); return;
   default: nt_unimpl_v("CallProjPreInstr (proyectil sin portar)", f); return;
   }
 }
@@ -1541,9 +1580,6 @@ void DrawPlayerExplosions2(void) {  // 0x938254
     v0 -= 2;
     projectile_index = v0;
   } while (!(v0 & 0x8000));
-  if (nmi_frame_counter_word & 1) {       // Samus_DrawShinesparkCrashEchoProjectiles
-    if (speed_echo_xspeed[3] || speed_echo_xspeed[2])
-      nt_unimpl("Samus_DrawShinesparkCrashEchoProjectiles");
-  }
+  Samus_DrawShinesparkCrashEchoProjectiles();
   HandleProjectileTrails();
 }

@@ -168,19 +168,14 @@ H.append(f'static inline const uint16 *bank9B_ptr(uint16 a) {{ return kBank9B_Pa
 arr('uint16', 'word_9BA3C0', words(0x9BA3C0, 6), fmt='0x{:X}')
 # los punteros de color de carga de rayo (por pose de Samus, en el banco $91): palabra en $91
 arr('uint16', 'kTanTable', words(0x91C9D4, 128), fmt='0x{:X}')   # tangentes ($91:C9D4): conos de los rayos X y del ojo
-H.append('uint16 bank91_word(uint16 a);')
-pal91 = {}
-for base in (0x91D7D5, 0x91D7FF):
-    for t in words(base, 3):
-        for k in range(0, 12, 2):
-            pal91[t + k] = w16(0x910000 | (t + k))
-C.append('uint16 bank91_word(uint16 a) {')
-C.append('  switch (a) {')
-for a in sorted(pal91):
-    C.append(f'  case 0x{a:X}: return 0x{pal91[a]:X};')
-C.append('  default: return 0;')
-C.append('  }')
-C.append('}')
+# paletas especiales de Samus ($91:D727-DCB4: punteros de carga, tornillo, speed booster, shinespark, destello de
+# cristal; bank91_word lee una palabra de ahí, byte bajo primero, como RomPtr_91 en el decomp)
+blob('kBank91_Pals', 0x91, 0xD727, 0xDCB4)
+blob('kBank91_SuitHdma', 0x91, 0xD5A2, 0xD692)   # listas del objeto de HDMA de los trajes (suit.c)
+blob('kBank9B_Grapple', 0x9B, 0xC0DB, 0xC9CE)   # tablas del gancho (grapple.c)
+blob('kGrappleSnesTiles', 0x9A, 0x8200, 0x92A0)  # tiles del gancho (el punto y los segmentos: md_engine.c)
+H.append('static inline uint16 bank91_word(uint16 a) { const uint8 *p = kBank91_Pals + (uint16)(a - 0xD727); '
+         'uint16 lo = p[0]; __asm__("" : "+d"(lo)); return lo | p[1] << 8; }')
 
 # tiles de Samus por cuadro de animación ($92:D94E): registros de 4 bytes (top_idx, top_pos, bottom_idx, bottom_pos)
 adp = words(0x92D94E, NUM_POSES)
@@ -203,7 +198,7 @@ H.append('static inline const uint8 *bank90_flare(uint16 a) { return kBank90_Fla
 H.append('static inline uint16 bank90_flare_word(uint16 a) { const uint8 *p = bank90_flare(a); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }')
 
 # pendientes (arreglos del decomp, sm_94.c)
-for name in ('kAlignYPos_Tab0', 'kTab948E54', 'kBlockColl_Horiz_Slope_NonSquare_Tab'):
+for name in ('kAlignYPos_Tab0', 'kTab948E54', 'kBlockColl_Horiz_Slope_NonSquare_Tab', 'kAlignPos_Tab1'):
     t, v = c_array_from_source('sm_94.c', name)
     arr({'uint8': 'uint8', 'uint16': 'uint16'}[t], name, v, fmt='0x{:X}')
 
@@ -427,6 +422,7 @@ H.append(f'#define BANK93_HI 0x{B93_HI:X}')
 H.append('#define kProjectileData_UnchargedBeams 0x83C1')
 H.append('#define kProjectileData_ChargedBeams 0x83D9')
 H.append('#define kProjectileData_NonBeams 0x83F1')
+H.append('#define kShinesparkEchoSpazer_ProjectileData 0x8403')
 H.append('#define kProjInstr_BeamExplosion 0x%X  /* HIWORD(g_stru_938679.damages) */' % w16(0x93867B))
 H.append('#define kProjInstr_MissileExplosion 0x%X  /* *(&g_stru_938679.instr_ptr + 1) */' % w16(0x93867F))
 H.append('#define kProjInstr_SuperMissileExplosion 0x%X  /* HIWORD(g_stru_938691.damages) */' % w16(0x938693))

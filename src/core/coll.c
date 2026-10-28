@@ -672,6 +672,52 @@ uint8 BlockCollNoWaveBeamHoriz(uint16 k) {  // 0x94A23B
   return 1;
 }
 
+/* rayo de onda: atraviesa los bloques (solo los activa) y no se mata al chocar ($94:A352, $94:A3E4) */
+uint8 BlockCollWaveBeamHoriz(uint16 k) {  // 0x94A352
+  int v1 = k >> 1;
+  int32 amt = (int32)(int16)projectile_bomb_x_speed[v1] << 8;
+  uint16 some_pos = BlockGetSomePos1(k);
+  uint16 prod = Mult8x8((uint16)(projectile_y_pos[v1] - projectile_y_radius[v1]) >> 4, room_width_in_blocks);
+  add_hilo(&projectile_x_pos[v1], &projectile_bomb_x_subpos[v1], amt);
+  uint16 r24 = projectile_x_pos[v1];
+  uint16 v7 = (amt < 0) ? projectile_x_pos[v1] - projectile_x_radius[v1] : projectile_x_radius[v1] + projectile_x_pos[v1] - 1;
+  uint16 v8 = 2 * (prod + (v7 >> 4));
+  if (!sign16(some_pos - 16))
+    return 0;
+  CollInfo ci = { .ci_r18_r20 = amt, .ci_r24 = r24, .ci_r26 = some_pos, .ci_r28 = v7, .ci_r30 = 0, .ci_r38 = some_pos, .ci_r40 = some_pos };
+  uint8 v9 = HI8(projectile_y_pos[v1]);
+  if (!sign8(v9) && (int16)(v9 - room_height_in_scrolls) < 0 && (int16)(HI8(v7) - room_width_in_scrolls) < 0) {
+    do {
+      BlockShotReact(&ci, v8, false);
+      v8 += room_width_in_blocks * 2;
+    } while (!(--ci.ci_r38 & 0x8000));
+  }
+  return 0;
+}
+
+uint8 BlockCollWaveBeamVert(uint16 k) {  // 0x94A3E4
+  int v1 = k >> 1;
+  int32 amt = (int32)(int16)projectile_bomb_y_speed[v1] << 8;
+  uint16 some_pos = BlockGetSomePos2(k);
+  add_hilo(&projectile_y_pos[v1], &projectile_bomb_y_subpos[v1], amt);
+  uint16 r24 = projectile_y_pos[v1];
+  uint16 v7 = (amt < 0) ? projectile_y_pos[v1] - projectile_y_radius[v1] : projectile_y_radius[v1] + projectile_y_pos[v1] - 1;
+  uint16 prod = Mult8x8(v7 >> 4, room_width_in_blocks);
+  uint16 v8 = (uint16)(projectile_x_pos[v1] - projectile_x_radius[v1]) >> 4;
+  uint16 v9 = 2 * (prod + v8);
+  if (!sign16(some_pos - 16))
+    return 0;
+  uint8 v10 = HI8(projectile_x_pos[v1]);
+  CollInfo ci = { .ci_r18_r20 = amt, .ci_r24 = r24, .ci_r26 = some_pos, .ci_r28 = v7, .ci_r30 = 0, .ci_r38 = some_pos, .ci_r40 = some_pos };
+  if (!sign8(v10) && (int16)(v10 - room_width_in_scrolls) < 0 && (int16)(HI8(v7) - room_height_in_scrolls) < 0) {
+    do {
+      BlockShotReact(&ci, v9, true);
+      v9 += 2;
+    } while (!(--ci.ci_r38 & 0x8000));
+  }
+  return 0;
+}
+
 /* misiles: un solo bloque (el del centro), sin radio ($94:A46F, $94:A4D9) */
 uint8 BlockCollMissileHoriz(uint16 k) {  // 0x94A46F
   int v1 = k >> 1;
@@ -847,6 +893,59 @@ uint8 BlockCollSpreadBomb(uint16 k) {  // 0x94A621
   return rv;
 }
 
+static void BlockFunc_A0F4(uint16 a, uint16 r22, uint16 r24, uint16 r26, uint16 r28) {  // 0x94A0F4: una fila
+  uint16 v3 = 2 * (Mult8x8((uint8)a, room_width_in_blocks) + HI8(a));
+  int16 v4 = r24 - r22;
+  CollInfo ci = { .ci_r24 = r24, .ci_r26 = r26, .ci_r28 = r28 };
+  do {
+    BlockBombedReact(&ci, v3);
+    v3 += 2;
+  } while (--v4 >= 0);
+}
+
+static void BlockFunc_A11A(uint16 a, uint16 r24, uint16 r26, uint16 r28) {  // 0x94A11A: una columna
+  uint16 v3 = 2 * (Mult8x8((uint8)a, room_width_in_blocks) + HI8(a));
+  int16 v4 = r28 - r26;
+  CollInfo ci = { .ci_r24 = r24, .ci_r26 = r26, .ci_r28 = r28 };
+  do {
+    BlockBombedReact(&ci, v3);
+    v3 += room_width_in_blocks * 2;
+  } while (--v4 >= 0);
+}
+
+static void BlockFunc_A06A(uint16 k) {  // 0x94A06A: el borde del rectángulo de la explosión de la bomba de poder
+  int v1 = k >> 1;
+  int16 v2 = projectile_variables[v1];
+  if (v2) {
+    if (v2 < 0)
+      projectile_variables[v1] = 0;
+    return;
+  }
+  uint16 r18 = HI8(power_bomb_explosion_radius);
+  uint16 r20 = (uint16)(3 * HI8(power_bomb_explosion_radius)) >> 2;
+  int16 v3 = power_bomb_explosion_x_pos - HI8(power_bomb_explosion_radius);
+  if (v3 < 0)
+    v3 = 0;
+  uint16 r22 = (uint16)v3 >> 4;
+  uint16 v4 = (uint16)(r18 + power_bomb_explosion_x_pos) >> 4;
+  if (v4 >= room_width_in_blocks)
+    v4 = room_width_in_blocks - 1;
+  uint16 r24 = v4;
+  uint16 v5 = power_bomb_explosion_y_pos - r20;
+  if ((int16)v5 < 0)
+    v5 = 0;
+  uint16 r26 = v5 >> 4;
+  uint16 v6 = (uint16)(r20 + power_bomb_explosion_y_pos) >> 4;
+  if (v6 >= room_height_in_blocks)
+    v6 = room_height_in_blocks - 1;
+  uint16 r28 = v6;
+  uint16 a = r26 | (r22 << 8);
+  BlockFunc_A0F4(a, r22, r24, r26, r28);
+  BlockFunc_A11A(a, r24, r26, r28);
+  BlockFunc_A0F4(r28 | (r22 << 8), r22, r24, r26, r28);
+  BlockFunc_A11A(r26 | (r24 << 8), r24, r26, r28);
+}
+
 void BombOrPowerBomb_Func1(uint16 v0) {  // 0x949CAC
   uint16 temp_collision_DD2 = BlockFunc_9C73(v0);
   int v1 = v0 >> 1;
@@ -864,9 +963,355 @@ void BombOrPowerBomb_Func1(uint16 v0) {  // 0x949CAC
           if (temp_collision_DD2 == 2)
             BlockColl_BombExplosion(&ci, v0);
           else
-            nt_unimpl("BlockFunc_A06A (bomba de poder contra bloques)");
+            BlockFunc_A06A(v0);
         }
       }
     }
   }
+}
+
+uint32 Multiply16x16(uint16 a, uint16 j);
+/* ------------------------------------------------------------------ gancho ($94:8000-84CD, $94:A7C9-AFBA) */
+typedef struct { uint16 r26, r28, r32; } PostGrappleCollInfo;
+
+static uint16 PostGrappleColl_Solid(PostGrappleCollInfo *p) { return p->r32 & 0xF; }   // 0x9482BE / 0x9482DA
+
+static uint16 PostGrappleColl_Horiz_Slope_NonSquare(PostGrappleCollInfo *p, uint16 k) {  // 0x948000
+  if ((samus_x_pos >> 4) != SnesModulus(cur_block_index, room_width_in_blocks))
+    return 0xFFFF;
+  uint8 b = bts_get(k);
+  if (!(samus_collision_direction & 1)) {
+    if (!(b & 0x40))
+      return PostGrappleColl_Solid(p);
+    uint16 v3 = samus_y_pos ^ ((b & 0x80) ? 0xF : 0);
+    int16 result = (kAlignPos_Tab1[16 * (b & 0x1F) + (v3 & 0xF)] & 0x1F) - (p->r32 & 0xF) - 1;
+    return (result >= 0) ? result : 0xFFFF;
+  }
+  if (b & 0x40)
+    return PostGrappleColl_Solid(p);
+  uint16 v6 = samus_y_pos ^ ((b & 0x80) ? 0xF : 0);
+  int16 result = (kAlignPos_Tab1[16 * (b & 0x1F) + (v6 & 0xF)] & 0x1F) - (p->r32 & 0xF) - 1;
+  return (result <= 0) ? (uint16)~result : 0xFFFF;
+}
+
+static uint16 PostGrappleColl_Vert_Slope_NonSquare(PostGrappleCollInfo *p, uint16 k) {  // 0x9480E0
+  if ((samus_x_pos >> 4) != SnesModulus(cur_block_index, room_width_in_blocks))
+    return 0xFFFF;
+  uint16 dd4 = p->r32 & 0xF;
+  uint8 b = bts_get(k);
+  if (!(samus_collision_direction & 1)) {
+    if (!(b & 0x80))
+      return PostGrappleColl_Solid(p);
+    uint16 v4 = samus_x_pos ^ ((b & 0x40) ? 0xF : 0);
+    uint16 result = (kAlignYPos_Tab0[16 * (b & 0x1F) + (v4 & 0xF)] & 0x1F) - dd4 - 1;
+    return ((int16)result >= 0) ? result : 0xFFFF;
+  }
+  if (b & 0x80)
+    return PostGrappleColl_Solid(p);
+  uint16 v8 = samus_x_pos ^ ((b & 0x40) ? 0xF : 0);
+  uint16 v10 = (kAlignYPos_Tab0[16 * (b & 0x1F) + (v8 & 0xF)] & 0x1F) - dd4 - 1;
+  return ((int16)v10 <= 0) ? (uint16)~v10 : 0xFFFF;
+}
+
+static uint16 PostGrappleColl_Slope_Square(PostGrappleCollInfo *p, uint16 k, bool vert) {  // 0x9481B8 / 0x948230
+  uint8 b = bts_get(k);
+  uint16 v1 = 4 * (b & 0x1F) + ((b >> 6) ^ (vert ? (p->r32 & 8) >> 2 : (p->r32 & 8) >> 3));
+  uint16 edge = vert ? samus_x_radius + samus_x_pos - 1 : samus_y_radius + samus_y_pos - 1;
+  uint16 edge0 = vert ? samus_x_pos - samus_x_radius : samus_y_pos - samus_y_radius;
+  bool hit;
+  if (!p->r26) {
+    hit = (edge & 8) ? (kTab948E54[v1] || kTab948E54[v1 ^ (vert ? 1 : 2)]) : kTab948E54[v1];
+  } else if (p->r26 != p->r28 || !(edge0 & 8)) {
+    hit = kTab948E54[v1] || kTab948E54[v1 ^ (vert ? 1 : 2)];
+  } else {
+    hit = kTab948E54[v1 ^ (vert ? 1 : 2)];
+  }
+  if (!hit)
+    return 0xFFFF;
+  return (samus_collision_direction & 1) ? (p->r32 & 7) : ((p->r32 & 7) ^ 7);
+}
+
+static uint16 PostGrappleColl(PostGrappleCollInfo *p, uint16 k, bool vert) {  // kPostGrappleColl_Horiz/Vert ($94:8321)
+  cur_block_index = k >> 1;
+  switch ((level_get(k >> 1) & 0xF000) >> 12) {
+  case 1:                                        // _Horiz_Slope / _Vert_Slope ($94:82A9 / $94:82C5)
+    if ((bts_get(cur_block_index) & 0x1F) < 5)
+      return PostGrappleColl_Slope_Square(p, cur_block_index, vert);
+    return vert ? PostGrappleColl_Vert_Slope_NonSquare(p, cur_block_index)
+                : PostGrappleColl_Horiz_Slope_NonSquare(p, cur_block_index);
+  case 8: case 9: case 10: case 11: case 12: case 13: case 14: case 15:
+    return PostGrappleColl_Solid(p);
+  default:
+    return 0xFFFF;                               // ClearCarry_0
+  }
+}
+
+static void PostGrappleCollisionDetect_Side(bool right) {  // _Right $94:834F / _Left $94:83B1
+  samus_collision_direction = right ? 1 : 0;
+  uint16 *dist = right ? &distance_to_eject_samus_left : &distance_to_eject_samus_right;
+  *dist = 0;
+  uint16 r28 = Samus_GetYposSpan();
+  uint16 prod = Mult8x8((uint16)(samus_y_pos - samus_y_radius) >> 4, room_width_in_blocks);
+  uint16 R32 = right ? samus_x_radius + samus_x_pos - 1 : samus_x_pos - samus_x_radius;
+  cur_block_index = prod + (R32 >> 4);
+  uint16 v1 = 2 * cur_block_index;
+  PostGrappleCollInfo p = { r28, r28, R32 };
+  do {
+    int16 v2 = PostGrappleColl(&p, v1, false);
+    if (v2 >= 0 && (uint16)(v2 + 1) >= *dist)
+      *dist = v2 + 1;
+    v1 += room_width_in_blocks * 2;
+  } while (!(--p.r26 & 0x8000));
+}
+
+static void PostGrappleCollisionDetect_UpDown(bool down) {  // _Down $94:840F / _Up $94:846A
+  samus_collision_direction = down ? 3 : 2;
+  uint16 *dist = down ? &distance_to_eject_samus_up : &distance_to_eject_samus_down;
+  *dist = 0;
+  uint16 r28 = Samus_GetXposSpan();
+  uint16 R32 = down ? samus_y_radius + samus_y_pos - 1 : samus_y_pos - samus_y_radius;
+  uint16 prod = Mult8x8(R32 >> 4, room_width_in_blocks);
+  cur_block_index = prod + ((uint16)(samus_x_pos - samus_x_radius) >> 4);
+  uint16 v1 = 2 * cur_block_index;
+  PostGrappleCollInfo p = { r28, r28, R32 };
+  do {
+    int16 v2 = PostGrappleColl(&p, v1, true);
+    if (v2 >= 0 && (uint16)(v2 + 1) >= *dist)
+      *dist = v2 + 1;
+    v1 += 2;
+  } while (!(--p.r26 & 0x8000));
+}
+
+void PostGrappleCollisionDetect_X(void) {  // 0x9484C4
+  PostGrappleCollisionDetect_Side(true);
+  PostGrappleCollisionDetect_Side(false);
+}
+
+void PostGrappleCollisionDetect_Y(void) {  // 0x9484CD
+  PostGrappleCollisionDetect_UpDown(true);
+  PostGrappleCollisionDetect_UpDown(false);
+}
+
+static uint8 BlockReactGrapple(void) {  // 0x94A91F
+  static const uint16 kSpikePlm[16] = { 0xd0e4, 0xd0e4, 0xd0e4, 0xd0e8, 0xd0e4, 0xd0e4, 0xd0e4, 0xd0e4,
+                                        0xd0e4, 0xd0e4, 0xd0e4, 0xd0e4, 0xd0e4, 0xd0e4, 0xd0e4, 0xd0e4 };
+  static const uint16 kGrappleBlockPlm[4] = { 0xd0d8, 0xd0dc, 0xd0e0, 0xd0d8 };
+  cur_block_index = Mult8x8(grapple_beam_end_y_pos >> 4, room_width_in_blocks) + (grapple_beam_end_x_pos >> 4);
+  CollInfo ci = { 0 };
+  uint8 rv;
+  do {
+    uint8 b = bts_get(cur_block_index);
+    switch ((level_get(cur_block_index) & 0xF000) >> 12) {
+    case 0: case 2: case 3: case 6: rv = 0; break;                       // ClearCarryZero
+    case 1: case 8: case 9: case 11: rv = 1; break;                      // SetCarryClearOvf
+    case 4: rv = BlockReact_ShootableAir(&ci); break;
+    case 5: rv = BlockReact_HorizExt(); break;
+    case 7: rv = BlockReact_Bombable(0); break;
+    case 10:                                                              // BlockReactGrapple_SpikeBlock ($94:A7FD)
+      rv = (b & 0x80) ? 0 : SpawnPLM(kSpikePlm[b & 0xF]);
+      break;
+    case 12: rv = BlockReact_Shootable(&ci); break;
+    case 13: rv = BlockReact_VertExt(); break;
+    case 14:                                                              // BlockReactGrapple_GrappleBlock ($94:A7D1)
+      grapple_beam_flags &= ~0x8000;
+      rv = (b & 0x80) ? 0 : SpawnPLM(kGrappleBlockPlm[b & 3]);
+      break;
+    default: rv = BlockReact_Bombable(1); break;                          // 15
+    }
+  } while (rv & 0x80);
+  return rv;
+}
+
+uint8 BlockCollGrappleBeam(void) {  // 0x94A85B
+  int32 vx = (int32)(int16)grapple_beam_extension_x_velocity << 6;
+  int32 vy = (int32)(int16)grapple_beam_extension_y_velocity << 6;
+  uint8 result = 0;
+  for (int i = 0; i < 4; i++) {
+    add_hilo(&grapple_beam_end_x_offset, &grapple_beam_end_x_suboffset, vx);
+    add_hilo(&grapple_beam_end_y_offset, &grapple_beam_end_y_suboffset, vy);
+    set_hilo(&grapple_beam_end_x_pos, &grapple_beam_end_x_subpos, PAIR32(grapple_beam_end_x_offset, grapple_beam_end_x_suboffset)
+             + PAIR32(samus_x_pos, samus_x_subpos) + ((uint32)grapple_beam_origin_x_offset << 16));
+    set_hilo(&grapple_beam_end_y_pos, &grapple_beam_end_y_subpos, PAIR32(grapple_beam_end_y_offset, grapple_beam_end_y_suboffset)
+             + PAIR32(samus_y_pos, samus_y_subpos) + ((uint32)grapple_beam_origin_y_offset << 16));
+    result = BlockReactGrapple();
+    if ((result & 0x40) && (result & 1)) {
+      grapple_beam_end_x_pos = (grapple_beam_end_x_pos & 0xFFF0) | 8;
+      grapple_beam_end_y_pos = (grapple_beam_end_y_pos & 0xFFF0) | 8;
+      return result;
+    }
+  }
+  return result;
+}
+
+uint8 CheckIfGrappleIsConnectedToBlock(void) {  // 0x9BB8F1
+  grapple_beam_extension_x_velocity = 0;
+  grapple_beam_extension_y_velocity = 0;
+  if (!(BlockReactGrapple() & 1))
+    return 0;
+  samus_grapple_flags = 1;
+  return 1;
+}
+
+static uint16 GrappleSinMul(uint16 len, int16 s, uint16 base) {   /* base + len * seno (de BlockFunc_A957) */
+  if (s < 0) {
+    if (s == -256)
+      return base - len;
+    return base - (Mult8x8(len, -(int8)s) >> 8);
+  }
+  if (s == 256)
+    return len + base;
+  return base + (Mult8x8(len, s) >> 8);
+}
+
+static void BlockFunc_A957(uint16 tmpD82, uint16 tmpD84) {  // 0x94A957: punta del gancho a la distancia tmpD84
+  int v1 = tmpD82 >> 1;
+  if (!(grapple_beam_flags & 0x8000)) {
+    grapple_beam_end_x_pos = (grapple_beam_end_x_pos & 0xFFF0) | ((kSinCosTable8bit_Sext[v1 + 64] & 0x8000) ? 7 : 8);
+    grapple_beam_end_y_pos = (grapple_beam_end_y_pos & 0xFFF0) | ((kSinCosTable8bit_Sext[v1] & 0x8000) ? 7 : 8);
+  }
+  /* (el decomp no niega el seno del eje y negativo a 8 bits: -v7 entero; Mult8x8 toma el byte bajo igual) */
+  uint16 v6 = GrappleSinMul(tmpD84, kSinCosTable8bit_Sext[v1 + 64], grapple_beam_end_x_pos);
+  grapple_beam_grapple_start_x = v6;
+  grapple_beam_grapple_start_block_x = (uint8)(v6 >> 4);
+  uint16 v8 = GrappleSinMul(tmpD84, kSinCosTable8bit_Sext[v1], grapple_beam_end_y_pos);
+  grapple_beam_grapple_start_y = v8;
+  grapple_beam_grapple_start_block_y = (uint8)(v8 >> 4);
+}
+
+static uint8 GrappleSpikeHurt(uint8 solid, uint16 dmg_type2) {   /* BlockReact_AA64_SpikeAir / _SpikeBlock */
+  if (samus_invincibility_timer)
+    return solid;
+  uint16 v0 = bts_get(cur_block_index) | bts_get(cur_block_index + 1) << 8;   /* *(uint16 *)&BTS[i] */
+  if (!(v0 & 0x8000)) {
+    uint16 dmg = solid ? (v0 == 0 ? 60 : v0 == 1 ? 16 : 0) : (v0 == 2 ? dmg_type2 : 0);   // g_word_94AB70 / 94AAF7
+    if (dmg) {
+      samus_periodic_damage += dmg;
+      samus_invincibility_timer = 60;
+      samus_knockback_timer = 10;
+    }
+  }
+  return solid;
+}
+
+static uint8 BlockReact_AA64(void) {  // 0x94AA64 (y BlockFunc_ABB0 $94:ABB0: la misma tabla, kBlockReactLut_AB90)
+  cur_block_index = Mult8x8(grapple_beam_grapple_start_block_y, room_width_in_blocks) + grapple_beam_grapple_start_block_x;
+  uint8 rv;
+  do {
+    switch ((level_get(cur_block_index) & 0xF000) >> 12) {
+    case 0: case 3: case 4: case 6: case 7: rv = 0; break;               // ClearCarry_10
+    case 2: rv = GrappleSpikeHurt(0, 16); break;
+    case 5: rv = BlockReact_HorizExt(); break;
+    case 10: rv = GrappleSpikeHurt(1, 0); break;
+    case 13: rv = BlockReact_VertExt(); break;
+    default: rv = 1; break;                                               // SetCarry_3
+    }
+  } while (rv & 0x80);
+  return rv;
+}
+
+static uint8 BlockFunc_ABE6(uint16 tmpD82) {  // 0x94ABE6
+  g_word_7E0D98 = 6;
+  uint16 len = grapple_beam_length + 8;
+  while (1) {
+    BlockFunc_A957(tmpD82, len);
+    if (BlockReact_AA64() & 1)
+      return 1;
+    len += 8;
+    if (!--g_word_7E0D98)
+      return 0;
+  }
+}
+
+void BlockFunc_AC11(void) {  // 0x94AC11
+  BlockFunc_A957(2 * HI8(grapple_beam_end_angle16), grapple_beam_length);
+  x_pos_of_start_of_grapple_beam = grapple_beam_grapple_start_x;
+  y_pos_of_start_of_grapple_beam = grapple_beam_grapple_start_y;
+}
+
+uint8 BlockFunc_AC31(void) {  // 0x94AC31: alargar o acortar el gancho
+  if (!grapple_beam_length_delta)
+    return 0;
+  uint16 end = grapple_beam_length_delta + grapple_beam_length;
+  uint16 d82 = 2 * HI8(grapple_beam_end_angle16);
+  if (grapple_beam_length_delta & 0x8000) {
+    if (end < 8) {
+      grapple_beam_length_delta = 0;
+      end = 8;
+    }
+    for (uint16 v1 = grapple_beam_length; v1 != end; v1--) {
+      BlockFunc_A957(d82, 8 + v1 - 1);
+      if (BlockReact_AA64()) {
+        grapple_beam_length = v1;
+        return 1;
+      }
+    }
+  } else {
+    if (end >= 63) {
+      grapple_beam_length_delta = 0;
+      end = 63;
+    }
+    for (uint16 v1 = grapple_beam_length; v1 != end; v1++) {
+      BlockFunc_A957(d82, 56 + v1 + 1);
+      if (BlockReact_AA64()) {
+        grapple_beam_length = v1;
+        return 1;
+      }
+    }
+  }
+  grapple_beam_length = end;
+  return 0;
+}
+
+static uint8 GrappleSwingStep(uint16 prod16, bool pos) {   /* las dos mitades de HandleMovementAndCollForSamusGrapple */
+  uint16 tmpD9C = pos ? prod16 : (uint16)-prod16;
+  uint16 d88 = 2 * ((uint16)(grapple_beam_end_angle16 + tmpD9C) >> 8);
+  uint16 v2 = 2 * HI8(grapple_beam_end_angle16);
+  if (v2 != d88) {
+    uint16 d86;
+    while (1) {
+      d86 = v2;
+      if (BlockFunc_ABE6((pos ? v2 + 2 : v2 - 2) & 0x1FF) & 1)
+        break;
+      v2 = (pos ? d86 + 2 : d86 - 2) & 0x1FF;
+      if (v2 == d88)
+        goto turn;
+    }
+    uint16 v4 = (uint16)((d86 >> 1) << 8);
+    grapple_beam_end_angle16 = v4 | 0x80;
+    grapple_beam_end_angles_mirror = v4 | 0x80;
+    if ((g_word_7E0D98 == 6 || g_word_7E0D98 == 5) && grapple_beam_length == 8) {
+      grapple_beam_unkD36 |= 0x8000;
+      grapple_beam_unkD26 = 0;
+      grapple_beam_unkD2E = 0;
+      return 1;
+    }
+    grapple_beam_unkD30 = 16;                    /* rebota contra el bloque */
+    grapple_beam_unkD26 = -((int16)grapple_beam_unkD26 >> 1);
+    grapple_beam_unkD2E = -((int16)grapple_beam_unkD2E >> 1);
+    return 1;
+  }
+turn:
+  grapple_beam_end_angle16 += tmpD9C;
+  grapple_beam_end_angles_mirror = grapple_beam_end_angle16;
+  grapple_beam_unkD36 &= ~0x8000;
+  if (--grapple_beam_unkD30 & 0x8000)
+    grapple_beam_unkD30 = 0;
+  uint16 v3;
+  if (!(grapple_beam_unkD2E & 0x8000))
+    v3 = ((int16)(grapple_beam_unkD2E - 6) >= 0) ? grapple_beam_unkD2E - 6 : 0;
+  else
+    v3 = ((int16)(grapple_beam_unkD2E + 6) < 0) ? grapple_beam_unkD2E + 6 : 0;
+  grapple_beam_unkD2E = v3;
+  return 0;
+}
+
+uint8 HandleMovementAndCollForSamusGrapple(void) {  // 0x94ACFE
+  uint16 v0 = (grapple_beam_flags & 1) ? 160 : 256;
+  uint16 v1 = grapple_beam_unkD2E + grapple_beam_unkD26;
+  if ((int16)v1 >= 0) {
+    uint16 prod16 = Multiply16x16(v1, v0) >> 8;
+    return prod16 ? GrappleSwingStep(prod16, true) : 0;
+  }
+  uint16 prod16 = Multiply16x16(-v1, v0) >> 8;
+  return prod16 ? GrappleSwingStep(prod16, false) : 0;
 }

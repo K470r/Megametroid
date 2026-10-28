@@ -44,7 +44,7 @@ static uint8 SamusCode_1C(void) {  // 0x90F41E
   return 0;
 }
 
-NT_LATE static void LoadProjectilePalette(uint16 a) {  // 0x90ACFC (kBeamPalettes: las de $90 ya en el orden de kBeamPalettePtrs)
+void LoadProjectilePalette(uint16 a) {  // 0x90ACFC (kBeamPalettes: las de $90 ya en el orden de kBeamPalettePtrs)
   if ((a & 0xFFF) >= 12) { nt_unimpl("LoadProjectilePalette (combinación de rayos sin tabla)"); return; }
   for (uint16 i = 0; i < 16; i++) palette_buffer[224 + i] = kBeamPalettes[(a & 0xFFF) * 16 + i];
   nt_pal_dirty(224, 239);
@@ -135,7 +135,7 @@ NT_LATE static void SamusFunc_E633(void) {  // 0x91E633
     if (samus_has_momentum_flag && !speed_boost_counter) {
       special_samus_palette_timer = speed_boost_counter;
       special_samus_palette_frame = 0;
-      speed_boost_counter = bank91_word(0xB61F);   /* kSpeedBoostToCtr[0] */
+      speed_boost_counter = kSpeedBoostToCtr[0];
     }
   } else {
     speed_echoes_index = 0;
@@ -216,6 +216,15 @@ static uint8 SamusCode(uint16 a) {
     frame_handler_beta = FUNC16(EmptyFunction);
     samus_draw_handler = FUNC16(SamusDisplayHandler_SamusReceivedFatal);
     return 1;
+  case 0x15:                                   // SamusCode_15_CalledBySuitAcquision ($90:F310)
+    Samus_UpdatePreviousPose();
+    flare_counter = 0;
+    ClearFlareAnimationState();
+    Samus_LoadSuitPalette();
+    frame_handler_alfa = FUNC16(Samus_FrameHandlerAlfa_Func13);   /* SamusCode_11_15_Common ($90:F2FC) */
+    frame_handler_beta = FUNC16(EmptyFunction);
+    samus_draw_handler = FUNC16(SamusDisplayHandler_SamusReceivedFatal);
+    return 1;
   case 0x14:                                   // 0x90F331: sonidos al recibir daño
     if (sign16(samus_health - 31))
       QueueSfx3_Max6(2);
@@ -262,7 +271,7 @@ static uint8 SamusCode(uint16 a) {
     return 1;
   case 0x03:                                   // 0x90F152
     if (grapple_beam_function != FUNC16(GrappleBeamFunc_Inactive)) {
-      nt_unimpl("SamusCode_03 (gancho)");
+      grapple_beam_function = FUNC16(GrappleBeam_Func2);
       return 0;
     }
     if (samus_movement_type != 3 && samus_movement_type != 20)

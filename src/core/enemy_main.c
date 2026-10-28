@@ -59,6 +59,7 @@ static const EnemyTilesetN *enemy_tileset(uint16 a) {
 typedef void (*PortFnV)(void);
 PortFnV port_FindCallEnemyAi(uint32 ea);
 void port_nop_v(void);
+uint8 Enemy_GrappleReact(uint16 f);
 void CallEnemyAi(uint8 bank, uint16 f) {
   uint32 ea = (uint32)bank << 16 | f;
   static uint32 cea[16];                         /* traducidas ya buscadas (casi siempre las mismas cada cuadro) */
@@ -83,6 +84,7 @@ void CallEnemyAi(uint8 bank, uint16 f) {
   case 0xA2A6D2: GunshipBottom_Init(); return;
   case 0xA2A759: GunshipTop_Main(); return;
   default:
+    if (f >= 0x8000 && f <= 0x801E && Enemy_GrappleReact(f)) return;   /* reacciones al gancho (grapple.c) */
     { PortFnV fn = port_FindCallEnemyAi(ea);      /* traducidas del decomp (docs/42) */
       if (fn) { cea[h] = ea; cfn[h] = fn; if (fn != port_nop_v) fn(); return; } }
 #ifndef __mc68000__
@@ -895,6 +897,19 @@ void EprojProjCollDet(void) {  // 0xA0996C
 
 void ProcessEnemyPowerBombInteraction(void) {  // 0xA0A306
   enemy_processing_stage = 5;
-  if (HI8(power_bomb_explosion_radius))
-    nt_unimpl("ProcessEnemyPowerBombInteraction (superbomba)");
+  uint16 rx = HI8(power_bomb_explosion_radius);
+  uint16 ry = (rx + (rx >> 1)) >> 1;
+  for (int i = 0x7c0; rx && i >= 0; i -= 0x40) {
+    EnemyData *E = gEnemyData(i);
+    if (E->invincibility_timer || !E->enemy_ptr || E->enemy_ptr == 0xDAFF)
+      continue;
+    const EnemyDefN *ED = enemy_def(E->enemy_ptr);
+    if ((kBankB4B[(uint16)((ED->vulnerability_ptr ? ED->vulnerability_ptr : 0xEC1C) + 15 - 0x8000)] & 0x7F) == 0)   /* ->power_bomb ($B4) */
+      continue;
+    if (abs16(power_bomb_explosion_x_pos - E->x_pos) < rx && abs16(power_bomb_explosion_y_pos - E->y_pos) < ry) {
+      cur_enemy_index = i;
+      CallEnemyAi(E->bank, ED->powerbomb_reaction ? ED->powerbomb_reaction : 0x8037);   // Enemy_NormalPowerBombAI_XX
+      E->properties |= 0x800;
+    }
+  }
 }

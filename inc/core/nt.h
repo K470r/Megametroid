@@ -18,6 +18,10 @@ typedef int32_t int32;
 
 #define sign16(x) (((uint16)(x) & 0x8000) != 0)
 #define sign8(x) (((uint8)(x) & 0x80) != 0)
+#ifndef NT_POINT16U
+#define NT_POINT16U
+typedef struct Point16U { uint16 x, y; } Point16U;
+#endif
 #define LO8(x) ((uint8)(x))
 #define HI8(x) ((uint8)((uint16)(x) >> 8))
 #define PAIR32(hi, lo) ((uint32)(((uint32)(uint16)(hi) << 16) | (uint16)(lo)))

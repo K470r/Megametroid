@@ -56,21 +56,61 @@ void HandleAtmosphericEffects(void) {  // 0x908B0A
   }
 }
 
+void Samus_DrawEcho(uint16 j) {  // 0x908855: un eco con el spritemap actual de Samus
+  int v1 = j >> 1;
+  int16 v2 = speed_echo_ypos[v1] - kPoseParams[samus_pose].y_offset_to_gfx - layer1_y_pos;
+  if (v2 >= 0 && sign16(v2 - 248)) {
+    DrawSamusSpritemap(samus_top_half_spritemap_index, speed_echo_xpos[v1] - layer1_x_pos, v2);
+    if (samus_bottom_half_spritemap_index)
+      DrawSamusSpritemap(samus_bottom_half_spritemap_index, speed_echo_xpos[v1] - layer1_x_pos, v2);
+  }
+}
+
 void Samus_DrawEchoes(void) {  // 0x9087BD
   if (!(speed_echoes_index & 0x8000)) {
-    if ((speed_boost_counter & 0xFF00) == 1024 && (speed_echo_xpos[1] || speed_echo_xpos[0]))
-      nt_unimpl("Samus_DrawEchoes");
+    if ((speed_boost_counter & 0xFF00) == 1024) {     /* a toda velocidad: los dos ecos que siguen a Samus */
+      if (speed_echo_xpos[1])
+        Samus_DrawEcho(2);
+      if (speed_echo_xpos[0])
+        Samus_DrawEcho(0);
+    }
     return;
   }
-  for (int i = 2; i >= 0; i -= 2) {
+  for (int i = 2; i >= 0; i -= 2) {                   /* al frenar: los ecos alcanzan a Samus */
     int v1 = i >> 1;
     if (!speed_echo_xpos[v1])
       continue;
-    nt_unimpl("Samus_DrawEchoes (ecos)");
-    return;
+    uint16 v2 = speed_echo_ypos[v1];
+    if (v2 != samus_y_pos)
+      speed_echo_ypos[v1] = ((int16)(v2 - samus_y_pos) < 0) ? v2 + 2 : v2 - 2;
+    if (speed_echo_xspeed[v1] & 0x8000) {
+      uint16 v5 = speed_echo_xspeed[v1] + speed_echo_xpos[v1];
+      speed_echo_xpos[v1] = v5;
+      if ((int16)(v5 - samus_x_pos) < 0) {
+        speed_echo_xpos[v1] = 0;
+        continue;
+      }
+    } else {
+      uint16 v4 = speed_echo_xspeed[v1] + speed_echo_xpos[v1];
+      speed_echo_xpos[v1] = v4;
+      if ((int16)(v4 - samus_x_pos) >= 0) {
+        speed_echo_xpos[v1] = 0;
+        continue;
+      }
+    }
+    Samus_DrawEcho(i);
   }
   if (!speed_echo_xpos[1] && !speed_echo_xpos[0])
     speed_echoes_index = 0;
+}
+
+void Samus_DrawShinesparkCrashEchoProjectiles(void) {  // 0x908953
+  if (nmi_frame_counter_word & 1) {
+    if (speed_echo_xspeed[3])
+      Samus_DrawEcho(6);
+    if (speed_echo_xspeed[2])
+      Samus_DrawEcho(4);
+  }
 }
 
 uint8 CheckBossBitForCurArea(uint16 a) {  // 0x8081DC

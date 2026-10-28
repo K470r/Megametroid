@@ -76,6 +76,7 @@ uint32 Multiply16x16(uint16 a, uint16 j);
 uint16 MoveEprojWithVelocity(uint16 k);
 uint16 Math_MultBySin(uint16 a, uint16 ang);
 uint16 Math_MultByCos(uint16 a, uint16 ang);
+void GrappleBeam_Func2(void);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 EprojBlockCollisition_Horiz(uint16 k);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
@@ -266,6 +267,7 @@ void EnemyDeathAnimation(uint16 k, uint16 a);
 void NormalEnemyTouchAi(void);
 void NormalEnemyTouchAiSkipDeathAnim_CurEnemy(void);
 void NormalEnemyPowerBombAi(void);
+void NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy(void);
 void NormalEnemyPowerBombAiSkipDeathAnim(void);
 void NormalEnemyShotAi(void);
 void NormalEnemyShotAiSkipDeathAnim_CurEnemy(void);
@@ -323,6 +325,7 @@ static uint8 EnemyBlockCollReact_Vert(EnemyBlockCollInfo *ebci, uint16 k);
 void CalculateBlockContainingPixelPos(uint16 xpos, uint16 ypos);
 uint8 EnemyFunc_C8AD(uint16 k);
 void Enemy_NormalFrozenAI_A2(void);
+void Enemy_NormalPowerBombAI_A2(void);
 void Enemy_NormalTouchAI_A2(void);
 void Enemy_NormalShotAI_A2(void);
 void BouncingGoofball_Init(void);
@@ -693,6 +696,7 @@ uint16 FakeKraid_Instr_5(uint16 k, uint16 jp);
 void FakeKraid_Touch(void);
 void FakeKraid_Shot(void);
 void FakeKraid_9C50(void);
+void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void);
 void Etecoon_Init(void);
 void Etecoon_Main(void);
 void Etecoon_Func_1(uint16 k);
@@ -737,6 +741,7 @@ void Dachora_Func_11(uint16 k);
 void Dachora_Func_12(uint16 k);
 void Enemy_NormalTouchAI_A8(void);
 void Enemy_NormalShotAI_A8(void);
+void Enemy_NormalPowerBombAI_A8(void);
 void Enemy_NormalFrozenAI_A8(void);
 void MorphBallEye_Init(void);
 void MorphBallEye_Main(void);
@@ -1047,6 +1052,7 @@ void WalkingSpacePirates_FDCE(void);
 void WalkingSpacePirates_FE4B(void);
 void Enemy_NormalTouchAI_B3(void);
 void Enemy_NormalShotAI_B3(void);
+void Enemy_NormalPowerBombAI_SkipDeathAnim_B3(void);
 void Enemy_NormalFrozenAI_B3(void);
 uint16 Enemy_SetAiPreInstr_B3(uint16 k, uint16 jp);
 uint16 Enemy_ClearAiPreInstr_B3(uint16 k, uint16 jp);
@@ -1109,7 +1115,6 @@ static Func_V *const off_A39540[4];
 static Func_V *const off_A39C97[2];
 static Func_V *const off_A39C9B[2];
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
-void GrappleBeam_Func2(void);
 void Samus_InputHandler_E913(void);
 void Samus_InputHandler_E91D(void);
 void SetGoldenTorizoPalette(uint16 a);
@@ -1119,7 +1124,6 @@ void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
 void WriteReg(uint16 reg, uint8 value);
 
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
-void GrappleBeam_Func2(void) { nt_unimpl("GrappleBeam_Func2"); }
 void Samus_InputHandler_E913(void) { nt_unimpl("Samus_InputHandler_E913"); }
 void Samus_InputHandler_E91D(void) { nt_unimpl("Samus_InputHandler_E91D"); }
 void SetGoldenTorizoPalette(uint16 a) { nt_unimpl("SetGoldenTorizoPalette"); }
@@ -2797,6 +2801,9 @@ void NormalEnemyPowerBombAi(void) {  // 0xA0A597
     EnemyDeathAnimation(cur_enemy_index, 0);
   }
 }
+void NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy(void) {  // 0xA0A5B7
+  NormalEnemyPowerBombAiSkipDeathAnim();
+}
 void NormalEnemyPowerBombAiSkipDeathAnim(void) {  // 0xA0A5C1
   EnemyDef *EnemyDef_A2;
   int16 hurt_ai_time;
@@ -3497,6 +3504,9 @@ uint8 EnemyFunc_C8AD(uint16 k) {  // 0xA0C8AD
 }
 void Enemy_NormalFrozenAI_A2(void) {  // 0xA28041
   NormalEnemyFrozenAI();
+}
+void Enemy_NormalPowerBombAI_A2(void) {  // 0xA28037
+  NormalEnemyPowerBombAi();
 }
 void Enemy_NormalTouchAI_A2(void) {  // 0xA28023
   NormalEnemyTouchAi();
@@ -7185,6 +7195,9 @@ void FakeKraid_9C50(void) {  // 0xA69C50
     Enemy_ItemDrop_MiniKraid(cur_enemy_index);
   }
 }
+void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void) {  // 0xA7803C
+  NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
+}
 void Etecoon_Init(void) {  // 0xA7E912
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
   E->properties |= kEnemyProps_DisableSamusColl;
@@ -7828,6 +7841,9 @@ void Enemy_NormalTouchAI_A8(void) {  // 0xA88023
 }
 void Enemy_NormalShotAI_A8(void) {  // 0xA8802D
   NormalEnemyShotAi();
+}
+void Enemy_NormalPowerBombAI_A8(void) {  // 0xA88037
+  NormalEnemyPowerBombAi();
 }
 void Enemy_NormalFrozenAI_A8(void) {  // 0xA88041
   NormalEnemyFrozenAI();
@@ -11130,6 +11146,9 @@ void Enemy_NormalTouchAI_B3(void) {  // 0xB38023
 void Enemy_NormalShotAI_B3(void) {  // 0xB3802D
   NormalEnemyShotAi();
 }
+void Enemy_NormalPowerBombAI_SkipDeathAnim_B3(void) {  // 0xB3803C
+  NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
+}
 void Enemy_NormalFrozenAI_B3(void) {  // 0xB38041
   NormalEnemyFrozenAI();
 }
@@ -11682,7 +11701,7 @@ void EscapeDachora_Init(void) {  // 0xB3EAE5
 void port_nop_v(void) {}
 void port_nop_k(uint16 k) { (void)k; }   /* nullsubs: quien llama puede saltarlas */
 static void port_w_Fireflea_Touch(void) { Fireflea_Touch(cur_enemy_index); }
-static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[187] = {
+static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA28023, Enemy_NormalTouchAI_A2},
   {0xA2802D, Enemy_NormalShotAI_A2},
   {0xA28041, Enemy_NormalFrozenAI_A2},
@@ -11780,6 +11799,7 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[187] = {
   {0xA69C22, FakeKraid_Touch},
   {0xA69C39, FakeKraid_Shot},
   {0xA6F920, port_nop_v},
+  {0xA7803C, Enemy_NormalPowerBombAI_SkipDeathAnim_A7},
   {0xA7804C, port_nop_v},
   {0xA7804C, port_nop_v},
   {0xA7804C, port_nop_v},
@@ -11876,7 +11896,7 @@ PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las última
   uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 15;
   if (cea[h] == ea) return cf[h];
   PortFnV f = 0;
-  int lo = 0, hi = 186;
+  int lo = 0, hi = 187;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEnemyAi[m].ea;
@@ -12441,6 +12461,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA0A477: NormalEnemyTouchAi(); return 1;
   case 0xA0A497: NormalEnemyTouchAiSkipDeathAnim_CurEnemy(); return 1;
   case 0xA0A597: NormalEnemyPowerBombAi(); return 1;
+  case 0xA0A5B7: NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy(); return 1;
   case 0xA0A5C1: NormalEnemyPowerBombAiSkipDeathAnim(); return 1;
   case 0xA0A63D: NormalEnemyShotAi(); return 1;
   case 0xA0A6A7: NormalEnemyShotAiSkipDeathAnim_CurEnemy(); return 1;
@@ -12448,6 +12469,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA0A8BC: CreateDudShot(); return 1;
   case 0xA0B7A1: EnemyFunc_B7A1(); return 1;
   case 0xA28041: Enemy_NormalFrozenAI_A2(); return 1;
+  case 0xA28037: Enemy_NormalPowerBombAI_A2(); return 1;
   case 0xA28023: Enemy_NormalTouchAI_A2(); return 1;
   case 0xA2802D: Enemy_NormalShotAI_A2(); return 1;
   case 0xA2871C: BouncingGoofball_Init(); return 1;
@@ -12664,12 +12686,14 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA69C22: FakeKraid_Touch(); return 1;
   case 0xA69C39: FakeKraid_Shot(); return 1;
   case 0xA69C50: FakeKraid_9C50(); return 1;
+  case 0xA7803C: Enemy_NormalPowerBombAI_SkipDeathAnim_A7(); return 1;
   case 0xA7E912: Etecoon_Init(); return 1;
   case 0xA7E940: Etecoon_Main(); return 1;
   case 0xA7F4DD: Dachora_Init(); return 1;
   case 0xA7F52E: Dachora_Main(); return 1;
   case 0xA88023: Enemy_NormalTouchAI_A8(); return 1;
   case 0xA8802D: Enemy_NormalShotAI_A8(); return 1;
+  case 0xA88037: Enemy_NormalPowerBombAI_A8(); return 1;
   case 0xA88041: Enemy_NormalFrozenAI_A8(); return 1;
   case 0xA89058: MorphBallEye_Init(); return 1;
   case 0xA890E2: MorphBallEye_Main(); return 1;
@@ -12784,6 +12808,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xB2FE4B: WalkingSpacePirates_FE4B(); return 1;
   case 0xB38023: Enemy_NormalTouchAI_B3(); return 1;
   case 0xB3802D: Enemy_NormalShotAI_B3(); return 1;
+  case 0xB3803C: Enemy_NormalPowerBombAI_SkipDeathAnim_B3(); return 1;
   case 0xB38041: Enemy_NormalFrozenAI_B3(); return 1;
   case 0xB3883B: BrinstarPipeBug_Init(); return 1;
   case 0xB3887A: BrinstarPipeBug_Main(); return 1;

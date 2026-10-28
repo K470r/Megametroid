@@ -46,6 +46,8 @@ void DrawEprojSpritemap(uint16 sm, uint16 x, uint16 y, uint16 g) { LOG("%04X epr
 void DrawProjectileSpritemap(uint16 k, uint16 x, uint16 y) { LOG("%04X proj %04X\n", room_ptr, projectile_spritemap_pointers[k >> 1]); }
 void DrawGrappleOrProjectileSpritemap(uint16 sm, uint16 x, uint16 y) { LOG("%04X proj %04X\n", room_ptr, sm); (void)x; (void)y; }
 void DrawProjectileTrailSprite(uint16 x, uint16 y, uint16 t) { LOG("%04X trail %04X\n", room_ptr, t); }
+void DrawGrappleOam(int16 x, int16 y, uint16 chr) { LOG("%04X grapple %04X\n", room_ptr, chr); (void)x; (void)y; }
+void GrappleTiles(uint16 point_src, uint16 beam_src) { (void)point_src; (void)beam_src; }
 void music_play(uint8 t) { LOG("%04X music %02X\n", room_ptr, t); sndlog("play", t, 0); }
 void EscapeTextCell(uint16 dst, uint16 w) { LOG("%04X text %04X %04X\n", room_ptr, dst, w); }
 void DrawTimerSpritemap(uint16 sm, uint16 x, uint16 y) { LOG("%04X spr80 %04X 0A00\n", room_ptr, sm); }

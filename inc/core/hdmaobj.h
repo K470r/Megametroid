@@ -3,7 +3,11 @@
 #define HDMAOBJ_H
 #include "nt.h"
 
-uint16 SpawnHdmaObject(uint8 bank, uint16 list);   /* $88:8435: devuelve la ranura (0, 2, ... 10) o 0xFFFF */
+uint16 SpawnHdmaObject(uint8 bank, uint16 list);
+void VariaSuitPickup(void);                      /* suit.c */
+void GravitySuitPickup(void);
+void InitializeSuitPickupHdma(void);
+void HdmaobjPreInstr_SuitPickup(uint16 k, bool gravity);   /* $88:8435: devuelve la ranura (0, 2, ... 10) o 0xFFFF */
 void HdmaObjectHandler(void);                       /* $88:84B9 */
 void DisableHdmaObjects(void);
 void EnableHdmaObjects(void);

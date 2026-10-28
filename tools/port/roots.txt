@@ -45,6 +45,7 @@ Enemy_NormalFrozenAI_A8
 Enemy_NormalFrozenAI_AA
 Enemy_NormalFrozenAI_B2
 Enemy_NormalFrozenAI_B3
+Enemy_NormalPowerBombAI_*
 Enemy_NormalShotAI_A2
 Enemy_NormalShotAI_A3
 Enemy_NormalShotAI_A8

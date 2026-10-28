@@ -67,7 +67,10 @@ static inline uint16 SnesModulus(uint16 a, uint8 b) {
 #endif
 }
 typedef struct Point32 { uint32 x, y; } Point32;
+#ifndef NT_POINT16U
+#define NT_POINT16U
 typedef struct Point16U { uint16 x, y; } Point16U;
+#endif
 typedef struct Rect16U { uint16 x, y, w, h; } Rect16U;
 extern Rect16U eproj_spawn_rect;   /* del decomp: rectángulo para algunos proyectiles (eproj.c) */
 extern uint16 eproj_spawn_r22;

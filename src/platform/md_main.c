@@ -60,6 +60,18 @@ static u16 read_joy(void) {
       door_transition_function = 0xE17D;           /* DoorTransitionFunction_HandleElevator */
       game_state = 9;
       samus_health = samus_max_health;
+#ifdef MD_TEST_ITEMS
+      /* lo mismo que HL_ITEMS / HL_POKE (tools/rooms/: objetos, rayos y lo elegido en el HUD) */
+      { extern uint16_t collected_items, equipped_items, collected_beams, equipped_beams, hud_item_index;
+        collected_items |= MD_TEST_ITEMS; equipped_items |= MD_TEST_ITEMS;
+#ifdef MD_TEST_BEAMS
+        collected_beams = equipped_beams = MD_TEST_BEAMS;
+#endif
+#ifdef MD_TEST_HUD_ITEM
+        hud_item_index = MD_TEST_HUD_ITEM;
+#endif
+      }
+#endif
     }
 #ifdef MD_TEST_SETXY_AT
     extern uint16_t samus_x_pos, samus_y_pos, samus_prev_x_pos, samus_prev_y_pos;

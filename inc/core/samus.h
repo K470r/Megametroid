@@ -75,6 +75,9 @@ void SamusFunc_F433(void);
 void Samus_SetAnimationFrameIfPoseChanged(void);
 void HandleJumpTransition(void);
 void Samus_LoadSuitPalette(void);
+void WriteBeamPalette_A(uint16 a);
+void Samus_Copy10PalColors(uint16 v0);
+void Samus_Copy6PalColors(uint16 j);
 void Samus_Initialize(void);                   /* $91:E00D */
 void Samus_LoadSuitTargetPalette(void);
 void CopyToSamusSuitPalette(uint16 k);
@@ -91,6 +94,8 @@ void BlockInsideDetection(void);
 void CalculateBlockAt(uint16 r26, uint16 r28, uint16 r30, uint16 r32);
 uint8 BlockCollNoWaveBeamHoriz(uint16 k);
 uint8 BlockCollNoWaveBeamVert(uint16 k);
+uint8 BlockCollWaveBeamHoriz(uint16 k);
+uint8 BlockCollWaveBeamVert(uint16 k);
 uint8 BlockCollMissileHoriz(uint16 k);
 uint8 BlockCollMissileVert(uint16 k);
 
@@ -147,5 +152,12 @@ void DrawSamusSpritemap(uint16 idx, uint16 x, uint16 y);
 void SetSamusTilesDefsForCurAnim(void);
 void HandleAtmosphericEffects(void);
 void Samus_DrawEchoes(void);
+void GrappleBeamHandler(void);                   /* grapple.c ($9B:C490) */
+void SamusDrawHandler_Grapple(void);
+void Samus_DrawEcho(uint16 j);
+void Samus_DrawShinesparkCrashEchoProjectiles(void);
+void Projectile_Func7_Shinespark(void);
+Point16U Projectile_SinLookup(uint16 j, uint16 a);
+void InitializeShinesparkEchoOrSpazerSba(uint16 k);
 
 #endif

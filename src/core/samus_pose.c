@@ -2,6 +2,17 @@
  * Escrito a mano desde snesrev/sm sm_91.c (y las funciones de $90 que solo usa esta parte). */
 #include "samus.h"
 
+/* tablas de punteros de las paletas especiales en el banco $91 (sm_91.c: RomFixedPtr) */
+#define kSamusPalette_HyperBeam 0xD829
+#define kSamus_SpeedBoostingPalettes 0xD998
+#define kSamus_HyperBeamPalettes 0xD99E
+#define kSamusPal_ScrewAttack 0xDA4A
+#define kSamusPal_SpeedBoost 0xDAA9
+#define kSamusPal_SpeedBoostShine 0xDB10
+#define kSamusPal_Shinespark 0xDB75
+#define kStru_91DC00 0xDC00   /* SamusCrystalFlashPalTable: { timer, ptr } */
+#define kOff_91DC28 0xDC28
+
 static bool in_liquid_at(uint16 y) {
   if (!(fx_y_pos & 0x8000))
     return sign16(fx_y_pos - y) && !(fx_liquid_options & 4);
@@ -45,7 +56,7 @@ static uint8 Samus_Pose_Func2(void) {  // 0x918304
   return 0;
 }
 
-static void Samus_Pose_CancelGrapple(void) {  // 0x9182D9
+void Samus_Pose_CancelGrapple(void) {  // 0x9182D9
   if ((Samus_Pose_Func2() & 1) || kPoseParams[samus_pose].new_pose_unless_buttons == 255)
     samus_new_pose = samus_pose;
   else
@@ -184,7 +195,14 @@ static uint8 HandleVisorPalette(void) {  // 0x91D83F
 static uint8 HandleBeamChargePalettes(void) {  // 0x91D743
   if (charged_shot_glow_timer) {
     if (hyper_beam_flag) {
-      nt_unimpl("HandleBeamChargePalettes (hiperrayo)");
+      if (!(charged_shot_glow_timer & 1)) {
+        if (!(charged_shot_glow_timer & 0x1E)) {
+          charged_shot_glow_timer = 0;
+          return 1;
+        }
+        CopyToSamusSuitPalette(bank91_word(kSamusPalette_HyperBeam + (charged_shot_glow_timer & 0x1E)));
+      }
+      --charged_shot_glow_timer;
       return 0;
     }
     if (--charged_shot_glow_timer) {
@@ -234,10 +252,111 @@ static uint8 Samus_HandleScrewAttackSpeedBoostingPals(void) {  // 0x91D9B2
 speed:
   if ((speed_boost_counter & 0xFF00) != 1024)
     return 1;
-  nt_unimpl("Samus_HandleScrewAttackSpeedBoostingPals (speed booster)");
+  if (!--special_samus_palette_timer || (special_samus_palette_timer & 0x8000)) {
+    special_samus_palette_timer = 4;
+    /* el SNES no limita el cuadro: si venía del tornillo (hasta 10) lee lo que sigue a la tabla */
+    CopyToSamusSuitPalette(bank91_word(bank91_word(kSamusPal_SpeedBoost + (samus_suit_palette_index & ~1)) + special_samus_palette_frame));
+    special_samus_palette_frame = (special_samus_palette_frame >= 6) ? 6 : special_samus_palette_frame + 2;
+  }
   return 1;
 screw:
-  nt_unimpl("Samus_HandleScrewAttackSpeedBoostingPals (screw attack)");
+  CopyToSamusSuitPalette(bank91_word(bank91_word(kSamusPal_ScrewAttack + (samus_suit_palette_index & ~1)) + special_samus_palette_frame));
+  special_samus_palette_frame = (special_samus_palette_frame >= 10) ? 0 : special_samus_palette_frame + 2;
+  return 1;
+}
+
+static uint8 Samus_SpeedBoosterShinePals(void) {  // 0x91DAC7
+  uint16 v0 = samus_shine_timer;
+  if (samus_shine_timer == 170)
+    QueueSfx3_Max9(0xC);
+  samus_shine_timer = v0 - 1;
+  if ((int16)(v0 - 1) <= 0) {
+    special_samus_palette_frame = 0;
+    timer_for_shine_timer = 0;
+    return 0;
+  }
+  CopyToSamusSuitPalette(bank91_word(bank91_word(kSamusPal_SpeedBoostShine + (samus_suit_palette_index & ~1)) + special_samus_palette_frame));
+  special_samus_palette_frame = !sign16(special_samus_palette_frame - 10) ? 0 : special_samus_palette_frame + 2;
+  return 1;
+}
+
+static uint8 Samus_HandleShinesparkingPals(void) {  // 0x91DB3A
+  if (!--samus_shine_timer || (samus_shine_timer & 0x8000)) {
+    timer_for_shine_timer = 0;
+    special_samus_palette_frame = 0;
+    return 0;
+  }
+  CopyToSamusSuitPalette(bank91_word(bank91_word(kSamusPal_Shinespark + (samus_suit_palette_index & ~1)) + special_samus_palette_frame));
+  special_samus_palette_frame = !sign16(special_samus_palette_frame - 6) ? 0 : special_samus_palette_frame + 2;
+  return 1;
+}
+
+void Samus_Copy10PalColors(uint16 v0) {  // 0x91DC34
+  memcpy(&palette_buffer[224], bank9B_ptr(v0), 20);
+  nt_pal_dirty(224, 233);
+}
+
+void Samus_Copy6PalColors(uint16 j) {  // 0x91DC82
+  memcpy(&palette_buffer[234], bank9B_ptr(j), 12);
+  nt_pal_dirty(234, 239);
+}
+
+static uint8 Samus_HandleCrystalFlashPals(void) {  // 0x91DB93
+  if (samus_shine_timer & 0x8000) {
+    WriteBeamPalette_A(equipped_beams);
+    timer_for_shine_timer = 0;
+    special_samus_palette_frame = 0;
+    special_samus_palette_timer = 0;
+    samus_shine_timer = 0;
+    return 0;
+  }
+  if ((int16)--samus_shine_timer <= 0) {
+    samus_shine_timer = 5;
+    Samus_Copy6PalColors(bank91_word(kOff_91DC28 + special_samus_palette_frame));
+    special_samus_palette_frame = !sign16(special_samus_palette_frame - 10) ? 0 : special_samus_palette_frame + 2;
+  }
+  /* suit_pickup_color_math_B y el byte siguiente (suit_pickup_palette_transition_color): contador de 16 bits */
+  uint16 t = suit_pickup_color_math_B | suit_pickup_palette_transition_color << 8;
+  t--;
+  if (!t || (t & 0x8000)) {
+    t = bank91_word(kStru_91DC00 + special_samus_palette_timer);              // .timer
+    Samus_Copy10PalColors(bank91_word(kStru_91DC00 + 2 + special_samus_palette_timer));   // .ptr
+    special_samus_palette_timer = !sign16(special_samus_palette_timer - 36) ? 0 : special_samus_palette_timer + 4;
+  }
+  suit_pickup_color_math_B = (uint8)t;
+  suit_pickup_palette_transition_color = t >> 8;
+  return 1;
+}
+
+static uint8 Samus_HandleXrayPals(void) {  // 0x91DCB4
+  if (demo_timer_counter & 0x8000) {
+    timer_for_shine_timer = 0;
+    special_samus_palette_frame = 0;
+    special_samus_palette_timer = 0;
+    demo_timer_counter = 0;
+    return 0;
+  }
+  if (!demo_timer_counter) {
+    if (sign16(demo_input_pre_instr - 2)) {
+      if (!--special_samus_palette_timer || (special_samus_palette_timer & 0x8000)) {
+        special_samus_palette_timer = 5;
+        palette_buffer[196] = word_9BA3C0[special_samus_palette_frame >> 1];
+        nt_pal_dirty(196, 196);
+        if (sign16(special_samus_palette_frame - 4))
+          special_samus_palette_frame += 2;
+      }
+      return 1;
+    }
+    special_samus_palette_frame = 6;
+    special_samus_palette_timer = 1;
+    demo_timer_counter = 1;
+  }
+  if (--special_samus_palette_timer && !(special_samus_palette_timer & 0x8000))
+    return 1;
+  special_samus_palette_timer = 5;
+  palette_buffer[196] = word_9BA3C0[special_samus_palette_frame >> 1];
+  nt_pal_dirty(196, 196);
+  special_samus_palette_frame = !sign16(special_samus_palette_frame - 10) ? 6 : special_samus_palette_frame + 2;
   return 1;
 }
 
@@ -274,15 +393,28 @@ static void HandleMiscSamusPalette(void) {  // 0x91D8A5
           CallSomeSamusCode(0x1C);
         else if (!sign16(flare_counter - 16) && (button_config_shoot_x & joypad1_lastkeys))
           play_resume_charging_beam_sfx = 1;
-      } else {
-        nt_unimpl("HandleMiscSamusPalette (gancho)");
+      } else if (sign16(grapple_beam_function + 0x37AA)) {
+        QueueSfx1_Max9(6);
       }
     } else if (!sign16(v1 - 60)) {
       samus_hurt_flash_counter = 0;
     }
     return;
   }
-  nt_unimpl("HandleMiscSamusPalette (paletas especiales)");
+  if (samus_special_super_palette_flags & 0x8000) {    /* hiperrayo (Mother Brain) */
+    CopyToSamusSuitPalette(bank91_word(kSamus_HyperBeamPalettes + 2 * samus_charge_palette_index));
+    if (!--special_samus_palette_timer || (special_samus_palette_timer & 0x8000)) {
+      special_samus_palette_timer = special_samus_palette_frame;
+      if (!sign16(++samus_charge_palette_index - 10))
+        samus_charge_palette_index = 0;
+    }
+  } else {
+    if (samus_special_super_palette_flags & 1)
+      CopyToSamusSuitPalette(bank91_word(kSamus_SpeedBoostingPalettes + (samus_suit_palette_index & ~1)));
+    else
+      Samus_LoadSuitPalette();
+    ++samus_special_super_palette_flags;
+  }
 }
 
 void Samus_HandlePalette(void) {  // 0x91D6F7
@@ -294,9 +426,14 @@ void Samus_HandlePalette(void) {  // 0x91D6F7
       uint8 r;
       switch (timer_for_shine_timer) {
       case 0: r = Samus_HandleScrewAttackSpeedBoostingPals(); break;
+      case 1: r = Samus_SpeedBoosterShinePals(); break;
+      case 2: HandleMiscSamusPalette(); r = 0; break;   /* (Func_U8 *) en el decomp: el carry queda en 0 */
+      case 6: r = Samus_HandleShinesparkingPals(); break;
+      case 7: r = Samus_HandleCrystalFlashPals(); break;
+      case 8: r = Samus_HandleXrayPals(); break;
       case 9: r = HandleVisorPalette(); break;
-      case 10: r = 0; break;
-      default: nt_unimpl("Samus_HandlePalette (brillo especial)"); r = 1; break;
+      case 10: r = 0; break;                           // nullsub_164
+      default: nt_unimpl("Samus_HandlePalette (índice 3-5: puntero nulo en el SNES)"); r = 1; break;
       }
       copy = !(r & 1);
     }
@@ -759,6 +896,32 @@ static void Samus_HandleTransitionsB_1(void) {  // 0x91ED4E: golpe -> retroceso
   samus_hurt_flash_counter = 1;
 }
 
+void GrappleBeamFunc_BD95_(void);              /* grapple.c */
+void GrappleBeamFunc_BEEB(void);
+static void Samus_HandleTransitionsB_9B(void) {  // 0x91EF53
+  int16 v0 = samus_x_pos - samus_prev_x_pos;
+  if (v0 < 0) {
+    if (sign16(v0 + 12))
+      samus_prev_x_pos = samus_x_pos + 12;
+  } else if (!sign16(v0 - 13)) {
+    samus_prev_x_pos = samus_x_pos - 12;
+  }
+  int16 v1 = samus_y_pos - samus_prev_y_pos;
+  if (v1 < 0) {
+    if (sign16(v1 + 12))
+      samus_prev_y_pos = samus_y_pos + 12;
+  } else if (!sign16(v1 - 13)) {
+    samus_prev_y_pos = samus_y_pos - 12;
+  }
+  Samus_CancelSpeedBoost();
+  samus_x_base_speed = 0;
+  samus_x_base_subspeed = 0;
+  samus_y_subspeed = 0;
+  samus_y_speed = 0;
+  samus_x_extra_run_speed = 0;
+  samus_x_extra_run_subspeed = 0;
+}
+
 static void Samus_HandleTransitionsB(void) {  // kSamus_HandleTransitionsB
   switch (samus_special_transgfx_index) {
   case 0: case 6: case 7: break;
@@ -783,7 +946,15 @@ static void Samus_HandleTransitionsB(void) {  // kSamus_HandleTransitionsB
     samus_prev_y_pos = samus_y_pos;
     frame_handler_alfa = FUNC16(EmptyFunction);
     break;
-  default: nt_unimpl("Samus_HandleTransitionsB (daño/bomba/rayos X/gancho)"); break;
+  case 9:                                     // 0x91EF4F: colgada del gancho
+    GrappleBeamFunc_BD95_();
+    Samus_HandleTransitionsB_9B();
+    break;
+  case 10:                                    // 0x91EFBC: gancho quieta
+    GrappleBeamFunc_BEEB();
+    Samus_HandleTransitionsB_9B();
+    break;
+  default: nt_unimpl("Samus_HandleTransitionsB (rayos X/Draygon)"); break;
   }
 }
 
@@ -935,13 +1106,16 @@ static uint8 SamusFunc_F468_Running(void) {  // 0x91F50C
 }
 
 static uint8 SamusFunc_F468_NormalJump(void) {  // 0x91F543
-  if (samus_pose == kPose_4E_FaceL_Jump_NoAim_NoMove_NoGun || samus_pose == kPose_16_FaceL_Jump_AimU
-      || samus_pose == kPose_6A_FaceL_Jump_AimUL || samus_pose == kPose_4D_FaceR_Jump_NoAim_NoMove_NoGun
-      || samus_pose == kPose_15_FaceR_Jump_AimU || samus_pose == kPose_69_FaceR_Jump_AimUR) {
-    if (samus_shine_timer) {
-      nt_unimpl("SamusFunc_F468_NormalJump (shinespark)");
-      return 1;
-    }
+  bool left = samus_pose == kPose_4E_FaceL_Jump_NoAim_NoMove_NoGun || samus_pose == kPose_16_FaceL_Jump_AimU
+      || samus_pose == kPose_6A_FaceL_Jump_AimUL;
+  bool right = samus_pose == kPose_4D_FaceR_Jump_NoAim_NoMove_NoGun || samus_pose == kPose_15_FaceR_Jump_AimU
+      || samus_pose == kPose_69_FaceR_Jump_AimUR;
+  if ((left || right) && samus_shine_timer) {   /* salto con el brillo del speed booster: shinespark */
+    samus_pose = left ? kPose_C8_FaceL_ShinesparkWindup_Vert : kPose_C7_FaceR_ShinesparkWindup_Vert;
+    Projectile_Func7_Shinespark();
+    if (samus_prev_movement_type2 == kMovementType_02_NormalJumping)
+      samus_prev_y_pos = --samus_y_pos;
+    return 1;
   }
   if (samus_x_extra_run_speed || samus_x_extra_run_subspeed)
     samus_x_accel_mode = 2;
@@ -1102,6 +1276,35 @@ static uint8 SamusFunc_F468_MorphBall(void) {  // 0x91F9F4
   return 0;
 }
 
+static uint8 SamusFunc_F468_Springball(void) {  // 0x91FA56
+  if (samus_prev_movement_type2 == kMovementType_11_SpringBallOnGround
+      || samus_prev_movement_type2 == kMovementType_12_SpringBallInAir
+      || samus_prev_movement_type2 == kMovementType_13_SpringBallFalling)
+    samus_anim_frame_skip = FUNC16(Samus_InputHandler);
+  SamusFunc_FA0A();
+  return 0;
+}
+
+static const uint16 kSamusFunc_F468_Shinespark[6] = {  // 0x91FACA
+  FUNC16(Samus_MoveHandler_Shinespark_Horiz), FUNC16(Samus_MoveHandler_Shinespark_Horiz),
+  FUNC16(Samus_MoveHandlerVerticalShinespark), FUNC16(Samus_MoveHandlerVerticalShinespark),
+  FUNC16(Samus_MoveHandler_Shinespark_Diag), FUNC16(Samus_MoveHandler_Shinespark_Diag),
+};
+
+static uint8 SamusFunc_F468_Shinespark(void) {  // 0x91FAD6
+  if (sign16(samus_pose - kPose_CF_FaceR_Ranintowall_AimUR)) {
+    samus_movement_handler = kSamusFunc_F468_Shinespark[samus_pose - 201];
+    samus_input_handler = FUNC16(nullsub_152);
+    speed_echoes_index = 0;
+    speed_echo_xspeed[0] = 0;
+    speed_echo_xspeed[1] = 0;
+    speed_echo_xpos[0] = 0;
+    speed_echo_xpos[1] = 0;
+    QueueSfx3_Max9(0xF);
+  }
+  return 0;
+}
+
 static uint8 SamusFunc_F468_call(uint8 mt) {
   switch (mt) {
   case 0: return SamusFunc_F468_Standing();
@@ -1112,6 +1315,8 @@ static uint8 SamusFunc_F468_call(uint8 mt) {
   case 5: return SamusFunc_F468_Crouching();
   case 6: return SamusFunc_F468_Falling();
   case 7: case 9: case 10: case 11: case 12: case 13: case 21: case 22: case 26: return 0;
+  case 17: case 18: case 19: return SamusFunc_F468_Springball();
+  case 27: return SamusFunc_F468_Shinespark();
   case 14: return SamusFunc_F468_TurningAroundOnGround();
   case 15: return SamusFunc_F468_CrouchTransEtc();
   case 16: return SamusFunc_F468_Moonwalking();
@@ -1190,7 +1395,11 @@ void HandleJumpTransition(void) {  // 0x91FBBB
     if ((samus_pose == 0x65 && samus_prev_pose == 100) || (samus_pose == 0x66 && samus_prev_pose == 99))
       Samus_InitJump();
     break;
-  case 18: nt_unimpl("HandleJumpTransition_SpringBallInAir"); break;
+  case 18:                                    // HandleJumpTransition_SpringBallInAir ($91:FC18)
+    if ((samus_pose == kPose_7F_FaceR_Springball_Air || samus_pose == kPose_80_FaceL_Springball_Air)
+        && samus_prev_movement_type2 == kMovementType_11_SpringBallOnGround)
+      Samus_InitJump();
+    break;
   case 20:                                    // 0x91FC08
     if (samus_prev_movement_type2 != kMovementType_14_WallJumping)
       Samus_InitWallJump();

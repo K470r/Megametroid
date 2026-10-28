@@ -182,6 +182,10 @@ static void WriteBeamPalette_Y(uint16 j) {  // 0x90ACCD
   nt_pal_dirty(224, 239);
 }
 
+void WriteBeamPalette_A(uint16 a) {  // 0x90ACC2
+  WriteBeamPalette_Y(2 * (a & 0xFFF));
+}
+
 void UpdateBeamTilesAndPalette(void) {  // 0x90AC8D
   /* los tiles del rayo los sube la Genesis (g_hooks.room_gfx); aquí queda la paleta */
   WriteBeamPalette_Y(2 * (equipped_beams & 0xFFF));

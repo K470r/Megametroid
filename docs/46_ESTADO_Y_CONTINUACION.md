@@ -202,7 +202,8 @@ Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escr
   (pantalla negra). Para búferes grandes usar RAM que la escena no usa (el cono usa `cinematic_bg_tilemap`).
 - **VRAM**: tiles 0-1279 ocupados (sala desde 448, objetos desde 880 o `ZebesObj.base`); libre 0xF000-0xFFFF
   (tiles 1920-2047): ahí van los del cono y, con la caja de mensaje, los de la caja (después se recarga el cono).
-  Mapa en `inc/platform/md.h`.
+  0xEA00-0xEAFF (tiles 1872-1879, entre la tabla de sprites y el scroll horizontal): los 8 tiles del rayo equipado
+  (docs/57). Mapa en `inc/platform/md.h`.
 - **Colores**: línea 3 debajo del HUD = objetos de la sala (10 colores) + rayo (9-13); la cambia una interrupción.
   En los estados con un jefe de `BOSS_PALETTES` (hoy el Torizo) la sala usa solo la línea 0 y la línea 1 es del jefe
   (docs/51). Toda escritura a `palette_buffer` fuera de las funciones del motor tiene que marcar `nt_pal_dirty`.

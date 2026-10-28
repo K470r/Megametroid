@@ -1205,11 +1205,34 @@ void DrawProjectileSpritemap(uint16 k, uint16 x, uint16 y) {  // 0x818A4B
   DrawGrappleOrProjectileSpritemap(projectile_spritemap_pointers[k >> 1], x, y);
 }
 
+/* rayos (docs/57): un juego de claves común a todas las salas de Zebes (mkmd.beam_common, en la parte fija) para
+   los spritemaps hechos solo con los 8 tiles del rayo (todas las combinaciones, cargados o no, SBA, ecos). Esos tiles
+   van en BEAM_TILE (VRAM 0xEA00) y son los de la combinación equipada: el juego los cambia en
+   UpdateBeamTilesAndPalette ($90:AC8D: kBeamTilePtrs -> VRAM $6300), aquí ya convertidos (kBeamTiles); sus colores
+   son los 9-13 de la línea 3 (palette_buffer[225-229]). */
+static const uint8 *beam_dma, *beam_dmal;
+void BeamTiles(uint16 combo) {
+  if (combo < BEAM_COMBOS) beam_dmal = kBeamTiles + combo * 256;
+}
+static const uint16 *beam_find(uint16 sm) {
+  int lo = 0, hi = BEAM_KEYS - 1;
+  while (lo <= hi) {
+    int m = (lo + hi) >> 1;
+    if (kBeamKeySm[m] == sm) return kBeamRecs + kBeamKeyRec[m];
+    if (kBeamKeySm[m] < sm) lo = m + 1; else hi = m - 1;
+  }
+  return 0;
+}
+
 /* un spritemap de $93 (proyectiles de Samus y el destello de la carga, DrawBeamGrappleSpritemap $81:8A37) */
 void DrawGrappleOrProjectileSpritemap(uint16 sm, uint16 x, uint16 y) {  // 0x818A5F
   if (intro_on) { it_draw(INTRO_KIND_PROJ, sm, 0, (int16)x, (int16)y); return; }
-  /* Zebes: misiles, bombas y explosiones con los colores de la sala (mkzobj.py: clave sm, 0, 0xC000) */
-  if (md_zebes && zebes_obj_draw(sm, 0, 0xC000, (int16)x, (int16)y)) return;
+  if (md_zebes) {
+    const uint16 *r = beam_find(sm);
+    if (r) { md_put_recs(r, (int16)x, (int16)y); return; }
+    /* misiles, bombas y explosiones con los colores de la sala (mkzobj.py: clave sm, 0, 0xC000) */
+    if (zebes_obj_draw(sm, 0, 0xC000, (int16)x, (int16)y)) return;
+  }
   GenSpr *s0 = sp_ptr;
   if (!drawkey(4, sm, 0, 0, (int16)x, (int16)y)) missing(4, sm, 0, 0);
   if (md_zebes)                                   /* Zebes: el rayo usa la línea 3 (debajo del HUD: sus colores) */
@@ -2187,6 +2210,7 @@ static void pipe_take(void) {
   dyn_n = dyn_nl; dyn_nl = 0;
   if (arm_dmal) { arm_dma = arm_dmal; arm_dmal = 0; }
   if (gr_dirty_l) { gr_dirty = 1; gr_dirty_l = 0; }
+  if (beam_dmal) { beam_dma = beam_dmal; beam_dmal = 0; }
   if (ga_called) ga_want = ga_want_l;
   m7_variant = m7_variant_l;
   if (md_zebes) zebes_take();
@@ -2543,6 +2567,7 @@ void md_vblank(uint16_t late) {
   }
   if (arm_dma) { vdp_dma_vram(arm_dma, ARM_TILE * 32, 16); arm_dma = 0; }
   if (gr_dirty) { vdp_dma_vram(&gr_tiles[0][0], GRAPPLE_TILE * 32, 80); gr_dirty = 0; }
+  if (beam_dma) { vdp_dma_vram(beam_dma, BEAM_TILE * 32, 128); beam_dma = 0; }
   if (intro_on) {
     intro_vblank();
     md_vdp_busy = 0;

@@ -70,6 +70,13 @@ static u16 read_joy(void) {
 #ifdef MD_TEST_HUD_ITEM
         hud_item_index = MD_TEST_HUD_ITEM;
 #endif
+#ifdef MD_TEST_AMMO
+        /* misiles, supermisiles y bombas de poder (HL_POKE=9C6:n,9C8:n,9CA:n,9CC:n,9CE:n,9D0:n) */
+        { extern uint16_t samus_missiles, samus_max_missiles, samus_super_missiles, samus_max_super_missiles,
+                          samus_power_bombs, samus_max_power_bombs;
+          samus_missiles = samus_max_missiles = samus_super_missiles = samus_max_super_missiles =
+            samus_power_bombs = samus_max_power_bombs = MD_TEST_AMMO; }
+#endif
       }
 #endif
     }
@@ -81,6 +88,9 @@ static u16 read_joy(void) {
       samus_x_pos = samus_prev_x_pos = MD_TEST_SETXY_X;
       samus_y_pos = samus_prev_y_pos = MD_TEST_SETXY_Y;
     }
+#endif
+#ifdef MD_TEST_GOD
+    if (game_state == 8) samus_health = samus_max_health;   /* como HL_GOD de hlref: Samus no muere */
 #endif
   }
 #endif

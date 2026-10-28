@@ -271,10 +271,9 @@ def enemy_vram(rom, tilesets_ptr):
     for c in range(16):
         pal[128 + c] = rom.w(0x9AFC00 + 2 * c)
         pal[208 + c] = rom.w(0x9A8000 + 2 * (208 + c))
-    # el rayo (UpdateBeamTilesAndPalette $90:AC8D): 8 tiles de kBeamTilePtrs ($90:C3B1, $9A) -> VRAM $6300 (tiles
-    # 0x30-0x37, vacíos en los comunes) y sus colores, la línea 6 (kBeamPalettePtrs $90:C3C9); los del rayo normal:
-    # los usan el rayo cargado, sus estelas y el destello de la carga
-    vram[0xC600:0xC700] = rom.bytes(0x9A0000 | rom.w(0x90C3B1), 0x100)
+    # el rayo (UpdateBeamTilesAndPalette $90:AC8D): sus colores, la línea 6 (kBeamPalettePtrs $90:C3C9; los del rayo
+    # normal: el destello de la carga usa el color 6). Sus 8 tiles ($6300, tiles 0x30-0x37) no los usa ninguna clave
+    # de sala: los rayos van en el juego común (mkmd.beam_common, docs/57)
     for c in range(16):
         pal[224 + c] = rom.w(0x900000 | (rom.w(0x90C3C9) + 2 * c))
     off = 2048
@@ -444,18 +443,6 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     if extra_pal:
         pal.update(extra_pal)
     moments = boss[1] if boss else [{}]
-    # los rayos: cada spritemap con los 8 tiles de su combinación en $6300 (bytes 0xC600 de la VRAM de sprites)
-    beam_tiles = mkmd.beam_sm_tiles(rom)
-    vram_beam = {}
-    def vram_for(k):
-        tp = beam_tiles.get(int(k[1], 16)) if k[0] == "j" else None
-        if tp is None:
-            return vram
-        if tp not in vram_beam:
-            v = bytearray(vram)
-            v[0xC600:0xC700] = rom.bytes(0x9A0000 | tp, 0x100)
-            vram_beam[tp] = bytes(v)
-        return vram_beam[tp]
     bank = mkmd.TileBank(base)
     # piezas de cada clave y colores que usan (por paleta del SNES de las piezas del jefe, para repartir las líneas)
     pieces = {}
@@ -466,7 +453,6 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         kp = mkmd.key_pieces(rom, key)
         wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else 1
         is_boss = boss is not None and k[0] == "e" and int(k[1], 16) == boss[0]
-        vk = vram_for(k)
         out = []
         for (x, y, at) in kp:
             T, p, big = at & 0x1FF, (at >> 9) & 7, bool(x & 0x8000)
@@ -474,7 +460,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             pxs = []
             for dx in range(n):
                 for dy in range(n):
-                    px = mkmd.obj_tile_px(vk, T, dx, dy)
+                    px = mkmd.obj_tile_px(vram, T, dx, dy)
                     pxs.append(px)
                     for c in np.unique(px):
                         if c and 128 + p * 16 + int(c) not in BEAM_IDX:      # el rayo: lugares fijos 9-13

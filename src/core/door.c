@@ -186,8 +186,9 @@ void WriteBeamPalette_A(uint16 a) {  // 0x90ACC2
   WriteBeamPalette_Y(2 * (a & 0xFFF));
 }
 
+void BeamTiles(uint16 combo);   /* capa de la Genesis: los 8 tiles de la combinación (kBeamTilePtrs -> VRAM $6300) */
 void UpdateBeamTilesAndPalette(void) {  // 0x90AC8D
-  /* los tiles del rayo los sube la Genesis (g_hooks.room_gfx); aquí queda la paleta */
+  BeamTiles(equipped_beams & 0xFFF);
   WriteBeamPalette_Y(2 * (equipped_beams & 0xFFF));
 }
 

@@ -283,8 +283,9 @@ void HudSelectionHandler_Normal(void) {  // 0x90DD3D
   switch (v0 >> 1) {
   case 0: case 3: HudSelectionHandler_NothingOrPowerBombs(); break;
   case 1: case 2: HudSelectionHandler_MissilesOrSuperMissiles(); break;
+  case 4: GrappleBeamHandler(); break;          // HudSelectionHandler_Grappling ($90:DD6F)
   case 6: HudSelectionHandler_TurningAround(); break;
-  default: nt_unimpl("HudSelectionHandler_Normal (misiles/gancho/rayos X)"); break;
+  default: nt_unimpl("HudSelectionHandler_Normal (rayos X)"); break;
   }
 }
 
@@ -583,6 +584,29 @@ static void DrawFlareAnimationComponent(uint16 k) {  // 0x90BBE1
     if (ceres_status & 0x8000)
       samus_y_pos = old_y, samus_x_pos = old_x;
   }
+}
+
+void HandleGrappleBeamFlare(void) {  // 0x9BC036
+  if (!flare_counter)
+    return;
+  if (flare_counter == 1) {
+    flare_animation_frame = 16;
+    flare_animation_timer = 3;
+  }
+  if (--flare_animation_timer & 0x8000) {
+    const uint8 *d = bank90_flare(0xC487);       /* kFlareAnimDelays_Main */
+    uint16 v0 = ++flare_animation_frame;
+    if (d[flare_animation_frame] == 254) {
+      flare_animation_frame -= d[(uint16)(flare_animation_frame + 1)];
+      v0 = flare_animation_frame;
+    }
+    flare_animation_timer = d[v0];
+  }
+  uint16 r22 = flare_animation_frame;           /* + g_word_93A22B[0] / g_word_93A225[0]: los dos son 0 */
+  uint16 r20 = x_pos_of_start_of_grapple_beam_prevframe - layer1_x_pos;
+  uint16 r18 = y_pos_of_start_of_grapple_beam_prevframe - layer1_y_pos;
+  if (!(r18 & 0xFF00))
+    DrawBeamGrappleSpritemap(r22, r20, r18);
 }
 
 void HandleChargingBeamGfxAudio(void) {  // 0x90BAFC

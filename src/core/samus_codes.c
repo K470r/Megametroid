@@ -44,7 +44,7 @@ static uint8 SamusCode_1C(void) {  // 0x90F41E
   return 0;
 }
 
-NT_LATE static void LoadProjectilePalette(uint16 a) {  // 0x90ACFC (kBeamPalettes: las de $90 ya en el orden de kBeamPalettePtrs)
+void LoadProjectilePalette(uint16 a) {  // 0x90ACFC (kBeamPalettes: las de $90 ya en el orden de kBeamPalettePtrs)
   if ((a & 0xFFF) >= 12) { nt_unimpl("LoadProjectilePalette (combinación de rayos sin tabla)"); return; }
   for (uint16 i = 0; i < 16; i++) palette_buffer[224 + i] = kBeamPalettes[(a & 0xFFF) * 16 + i];
   nt_pal_dirty(224, 239);
@@ -271,7 +271,7 @@ static uint8 SamusCode(uint16 a) {
     return 1;
   case 0x03:                                   // 0x90F152
     if (grapple_beam_function != FUNC16(GrappleBeamFunc_Inactive)) {
-      nt_unimpl("SamusCode_03 (gancho)");
+      grapple_beam_function = FUNC16(GrappleBeam_Func2);
       return 0;
     }
     if (samus_movement_type != 3 && samus_movement_type != 20)

@@ -56,7 +56,7 @@ static uint8 Samus_Pose_Func2(void) {  // 0x918304
   return 0;
 }
 
-static void Samus_Pose_CancelGrapple(void) {  // 0x9182D9
+void Samus_Pose_CancelGrapple(void) {  // 0x9182D9
   if ((Samus_Pose_Func2() & 1) || kPoseParams[samus_pose].new_pose_unless_buttons == 255)
     samus_new_pose = samus_pose;
   else
@@ -393,8 +393,8 @@ static void HandleMiscSamusPalette(void) {  // 0x91D8A5
           CallSomeSamusCode(0x1C);
         else if (!sign16(flare_counter - 16) && (button_config_shoot_x & joypad1_lastkeys))
           play_resume_charging_beam_sfx = 1;
-      } else {
-        nt_unimpl("HandleMiscSamusPalette (gancho)");
+      } else if (sign16(grapple_beam_function + 0x37AA)) {
+        QueueSfx1_Max9(6);
       }
     } else if (!sign16(v1 - 60)) {
       samus_hurt_flash_counter = 0;
@@ -896,6 +896,32 @@ static void Samus_HandleTransitionsB_1(void) {  // 0x91ED4E: golpe -> retroceso
   samus_hurt_flash_counter = 1;
 }
 
+void GrappleBeamFunc_BD95_(void);              /* grapple.c */
+void GrappleBeamFunc_BEEB(void);
+static void Samus_HandleTransitionsB_9B(void) {  // 0x91EF53
+  int16 v0 = samus_x_pos - samus_prev_x_pos;
+  if (v0 < 0) {
+    if (sign16(v0 + 12))
+      samus_prev_x_pos = samus_x_pos + 12;
+  } else if (!sign16(v0 - 13)) {
+    samus_prev_x_pos = samus_x_pos - 12;
+  }
+  int16 v1 = samus_y_pos - samus_prev_y_pos;
+  if (v1 < 0) {
+    if (sign16(v1 + 12))
+      samus_prev_y_pos = samus_y_pos + 12;
+  } else if (!sign16(v1 - 13)) {
+    samus_prev_y_pos = samus_y_pos - 12;
+  }
+  Samus_CancelSpeedBoost();
+  samus_x_base_speed = 0;
+  samus_x_base_subspeed = 0;
+  samus_y_subspeed = 0;
+  samus_y_speed = 0;
+  samus_x_extra_run_speed = 0;
+  samus_x_extra_run_subspeed = 0;
+}
+
 static void Samus_HandleTransitionsB(void) {  // kSamus_HandleTransitionsB
   switch (samus_special_transgfx_index) {
   case 0: case 6: case 7: break;
@@ -920,7 +946,15 @@ static void Samus_HandleTransitionsB(void) {  // kSamus_HandleTransitionsB
     samus_prev_y_pos = samus_y_pos;
     frame_handler_alfa = FUNC16(EmptyFunction);
     break;
-  default: nt_unimpl("Samus_HandleTransitionsB (daño/bomba/rayos X/gancho)"); break;
+  case 9:                                     // 0x91EF4F: colgada del gancho
+    GrappleBeamFunc_BD95_();
+    Samus_HandleTransitionsB_9B();
+    break;
+  case 10:                                    // 0x91EFBC: gancho quieta
+    GrappleBeamFunc_BEEB();
+    Samus_HandleTransitionsB_9B();
+    break;
+  default: nt_unimpl("Samus_HandleTransitionsB (rayos X/Draygon)"); break;
   }
 }
 

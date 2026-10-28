@@ -359,10 +359,9 @@ def zebes_proj_keys(rom):
     # (índice, listas): los misiles tienen una por dirección (InitializeProjectile: 10); la bomba una sola
     # supermisiles (2): su lista por dirección ($93:83F1) y la del acompañante de Missile_Func2
     # (InitializeInstrForSuperMissile $93:8071, kRunInstrForSuperMissile $93:842B: una sola lista)
-    # rayo cargado (FireChargedBeam $90:B986, kProjectileData_ChargedBeams $93:83D9): por ahora solo el del rayo
-    # normal (índice 0; onda, hielo, spazer y plasma se agregan cuando se porten)
-    sms |= set(beam_sm_tiles(rom))           # todos los rayos (docs/55): sin cargar y cargados, las 12 combinaciones
-    for tab, idx in ((0x83F1, ((1, 10), (2, 10), (5, 1))), (0x842B, ((2, 1),))):
+    # rayo cargado (FireChargedBeam $90:B986, kProjectileData_ChargedBeams $93:83D9): el normal (índice 0). Los demás
+    # rayos (beam_sm_tiles) no entran en las claves de cada sala: docs/55, pendiente
+    for tab, idx in ((0x83F1, ((1, 10), (2, 10), (5, 1))), (0x842B, ((2, 1),)), (0x83D9, ((0, 10),))):
         for i, ndir in idx:
             v3 = rom.w(0x930000 | (tab + 2 * i))
             if v3 < 0x8000:

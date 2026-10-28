@@ -59,12 +59,14 @@ static const EnemyTilesetN *enemy_tileset(uint16 a) {
 typedef void (*PortFnV)(void);
 PortFnV port_FindCallEnemyAi(uint32 ea);
 void port_nop_v(void);
+uint8 Enemy_GrappleReact(uint16 f);
 void CallEnemyAi(uint8 bank, uint16 f) {
   uint32 ea = (uint32)bank << 16 | f;
   static uint32 cea[16];                         /* traducidas ya buscadas (casi siempre las mismas cada cuadro) */
   static PortFnV cfn[16];
   uint16 h = (f ^ (f >> 4) ^ bank) & 15;
   if (cea[h] == ea) { if (cfn[h] != port_nop_v) cfn[h](); return; }
+  if (f >= 0x8000 && f <= 0x801E && Enemy_GrappleReact(f)) return;   /* grapple.c */
   switch (ea) {
   case 0xA0804C: case 0xA0804B: case 0xA6804C: case 0xA6F920: return;     // nullsub_170 / 169 / 170_A6 / 41
   case 0xA6F6C5: CeresDoor_Init(); return;

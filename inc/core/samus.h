@@ -152,6 +152,8 @@ void DrawSamusSpritemap(uint16 idx, uint16 x, uint16 y);
 void SetSamusTilesDefsForCurAnim(void);
 void HandleAtmosphericEffects(void);
 void Samus_DrawEchoes(void);
+void GrappleBeamHandler(void);                   /* grapple.c ($9B:C490) */
+void SamusDrawHandler_Grapple(void);
 void Samus_DrawEcho(uint16 j);
 void Samus_DrawShinesparkCrashEchoProjectiles(void);
 void Projectile_Func7_Shinespark(void);

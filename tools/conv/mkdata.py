@@ -171,7 +171,8 @@ arr('uint16', 'kTanTable', words(0x91C9D4, 128), fmt='0x{:X}')   # tangentes ($9
 # paletas especiales de Samus ($91:D727-DCB4: punteros de carga, tornillo, speed booster, shinespark, destello de
 # cristal; bank91_word lee una palabra de ahí, byte bajo primero, como RomPtr_91 en el decomp)
 blob('kBank91_Pals', 0x91, 0xD727, 0xDCB4)
-blob('kBank91_SuitHdma', 0x91, 0xD5A2, 0xD692)   # listas del objeto de HDMA de los trajes (suit.c)
+blob('kBank91_SuitHdma', 0x91, 0xD5A2, 0xD692)
+blob('kBank9B_Grapple', 0x9B, 0xC0DB, 0xC9CE)   # tablas del gancho (grapple.c)   # listas del objeto de HDMA de los trajes (suit.c)
 H.append('static inline uint16 bank91_word(uint16 a) { const uint8 *p = kBank91_Pals + (uint16)(a - 0xD727); '
          'uint16 lo = p[0]; __asm__("" : "+d"(lo)); return lo | p[1] << 8; }')
 
@@ -196,7 +197,7 @@ H.append('static inline const uint8 *bank90_flare(uint16 a) { return kBank90_Fla
 H.append('static inline uint16 bank90_flare_word(uint16 a) { const uint8 *p = bank90_flare(a); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }')
 
 # pendientes (arreglos del decomp, sm_94.c)
-for name in ('kAlignYPos_Tab0', 'kTab948E54', 'kBlockColl_Horiz_Slope_NonSquare_Tab'):
+for name in ('kAlignYPos_Tab0', 'kTab948E54', 'kBlockColl_Horiz_Slope_NonSquare_Tab', 'kAlignPos_Tab1'):
     t, v = c_array_from_source('sm_94.c', name)
     arr({'uint8': 'uint8', 'uint16': 'uint16'}[t], name, v, fmt='0x{:X}')
 

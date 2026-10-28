@@ -777,8 +777,25 @@ static void Samus_HandleScroll_Y(void) {  // 0x90964F
 }
 
 void MainScrollingRoutine(void) {  // 0x9094EC
-  if (slow_grabble_scrolling_flag) {
-    nt_unimpl("MainScrollingRoutine (gancho)");
+  if (slow_grabble_scrolling_flag) {             /* columpiándose: la cámara sigue a Samus de a 3 px */
+    if (!(samus_x_pos & 0x8000)) {
+      uint16 v0 = samus_x_pos - layer1_x_pos;
+      if (samus_x_pos < layer1_x_pos || v0 < 0x60)
+        layer1_x_pos -= 3;
+      else if (v0 >= 0xA0)
+        layer1_x_pos += 3;
+      if (!(samus_y_pos & 0x8000)) {
+        uint16 v1 = samus_y_pos - layer1_y_pos;
+        if (samus_y_pos < layer1_y_pos)
+          layer1_y_pos -= 3;
+        else if (v1 >= 0x90)
+          layer1_y_pos += 3;
+        else if (v1 < 0x70)
+          layer1_y_pos -= 3;
+      }
+    }
+    HandleAutoscrolling_X();
+    HandleAutoscrolling_Y();
   } else {
     Samus_CalcDistanceMoved_X();
     Samus_HandleScroll_X();
@@ -1389,6 +1406,29 @@ static void Samus_MoveHandler_Knockback(void);
 static void Samus_MoveHandler_BombJumpStart(void);
 static void Samus_MoveHandler_BombJumpMain(void);
 
+/* ------------------------------------------------------------------ soltarse del gancho ($90:946E) */
+uint16 Samus_DetermineGrappleSwingSpeed_X(void);   /* grapple.c */
+static void Samus_MoveHandler_ReleaseFromGrapple(void) {  // 0x90946E
+  if (samus_y_dir == 1 && (samus_y_speed & 0x8000)) {
+    samus_y_subspeed = 0;
+    samus_y_speed = 0;
+    samus_y_dir = 2;
+    samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
+  }
+  samus_x_accel_mode = 2;
+  int32 amt = Samus_CalcBaseSpeed_X(Samus_DetermineGrappleSwingSpeed_X());
+  if (samus_x_accel_mode || (joypad1_lastkeys & kButton_Right) || (joypad1_lastkeys & kButton_Left)) {
+    Samus_MoveX(amt);
+  } else {
+    samus_x_base_speed = 0;
+    samus_x_base_subspeed = 0;
+    samus_collision_flag = 0;
+  }
+  Samus_MoveY_WithSpeedCalc();
+  if (input_to_pose_calc)
+    samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
+}
+
 /* ------------------------------------------------------------------ shinespark ($90:CFFA-$90:D4D1) */
 void Projectile_Func7_Shinespark(void) {  // 0x90CFFA
   samus_movement_handler = FUNC16(Samus_MoveHandlerShinesparkWindup);
@@ -1662,6 +1702,7 @@ void RunSamusMovementHandler(void) {  // 0x90E94B
   case FUNC16(Samus_MoveHandler_Knockback): Samus_MoveHandler_Knockback(); break;
   case FUNC16(Samus_MoveHandler_BombJumpStart): Samus_MoveHandler_BombJumpStart(); break;
   case FUNC16(Samus_MoveHandler_BombJumpMain): Samus_MoveHandler_BombJumpMain(); break;
+  case FUNC16(Samus_MoveHandler_ReleaseFromGrapple): Samus_MoveHandler_ReleaseFromGrapple(); break;
   case FUNC16(Samus_MoveHandlerShinesparkWindup): Samus_MoveHandlerShinesparkWindup(); break;
   case FUNC16(Samus_MoveHandlerVerticalShinespark): Samus_MoveHandlerVerticalShinespark(); break;
   case FUNC16(Samus_MoveHandler_Shinespark_Diag): Samus_MoveHandler_Shinespark_Diag(); break;
@@ -1825,6 +1866,10 @@ void Samus_HandleHudSpecificBehaviorAndProjs(void) {  // 0x90DCF2
     case 14: case 23: case 24: HudSelectionHandler_TurningAround(); break;
     case 15: HudSelectionHandler_CrouchEtcTrans(); break;
     case 4: case 7: case 8: case 9: case 17: case 18: case 19: HudSelectionHandler_MorphBall(); break;
+    case 11: case 12: case 22: GrappleBeamHandler(); break;   // HudSelectionHandler_Grappling ($90:DD6F)
+    case 26:                                     // HudSelectionHandler_GrabbedByDraygon ($90:DDD8)
+      if (samus_pose == (kPose_DB | kPose_04_FaceL_AimU)) HudSelectionHandler_MorphBall(); else HudSelectionHandler_Normal();
+      break;
     default: nt_unimpl("kHandleHudSpecificBehaviorAndProjs"); break;
     }
     if (time_is_frozen_flag)
@@ -2562,6 +2607,15 @@ void DrawSamusAndProjectiles(void) {  // 0x90EB35
   case FUNC16(SamusDisplayHandler_UsingElevator):   // 0x90EC14: parpadea (un cuadro sí, otro no)
     if (!(nmi_frame_counter_word & 1))
       Samus_DrawWhenNotAnimatingOrDying();
+    break;
+  case FUNC16(sub_90EB86):                    // 0x90EB86: con el gancho
+    if (!sign16(grapple_beam_function + 0x37AA)) {   /* sub_90EB55: como el normal */
+      HandleAtmosphericEffects();
+      Samus_Draw();
+      Samus_DrawEchoes();
+    } else {
+      SamusDrawHandler_Grapple();
+    }
     break;
   case FUNC16(Samus_DrawHandler_EndOfShinespark):   // 0x90EBF3
     Samus_Draw();

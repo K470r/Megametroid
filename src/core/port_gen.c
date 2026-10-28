@@ -76,6 +76,7 @@ uint32 Multiply16x16(uint16 a, uint16 j);
 uint16 MoveEprojWithVelocity(uint16 k);
 uint16 Math_MultBySin(uint16 a, uint16 ang);
 uint16 Math_MultByCos(uint16 a, uint16 ang);
+void GrappleBeam_Func2(void);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 EprojBlockCollisition_Horiz(uint16 k);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
@@ -1114,7 +1115,6 @@ static Func_V *const off_A39540[4];
 static Func_V *const off_A39C97[2];
 static Func_V *const off_A39C9B[2];
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
-void GrappleBeam_Func2(void);
 void Samus_InputHandler_E913(void);
 void Samus_InputHandler_E91D(void);
 void SetGoldenTorizoPalette(uint16 a);
@@ -1124,7 +1124,6 @@ void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
 void WriteReg(uint16 reg, uint8 value);
 
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
-void GrappleBeam_Func2(void) { nt_unimpl("GrappleBeam_Func2"); }
 void Samus_InputHandler_E913(void) { nt_unimpl("Samus_InputHandler_E913"); }
 void Samus_InputHandler_E91D(void) { nt_unimpl("Samus_InputHandler_E91D"); }
 void SetGoldenTorizoPalette(uint16 a) { nt_unimpl("SetGoldenTorizoPalette"); }

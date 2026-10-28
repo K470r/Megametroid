@@ -1242,6 +1242,11 @@ void DrawArmCannon(int16 x, int16 y, uint16 attr, uint16 src) {
   s->x = x + 128;
 }
 
+/* rayo gancho (grapple.c): los segmentos y la punta son sprites de 8x8 con tiles que el SNES copia de $9A cada cuadro
+   (UpdateGrappleBeamTiles $9B:BFBD). PENDIENTE (docs/55): convertir esos tiles en el PC y dibujarlos. */
+void DrawGrappleOam(int16 x, int16 y, uint16 chr) { (void)x; (void)y; (void)chr; }
+void GrappleTiles(uint16 point_src, uint16 beam_src) { (void)point_src; (void)beam_src; }
+
 void DrawProjectileTrailSprite(uint16 x, uint16 y, uint16 t) {
   if (intro_on) { it_draw(INTRO_KIND_TRAIL, t, 0, (int16)x, (int16)y); return; }
   /* Zebes: con los colores de la sala (mkzobj.py: clave tile, 0, 0xC001); en Ceres no hay misiles */

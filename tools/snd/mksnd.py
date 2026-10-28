@@ -374,8 +374,11 @@ class Vgm:
         return out
 
 
-def convert_track(st, instrs, loop, end, mix):
-    """estados del SPC por cuadro -> VGM (YM2612: canales 0-4; PSG: 0-2 tono, 3 ruido)"""
+def convert_track(st, instrs, loop, end, mix, trace=None):
+    """estados del SPC por cuadro -> VGM (YM2612: canales 0-4; PSG: 0-2 tono, 3 ruido). Con `trace` (una lista)
+    anota además lo que suena en cada canal y cuadro, para el proyecto de Furnace (mkfur.py):
+    (cuadro, canal, instrumento, Hz, atenuación (pasos del TL o del PSG), paneo, nota nueva, ruido) o
+    (cuadro, canal, None, ...) al soltarlo."""
     v = st[:, :96].reshape(-1, 8, 12)
     n = len(v) if end is None else end
     srcn = v[:, :, 0]
@@ -424,6 +427,8 @@ def convert_track(st, instrs, loop, end, mix):
             vg.psg(0x9F | (i << 5))
         last[c].pop("att", None)
         owner[c] = None
+        if trace is not None:
+            trace.append((f, c, None, 0, 0, 0, False, 0))
 
     for f in range(n):
         if loop and f == loop[0]:
@@ -499,6 +504,7 @@ def convert_track(st, instrs, loop, end, mix):
             hz = (ins.f0 or 0) * pitch[f, voice] / 4096.0 * (2.0 ** ins.oct)
             L, R = abs(volL[f, voice]), abs(volR[f, voice])
             pan = 0xC0 if min(L, R) >= 0.4 * max(L, R) else (0x80 if L > R else 0x40)
+            kon_now = last[c].pop("kon", False)
             if kind == "fm":
                 port, ch = (0, i) if i < 3 else (1, i - 3)
                 if last[c].get("pan") != pan:
@@ -506,7 +512,6 @@ def convert_track(st, instrs, loop, end, mix):
                     last[c]["pan"] = pan
                 blk, fn = ym_freq(hz)
                 fr = (blk << 11) | fn
-                kon_now = last[c].pop("kon", False)
                 if kon_now:
                     vg.ym(0, 0x28, (port << 2) | ch)
                 if last[c].get("fr") != fr or kon_now:
@@ -521,6 +526,8 @@ def convert_track(st, instrs, loop, end, mix):
                     last[c]["att"] = att
                 if kon_now:
                     vg.ym(0, 0x28, 0xF0 | (port << 2) | ch)
+                if trace is not None:
+                    trace.append((f, c, ins, hz, att, pan, kon_now, 0))
             elif kind == "psg":
                 nn = int(round(PSG_CLOCK / (32 * hz))) if hz > 0 else 1023
                 nn = min(1023, max(1, nn))
@@ -532,6 +539,8 @@ def convert_track(st, instrs, loop, end, mix):
                 if last[c].get("att") != att:
                     vg.psg(0x90 | (i << 5) | att)
                     last[c]["att"] = att
+                if trace is not None:
+                    trace.append((f, c, ins, hz, att, pan, kon_now, 0))
             else:                                    # ruido: blanco, la velocidad según la altura
                 rate = ins.noise if ins.noise else (0 if pitch[f, voice] >= 0x1800 else 1 if pitch[f, voice] >= 0x0C00 else 2)
                 if last[c].get("n") != rate:
@@ -541,6 +550,8 @@ def convert_track(st, instrs, loop, end, mix):
                 if last[c].get("att") != att:
                     vg.psg(0xF0 | att)
                     last[c]["att"] = att
+                if trace is not None:
+                    trace.append((f, c, ins, hz, att, pan, kon_now, rate))
         vg.wait()
     for c in chans:
         if owner[c] is not None:

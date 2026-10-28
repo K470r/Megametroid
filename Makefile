@@ -6,6 +6,7 @@
 #   make host       el motor en el PC (host/check, host/mkinit...)
 #   make snd        rehace solo el sonido (tools/snd/mksnd.py, con tools/snd/instrumentos.txt) y la ROM: para ajustar
 #                   los instrumentos a oído (docs/55)
+#   make fur        las canciones del juego como proyectos de Furnace en work/furnace/ (tools/snd/mkfur.py, docs/55)
 #   make clean      borra out/
 #
 # Salida: out/rom.bin (y out/rom.out, out/rom.map, out/symbol.txt).
@@ -104,7 +105,7 @@ ifneq ($(TEST),)
 EXTRA_OBJ := $(OBJ)/test_input.o
 endif
 
-.PHONY: all release rom data full snd host clean
+.PHONY: all release rom data full snd fur host clean
 
 # sin los datos de tu ROM no hay nada que compilar: primero `make data` (docs/45)
 ifeq ($(filter data full host clean,$(MAKECMDGOALS)),)
@@ -178,6 +179,8 @@ full: data
 snd:
 	python3 $(ROOT)/tools/snd/mksnd.py $(SMROM) $(GEN) $(ROOT)/work/snd
 	$(MAKE) rom
+fur:
+	python3 $(ROOT)/tools/snd/mkfur.py $(SMROM) $(ROOT)/work/furnace
 host:
 	sh $(ROOT)/host/build.sh
 clean:

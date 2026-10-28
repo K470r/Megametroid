@@ -168,6 +168,8 @@ Zebes 68 / 86 / 48 (70 / 110 / 69).
 | `MM_SNDLOG=archivo host/check ...` | los pedidos al SPC por cuadro |
 | `RR_WAV=archivo.wav tools/bin/retrorun ...` | graba lo que suena en la Genesis |
 | `tools/snd/fui2parche.py instrumento.fui [CONJ SRCN] [--escribir] [--envolvente-snes]` | un instrumento FM de Furnace (.fui) a una línea de `instrumentos.txt` |
+| `make fur` (`tools/snd/mkfur.py sm.smc [carpeta] [CONJ PISTA...]`) | las canciones del juego como proyectos de Furnace (`work/furnace/*.fur`) |
+| `tools/snd/fur2tabla.py proyecto.fur [--escribir] [--envolvente-snes] [--revisar]` | los instrumentos FM de un proyecto de Furnace a `instrumentos.txt` |
 | `make snd` | rehace solo el sonido (`mksnd.py`) y la ROM (~1 min) |
 | `EXPFL=-DMD_GAWAIT` | cuenta en `md_ga_wait` los cambios de la huida que tuvieron que terminar de cargar tiles |
 | `EXPFL=-DGA_STEP=n` | presupuesto de la huida por cuadro del motor (1920) |
@@ -199,6 +201,46 @@ Detalles:
   tabla de hoy el sonido es el mismo byte a byte; con un parche de algoritmo 0 los moduladores llevan su TL.
 - `ONLY_SND=1 sh tools/conv/make_data.sh` solo hace el sonido si falta (lo usa el `Makefile`): para rehacerlo después
   de cambiar la tabla, `make snd`.
+
+## Las canciones enteras en Furnace (`make fur`)
+
+Para elegir los instrumentos escuchando la canción completa: `make fur` escribe en `work/furnace/` un proyecto de
+Furnace por canción del juego (37: las de las áreas, los jefes, las cinemáticas, el título, los créditos y las cuatro
+del motor; sin las voces PCM ni las pistas que en el SPC son silencio). Salen de tu ROM: no van a git.
+
+Qué tiene cada proyecto (`tools/snd/mkfur.py`):
+- El sistema Genesis (YM2612 + PSG), 60 filas por segundo (velocidad 1: una fila por cuadro del SNES), patrones de
+  256 filas y el lazo de la canción (`0Bxx` al final; `0D00` donde termina la parte que no se repite).
+- Las notas **tal como las arma la ROM**: `convert_track` (`mksnd.py`) anota lo que suena en cada canal de la Genesis
+  (su parámetro `trace`) y `mkfur.py` lo pasa a filas: nota e instrumento al tocar, `OFF` al soltar, el volumen del
+  SNES en la columna de volumen (FM: 127 menos la atenuación en pasos del TL; PSG: 15 menos la atenuación), la altura
+  fina con `E5xx` (1/128 de semitono: el vibrato y los deslizamientos), `EAFF`/`EA00` (nota ligada) cuando la altura
+  se va más de un semitono sin volver a tocar, `08xy` el paneo y `2001` en el ruido (blanco, con sus 3 velocidades:
+  C, C# y D).
+- Un instrumento por muestra del SNES: `03_25` (conjunto $03, muestra 25), con el parche de hoy de
+  `instrumentos.txt`. Los del PSG y el ruido se llaman `03_25 psg` / `03_24 ruido`.
+- El formato de Furnace 0.6.8.1 (versión 228, bloque `INFO`): lo abren esa versión y las siguientes.
+
+Cómo se usa:
+1. `make fur` y abrir en Furnace, por ejemplo, `work/furnace/03_5_titulo.fur`. Play: suena la canción entera.
+2. Cambiar los instrumentos FM (los que se llaman `CONJ_MUESTRA`) escuchando. Las notas del proyecto no se usan
+   para la ROM (salen del SPC): lo que se cambia ahí no llega al juego.
+3. Guardar el proyecto (con cualquier nombre) y pasar los instrumentos a la tabla, todos de una vez:
+   `python3 tools/snd/fur2tabla.py work/furnace/03_5_titulo.fur --envolvente-snes --escribir`.
+4. `make snd` y escuchar `out/rom.bin`. Un `make fur` después rehace los proyectos con los instrumentos nuevos (y
+   las otras canciones del mismo conjunto ya los traen).
+
+`fur2tabla.py` lee el `.fur` comprimido o no, del formato viejo (`INFO`) o del nuevo (`INF2`, Furnace en
+desarrollo), y pasa cada instrumento FM con `fui2parche.to_parche`: la misma línea que guardarlo como `.fui`.
+
+Comprobado (2026-10-28), sin Furnace en el contenedor (compilarlo no se permitió: código de afuera):
+- `fur2tabla.py --revisar` lee los proyectos campo por campo como el cargador de Furnace
+  (`src/engine/fileOps/fur.cpp`, rama `INFO`): versión 228, YM2612 + PSG, 10 canales, punteros, carpetas, patrones.
+- Desde los patrones, siguiendo órdenes y saltos, la nota + `E5xx`, el volumen y las notas encendidas de cada canal
+  en cada cuadro dan lo mismo que la traza de la ROM: las 37 canciones, 0 distintos.
+- Los parches: proyecto → `fur2tabla.py` → la misma línea que el instrumento de la tabla (detune incluido).
+- `mksnd.py` con la traza: la música de la ROM sale igual byte a byte.
+- Falta oírlo en Furnace (Edwin).
 
 ## Lo que falta
 

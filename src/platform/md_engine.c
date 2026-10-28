@@ -231,6 +231,8 @@ __asm__(
   "    .text\n"
   "    .global md_hint\n"
   "md_hint:\n"
+  "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank (interrupción pendiente de antes, al encenderlas): */
+  "    bcc.s 1f\n"                         /* nada (si no, se comería la primera banda: docs/50) */
   "    move.l %a0,-(%sp)\n"
   "    movea.l hz_bdp,%a0\n"
   "    move.l #0xC0000000,0xC00004\n"
@@ -238,7 +240,7 @@ __asm__(
   "    move.w (%a0)+,0xC00004\n"
   "    move.l %a0,hz_bdp\n"
   "    movea.l (%sp)+,%a0\n"
-  "    rte\n");
+  "1:  rte\n");
 
 /* Zebes: debajo del HUD, los colores 1-15 de la línea 3 pasan a ser los de los enemigos de la sala y el rayo (en el
    vblank vuelven los del HUD). Una sola interrupción por cuadro: se apaga a sí misma. */
@@ -474,6 +476,9 @@ static void md_vint_top(void) {
   *(volatile uint32_t *)0xC00004 = 0xC0000000u;
   *(volatile uint16_t *)0xC00000 = cram[0];
   hz_bdp = hz_bd[hz_back ^ 1];
+  /* y la primera interrupción: la última del cuadro dejó el registro 10 en 0xFF (sin más interrupciones), así que un
+     cuadro que se ve dos veces salía la segunda vez sin el degradado (docs/50) */
+  if (hz_cnt[hz_back ^ 1]) vdp_reg(0x0A, hz_first[hz_back ^ 1]);
 }
 
 /* el vblank del cuadro publicado: con la página del nivel puesta (la lógica puede estar en medio de otra) */
@@ -487,29 +492,58 @@ static uint32 lag_last;
 extern volatile uint32 vtimer;                 /* SGDK: sube al empezar cada vblank */
 static uint32 md_vb_tick = 0xFFFFFFFF;          /* vblank en el que se tomó el último cuadro */
 extern volatile uint16 md_snd_frames;          /* md_snd.c: el Z80 está tocando una muestra de la ROM */
-static void md_vblank_run(uint16 late) {
-  md_vb_tick = vtimer;
-  /* con una muestra sonando, el Z80 lee la ROM por el bus del 68000: se le pide el bus durante las DMA del vblank */
+#ifdef MD_M7LOG
+volatile uint16 md_m7_start;                   /* (medición) cómo empezó el último vblank: tarde << 8 | línea */
+#endif
+/* el trabajo del vblank, con la página del nivel puesta y, con una muestra sonando, el bus del Z80 (que lee la ROM
+   por el bus del 68000) pedido durante las DMA. Devuelve lo que vb_exit repone. */
+static uint16 vb_enter(uint8 snd) {
   uint8 z80 = 0;
-  if (md_snd_frames) {
-    md_snd_frames--;
-    if (*(volatile uint16 *)0xA11100 & 0x0100) {  /* (si nadie lo tiene ya) */
-      *(volatile uint16 *)0xA11100 = 0x0100;
-      while (*(volatile uint16 *)0xA11100 & 0x0100);
-      z80 = 1;
-    }
+  if (snd && (*(volatile uint16 *)0xA11100 & 0x0100)) {  /* (si nadie lo tiene ya) */
+    *(volatile uint16 *)0xA11100 = 0x0100;
+    while (*(volatile uint16 *)0xA11100 & 0x0100);
+    z80 = 1;
   }
-  uint8 sv_cur = md_cur_page, sv_hw = md_hw_page;
+  uint16 sv = (uint16)md_cur_page << 8 | md_hw_page | (z80 ? 0x8000 : 0);
   md_cur_page = md_level_page;
   md_hw_page = md_level_page;
   *(volatile uint8 *)0xA130FF = md_level_page;
   __asm__ volatile("" ::: "memory");
-  md_vblank(late);
+  return sv;
+}
+static void vb_exit(uint16 sv) {
   __asm__ volatile("" ::: "memory");
-  md_cur_page = sv_cur;
-  md_hw_page = sv_hw;
-  *(volatile uint8 *)0xA130FF = sv_hw;
-  if (z80) *(volatile uint16 *)0xA11100 = 0x0000;
+  md_cur_page = (sv >> 8) & 0x7F;
+  md_hw_page = (uint8)sv;
+  *(volatile uint8 *)0xA130FF = md_hw_page;
+  if (sv & 0x8000) *(volatile uint16 *)0xA11100 = 0x0000;
+}
+static void md_vblank_lag(void);
+static int16 vb_lines_left(void);
+/* líneas que necesita el vblank de un cuadro (lo que tardaron los últimos, con margen): un cuadro que llega con el
+   vblank empezado se toma solo si quedan tantas; si no, en el vblank siguiente (docs/50). Si el vblank se pasara a
+   la imagen, sus DMA irían a la velocidad de la imagen y las interrupciones horizontales empezarían tarde. */
+static int16 md_vb_need = 20;
+static uint8 md_vb_room;                       /* este vblank cargó una sala (con la pantalla apagada: no cuenta) */
+static void md_vblank_run(uint16 late) {
+  md_vb_tick = vtimer;
+  int16 l0 = vb_lines_left();
+#ifdef MD_M7LOG
+  md_m7_start = late << 8 | VDP_VCOUNT >> 8;
+#endif
+  uint8 snd = md_snd_frames != 0;
+  if (snd) md_snd_frames--;
+  uint16 sv = vb_enter(snd);
+  md_vb_room = 0;
+  md_vblank(late);
+  vb_exit(sv);
+  if (!md_vb_room) {
+    int16 l1 = vb_lines_left();
+    int16 used = l1 > 0 ? l0 - l1 + 2 : l0 + 4;     /* (si se pasó a la imagen, más de lo que había) */
+    md_vb_need = used > md_vb_need - 1 ? used : md_vb_need - 1;
+    if (md_vb_need < 8) md_vb_need = 8;
+    if (md_vb_need > 36) md_vb_need = 36;
+  }
 #ifdef MD_LAGLOG
   { uint16 k = (uint16)(md_pub_frame - 1 - LAG_BASE); md_lag_log[k < MD_LAG_N ? k : MD_LAG_N - 1] = (uint8)(vtimer - lag_last); lag_last = vtimer; }
 #endif
@@ -517,8 +551,9 @@ static void md_vblank_run(uint16 late) {
   md_pub = 0;
 }
 
-/* interrupción vertical: si hay un cuadro listo, su vblank */
+/* interrupción vertical: si hay un cuadro listo, su vblank; si no, lo que se puede adelantar (md_vblank_lag) */
 void md_vint(void) {
+  if (!md_pub) md_vblank_lag();
   md_vint_top();
   if (md_pub) md_vblank_run(0);
 }
@@ -527,7 +562,7 @@ void md_vint(void) {
 #define LATE_MAX 0xEA
 #endif
 /* (fuera de las interrupciones) el cuadro está listo: lo toma el próximo vblank. Si el vblank ya empezó sin cuadro
-   (el anterior tardó) y todavía queda (hasta la línea 234; el trabajo del vblank son ~14 líneas), se escribe ya */
+   (el anterior tardó) y todavía queda lo que necesita (md_vb_need), se escribe ya */
 void md_publish(void) {
   spr_out = spr; nspr_out = nspr; ncone_out = ncone;
   spr = spr == spr_bank[0] ? spr_bank[1] : spr_bank[0];
@@ -537,8 +572,9 @@ void md_publish(void) {
   __asm__ volatile("move.w %%sr,%0\n\tmove.w #0x2700,%%sr" : "=d"(sr) : : "memory");
   md_pub = 1;
   uint16 vc = VDP_VCOUNT >> 8;
-  if ((*(volatile uint16 *)0xC00004 & 8) && vc >= 0xE0 && vc <= LATE_MAX && vtimer != md_vb_tick)
-    md_vblank_run(1);                           /* (y si este vblank todavía no tomó un cuadro) */
+  if ((*(volatile uint16 *)0xC00004 & 8) && vc >= 0xE0 && vc <= LATE_MAX && vtimer != md_vb_tick &&
+      vb_lines_left() >= md_vb_need)
+    md_vblank_run(1);                           /* (y si este vblank todavía no tomó un cuadro y alcanza) */
   __asm__ volatile("move.w %0,%%sr" : : "d"(sr) : "memory");
 }
 uint8 md_published(void) { return md_pub; }
@@ -1535,12 +1571,28 @@ static uint8 cine_var;          /* etapa 1: 1 estación, 2 nave al explotar, 3 C
 /* --- capa del modo 7 */
 static int16 m7_want = -1;      /* imagen que pide el motor (-1: ninguna) */
 static int16 m7_shown = -1;     /* la que se ve (en la mitad m7_buf del plano, sus tiles en la mitad m7_half) */
-static int16 m7_back = -1;      /* la que quedó dibujada en la otra mitad (hay que borrarla) */
+static int16 m7_bx0, m7_by0;    /* lo que quedó dibujado en la otra mitad (hay que borrarlo): rectángulo de celdas */
+static uint16 m7_bw, m7_bh;     /* (la anterior, o también una que se dejó a medio armar) */
 static uint8 m7_buf, m7_half;
 static uint8 m7_busy;           /* armando m7_load en la otra mitad */
+static volatile uint8 m7_lock;  /* cine_frame o cine_start cambian lo de arriba */
 static int16 m7_load;
 static uint8 m7_load_half, m7_step;   /* pasos: 0 tiles, 1 borrar la anterior, 2 celdas, 3 lista */
 static uint16 m7_loaded, m7_row;
+/* Cuándo se cambia de imagen no depende de cuánto vblank sobra (así la imagen de cada cuadro del motor es siempre la
+   misma): cada imagen cuesta palabras de DMA (m7_cost_of) y cada vblank cuenta M7_BUDGET. Se cambia cuando ese
+   presupuesto alcanza y la imagen está armada; el armado de verdad (cine_vblank) usa todo lo que sobra del vblank
+   y casi siempre va adelante (docs/50). */
+#ifndef M7_BUDGET
+#define M7_BUDGET 650
+#endif
+#ifndef M7_BUDGET_CIRC
+#define M7_BUDGET_CIRC 400      /* con el círculo de la explosión (su tabla de scroll va en el mismo vblank) */
+#endif
+static uint16 m7_cost;          /* presupuesto que le falta a la imagen que se arma */
+#ifdef MD_M7LOG
+volatile uint16 md_m7_wait;     /* cuadros en que el presupuesto alcanzaba y el armado no (el cambio se atrasa) */
+#endif
 /* scroll de la imagen que se ve: el del motor, salvo cuando el motor ya cambió de modo (llegada a Zebes: del mosaico
    al modo 7) y todavía se ve la imagen del modo anterior: esa sigue con el scroll de su modo hasta el cambio */
 static uint16 m7_show_h, m7_show_v, m7_load_h, m7_load_v;
@@ -1550,7 +1602,6 @@ static uint8 m7_show_m7, m7_load_m7;            /* la imagen es del modo 7 (si n
 #define M7_MAXH 36
 _Static_assert(M7_MAXW * M7_MAXH <= sizeof md_scratch / 2, "md_scratch");
 #define m7_cells md_scratch   /* celdas de la imagen nueva (con la base de su mitad de tiles) */
-#define M7_ROW_COST 48          /* lo que cuesta cada fila aparte de sus celdas (CPU de las DMA, medido), en palabras */
 static const uint16 kZeros[64];
 
 /* la imagen i es del modo 7 (sus claves no son las del mosaico, var 0x1x) */
@@ -1664,7 +1715,40 @@ static void cv_setup_code(void) {   /* move.w (tabla).l,($C00000).l ; addq.w #2,
   cv_code[8] = 0x4E73;
 }
 /* ---------------- capa del modo 7 */
+#define M7_ROW_COST 48          /* lo que cuesta cada fila aparte de sus celdas (CPU de las DMA, medido), en palabras */
+#ifndef M7_ROW_UNITS
+#define M7_ROW_UNITS 128        /* (presupuesto) cada fila, aparte de sus celdas: medido, una fila tarda como ~150 palabras de tiles */
+#endif
+/* presupuesto para armar la imagen i (-1: ninguna) en la otra mitad: sus tiles, borrar lo que había y sus celdas */
+static uint16 m7_cost_of(int16 i) {
+  uint16 c = m7_bh * (m7_bw + M7_ROW_UNITS);
+  if (i >= 0) { const M7Image *I = &kM7Images[i]; c += I->ntiles * 16 + I->h * (I->w + M7_ROW_UNITS); }
+  return c;
+}
+static void m7_back_set(int16 i) {
+  if (i < 0) { m7_bh = 0; return; }
+  const M7Image *I = &kM7Images[i];
+  m7_bx0 = I->x0; m7_by0 = I->y0; m7_bw = I->w; m7_bh = I->h;
+}
+/* lo que hay que borrar pasa a incluir también la imagen i (el rectángulo que cubre los dos; como mucho la mitad) */
+static void m7_back_add(int16 i) {
+  if (i < 0) return;
+  if (!m7_bh) { m7_back_set(i); return; }
+  const M7Image *I = &kM7Images[i];
+  int16 x0 = I->x0 < m7_bx0 ? I->x0 : m7_bx0, y0 = I->y0 < m7_by0 ? I->y0 : m7_by0;
+  int16 x1 = I->x0 + I->w > m7_bx0 + m7_bw ? I->x0 + I->w : m7_bx0 + m7_bw;
+  int16 y1 = I->y0 + I->h > m7_by0 + m7_bh ? I->y0 + I->h : m7_by0 + m7_bh;
+  m7_bx0 = x0; m7_by0 = y0;
+  m7_bw = x1 - x0 > 64 ? 64 : x1 - x0;
+  m7_bh = y1 - y0 > 32 ? 32 : y1 - y0;
+}
+static void cine_frame_(void);
 static void cine_frame(void) {   /* md_frame: qué imagen del modo 7 se quiere, el cambio de mitad y el círculo */
+  m7_lock = 1;                   /* (que un vblank sin cuadro no arme mientras tanto) */
+  cine_frame_();
+  m7_lock = 0;
+}
+static void cine_frame_(void) {
   int16 want = m7_want;
   if (cine_stage == 3 || !(reg_TM & 1)) {
     want = -1;
@@ -1681,12 +1765,19 @@ static void cine_frame(void) {   /* md_frame: qué imagen del modo 7 se quiere, 
   /* el scroll del motor vale para la imagen que se ve salvo si el motor ya cambió de modo (llegada a Zebes: del
      mosaico al modo 7, el scroll significa otra cosa): entonces la que se ve sigue con el suyo hasta el cambio */
   uint8 now_m7 = (reg_BGMODE & 7) == 7;
-  if (m7_busy && m7_step == 3) {                 /* lista */
+  if (m7_busy) {                                 /* lo que contó el vblank anterior (cv_line: el del cuadro anterior) */
+    uint16 b = cv_line ? M7_BUDGET_CIRC : M7_BUDGET;
+    m7_cost = m7_cost > b ? m7_cost - b : 0;
+  }
+  if (m7_busy && !m7_cost) {                     /* lista (por el presupuesto) */
     /* se cambia de mitad en este vblank (scroll y colores) si el motor ya no pide la que se ve: la armada es esa o
        una más nueva en la cinemática. Si todavía pide la que se ve, la adelantada espera. */
-    if (m7_want != m7_shown) {
+#ifdef MD_M7LOG
+    if (m7_want != m7_shown && m7_step != 3) md_m7_wait++;
+#endif
+    if (m7_want != m7_shown && m7_step == 3) {   /* (si el armado de verdad no llegó, espera: no debería pasar) */
       m7_buf ^= 1;
-      m7_back = m7_shown;
+      m7_back_set(m7_shown);
       m7_shown = m7_load;
       m7_show_h = m7_load_h; m7_show_v = m7_load_v; m7_show_m7 = m7_load_m7;
       m7_half = m7_load_half;
@@ -1704,6 +1795,15 @@ static void cine_frame(void) {   /* md_frame: qué imagen del modo 7 se quiere, 
      esté a medio armar se termina primero. */
   int16 target = m7_want != m7_shown ? m7_want : m7_shown >= 0 && !cv_line ? kM7Images[m7_shown].next : m7_shown;
   /* (con el círculo de la explosión no se adelanta: el vblank libre le hace falta al cuadro siguiente) */
+  /* el motor ya pide otra y armarla cuesta menos de lo que le falta a la que se arma (la nave al explotar crece en
+     cada cuadro y después desaparece): se deja la que se armaba y se empieza la pedida. Lo que la otra ya escribió
+     en la mitad oculta se borra con lo de antes. */
+  if (m7_busy && m7_load != m7_want && m7_want != m7_shown) {
+    int16 sx0 = m7_bx0, sy0 = m7_by0; uint16 sw = m7_bw, sh = m7_bh;
+    if (m7_step >= 2) m7_back_add(m7_load);
+    if (m7_cost_of(m7_want) < m7_cost) m7_busy = 0;
+    else { m7_bx0 = sx0; m7_by0 = sy0; m7_bw = sw; m7_bh = sh; }
+  }
   if (!m7_busy && target != m7_shown && (target >= 0 || m7_want != m7_shown)) {
     m7_busy = 1;
     m7_load = target;
@@ -1712,6 +1812,7 @@ static void cine_frame(void) {   /* md_frame: qué imagen del modo 7 se quiere, 
     m7_load_m7 = m7_is_mode7(target);
     m7_load_half = m7_shown >= 0 ? m7_half ^ 1 : 0;
     m7_step = 0; m7_loaded = 0; m7_row = 0;
+    m7_cost = m7_cost_of(target);
     if (m7_load >= 0) {                          /* sus celdas, con la base de la mitad de tiles */
       const M7Image *I = &kM7Images[m7_load];
       uint16 base = m7_tile0() + m7_load_half * m7_region() - 1;
@@ -1754,9 +1855,10 @@ static uint8 m7_row_ok(int16 y) {
 
 /* ¿cabe todavía una DMA de n palabras en lo que queda del vblank? Se mira el contador de líneas en cada paso (el
    68000 queda parado durante cada DMA, así que el contador ya incluye lo hecho), con 4 líneas de margen. */
-static uint8 m7_fits(uint16 n) { return vb_lines_left() - 4 > (int16)(n / GA_WORDS_LINE) + 1; }
+static int16 m7_keep;          /* líneas que se dejan además (vblank sin cuadro: las de un cuadro que llegue tarde) */
+static uint8 m7_fits(uint16 n) { return vb_lines_left() - 4 - m7_keep > (int16)(n / GA_WORDS_LINE) + 1; }
 
-static void cine_vblank(void) {   /* armar la imagen siguiente en la otra mitad, con lo que queda del vblank */
+static void m7_build(void) {   /* armar la imagen siguiente en la otra mitad, con lo que queda del vblank */
   if (!m7_busy || m7_step == 3) return;
   uint8 bb = m7_buf ^ 1;
   const M7Image *I = m7_load >= 0 ? &kM7Images[m7_load] : 0;
@@ -1776,28 +1878,27 @@ static void cine_vblank(void) {   /* armar la imagen siguiente en la otra mitad,
     m7_step = 1; m7_row = 0;
   }
   if (m7_step == 1) {                                  /* borrar lo de la anterior que la nueva no tapa */
-    if (m7_back >= 0) {
-      const M7Image *B = &kM7Images[m7_back];
+    if (m7_bh) {
       int16 nx0 = I ? I->x0 : 0, nx1 = I ? I->x0 + I->w : 0, ny0 = I ? I->y0 : 0, ny1 = I ? I->y0 + I->h : 0;
-      while (m7_row < B->h) {
-        int16 y = B->y0 + m7_row;
-        if (!m7_fits(B->w + M7_ROW_COST)) return;
+      while (m7_row < m7_bh) {
+        int16 y = m7_by0 + m7_row;
+        if (!m7_fits(m7_bw + M7_ROW_COST)) return;
         if (!m7_row_ok(y)) {                           /* es una fila de la que se ve: fuera de sus columnas va vacía */
           const M7Image *F = &kM7Images[m7_shown];
-          if (B->x0 < F->x0) m7_row_dma(bb, y, B->x0, (uint16)((F->x0 < B->x0 + B->w ? F->x0 : B->x0 + B->w) - B->x0), 0);
-          if (B->x0 + B->w > F->x0 + F->w) {
-            int16 x = F->x0 + F->w > B->x0 ? F->x0 + F->w : B->x0;
-            m7_row_dma(bb, y, x, (uint16)(B->x0 + B->w - x), 0);
+          if (m7_bx0 < F->x0) m7_row_dma(bb, y, m7_bx0, (uint16)((F->x0 < m7_bx0 + m7_bw ? F->x0 : m7_bx0 + m7_bw) - m7_bx0), 0);
+          if (m7_bx0 + m7_bw > F->x0 + F->w) {
+            int16 x = F->x0 + F->w > m7_bx0 ? F->x0 + F->w : m7_bx0;
+            m7_row_dma(bb, y, x, (uint16)(m7_bx0 + m7_bw - x), 0);
           }
         } else {
           if (y >= ny0 && y < ny1) {
-            if (B->x0 < nx0) m7_row_dma(bb, y, B->x0, (uint16)((nx0 < B->x0 + B->w ? nx0 : B->x0 + B->w) - B->x0), 0);
-            if (B->x0 + B->w > nx1) {
-              int16 x = nx1 > B->x0 ? nx1 : B->x0;
-              m7_row_dma(bb, y, x, (uint16)(B->x0 + B->w - x), 0);
+            if (m7_bx0 < nx0) m7_row_dma(bb, y, m7_bx0, (uint16)((nx0 < m7_bx0 + m7_bw ? nx0 : m7_bx0 + m7_bw) - m7_bx0), 0);
+            if (m7_bx0 + m7_bw > nx1) {
+              int16 x = nx1 > m7_bx0 ? nx1 : m7_bx0;
+              m7_row_dma(bb, y, x, (uint16)(m7_bx0 + m7_bw - x), 0);
             }
           } else {
-            m7_row_dma(bb, y, B->x0, B->w, 0);
+            m7_row_dma(bb, y, m7_bx0, m7_bw, 0);
           }
         }
         m7_row++;
@@ -1818,6 +1919,28 @@ static void cine_vblank(void) {   /* armar la imagen siguiente en la otra mitad,
   }
 }
 
+#ifdef MD_M7LOG
+volatile int16 md_m7_in, md_m7_out;   /* líneas del vblank al entrar y al salir de cine_vblank (medición) */
+static void cine_vblank(void) { md_m7_in = vb_lines_left(); m7_build(); md_m7_out = vb_lines_left(); }
+#else
+static void cine_vblank(void) { m7_build(); }
+#endif
+/* vblank sin cuadro nuevo (el motor se atrasó): en las cinemáticas se sigue armando la imagen del modo 7 con lo que
+   sobra. Cuándo se muestra lo decide el presupuesto (m7_cost), así que esto solo hace que el armado llegue antes. */
+static void md_vblank_lag(void) {
+  if ((cine_stage != 1 && cine_stage != 2) || m7_lock || room_pending || md_vdp_busy || !m7_busy || m7_step == 3)
+    return;
+  uint16 sv = vb_enter(md_snd_frames != 0);
+  md_vdp_busy = 1;
+  vdp_reg(0x0F, 0x02);                         /* (el círculo la deja en 0) */
+  m7_keep = md_vb_need;
+  m7_build();
+  m7_keep = 0;
+  if (cv_active) vdp_reg(0x0F, 0x00);          /* la dirección del VDP para el círculo la repone md_vint_top */
+  md_vdp_busy = 0;
+  vb_exit(sv);
+}
+
 static const MdRoom *find_room_id(uint16 id) {
   for (uint16 i = 0; i < MD_ROOM_COUNT; i++)
     if (kMdRooms[i].room == id) return &kMdRooms[i];
@@ -1825,13 +1948,17 @@ static const MdRoom *find_room_id(uint16 id) {
 }
 static void cine_start(uint8 stage, uint16 id) {
   md_sync();
+  m7_lock = 1;
   md_use_room(find_room_id(id));
   cine_stage = stage;
   cine_var = 1;
-  m7_want = m7_shown = m7_back = -1;
+  m7_want = m7_shown = -1;
+  m7_bh = 0;
+  m7_cost = 0;
   m7_buf = m7_half = 0;
   m7_busy = 0;
   cv_line = 0;
+  m7_lock = 0;
 }
 void CinematicGfx(uint16 which) { cine_start((uint8)which, 0xC000 | which); }
 void MenuGfx(void) { cine_start(3, 0xC0FF); }
@@ -1961,6 +2088,36 @@ static void pipe_take(void) {
   if (ga_called) ga_want = ga_want_l;
   m7_variant = m7_variant_l;
   if (md_zebes) zebes_take();
+}
+
+/* fundido a negro: cram_out = los colores con cada componente (3 bits) por brillo/15. Se arma al preparar el cuadro
+   (md_post), no en el vblank: son ~25 líneas que se comían el vblank de la cinemática (docs/50) */
+static const uint8 kBright[16][8] = {   /* (v * brillo + 7) / 15 (sin divisiones: el 68000 no tiene de 32 bits) */
+  { 0, 0, 0, 0, 0, 0, 0, 0 },
+  { 0, 0, 0, 0, 0, 0, 0, 0 },
+  { 0, 0, 0, 0, 1, 1, 1, 1 },
+  { 0, 0, 0, 1, 1, 1, 1, 1 },
+  { 0, 0, 1, 1, 1, 1, 2, 2 },
+  { 0, 0, 1, 1, 1, 2, 2, 2 },
+  { 0, 0, 1, 1, 2, 2, 2, 3 },
+  { 0, 0, 1, 1, 2, 2, 3, 3 },
+  { 0, 1, 1, 2, 2, 3, 3, 4 },
+  { 0, 1, 1, 2, 2, 3, 4, 4 },
+  { 0, 1, 1, 2, 3, 3, 4, 5 },
+  { 0, 1, 1, 2, 3, 4, 4, 5 },
+  { 0, 1, 2, 2, 3, 4, 5, 6 },
+  { 0, 1, 2, 3, 3, 4, 5, 6 },
+  { 0, 1, 2, 3, 4, 5, 6, 7 },
+  { 0, 1, 2, 3, 4, 5, 6, 7 } };
+static uint8 cram_out_ok;                       /* cram_out ya tiene los colores de ahora con el brillo de ahora */
+static void cram_bright(void) {
+  const uint16 *src = (md_tint && cram_t_ok) ? cram_t : cram;
+  const uint8 *bt = kBright[md_bright & 15];
+  for (uint16 i = 0; i < 64; i++) {
+    uint16 c = src[i];
+    cram_out[i] = (uint16)(bt[(c >> 1) & 7] << 1 | bt[(c >> 5) & 7] << 5 | bt[(c >> 9) & 7] << 9);
+  }
+  cram_out_ok = 1;
 }
 
 /* segunda parte: con el vblank libre (md_sync), se arma lo que va al VDP */
@@ -2181,6 +2338,7 @@ void md_post(void) {
     cram_t_ok = 1;
     cram_dirty = 1;
   }
+  if (cram_dirty && md_bright != 15) cram_bright();
 }
 
 /* ------------------------------------------------------------------ vblank */
@@ -2221,7 +2379,7 @@ static void load_room_vram(void) {
   vdp_display(1);
 }
 
-#ifdef MD_LAGLOG
+#if defined(MD_LAGLOG) || defined(MD_M7LOG)
 volatile uint8 md_vbs[8];
 #define VBS(i) md_vbs[i] = VDP_VCOUNT >> 8
 #else
@@ -2236,11 +2394,13 @@ void md_vblank(uint16_t late) {
   vdp_reg(0x0F, 0x02);                        /* (la del círculo la deja en 0) */
   if (room_pending) {
     room_pending = 0;
+    md_vb_room = 1;
     load_room_vram();
     md_cone_room();
     hud_dirty_all = 1;
     cram_dirty = 1;
     cram_t_ok = 0;
+    cram_out_ok = 0;
   }
   VBS(1);
   /* huida: primero, con todo el vblank (sus cambios de celdas grandes no caben después del resto); el DMA que
@@ -2293,28 +2453,7 @@ void md_vblank(uint16_t late) {
     if (md_bright == 15) {
       vdp_write_cram(src, 64);
     } else {                                  /* fundido a negro: cada componente (3 bits) por brillo/15 */
-      static const uint8 kBright[16][8] = {   /* (v * brillo + 7) / 15 (sin divisiones: el 68000 no tiene de 32 bits) */
-        { 0, 0, 0, 0, 0, 0, 0, 0 },
-        { 0, 0, 0, 0, 0, 0, 0, 0 },
-        { 0, 0, 0, 0, 1, 1, 1, 1 },
-        { 0, 0, 0, 1, 1, 1, 1, 1 },
-        { 0, 0, 1, 1, 1, 1, 2, 2 },
-        { 0, 0, 1, 1, 1, 2, 2, 2 },
-        { 0, 0, 1, 1, 2, 2, 2, 3 },
-        { 0, 0, 1, 1, 2, 2, 3, 3 },
-        { 0, 1, 1, 2, 2, 3, 3, 4 },
-        { 0, 1, 1, 2, 2, 3, 4, 4 },
-        { 0, 1, 1, 2, 3, 3, 4, 5 },
-        { 0, 1, 1, 2, 3, 4, 4, 5 },
-        { 0, 1, 2, 2, 3, 4, 5, 6 },
-        { 0, 1, 2, 3, 3, 4, 5, 6 },
-        { 0, 1, 2, 3, 4, 5, 6, 7 },
-        { 0, 1, 2, 3, 4, 5, 6, 7 } };
-      const uint8 *bt = kBright[md_bright & 15];
-      for (uint16 i = 0; i < 64; i++) {
-        uint16 c = src[i];
-        cram_out[i] = (uint16)(bt[(c >> 1) & 7] << 1 | bt[(c >> 5) & 7] << 5 | bt[(c >> 9) & 7] << 9);
-      }
+      if (!cram_out_ok) cram_bright();
       vdp_write_cram(cram_out, 64);
     }
     md_bright_shown = md_bright;

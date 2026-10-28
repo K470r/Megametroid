@@ -1051,6 +1051,7 @@ def build_rooms(rom, room_recs, hud_cells, out_dir, binfile, carray, C, Hh):
     Hh.append("extern const uint16 kHudLut[8192];  /* palabra del HUD del SNES & 0x1FFF -> celda del plano Window */")
     Hh.append(f"#define HUD_BLACK_CELL 0x{(1 << 15) | (3 << 13) | t_black:04X}")
     Hh.append(f"#define HUD_NSLOTS {len(hud_slots)}   /* colores 1..n de la línea 3: el HUD */")
+    Hh.append("/* HUD_IDX " + " ".join(str(i) for i in hud_slots) + " : índice de palette_buffer de cada uno (mkpause.py) */")
     print(f"hud: {len(hud_bank.tiles)} tiles, índices {hud_slots}")
 
     obj_recs = bytearray()

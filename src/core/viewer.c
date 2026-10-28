@@ -59,6 +59,7 @@ static int16 viewer_find(uint16 room) {
 
 uint16 viewer_input(uint16 joy) {
   static uint16 prev;
+  static uint8 start_held, start_used;
   uint16 newk = joy & ~prev;
   prev = joy;
   if (!nt_viewer || area_index > 5)
@@ -87,5 +88,19 @@ uint16 viewer_input(uint16 joy) {
     game_state = 9;
     place_pending = nt_viewer_place;
   }
-  return joy & ~kButton_Start;                    /* sin pausa (el menú de pausa aún no está) */
+  /* START + izquierda/derecha cambia de sala; START solo es la pausa (docs/49): en el juego START llega al soltarlo
+     si no se usó para cambiar de sala (un cuadro); fuera del juego (pausa), tal cual */
+  if (game_state != 8)
+    return joy;
+  if (joy & kButton_Start) {
+    if (newk & (kButton_Left | kButton_Right)) start_used = 1;
+    start_held = 1;
+    return joy & ~kButton_Start;
+  }
+  if (start_held) {
+    uint8 u = start_used;
+    start_held = start_used = 0;
+    if (!u) return joy | kButton_Start;
+  }
+  return joy;
 }

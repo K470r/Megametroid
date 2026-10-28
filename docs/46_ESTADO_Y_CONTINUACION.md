@@ -116,6 +116,14 @@ Reglas de Edwin (no negociables):
   de los objetos (`ZebesObj.src` de 30). `port.py` marca `nt_pal_dirty` cuando el código escribe `palette_buffer`.
   `mkzkeys.py`: proyectiles de PLMs (`plm_walk`), tablas de listas, pre-instrucciones puestas por lista. Comparación
   lado a lado con el SNES cuadro a cuadro: `tools/compare/lado_a_lado.sh` (ROM de prueba con `MD_TEST_WARP_AT`).
+- **Estación de mapa, pausa, mapa y equipo** (map-station, 2026-10-22; docs/49): el cuelgue al usar la estación de
+  mapa era la pausa sin portar (la caja "MAP DATA ACCESS COMPLETED" abre la pausa: `game_state = 12`) y
+  `CallSomeSamusCode(6)`. Portados los estados 12-18 del banco $82 (`src/core/pause.c`): mapa con scroll, íconos y
+  destinos, pantalla de equipo (equipar, reserva), L/R/START; `check`: 0 diferencias. Genesis: `md_pause.c` y
+  `tools/conv/mkpause.py` (tiles, celdas, colores y sprites de la pausa desde la ROM; tiles en la página 18). El
+  minimapa del HUD muestra el mapa cargado. START ya abre la pausa en cualquier sala (también en el visor: START solo).
+  Regresión: intro 0; Ceres/Zebes 97 (antes 19): las mismas clases de cuadros (pozo que gira, círculo de la
+  explosión), sensibles al ciclo: la base con +40 ciclos por cuadro en `md_post` ya da 76. Falta aprobarla a ojo.
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 
@@ -134,7 +142,8 @@ Reglas de Edwin (no negociables):
    ataques especiales `FireSba_Fire*`): `nt_unimpl` en proj.c.
 2. Ojos de las estatuas (paleta/2 líneas del BG), agua del FX 0x26 (BG3). (Spore Spawn: hecho, docs/49.)
 3. **Bombas de poder** y bombas en abanico (las bombas normales ya están).
-4. Secuencia de muerte (`HandleSamusOutOfHealthAndGameTile`), menú de pausa y mapa.
+4. Secuencia de muerte (`HandleSamusOutOfHealthAndGameTile`). (Pausa y mapa: hechos, docs/49; falta el mapa del menú
+   de partidas y los ganchos de pausa de Kraid/Draygon/Mother Brain.)
 5. **Sonido**: hoy solo las voces de la intro. Falta el controlador del Z80 (música y efectos; la cola del motor ya
    existe: `music_upload`, `music_play`, `QueueSfx*`). Ej.: el ojo pide el efecto 0x17 de la biblioteca 2.
 6. **Música en CD (Mega CD, modo 1)**: al encender se busca el BIOS del Mega CD; si está, se carga un programa en
@@ -183,6 +192,8 @@ Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escr
 - **`make`** (sin `data`) no rehace el estado inicial: si cambian las variables del motor (gen_vars), correr `mkinit`
   (ver `Makefile`) o la ROM no arranca.
   La cuenta de bytes por página deja 4 KB de margen (alineaciones).
+- **Parte fija + título ≤ 4 MB**: con el título (730 KB) al final, lo libre hasta los 4 MB era ~80 KB antes de la
+  pausa (docs/49: `pause.c` con `-Os`, sus tiles en la página 18). Código poco usado: `#pragma GCC optimize("Os")`.
 - **Parte fija de la ROM ≤ 4 MB** (lo demás va en páginas SSF2). `-O3` con desenrollado infla funciones con bucles:
   el cono pasó de 1.5 KB a 88 KB; ahí se usa `#pragma GCC optimize("O2", ...)`.
 - **RAM**: la pila queda entre `_bend` (symbol.txt) y 0xE1000000; con 5 KB más de variables la ROM no arrancó

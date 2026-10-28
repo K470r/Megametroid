@@ -623,6 +623,10 @@ bankbytes('kBank87B', 0x87)   # tiles animados (listas; los tiles en sí, la Gen
 bankbytes('kBank84B', 0x84)   # PLMs (cabeceras, listas de instrucciones, tablas de bloques)
 bankbytes('kBank8FB', 0x8F)
 wordblob('kBank85_MsgBox', 0x85, 0x869B, 0x95C0)   # cajas de mensaje: MsgBoxConfig y mapas de los mensajes (msgbox.c)
+# pausa: mapas del BG2 y del equipo ($B6:E000-EFFF) y paletas ($B6:F000-F1FF), de a palabras (direcciones pares)
+arr('uint16', 'kBankB6_Pause', words(0xB6E000, 0x900), fmt='0x{:X}')
+C[:] = [l.replace('const uint16 kBankB6_Pause', 'NT_LATE_DATA const uint16 kBankB6_Pause') for l in C]   # al final de la parte fija (nt.h)
+H.append('static inline uint16 BB6W(uint16 a) { return kBankB6_Pause[(uint16)(a - 0xE000) >> 1]; }')
 wordblob('kBankA2_Gunship', 0xA2, 0xA5BE, 0xA7D8)   # nave de Samus: listas de instrucciones y tablas
 wordblob('kBank90_Atmos', 0x90, 0x8B93, 0x8C1F)     # efectos de ambiente (pisadas, polvo, burbujas)
 wordblob('kBank94_React', 0x94, 0x9100, 0xA060)     # bloques especiales: qué PLM crea cada uno

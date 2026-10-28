@@ -45,6 +45,7 @@ void CinematicGfx(uint16 which) { pseudo_room = 0xC000 | which; }
 void IntroGfx(uint16 which) { pseudo_room = 0xC100 | which; }
 void Mode7Transfers(uint16 list) { }
 void MenuGfx(void) { pseudo_room = 0xC0FF; }
+void PauseGfx(uint16 what) { (void)what; }
 void DrawMenuSpritemap(uint16 idx, uint16 x, uint16 y, uint16 chr) { LOG("%04X spr82 %04X %04X\n", pseudo_room, idx, chr); }
 
 /* nivel de la sala en otra página del mapeador SSF2: en el PC está todo a la vista (room.h) */

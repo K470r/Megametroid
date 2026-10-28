@@ -44,6 +44,134 @@ static uint8 SamusCode_1C(void) {  // 0x90F41E
   return 0;
 }
 
+NT_LATE static void LoadProjectilePalette(uint16 a) {  // 0x90ACFC (kBeamPalettes: las de $90 ya en el orden de kBeamPalettePtrs)
+  if ((a & 0xFFF) >= 12) { nt_unimpl("LoadProjectilePalette (combinación de rayos sin tabla)"); return; }
+  for (uint16 i = 0; i < 16; i++) palette_buffer[224 + i] = kBeamPalettes[(a & 0xFFF) * 16 + i];
+  nt_pal_dirty(224, 239);
+}
+
+NT_LATE static uint8 SamusCode_04_06_Common(void) {  // 0x90F19E
+  flare_counter = 0;
+  /* ClearFlareAnimationState ($90:BCBE), copiada: en proj.c queda inlinada (docs/49) */
+  flare_animation_frame = 0;
+  flare_slow_sparks_anim_frame = 0;
+  flare_fast_sparks_anim_frame = 0;
+  flare_animation_timer = 0;
+  flare_slow_sparks_anim_timer = 0;
+  flare_fast_sparks_anim_timer = 0;
+  Samus_LoadSuitPalette();
+  return 0;
+}
+
+/* SamusFunc_E633 ($91:E633): al volver de la pausa o de una estación, la pose según lo equipado */
+NT_LATE static void SamusFunc_E633_0(void) {  // 0x91E733
+  if (samus_pose) {
+    if (samus_pose == kPose_9B_FaceF_VariaGravitySuit && (equipped_items & 1) == 0 && (equipped_items & 0x20) == 0) {
+      samus_pose = kPose_00_FaceF_Powersuit;
+      goto LABEL_10;
+    }
+  } else if ((equipped_items & 1) != 0 || (equipped_items & 0x20) != 0) {
+    samus_pose = kPose_9B_FaceF_VariaGravitySuit;
+LABEL_10:
+    SamusFunc_F433();
+    Samus_SetAnimationFrameIfPoseChanged();
+    Samus_UpdatePreviousPose();                 /* Samus_UpdatePreviousPose_0 ($91:E719): lo mismo */
+  }
+}
+
+NT_LATE static void SamusFunc_E633_3(void) {  // 0x91E776
+  /* *(uint16 *)&samus_prev_pose_x_dir = 260 / 264: dirección 4 u 8 y tipo de movimiento 1 */
+  samus_prev_pose_x_dir = samus_pose_x_dir == 4 ? 4 : 8;
+  samus_prev_movement_type2 = 1;
+  if (samus_pose != kPose_81_FaceR_Screwattack && samus_pose != kPose_82_FaceL_Screwattack) {
+    if (samus_pose != kPose_1B_FaceR_SpaceJump && samus_pose != kPose_1C_FaceL_SpaceJump)
+      goto LABEL_18;
+    if ((equipped_items & 8) != 0) {
+      samus_pose = samus_pose_x_dir == 4 ? kPose_82_FaceL_Screwattack : kPose_81_FaceR_Screwattack;
+      goto LABEL_18;
+    }
+    goto LABEL_15;
+  }
+  if ((equipped_items & 8) == 0) {
+LABEL_15:
+    samus_pose = samus_pose_x_dir == 4 ? kPose_1A_FaceL_SpinJump : kPose_19_FaceR_SpinJump;
+  }
+LABEL_18:
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  samus_prev_pose_x_dir = samus_pose_x_dir == 4 ? 4 : 8;   /* 772 / 776: tipo de movimiento 3 */
+  samus_prev_movement_type2 = 3;
+  Samus_UpdatePreviousPose();
+}
+
+NT_LATE static void SamusFunc_E633_4(void) {  // 0x91E83A
+  if ((equipped_items & 2) != 0) {
+    samus_pose = samus_pose_x_dir == 4 ? kPose_7A_FaceL_Springball_Ground : kPose_79_FaceR_Springball_Ground;
+    SamusFunc_F433();
+    Samus_SetAnimationFrameIfPoseChanged();
+    Samus_UpdatePreviousPose();
+  }
+}
+
+NT_LATE static void SamusFunc_E633_17(void) {  // 0x91E867
+  if ((equipped_items & 2) == 0) {
+    samus_pose = samus_pose_x_dir == 4 ? kPose_41_FaceL_Morphball_Ground : kPose_1D_FaceR_Morphball_Ground;
+    SamusFunc_F433();
+    Samus_SetAnimationFrameIfPoseChanged();
+    Samus_UpdatePreviousPose();
+  }
+}
+
+NT_LATE static void SamusFunc_E633(void) {  // 0x91E633
+  switch (samus_movement_type) {                /* off_91E6E1 */
+  case 0: SamusFunc_E633_0(); break;
+  case 3: SamusFunc_E633_3(); break;
+  case 4: case 8: SamusFunc_E633_4(); break;
+  case 17: case 18: case 19: SamusFunc_E633_17(); break;
+  case 20: samus_anim_frame = (equipped_items & 8) ? 23 : 3; break;   // SamusFunc_E633_20 ($91:E894)
+  default: break;
+  }
+  if ((equipped_items & 0x2000) != 0) {
+    if (samus_has_momentum_flag && !speed_boost_counter) {
+      special_samus_palette_timer = speed_boost_counter;
+      special_samus_palette_frame = 0;
+      speed_boost_counter = bank91_word(0xB61F);   /* kSpeedBoostToCtr[0] */
+    }
+  } else {
+    speed_echoes_index = 0;
+    speed_echo_xspeed[0] = 0;
+    speed_echo_xspeed[1] = 0;
+    samus_has_momentum_flag = 0;
+    speed_boost_counter = 0;
+    special_samus_palette_frame = 0;
+    special_samus_palette_timer = 0;
+    speed_echo_xpos[0] = 0;
+    speed_echo_xpos[1] = 0;
+    speed_echo_ypos[0] = 0;
+    speed_echo_ypos[1] = 0;
+  }
+  if (grapple_beam_function == FUNC16(GrappleBeamFunc_Inactive)) {
+    if ((equipped_beams & 0x1000) != 0) {
+      if (!sign16(flare_counter - 16))
+        QueueSfx1_Max6(0x41);
+    } else {
+      flare_counter = 0;
+      flare_animation_frame = 0;
+      flare_slow_sparks_anim_frame = 0;
+      flare_fast_sparks_anim_frame = 0;
+      flare_animation_timer = 0;
+      flare_slow_sparks_anim_timer = 0;
+      flare_fast_sparks_anim_timer = 0;
+    }
+  } else {
+    LoadProjectilePalette(2);
+    QueueSfx1_Max6(6);
+  }
+  Samus_LoadSuitPalette();
+  if (sign16(samus_health - 31))
+    QueueSfx3_Max6(2);
+}
+
 static uint8 SamusCode(uint16 a) {
   switch (a & 0x1F) {
   case 0x00: return SamusCode_00_LockSamus();
@@ -58,6 +186,22 @@ static uint8 SamusCode(uint16 a) {
     Samus_SetAnimationFrameIfPoseChanged();
     reached_ceres_elevator_fade_timer = 60;
     return SamusCode_00_LockSamus();
+  case 0x04:                                   // SamusCode_04 ($90:F19B)
+    samus_charge_palette_index = 0;
+    return SamusCode_04_06_Common();
+  case 0x06:                                   // SamusCode_06_LockToStation ($90:F1AA)
+    frame_handler_alfa = FUNC16(Samus_FrameHandlerAlfa_Func13);
+    frame_handler_beta = FUNC16(j_HandleDemoRecorder_2);
+    if (!sign16(flare_counter - 15))
+      QueueSfx1_Max15(2);
+    return SamusCode_04_06_Common();
+  case 0x0C:                                   // SamusCode_0C_UnlockFromMapStation ($90:F29E)
+    SamusFunc_E633();
+    if (frame_handler_beta == FUNC16(j_HandleDemoRecorder_2)) {
+      frame_handler_alfa = FUNC16(Samus_FrameHandlerAlfa_Func11);
+      frame_handler_beta = FUNC16(Samus_FrameHandlerBeta_Func17);
+    }
+    return 1;
   case 0x07:                                   // SamusCode_07_SetupForElevator ($90:F1C8)
     MakeSamusFaceForward();
     frame_handler_beta = FUNC16(Samus_Func19);

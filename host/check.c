@@ -54,9 +54,14 @@ static const char *kNotCompared[] = {
   /* las interrupciones del motor no son las del SNES (IRQ de la PPU) */
   "reg_NMITIMEN",
   /* 7E:9800: tabla HDMA de ventana (rayos X, etc.; el SNES también la usa en Ceres); el motor solo la limpia */
-  "hdma_table_1", 0
+  "hdma_table_1",
+  /* cola de escrituras a la VRAM: el motor no la usa (la Genesis dibuja de otra forma); el SNES la deja llena en los
+     cuadros sin NMI con actualización (caja de mensaje) */
+  "vram_write_queue_tail", 0
 };
 static int not_compared(const char *n) {
+  /* en la pausa (estados 13-17) el scroll del BG1 es el del mapa: lo arma el motor y se compara */
+  if (game_state >= 13 && game_state <= 17 && (!strcmp(n, "reg_BG1HOFS") || !strcmp(n, "reg_BG1VOFS"))) return 0;
   for (int i = 0; kNotCompared[i]; i++) if (!strcmp(kNotCompared[i], n)) return 1;
   return 0;
 }

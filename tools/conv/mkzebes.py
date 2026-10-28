@@ -680,6 +680,15 @@ def main():
     idat = HERE.parent.parent / "res" / "gen" / "md" / "md_intro_data.c"
     busy = {int(x) for x in re.findall(r'section\(\\?"\.bank(\d+)', idat.read_text())} if idat.exists() else set()
     busy = busy or {19, 20}
+    # la pausa (mkpause.py, md_pause_data.c): sus tiles en una página propia
+    pdat = HERE.parent.parent / "res" / "gen" / "md" / "md_pause_data.c"
+    pause_pages = {}
+    if pdat.exists():
+        pt = pdat.read_text()
+        pg = re.search(r'#define PZ_PAGE __attribute__\(\(section\("\.bank(\d+)"\)\)\)', pt)
+        sz = re.search(r'kPzTiles\[(\d+)\]', pt)
+        if pg and sz:
+            pause_pages[int(pg.group(1))] = int(sz.group(1)) + 2
     # lo que ocupa la intro en sus páginas (de las declaraciones de md_intro_data.c, con margen): el resto de esas
     # páginas también sirve para Zebes
     tsz = {'uint8': 1, 'int8': 1, 'uint16': 2, 'int16': 2, 'uint32': 4}
@@ -700,6 +709,8 @@ def main():
     for pg, u in busy_used.items():
         if pg > page0:
             fill[pg] = u + 16384                    # margen
+    for pg, u in pause_pages.items():
+        fill[pg] = fill.get(pg, 0) + u + 4096
 
     def place(need):
         for pg in sorted(fill):

@@ -56,6 +56,15 @@ extern const uint8 *nt_fade_list;
 extern int16 nt_shake_bg1x, nt_shake_bg1y, nt_shake_bg2x, nt_shake_bg2y;
 extern uint16 nt_fade_count;
 
+/* código y datos agregados después de aprobar la regresión de imagen: al final de la parte fija de la ROM (md_ssf2.ld),
+   así no corren las direcciones de lo que ya estaba (docs/49) */
+#ifdef NT_SSF2
+#define NT_LATE __attribute__((section(".late_text"), noinline))
+#define NT_LATE_DATA __attribute__((section(".late_rodata")))
+#else
+#define NT_LATE
+#define NT_LATE_DATA
+#endif
 #include "vars.h"
 /* memcpy(g_ram + dirección, RomPtr_XX(src), n) del decomp (p. ej. Dachora_Func_1: su paleta): las paletas de
    7E:C000-C3FF (palette_buffer y target_palettes) desde la ROM, palabra por palabra */

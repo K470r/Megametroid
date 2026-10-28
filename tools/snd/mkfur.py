@@ -393,6 +393,12 @@ def convert(spc, table, song, track, name, out):
     safe = "_".join("".join(ch if ch.isalnum() else " " for ch in plain).split())
     path = out / f"{song:02X}_{track}_{safe}.fur"
     write_fur(path, t, comment, rows, order, chunks, loop)
+    # cada muestra del SNES sola (como mksnd.py --analizar), para imitarla en Furnace
+    for s in used:
+        wav = out / "muestras" / f"{song:02X}_{s}.wav"
+        if not wav.exists():
+            x, l = mksnd.brr.decode(ram, s)
+            mksnd.write_sample(wav, x, l)
     convert.last = (trace, end, loop, order)
     return path, end, loop, len(order)
 
@@ -418,6 +424,8 @@ def main(argv):
     spc = mksnd.Spc(rom, ROOT / "work" / "snd")
     table = mksnd.read_instr_table(HERE / "instrumentos.txt")
     seen = {}                                      # notas de cada canción: las repetidas no se escriben dos veces
+    lista = ["# Instrumentos de cada canción (mkfur.py): nombre en Furnace, tipo, notas que toca y su muestra del SNES",
+             "# sola en muestras/CONJ_MUESTRA.wav. Los FM son los que se cambian; psg y ruido salen del PSG.", ""]
     for song, track, name in CANCIONES:
         if want and (song, track) not in want:
             continue
@@ -434,6 +442,20 @@ def main(argv):
             continue
         seen[sig] = path.name
         print(f"{path.name}: {end} cuadros, lazo {loop}, {nins} instrumentos")
+        notes = {}
+        for t in trace:
+            if t[2] is not None and t[6]:
+                k = (t[2].srcn, "fm" if t[1][0] == "fm" else t[1][0])
+                notes[k] = notes.get(k, 0) + 1
+        lista.append(path.name)
+        for (srcn, kind), ins in convert.last[3]:
+            nm = f"{song:02X}_{srcn}" + ("" if kind == "fm" else f" {kind}")
+            nn = notes.get((srcn, kind), 0)
+            cnt = f"{nn:5d} notas" if nn else "  (notas que pasan aquí cuando faltan canales FM)"
+            lista.append(f"  {nm:12s} {kind:5s} {cnt}   muestras/{song:02X}_{srcn}.wav")
+        lista.append("")
+    if not want:
+        (out / "instrumentos_por_cancion.txt").write_text("\n".join(lista), encoding="utf-8")
 
 
 if __name__ == "__main__":

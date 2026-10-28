@@ -220,6 +220,8 @@ Qué tiene cada proyecto (`tools/snd/mkfur.py`):
 - Un instrumento por muestra del SNES: `03_25` (conjunto $03, muestra 25), con el parche de hoy de
   `instrumentos.txt`. Los del PSG y el ruido se llaman `03_25 psg` / `03_24 ruido`.
 - El formato de Furnace 0.6.8.1 (versión 228, bloque `INFO`): lo abren esa versión y las siguientes.
+- Además, en `work/furnace/`: `instrumentos_por_cancion.txt` (los instrumentos de cada canción, su tipo y cuántas
+  notas tocan) y `muestras/CONJ_MUESTRA.wav` (cada muestra del SNES sola, como `--analizar`).
 
 Cómo se usa:
 1. `make fur` y abrir en Furnace, por ejemplo, `work/furnace/03_5_titulo.fur`. Play: suena la canción entera.
@@ -240,7 +242,7 @@ Comprobado (2026-10-28), sin Furnace en el contenedor (compilarlo no se permiti�
   en cada cuadro dan lo mismo que la traza de la ROM: las 37 canciones, 0 distintos.
 - Los parches: proyecto → `fur2tabla.py` → la misma línea que el instrumento de la tabla (detune incluido).
 - `mksnd.py` con la traza: la música de la ROM sale igual byte a byte.
-- Falta oírlo en Furnace (Edwin).
+- Oído en Furnace por Edwin: suena como en la ROM.
 
 ## Lo que falta
 

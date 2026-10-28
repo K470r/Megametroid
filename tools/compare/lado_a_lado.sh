@@ -8,7 +8,8 @@
 #
 # Uso: lado_a_lado.sh            (por omisión, la pelea con el Bomb Torizo: puerta 8BC2 y torizo_in.txt)
 #      mont.py salida.png e1 e2 ...  (en $WORK: pares Genesis | SNES en los cuadros e1, e2... de la Genesis)
-# Variables: PAT, DOOR, X, Y, WORK (work/lado), SNES_DESDE/SNES_HASTA (cuadros del SNES a capturar),
+# Variables: PAT, DOOR, X, Y, XY_N (cuadro de la posición), EXTRA_FL (más -D para la Genesis: MD_TEST_ITEMS...),
+#            HL_ITEMS/HL_POKE (hlref), WORK (work/lado), SNES_DESDE/SNES_HASTA (cuadros del SNES a capturar),
 #            GEN_DESDE/GEN_N (cuadros de la Genesis a capturar)
 set -e
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -18,7 +19,7 @@ DOOR=${DOOR:-8BC2}
 X=${X:-60}; Y=${Y:-160}
 WORK=${WORK:-$ROOT/work/lado}
 FROM=23500                       # primer cuadro grabado por hlref (en Zebes, estado 8)
-WARP_N=21; XY_N=170              # cuadros grabados (desde FROM) del salto y de la posición
+WARP_N=21; XY_N=${XY_N:-170}             # cuadros grabados (desde FROM) del salto y de la posición
 T0=10757                         # cuadro de la entrada del primer cuadro del motor (estado inicial: ref_full, cuadro 97)
 mkdir -p $WORK/snes $WORK/gen
 cat $ROOT/tools/snes_ref/ceres_bot/in_z2.txt $PAT > $WORK/in.txt
@@ -48,7 +49,7 @@ with open(sys.argv[3], 'w') as o:
         o.write("    .word " + ",".join("0x%04X" % x for x in v[i:i + 16]) + "\n")
 P
 W=$((FROM + WARP_N - T0)); S=$((FROM + XY_N - T0))
-env TEST=1 EXPFL="-DMD_TEST_WARP_AT=$W -DMD_TEST_WARP_DOOR=0x$DOOR -DMD_TEST_SETXY_AT=$S -DMD_TEST_SETXY_X=$X -DMD_TEST_SETXY_Y=$Y" \
+env TEST=1 EXPFL="-DMD_TEST_WARP_AT=$W -DMD_TEST_WARP_DOOR=0x$DOOR -DMD_TEST_SETXY_AT=$S -DMD_TEST_SETXY_X=$X -DMD_TEST_SETXY_Y=$Y $EXTRA_FL" \
   make -C $ROOT rom > $WORK/build.log 2>&1 || { echo "no compila: $WORK/build.log"; exit 1; }
 cp $ROOT/out/rom.bin $WORK/gen.bin
 A=$(m68k-linux-gnu-nm $ROOT/out/rom.out | awk '$3=="md_shown_frame"{print substr($1,length($1)-3)}')

@@ -66,7 +66,6 @@ void CallEnemyAi(uint8 bank, uint16 f) {
   static PortFnV cfn[16];
   uint16 h = (f ^ (f >> 4) ^ bank) & 15;
   if (cea[h] == ea) { if (cfn[h] != port_nop_v) cfn[h](); return; }
-  if (f >= 0x8000 && f <= 0x801E && Enemy_GrappleReact(f)) return;   /* grapple.c */
   switch (ea) {
   case 0xA0804C: case 0xA0804B: case 0xA6804C: case 0xA6F920: return;     // nullsub_170 / 169 / 170_A6 / 41
   case 0xA6F6C5: CeresDoor_Init(); return;
@@ -85,6 +84,7 @@ void CallEnemyAi(uint8 bank, uint16 f) {
   case 0xA2A6D2: GunshipBottom_Init(); return;
   case 0xA2A759: GunshipTop_Main(); return;
   default:
+    if (f >= 0x8000 && f <= 0x801E && Enemy_GrappleReact(f)) return;   /* reacciones al gancho (grapple.c) */
     { PortFnV fn = port_FindCallEnemyAi(ea);      /* traducidas del decomp (docs/42) */
       if (fn) { cea[h] = ea; cfn[h] = fn; if (fn != port_nop_v) fn(); return; } }
 #ifndef __mc68000__

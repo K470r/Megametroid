@@ -1242,10 +1242,72 @@ void DrawArmCannon(int16 x, int16 y, uint16 attr, uint16 src) {
   s->x = x + 128;
 }
 
-/* rayo gancho (grapple.c): los segmentos y la punta son sprites de 8x8 con tiles que el SNES copia de $9A cada cuadro
-   (UpdateGrappleBeamTiles $9B:BFBD). PENDIENTE (docs/55): convertir esos tiles en el PC y dibujarlos. */
-void DrawGrappleOam(int16 x, int16 y, uint16 chr) { (void)x; (void)y; (void)chr; }
-void GrappleTiles(uint16 point_src, uint16 beam_src) { (void)point_src; (void)beam_src; }
+/* rayo gancho (grapple.c, docs/55): los segmentos y la punta son sprites de 8x8 con tiles que el SNES copia de $9A
+   cada cuadro (UpdateGrappleBeamTiles $9B:BFBD: el punto, 4 cuadros, y 4 tiles de segmento según el ángulo) a los
+   tiles 0x20-0x24 de los sprites. Esos tiles solo usan el color 15 de la paleta 5 (palette_buffer[223], que el gancho
+   pone en 0x7F91): aquí son una máscara (kGrappleSnesTiles, mkdata) que se pinta con el lugar de la CRAM que sale de
+   ese color (o, si la sala no lo usa, el color de la CRAM más parecido) y va a GRAPPLE_TILE (5 tiles al final de 0xF000; son del haz
+   del ojo: en esas salas no se dibuja). */
+#define GRAPPLE_TILE 2043
+uint8 zebes_eye_room(void);
+static uint16 gr_point = 0xFFFF, gr_beam = 0xFFFF;
+static uint8 gr_slot = 0xFF;
+static uint8 gr_tiles[5][32] __attribute__((aligned(2)));
+static volatile uint8 gr_dirty, gr_dirty_l;
+
+static void gr_conv(uint8 *dst, const uint8 *b, uint8 nib) {   /* tile del SNES (4 bits por planos) -> Genesis */
+  for (int y = 0; y < 8; y++) {
+    uint8 m = b[2 * y] | b[2 * y + 1] | b[16 + 2 * y] | b[17 + 2 * y];   /* (todos los píxeles usados son el 15) */
+    for (int x = 0; x < 8; x += 2) {
+      uint8 v = 0;
+      if (m & (0x80 >> x)) v |= nib << 4;
+      if (m & (0x40 >> x)) v |= nib;
+      dst[4 * y + (x >> 1)] = v;
+    }
+  }
+}
+
+static uint8 gr_nearest(uint16 snes) {               /* el lugar de la CRAM (no transparente) más parecido a ese color */
+  uint16 want = kCram555[snes & 0x7FFF], best = 0xFFFF;
+  uint8 slot = 0xFF;
+  for (uint8 i = 0; i < 64; i++) {
+    if (!(i & 15)) continue;
+    uint16 c = cram[i], d = 0;
+    for (uint8 k = 1; k < 12; k += 4) {
+      int16 a = (c >> k) & 7, b = (want >> k) & 7;
+      d += (a > b) ? a - b : b - a;
+    }
+    if (d < best) { best = d; slot = i; }
+  }
+  return slot;
+}
+
+void GrappleTiles(uint16 point_src, uint16 beam_src) {
+  uint8 slot = cram_rev[223] != 0xFF ? cram_rev[223] : gr_nearest(palette_buffer[223]);
+  if (point_src == gr_point && beam_src == gr_beam && slot == gr_slot)
+    return;
+  gr_point = point_src; gr_beam = beam_src; gr_slot = slot;
+  uint8 nib = (slot == 0xFF) ? 15 : (slot & 15);
+  gr_conv(gr_tiles[0], kGrappleSnesTiles + (uint16)(point_src - 0x8200), nib);
+  for (int t = 0; t < 4; t++)
+    gr_conv(gr_tiles[1 + t], kGrappleSnesTiles + (uint16)(beam_src - 0x8200) + 32 * t, nib);
+  gr_dirty_l = 1;
+}
+
+void DrawGrappleOam(int16 x, int16 y, uint16 chr) {
+  if (!md_zebes || zebes_eye_room() || x < -8 || x >= 256 || y < -8 || y >= 224 || sp_ptr == spr + MAX_SPR)
+    return;
+  uint16 t = (chr & 0x1FF) - 0x20;
+  if (t > 4)
+    return;
+  uint8 line = (gr_slot == 0xFF) ? 2 : (gr_slot >> 4);
+  GenSpr *s = sp_ptr++;
+  s->y = y + 129;                                 /* (el SNES dibuja los sprites una línea más abajo: DrawArmCannon) */
+  s->size_link = (uint16)(s - spr + 1);
+  s->attr = (uint16)((((chr >> 12) & 3) == 3 ? 0x8000 : 0) | (line << 13) | (((chr >> 15) & 1) << 12) |
+                     (((chr >> 14) & 1) << 11) | (GRAPPLE_TILE + t));
+  s->x = x + 128;
+}
 
 void DrawProjectileTrailSprite(uint16 x, uint16 y, uint16 t) {
   if (intro_on) { it_draw(INTRO_KIND_TRAIL, t, 0, (int16)x, (int16)y); return; }
@@ -2090,6 +2152,7 @@ static void pipe_take(void) {
   for (uint16 i = 0; i < dyn_nl; i++) dyn_q[i] = dyn_ql[i];
   dyn_n = dyn_nl; dyn_nl = 0;
   if (arm_dmal) { arm_dma = arm_dmal; arm_dmal = 0; }
+  if (gr_dirty_l) { gr_dirty = 1; gr_dirty_l = 0; }
   if (ga_called) ga_want = ga_want_l;
   m7_variant = m7_variant_l;
   if (md_zebes) zebes_take();
@@ -2444,6 +2507,7 @@ void md_vblank(uint16_t late) {
     if (intro_on || cine_stage) samus_vram_src[0] = samus_vram_src[1] = 0;   /* ahí se usa la VRAM para otras cosas */
   }
   if (arm_dma) { vdp_dma_vram(arm_dma, ARM_TILE * 32, 16); arm_dma = 0; }
+  if (gr_dirty) { vdp_dma_vram(&gr_tiles[0][0], GRAPPLE_TILE * 32, 80); gr_dirty = 0; }
   if (intro_on) {
     intro_vblank();
     md_vdp_busy = 0;

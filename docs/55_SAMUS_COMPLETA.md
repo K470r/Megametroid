@@ -63,8 +63,61 @@ Un commit por mecánica, cada una con su prueba en `tools/rooms/` (grabación `h
 `HL_POKE`, `HL_SETXY` y `host/check` en 0 diferencias) y una mirada en la Genesis (retrorun). Ver el estado de cada
 una al final de este documento.
 
-## Estado
+## Estado (2026-10-28)
 
-| Mecánica | Estado |
-|---|---|
-| Inventario | hecho (este documento) |
+Todo se comprobó con `host/check` contra el SNES (modo libre: el estado del SNES solo al empezar) con las pruebas
+de `tools/rooms/`. Las entradas del bot (`tools/snes_ref/ceres_bot/in_*.txt`) se agregan a `in_z2.txt` (hasta Zebes).
+
+| Mecánica | Estado | Prueba (0 diferencias) |
+|---|---|---|
+| Inventario | hecho (este documento) | |
+| Salto espacial | hecho | `spacejump.sh` (Landing Site, saltos encadenados con el tornillo) |
+| Speed booster, ecos | hecho | `shinespark.sh` |
+| Shinespark (vertical, horizontal, diagonal, choque y ecos) | hecho | `shinespark.sh` (sala 9CB3, 2686 cuadros) |
+| Tornillo (paletas; el daño ya estaba) | hecho | `spacejump.sh`, `shinespark.sh` |
+| Bola resorte | hecho | `shinespark.sh` |
+| Salto en la pared | ya estaba; con el gancho: hecho | `grapple.sh` |
+| Daño y retroceso | ya estaba (el inventario lo daba por faltante: está escrito sin nombres de función) | |
+| Trajes Varia y gravedad (rayo de luz, paleta) | hecho | `suits.sh` (A6E2 y CE40) |
+| Paletas especiales (speed booster, brillo, shinespark, destello de cristal, rayos X, hiperrayo) | hecho | |
+| Rayos de onda, hielo, spazer, plasma y sus combinaciones | hecho | `beams.sh` (las 11 combinaciones con el cargado) |
+| Ataques especiales (SBA) | hecho | `sba.sh` (onda, hielo, spazer, plasma) |
+| Bomba de poder (soltarla, explosión contra bloques y enemigos) | hecho | `powerbomb.sh` |
+| Gancho (engancharse, columpio, soltarse, enemigos) | hecho | `grapple.sh` |
+| Rayos X | **falta** (siguiente bloque) | |
+| Destello de cristal (movimiento) | falta (las paletas están) | |
+| Hiperrayo | falta (Mother Brain) | |
+
+Errores que se encontraron de paso:
+- `plm.c`: la instrucción de dibujo que arma `PlmInstr_DrawPlmBlock` está en 7E:1E67 (`custom_draw_instr_num_blocks`),
+  no en 7E:1E6D: el shinespark que rompe bloques lo mostró.
+- `samus_codes.c`: `speed_boost_counter = bank91_word(0xB61F)` daba 0; ahora `kSpeedBoostToCtr[0]`.
+- `grapple_beam_end_angle_hi` es el byte alto de `grapple_beam_end_angle16`: se usa `HI8()` (si no, `gen_vars` la
+  declara aparte y no se actualiza).
+
+### Lo que falta en la Genesis (dibujo)
+
+La lógica es la del SNES (comprobada); en la Genesis falta dibujar:
+- **los rayos nuevos** (onda, hielo, spazer, plasma, combinaciones y SBA): sus spritemaps no están en las claves de
+  dibujo. Agregarlos a las claves de cada sala de Zebes (`mkmd.beam_sm_tiles`, cada una con los tiles de su
+  combinación) hace que Zebes no entre en las páginas del SSF2. Propuesta: un juego de claves común (no por sala)
+  que use un lugar fijo de la VRAM donde la Genesis sube los 8 tiles de la combinación equipada (como
+  `UpdateBeamTilesAndPalette` en el SNES) y los colores 9-13 de la línea 3 (ya son del rayo).
+- **el rayo de luz de los trajes**: la ventana (`hdma_table_1`) y la matemática de color; hoy se ve el cambio de traje
+  sin el rayo.
+
+### En la Genesis (retrorun, `tools/compare/lado_a_lado.sh`)
+
+`lado_a_lado.sh` acepta ahora `XY_N` (cuadro de la posición), `HL_ITEMS`/`HL_POKE` (hlref) y `EXTRA_FL` (para la
+Genesis: `-DMD_TEST_ITEMS=0x... -DMD_TEST_BEAMS=0x... -DMD_TEST_HUD_ITEM=n`, md_main.c, puestos al saltar de sala).
+
+- **Shinespark** (sala 9CB3, `in_shinespark.txt`, `XY_N=200 X=200 Y=1707`, objetos 230E): la posición y la pose de
+  Samus son las del SNES en cada cuadro del motor (RAM de la Genesis contra la grabación), y la imagen (carrera, brillo,
+  carga, salto vertical con sus paletas y ecos) es la del SNES. Las capturas de `mont.py` quedan un cuadro del motor
+  corridas (la Genesis muestra lo del cuadro anterior del SNES), igual en posición y paleta: es la alineación de las
+  capturas, no el juego.
+- **Gancho** (sala 9D19, `in_grapple.txt`, `XY_N=250 X=784 Y=740`, `MD_TEST_ITEMS=0x4004 MD_TEST_HUD_ITEM=4`): ya se
+  dibuja. `GrappleTiles` convierte en cada cambio los tiles de $9A (`kGrappleSnesTiles`, mkdata: el punto y los 4
+  segmentos según el ángulo; solo usan el color 15 de la paleta 5) y los sube en el vblank a 5 tiles fijos al final
+  de 0xF000 (`GRAPPLE_TILE`, los del haz del ojo: en esa sala no se dibuja). El color: el lugar de la CRAM que sale de
+  palette_buffer[223] o, si la sala no lo usa (9D19), el más parecido a ese color (celeste, como el SNES).

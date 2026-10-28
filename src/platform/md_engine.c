@@ -1240,7 +1240,7 @@ void DrawArmCannon(int16 x, int16 y, uint16 attr, uint16 src) {
   s->x = x + 128;
 }
 
-/* rayo gancho (grapple.c, docs/55): los segmentos y la punta son sprites de 8x8 con tiles que el SNES copia de $9A
+/* rayo gancho (grapple.c, docs/56): los segmentos y la punta son sprites de 8x8 con tiles que el SNES copia de $9A
    cada cuadro (UpdateGrappleBeamTiles $9B:BFBD: el punto, 4 cuadros, y 4 tiles de segmento según el ángulo) a los
    tiles 0x20-0x24 de los sprites. Esos tiles solo usan el color 15 de la paleta 5 (palette_buffer[223], que el gancho
    pone en 0x7F91): aquí son una máscara (kGrappleSnesTiles, mkdata) que se pinta con el lugar de la CRAM que sale de

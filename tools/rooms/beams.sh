@@ -1,6 +1,6 @@
 #!/bin/sh
 # beams.sh: los rayos de onda, hielo, spazer y plasma y sus combinaciones (con el rayo cargado) contra el SNES
-# (docs/55). Sala 9D19 (la del Charge Beam, puerta 8DAE) con enemigos y la entrada del rayo cargado (in_z2.txt +
+# (docs/56). Sala 9D19 (la del Charge Beam, puerta 8DAE) con enemigos y la entrada del rayo cargado (in_z2.txt +
 # in_chargebeam.txt: disparar y cargar en todas las direcciones, en el aire, bombas en abanico). Una grabación por
 # combinación (equipped_beams/collected_beams en 7E:09A6/09A8 con HL_POKE).
 # Uso: sh tools/rooms/beams.sh [combinaciones en hex]   (por omisión las 11 válidas con el rayo cargado)

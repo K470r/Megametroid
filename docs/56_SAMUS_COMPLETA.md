@@ -1,4 +1,4 @@
-# 55 — Samus completa: inventario de lo que falta portar
+# 56 — Samus completa: inventario de lo que falta portar
 
 Fecha: 2026-10-28. Rama `samus-completa` (desde `main`).
 

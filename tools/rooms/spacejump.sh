@@ -1,6 +1,6 @@
 #!/bin/sh
 # spacejump.sh: salto espacial con el tornillo (saltos encadenados hacia la derecha y la izquierda) contra el SNES
-# (docs/55). Sala 91F8 (Landing Site, entrando por la puerta 8946), Samus en el suelo abierto de abajo (720, 1211)
+# (docs/56). Sala 91F8 (Landing Site, entrando por la puerta 8946), Samus en el suelo abierto de abajo (720, 1211)
 # con HL_ITEMS=230E. Entrada: in_z2.txt + in_spacejump.txt (A 28 cuadros, soltar 34: el siguiente A cae en la
 # ventana de velocidad del salto espacial, $90:A436).
 # Uso: sh tools/rooms/spacejump.sh   (WORK: carpeta temporal; la grabación se borra al terminar)

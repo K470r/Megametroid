@@ -1,4 +1,4 @@
-/* MegaMetroid — motor nativo: el rayo gancho (docs/55).
+/* MegaMetroid — motor nativo: el rayo gancho (docs/56).
  * Escrito a mano desde snesrev/sm sm_9b.c ($9B:B861-CBFA: GrappleBeamHandler y sus funciones), con lo del gancho
  * de $90 (HudSelectionHandler_Grappling, Samus_MoveHandler_ReleaseFromGrapple, Samus_GrappleWallJumpCheck,
  * Samus_PostGrappleCollisionDetect, el manejador de dibujo sub_90EB86) y $A0 (GrappleBeam_CollDetect_Enemy). Las

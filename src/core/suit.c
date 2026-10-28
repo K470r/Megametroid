@@ -1,4 +1,4 @@
-/* MegaMetroid — motor nativo: tomar el traje Varia o el de gravedad (docs/55).
+/* MegaMetroid — motor nativo: tomar el traje Varia o el de gravedad (docs/56).
  * Escrito a mano desde snesrev/sm: VariaSuitPickup / GravitySuitPickup ($91:D4E4/D5BA, los llama la PLM del
  * objeto), el objeto de HDMA del rayo de luz ($91:D5A2/D67A, InitializeSuitPickupHdma $91:D692) y sus
  * pre-instrucciones ($88:E026-E3B5). El rayo es una ventana por línea (hdma_table_1: izquierda/derecha) con la

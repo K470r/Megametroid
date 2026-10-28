@@ -1,5 +1,5 @@
 #!/bin/sh
-# suits.sh: tomar el traje Varia y el de gravedad contra el SNES (docs/55): rayo de luz (objeto de HDMA $91:D5A2 /
+# suits.sh: tomar el traje Varia y el de gravedad contra el SNES (docs/56): rayo de luz (objeto de HDMA $91:D5A2 /
 # D67A y sus pre-instrucciones $88:E026-E3B5), cambio de traje y de paleta.
 #   Varia:    sala A6E2 (puerta 91DA), Samus en (60, 171); entrada in_varia.txt (disparar a la esfera, saltar
 #             encima, cerrar la caja de mensaje).

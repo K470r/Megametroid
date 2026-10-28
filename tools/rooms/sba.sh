@@ -1,6 +1,6 @@
 #!/bin/sh
 # sba.sh: ataques especiales (rayo cargado con la bomba de poder elegida: FireSba_FireWave/Ice/Spazer/Plasma
-# $90:CD1A-CE98 y sus pre-instrucciones) contra el SNES (docs/55). Sala 9D19 (puerta 8DAE) con enemigos; 10 bombas de
+# $90:CD1A-CE98 y sus pre-instrucciones) contra el SNES (docs/56). Sala 9D19 (puerta 8DAE) con enemigos; 10 bombas de
 # poder y la bomba de poder elegida (HL_POKE 9CE/9D0/9D2); entrada in_z2.txt + in_sba.txt (cargar 160 cuadros y
 # soltar, a los dos lados). Una grabación por rayo (onda, hielo, spazer, plasma, con el rayo cargado).
 # Uso: sh tools/rooms/sba.sh   (WORK: carpeta temporal; las grabaciones se borran al terminar)

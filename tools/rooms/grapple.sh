@@ -1,5 +1,5 @@
 #!/bin/sh
-# grapple.sh: rayo gancho contra el SNES (docs/55). Sala 9D19 (puerta 8DAE): bloques de gancho en el techo (fila 43,
+# grapple.sh: rayo gancho contra el SNES (docs/56). Sala 9D19 (puerta 8DAE): bloques de gancho en el techo (fila 43,
 # columnas 45-53). Gancho elegido (HL_ITEMS=4004, HL_POKE 9D2:4).
 #   columpio:  Samus en el aire debajo de los bloques (784, 740); in_grapple.txt (enganchar arriba, columpiarse, alargar
 #              y acortar, soltarse)

@@ -1,6 +1,6 @@
 #!/bin/sh
 # shinespark.sh: speed booster, shinespark (vertical, horizontal, diagonal; choque y ecos), tornillo, bola resorte y
-# los ecos al frenar, contra el SNES (docs/55). Sala 9CB3 (Brinstar, la del Dachora: pasillo largo abajo y el pozo
+# los ecos al frenar, contra el SNES (docs/56). Sala 9CB3 (Brinstar, la del Dachora: pasillo largo abajo y el pozo
 # encima), entrando por la puerta 8DD2; Samus con speed booster, salto espacial, hi-jump, tornillo, bola y bola
 # resorte (HL_ITEMS=230E) y llevada al pasillo de abajo antes de cada tramo (HL_SETXY). Entrada: in_z2.txt (hasta
 # Zebes) + in_shinespark.txt (correr, agacharse con el brillo, saltar con A, A+<, R+A; saltos con el tornillo; bola

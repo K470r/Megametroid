@@ -20,6 +20,8 @@ SNES de `make_inputs.sh` con `MM_SNDLOG` (nuevo en `host/pc_stubs.c`: cuadro del
 
 | Cuadro SNES | Estado | Pedido | Qué es (función del decomp) |
 |---|---|---|---|
+| título 363 | 1 | $03, 5 | el título (`CinematicFunctionOpening` $8B:9B68; `src/front/title.c`, ver abajo) |
+| al salir del título | 1 | $03, 6 | el menú de partidas (`HandleCinematicsTransitions_1` $8B:9A83) |
 | 2068 / 2167 | 30 | conjunto $3F, pista 5 | "The last Metroid is in captivity" (`CinematicFunction_Intro_Initial` $8B:A395) |
 | 2375 / 2390 | 30 | $42, 5 | "The galaxy is at peace" (`CinematicFunc_Intro_QueueGalaxyIsAtPeace` $8B:A613) |
 | 2678 / 2693 | 30 | $36, 5 | la intro: diario y recuerdos (`CinematicFunc_Intro_SetupTextPage2` $8B:A66F) |
@@ -205,3 +207,23 @@ Detalles:
   debajo de 0x300000 (o el título a una página).
 - Los efectos de los enemigos en Zebes (hoy, solo Samus y puertas).
 - El programa del Mega CD (`snd_cd_play`).
+
+## El título y el menú de partidas (2026-10-28)
+
+El título no corre el motor (es `src/front/title.c`, con la línea de tiempo grabada del SNES), así que pide la
+música él mismo, como el SNES:
+- **Pista 5 del conjunto $03** desde el cuadro de la línea de tiempo en que el SNES la escribe en el puerto del SPC
+  (`g_title_music_frame`, 363). Lo calcula `make_title_data.py` (`music_frame`) desde `title.rec`:
+  `CinematicFunctionOpening` pide `QueueMusic_Delayed8(0xFF03)` y `(5)`; `HandleMusicQueue` sube el conjunto 8
+  cuadros después (el contador de cuadros se detiene los 39 que tarda `APU_UploadBank`) y escribe la pista 8 más tarde.
+  El logo de arranque va sin música, como en el SNES. Si se salta al título antes de ese cuadro, la música empieza al
+  llegar a la pantalla de título; al volver a empezar la secuencia, vuelve a empezar la música.
+- **Pista 6** (el menú de partidas) al terminar el fundido a negro de START. La intro la corta al pedir el $3F.
+
+`find_loop` (`mksnd.py`) busca ahora el período de las notas también desde el último patrón: la pista del título es una
+entrada que no se repite (cuadros 0-1511) y un patrón que repite solo (4909 cuadros). Sin eso la grababa entera hasta
+`MAX_FRAMES`. Las otras pistas salen iguales. Tamaño: título 8,5 KB, menú 4,5 KB.
+
+Comprobado: en Genesis Plus GX (`RR_WAV`), la música se oye desde el cuadro 369 del título (el 363 más la primera
+nota); `regress.sh` 0 distintos; lo común termina en 0x341FCC.
+

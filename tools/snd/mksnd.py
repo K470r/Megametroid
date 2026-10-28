@@ -289,7 +289,8 @@ def make_instr(ram, song, srcn, table):
 # ---------------------------------------------------------------- música: del SPC a la Genesis
 def find_loop(st):
     """(inicio, fin) del lazo en cuadros, o None si la pista termina. 1) la lista de patrones vuelve atrás
-    (music_ptr_toplevel); 2) si no cambia (un patrón que se repite), el período de las notas"""
+    (music_ptr_toplevel); 2) si no cambia (un patrón que se repite), el período de las notas desde la primera nota
+    o, si no, desde el último patrón (el título: una entrada que no se repite y un patrón que repite solo)"""
     tp = st[:, 96].astype(int) | st[:, 97].astype(int) << 8
     play = st[:, 98]
     first = {}
@@ -309,14 +310,15 @@ def find_loop(st):
     kon_f = np.nonzero(sig.any(axis=1))[0]
     if not len(kon_f):
         return None
-    s = kon_f[0]
     n = len(sig)
-    for P in range(30, (n - s) // 2):
-        a, b = sig[s:n - P], sig[s + P:]
-        same = (a == b).all(axis=1)
-        # el tick del SPC no cae justo en el cuadro: se acepta una diferencia de un cuadro
-        if same.mean() > 0.995:
-            return int(s), int(s + P)
+    last = max(f for f in range(1, len(tp)) if tp[f] != tp[f - 1])
+    for s in dict.fromkeys((int(kon_f[0]), last)):
+        for P in range(30, (n - s) // 2):
+            a, b = sig[s:n - P], sig[s + P:]
+            same = (a == b).all(axis=1)
+            # el tick del SPC no cae justo en el cuadro: se acepta una diferencia de un cuadro
+            if same.mean() > 0.995:
+                return int(s), int(s + P)
     return None
 
 

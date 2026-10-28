@@ -152,6 +152,24 @@ def hold_boot_logo(rec, extra):
     return full, fade, fade + extra, black + extra, nxt
 
 
+def music_frame(rec):
+    """Cuadro en que el SNES pide la pista 5 del conjunto $03 (la música del título). CinematicFunctionOpening
+    ($8B:9B68) carga los gráficos con la pantalla apagada y pide QueueMusic_Delayed8(0xFF03) y (5); HandleMusicQueue
+    ($80:8F0C) sube el conjunto 8 cuadros después (APU_UploadBank: el contador de cuadros se detiene mientras sube),
+    en el cuadro siguiente toma la pista y 8 cuadros más tarde la escribe en el puerto del SPC."""
+    k = next(i for i in range(rec.n) if rec.u16(i, "cin_func") == 0x9B68)
+    k = next(i for i in range(k, rec.n) if rec.u16(i, "cin_func") != 0x9B68)    # termina de cargar los gráficos
+    i = k
+    while i < rec.n:
+        j = i
+        while j + 1 < rec.n and rec.u16(j + 1, "frame") == rec.u16(i, "frame"):
+            j += 1
+        if j - i >= 16:                     # la subida del conjunto de música
+            return j + 1 + 8
+        i = j + 1
+    sys.exit("title.rec: no se ve la subida de la música del título")
+
+
 # ------------------------------------------------------------------ fondo: imagen -> tiles Genesis
 def convert_scenes(images, rec, frames_by_scene, npal, fixed=None):
     """images: {id: matriz de índices SNES (0 = transparente)} que comparten un mismo reparto de
@@ -332,6 +350,7 @@ def main():
     logo = hold_boot_logo(rec, LOGO_HOLD_EXTRA)
     zcut = speed_up_zoom(rec, ZOOM_SPEED)          # cuadros quitados: lo que sigue al alejamiento se adelanta
     title_frame = TITLE_FRAME - zcut
+    mus_frame = music_frame(rec)
     m7 = Mode7(ext)
     asm = ["/* Generado por tools/genesis_convert/make_title_data.py: no editar. */", "    .section .rodata_title,\"a\"", ""]
     c = []
@@ -644,9 +663,11 @@ def main():
     incbin("ttl_pdelta", bytes(pdel))
     c.append(f"const u16 g_title_frames = {N};")
     c.append(f"const u16 g_title_skip_frame = {title_frame};")
+    c.append(f"const u16 g_title_music_frame = {mus_frame};")
     (out / "title_data.c").write_text("\n".join(decl + [""] + c) + "\n", encoding="utf-8")
     (out / "title_data.s").write_text("\n".join(asm) + "\n", encoding="utf-8")
     tot = sum((bins / f).stat().st_size for f in os.listdir(bins) if f.startswith("ttl_"))
+    info.append(f"música del título: desde el cuadro {mus_frame}")
     info.append(f"logo de arranque: encendido desde {logo[0]}, funde en {logo[2]}, negro desde {logo[3]}, sigue en {logo[4]}")
     print("\n".join(info))
     print(f"título: {N} cuadros, {tot} bytes")

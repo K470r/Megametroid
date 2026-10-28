@@ -32,6 +32,7 @@ extern const TitleScene g_title_scenes[];
 extern const u16 g_title_num_scenes, g_title_tile_base;
 extern const u16 g_title_baby_scene, g_title_baby_tile, g_title_baby_ntiles;
 extern const u16 g_title_frames, g_title_skip_frame;
+extern const u16 g_title_music_frame;     /* el cuadro en que el SNES pide la música del título */
 extern const u16 g_title_spr_tiles;
 extern const u16 g_title_spr_set_off[];
 extern const u8 ttl_timeline[], ttl_pdelta[], ttl_spr_tiles[], ttl_spr_sets[], ttl_grad[], ttl_baby[];

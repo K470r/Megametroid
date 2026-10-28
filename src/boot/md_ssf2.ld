@@ -54,7 +54,7 @@ SECTIONS
 {
   .text 0x00000000:
   {
-    KEEP(*(.text.keepboot)) *(.text.*) *(.text)
+    KEEP(*(.text.keepboot)) *(EXCLUDE_FILE(*pause.o *md_pause_data.o) .text.* EXCLUDE_FILE(*pause.o *md_pause_data.o) .text)
     . = ALIGN(0x4);
      __CTOR_LIST__ = .;
     LONG((__CTOR_END__ - __CTOR_LIST__) / 4 - 2)
@@ -67,7 +67,7 @@ SECTIONS
      LONG(0)
     __DTOR_END__ = .;
 
-    *(.rodata .rodata.*)
+    *(EXCLUDE_FILE(*pause.o *md_pause_data.o) .rodata EXCLUDE_FILE(*pause.o *md_pause_data.o) .rodata.*)
     *(.gcc_except_table .gcc_except_table.*)
 
     . = ALIGN(0x4);
@@ -86,6 +86,14 @@ SECTIONS
     *(.rodata_binf)
     /* MegaMetroid: datos que solo usa el título, al final. Todo lo de antes queda por debajo de
        0x380000, así la ventana 7 del mapeador SSF2 se puede cambiar de página fuera del título. */
+    /* MegaMetroid: lo que se agregó después de aprobar la regresión de imagen (docs/41) al final de lo común, para no
+       correr las direcciones de lo demás (los tiempos de la intro y de Ceres dependen de dónde caen los datos que se
+       copian por DMA): la pausa (docs/49) */
+    . = ALIGN(0x4);
+    *pause.o(.text .text.* .rodata .rodata.*)
+    *md_pause_data.o(.text .text.* .rodata .rodata.*)
+    *(.late_text .late_text.*)
+    *(.late_rodata .late_rodata.*)
     . = ALIGN(0x4);
     __mm_title_start = .;
     KEEP(*(.rodata_title))

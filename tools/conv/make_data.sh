@@ -22,6 +22,7 @@ if [ -z "$ONLY_VOICE" ]; then
   $ROOT/host/mkinit ${REF_INTRO:?falta REF_INTRO (grabación hlref de la intro)} -1 $GEN init_state_intro
   python3 $CONV/mkintro.py $SMROM $EXT $SNAP $GEN
   python3 $CONV/mkmd.py $SMROM $EXT $SNAP $GEN_E $GEN $SNAP/draw.log $SNAP/hud.log
+  python3 $CONV/mkpause.py $SMROM $GEN                     # la pausa: mapa y equipo (docs/49; usa md_data.h)
   MM_MAX_PALS=2 python3 $CONV/mkzebes.py $SMROM $GEN_E 2>/dev/null
   python3 $CONV/mkgetaway.py $SNAP/getaway.npz $GEN
   python3 $CONV/mkm7.py $SNAP $GEN

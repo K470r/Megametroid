@@ -76,5 +76,13 @@ void InitializeSpecialEffectsForNewRoom(void);
 void CalculateBgScrolls(void);
 uint8 WaitForNMI_Async(void);
 uint8 InitAndLoadGameData_Async(void);        /* gamestart.c: estado 6 */
+void ResumeGameplay(void);                     /* gamestart.c: $80:A149 (al salir de la pausa) */
+/* pausa (pause.c, docs/49): estados 13-17 y lo que la Genesis tiene que pasar a la VRAM */
+uint8 PauseStates(uint16 st);
+uint8 PauseFadeStates(uint16 st);              /* 12 y 18, después de GameState_8_MainGameplay */
+uint16 PauseMapCell(uint16 i);                 /* celda i (64x32) del mapa de la pausa del área actual */
+void PauseMapCells8(uint16 i, uint16 *out);   /* las 8 celdas desde i (múltiplo de 8) */
+enum { PAUSE_GFX_ENTER = 0, PAUSE_GFX_MAP = 1, PAUSE_GFX_EQUIPMENT = 2, PAUSE_GFX_FADE = 3 };
+void PauseGfx(uint16 what);                    /* Genesis (md_pause.c); en el PC no hace nada */
 void game_frame(uint16 joy);   /* un cuadro: joy en el orden de bits del mando del SNES (JOY1) */
 #endif

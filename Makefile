@@ -78,7 +78,8 @@ I_MD   := -I$(INC)/platform -I$(INC)/core -I$(GEN) -I$(GEN_E)
 # el motor (src/core) y lo generado que es parte de él; la capa de la Genesis sin SGDK (md_intro.c lo incluye md_engine.c)
 CORE_C := $(wildcard $(SRC)/core/*.c) $(GEN_E)/vars.c $(GEN_E)/tables.c $(GEN_E)/zebes.c
 MD_C   := $(SRC)/platform/md_engine.c $(SRC)/platform/md_zebes.c $(SRC)/platform/md_cone.c
-GEN_C  := $(GEN)/md_data.c $(GEN)/md_getaway.c $(GEN)/md_m7.c $(GEN)/md_intro_data.c $(GEN)/init_state.c
+GEN_C  := $(GEN)/md_data.c $(GEN)/md_getaway.c $(GEN)/md_m7.c $(GEN)/md_intro_data.c $(GEN)/init_state.c \
+          $(GEN)/md_pause_data.c
 SGDK_C := $(SRC)/platform/md_main.c $(SRC)/platform/md_snd.c
 FRONT  := title menu sound front
 GEN_S  := md_bins init_blob md_voice
@@ -104,7 +105,7 @@ endif
 
 # sin los datos de tu ROM no hay nada que compilar: primero `make data` (docs/45)
 ifeq ($(filter data full host clean,$(MAKECMDGOALS)),)
-ifeq ($(wildcard $(GEN_E)/tables.c $(GEN)/md_data.c),)
+ifeq ($(wildcard $(GEN_E)/tables.c $(GEN)/md_data.c $(GEN)/md_pause_data.c),)
 $(error faltan los datos generados desde tu ROM (res/gen/): . work/inputs/env.sh && make full)
 endif
 endif

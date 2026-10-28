@@ -26,6 +26,7 @@ Empezar por [46 — Estado y cómo continuar](46_ESTADO_Y_CONTINUACION.md).
 | 46 | Estado del proyecto y cómo continuar |
 | 47 | Estructura del proyecto (SGDK), `Makefile`, recursos propios y privados |
 | 48 | Tamaño de la ROM (depósito de tiles, lo que sigue), Mega CD, traducción |
+| 49 | Estación de mapa, pausa, mapa y pantalla de equipo (motor y Genesis) |
 
 Los documentos 01-25 (análisis y prototipos anteriores al motor nativo) quedaron en la carpeta de trabajo, fuera del
 repositorio.

@@ -98,6 +98,9 @@ static uint16 samus_vram_n[2];
 static uint16 samus_dma_tiles[2];
 
 static uint16 scroll_ax, scroll_ay, scroll_bx, scroll_by;
+extern uint8 pz_on;                           /* la pausa (md_pause.c) */
+extern uint8 pz_dim;                          /* estados 12-18: md_post de la pausa (md_pause.c) */
+void md_pause_frame(void);
 /* pozo girado en la huida (modo 7 con B != 0): la Genesis no gira; se aproxima con scroll por línea (corrimiento
    horizontal que crece con la altura) y por columnas de 16 píxeles (corrimiento vertical que crece hacia los lados).
    Para giros chicos (en la huida, hasta ~8 grados) es casi lo mismo que girar. */
@@ -1459,6 +1462,7 @@ static void md_room_gfx(void) {   /* g_hooks.room_gfx: la sala nueva ya está en
   md_sync();                                   /* lo del vblank cambia: que antes tome el cuadro anterior */
   memset(ep_cache, 0, sizeof ep_cache);        /* las claves de sprites son de la sala */
   cine_stage = 0;
+  pz_on = 0;                                   /* (al salir de la pausa: ResumeGameplay) */
   if (area_index != 6) {                       /* Zebes: se dibuja desde el nivel (md_zebes.c) */
     const MdRoom *z = zebes_use();
     if (z) { md_use_room(z); return; }
@@ -1820,7 +1824,10 @@ void DrawCinematicSpritemap(uint16 sm, uint16 x, uint16 y, uint16 chr, uint8 off
   if (intro_on) { if (!it_skip_cursor(sm, x, y)) it_draw(INTRO_KIND_SPR8C, sm, chr, it_x9(x), (uint8)y); return; }
   if (!drawkey(9, sm, chr, 0, (int16)x, (int16)y - 2)) missing(9, sm, chr, 0);   /* sin HUD: sin las 2 líneas del juego */
 }
+#include "nmath.h"
+#include "md_pause.c"                         /* la pausa: mapa y equipo (docs/49) */
 void DrawMenuSpritemap(uint16 idx, uint16 x, uint16 y, uint16 chr) {   /* $81:891F */
+  if (pz_on) { pz_spr(idx, x, y, chr); return; }
   if (!drawkey(10, idx, chr, 0, (int16)x, (int16)y - 2)) missing(10, idx, chr, 0);
 }
 
@@ -1944,6 +1951,7 @@ void md_cone_color(void);
 void md_cone_vblank(void);
 void md_cone_room(void);
 void md_post(void) {
+  if (pz_dim) { md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c */
   pipe_take();
   md_haze_read();
   ncone = (md_zebes && !cine_stage && !nt_msgbox_active && !mb_shown) ? md_cone_frame() : 0;

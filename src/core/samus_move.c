@@ -2041,7 +2041,9 @@ void HandleSamusMovementAndPause(void) {  // 0x90E722
     break;
   case FUNC16(EmptyFunction):
     break;
-  default: nt_unimpl_v("HandleSamusMovementAndPause", frame_handler_beta); break;
+  default:                                      /* j_HandleDemoRecorder_2 ($90:E8D6): Samus quieta (estaciones) */
+    if (frame_handler_beta != FUNC16(j_HandleDemoRecorder_2)) nt_unimpl_v("HandleSamusMovementAndPause", frame_handler_beta);
+    break;
   }
 }
 

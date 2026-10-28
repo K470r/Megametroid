@@ -10,6 +10,7 @@
  *   3 botones:  A correr (B)  B disparar (X)  C saltar (A)
  *               START corto = elegir ítem (SELECT; dando la vuelta se llega a "nada" = cancelar),
  *               START mantenido = pausa/mapa (START); sin apuntar en diagonal quieto (sí caminando o corriendo)
+ *               en la pausa (docs/49; no hay L ni R): A = L, B = R, C = A (equipar), START = START
  * Con MD_TEST_INPUT la entrada sale de la grabación del SNES (para comparar cuadro a cuadro). */
 #include <genesis.h>
 #include "title.h"
@@ -41,6 +42,7 @@ extern const u16 kTestInputLen;
 static u16 test_pos;
 #endif
 
+extern u16 game_state;                          /* el motor (vars.c) */
 static bool six;
 #define START_HOLD 20                           /* mando de 3 botones: cuadros de START mantenido para la pausa */
 static u16 start_frames;
@@ -66,6 +68,12 @@ static u16 read_joy(void) {
     if (pad & BUTTON_MODE) s |= SNES_SELECT;
     if (pad & BUTTON_START) s |= SNES_START;
     start_frames = 0;
+  } else if (game_state >= 12 && game_state <= 16) {   /* pausa: L y R para pasar del mapa al equipo */
+    if (pad & BUTTON_A) s |= SNES_L;
+    if (pad & BUTTON_B) s |= SNES_R;
+    if (pad & BUTTON_C) s |= SNES_A;
+    if (pad & BUTTON_START) s |= SNES_START;
+    start_frames = (pad & BUTTON_START) ? START_HOLD : 0;   /* (al volver al juego, START todavía apretado: nada) */
   } else {
     if (pad & BUTTON_C) s |= SNES_A;
     if (pad & BUTTON_A) s |= SNES_B;

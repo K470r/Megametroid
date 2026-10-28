@@ -32,6 +32,7 @@ Empezar por [46 — Estado y cómo continuar](46_ESTADO_Y_CONTINUACION.md).
 | 52 | El ojo (MorphBallEye) y su haz: claves del ojo, tiles del haz en dos bancos, métodos evaluados |
 | 53 | Estación de mapa, pausa, mapa y pantalla de equipo (motor y Genesis) |
 | 54 | Cinemática de Ceres: la misma imagen del modo 7 en cada cuadro del motor (presupuesto fijo) |
+| 55 | Música y efectos del cartucho con XGM2 (N-SPC del decomp → FM/PSG/PCM): de la intro a la llegada a Zebes |
 
 Los documentos 01-25 (análisis y prototipos anteriores al motor nativo) quedaron en la carpeta de trabajo, fuera del
 repositorio.

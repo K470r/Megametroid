@@ -82,7 +82,7 @@ GEN_C  := $(GEN)/md_data.c $(GEN)/md_getaway.c $(GEN)/md_m7.c $(GEN)/md_intro_da
           $(GEN)/md_pause_data.c
 SGDK_C := $(SRC)/platform/md_main.c $(SRC)/platform/md_snd.c
 FRONT  := title menu sound front
-GEN_S  := md_bins md_cine init_blob md_voice
+GEN_S  := md_bins md_cine init_blob md_voice md_snd_data
 
 # los nombres de los objetos son los de siempre: el enlace los toma en el orden de `ls` (docs/45)
 OBJS := $(patsubst %.c,$(OBJ)/%.o,$(notdir $(CORE_C) $(MD_C) $(GEN_C) $(SGDK_C))) \
@@ -139,8 +139,8 @@ $(OBJ)/front_%_s.o: $(GEN)/front/%.s $(FLAGS_STAMP)
 # los .s de res/gen/md hacen .incbin con rutas relativas a esa carpeta
 $(OBJ)/%.o: $(GEN)/%.s $(FLAGS_STAMP)
 	cd $(GEN) && $(CC) -m68000 -c $*.s -o $@
-$(GEN)/md_voice.s:
-	ONLY_VOICE=1 sh $(ROOT)/tools/conv/make_data.sh
+$(GEN)/md_voice.s $(GEN)/md_snd_data.s:
+	ONLY_SND=1 sh $(ROOT)/tools/conv/make_data.sh
 
 # recursos propios (rescomp de SGDK): res/x.res -> out/obj/res_x.s/.h/.o
 $(OBJ)/res_%.o: $(RES)/%.res $(FLAGS_STAMP)

@@ -491,17 +491,18 @@ static uint32 lag_last;
 #endif
 extern volatile uint32 vtimer;                 /* SGDK: sube al empezar cada vblank */
 static uint32 md_vb_tick = 0xFFFFFFFF;          /* vblank en el que se tomó el último cuadro */
-extern volatile uint16 md_snd_frames;          /* md_snd.c: el Z80 está tocando una muestra de la ROM */
+extern volatile uint16 md_snd_frames;          /* md_snd.c: el XGM2 está cargado (el Z80 lee la ROM) */
+void md_snd_protect(uint8 on);
 #ifdef MD_M7LOG
 volatile uint16 md_m7_start;                   /* (medición) cómo empezó el último vblank: tarde << 8 | línea */
 #endif
-/* el trabajo del vblank, con la página del nivel puesta y, con una muestra sonando, el bus del Z80 (que lee la ROM
-   por el bus del 68000) pedido durante las DMA. Devuelve lo que vb_exit repone. */
+/* el trabajo del vblank, con la página del nivel puesta y, con el XGM2 cargado, el Z80 avisado de que no lea la ROM
+   (lee la música y las muestras por el bus del 68000) mientras duran las DMA (md_snd_protect, docs/55). Devuelve lo
+   que vb_exit repone. */
 static uint16 vb_enter(uint8 snd) {
   uint8 z80 = 0;
-  if (snd && (*(volatile uint16 *)0xA11100 & 0x0100)) {  /* (si nadie lo tiene ya) */
-    *(volatile uint16 *)0xA11100 = 0x0100;
-    while (*(volatile uint16 *)0xA11100 & 0x0100);
+  if (snd) {
+    md_snd_protect(1);
     z80 = 1;
   }
   uint16 sv = (uint16)md_cur_page << 8 | md_hw_page | (z80 ? 0x8000 : 0);
@@ -516,7 +517,7 @@ static void vb_exit(uint16 sv) {
   md_cur_page = (sv >> 8) & 0x7F;
   md_hw_page = (uint8)sv;
   *(volatile uint8 *)0xA130FF = md_hw_page;
-  if (sv & 0x8000) *(volatile uint16 *)0xA11100 = 0x0000;
+  if (sv & 0x8000) md_snd_protect(0);
 }
 static void md_vblank_lag(void);
 static int16 vb_lines_left(void);
@@ -531,9 +532,7 @@ static void md_vblank_run(uint16 late) {
 #ifdef MD_M7LOG
   md_m7_start = late << 8 | VDP_VCOUNT >> 8;
 #endif
-  uint8 snd = md_snd_frames != 0;
-  if (snd) md_snd_frames--;
-  uint16 sv = vb_enter(snd);
+  uint16 sv = vb_enter(md_snd_frames != 0);
   md_vb_room = 0;
   md_vblank(late);
   vb_exit(sv);
@@ -590,8 +589,6 @@ void nt_unimpl(const char *what) {
   md_unimpl_val = nt_unimpl_val;
 }
 
-/* sonido: todavía no (la cola del motor ya está; falta el driver de la Genesis) */
-void sfx_play(uint16 channel, uint8 id) { (void)channel; (void)id; }
 void hud_minimap_update(uint16 a, uint16 b, uint16 c) { (void)a; (void)b; (void)c; }
 void samus_tiles_changed(void) {}
 /* pendientes en la Genesis (Zebes): tiles animados y efectos de ambiente (pisadas, polvo) */
@@ -2069,6 +2066,7 @@ void md_logic(uint16_t joy) {
   door_seen = 0;
   flash_seen = 0;
   game_frame(viewer_input(joy));
+  { extern uint8 md_snd_pending; if (md_snd_pending) { extern void md_snd_frame(void); md_snd_frame(); } }
   { extern uint8 nt_frame_noupdate;              /* cuadro sin NMI con actualización (caja de mensaje): el SNES deja
                                                     la OAM como estaba: la lista anterior, sin su caja */
     if (nt_frame_noupdate) {

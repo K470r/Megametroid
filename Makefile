@@ -4,6 +4,8 @@
 #   make data       rehace desde tu ROM todo lo de res/gen/ (necesita REF y REF_INTRO: . work/inputs/env.sh)
 #   make full       data + ROM (antes: sh native/md/build.sh)
 #   make host       el motor en el PC (host/check, host/mkinit...)
+#   make snd        rehace solo el sonido (tools/snd/mksnd.py, con tools/snd/instrumentos.txt) y la ROM: para ajustar
+#                   los instrumentos a oído (docs/55)
 #   make clean      borra out/
 #
 # Salida: out/rom.bin (y out/rom.out, out/rom.map, out/symbol.txt).
@@ -24,6 +26,7 @@ CC      := $(CROSS)gcc
 OBJCOPY := $(CROSS)objcopy
 NM      := $(CROSS)nm
 JAVA    ?= java
+SMROM   ?= $(ROOT)/sm/sm.smc
 
 SRC     := $(ROOT)/src
 INC     := $(ROOT)/inc
@@ -101,7 +104,7 @@ ifneq ($(TEST),)
 EXTRA_OBJ := $(OBJ)/test_input.o
 endif
 
-.PHONY: all release rom data full host clean
+.PHONY: all release rom data full snd host clean
 
 # sin los datos de tu ROM no hay nada que compilar: primero `make data` (docs/45)
 ifeq ($(filter data full host clean,$(MAKECMDGOALS)),)
@@ -171,6 +174,9 @@ $(OUT)/rom.bin: $(OUT)/rom.out
 data:
 	sh $(ROOT)/tools/conv/make_data.sh
 full: data
+	$(MAKE) rom
+snd:
+	python3 $(ROOT)/tools/snd/mksnd.py $(SMROM) $(GEN) $(ROOT)/work/snd
 	$(MAKE) rom
 host:
 	sh $(ROOT)/host/build.sh

@@ -470,9 +470,12 @@ def convert_track(st, instrs, loop, end, mix):
                 if patch[c] is not ins:
                     vg.ym(0, 0x28, (port << 2) | ch)
                     regs = ins.regs()
+                    car = ins.carriers()
                     for j, base in enumerate((0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90)):
                         for o in range(4):
-                            vg.ym(port, base + 4 * o + ch, 127 if base == 0x40 else regs[j * 4 + o])
+                            # el TL de los portadores lo pone después la envolvente del SNES (att); los moduladores
+                            # llevan el suyo (si no, un parche con algoritmo 0-6 suena sin modulación)
+                            vg.ym(port, base + 4 * o + ch, 127 if base == 0x40 and o in car else regs[j * 4 + o])
                     vg.ym(port, 0xB0 + ch, (ins.fb << 3) | ins.alg)
                     patch[c] = ins
                     last[c].pop("att", None)

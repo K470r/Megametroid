@@ -12,7 +12,9 @@
  * el vblank; un cuadro largo usa el tiempo que le sobró al anterior, como en el SNES no se pierde la imagen.
  *
  * Mapa de la VRAM (bytes): 0x0000-0x9FFF tiles | 0xA000 plano A (8 KB) | 0xC000 plano B (8 KB) |
- * 0xE000 Window (HUD) | 0xE800 sprites | 0xEC00 scroll horizontal. Modo H32 (256x224) como el SNES.
+ * 0xE000 Window (HUD) | 0xE800 sprites (64: hasta 0xE9FF) | 0xEA00 los 8 tiles del rayo equipado (BEAM_TILE,
+ * docs/57) | 0xEC00 scroll horizontal (hasta 0xEF7F) | 0xF000 haz del ojo, caja de mensaje, gancho (docs/52, 56).
+ * Modo H32 (256x224) como el SNES.
  */
 #ifndef MD_H
 #define MD_H

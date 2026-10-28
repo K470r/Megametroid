@@ -98,7 +98,8 @@ Errores que se encontraron de paso:
 ### Lo que falta en la Genesis (dibujo)
 
 La lógica es la del SNES (comprobada); en la Genesis falta dibujar:
-- **los rayos nuevos** (onda, hielo, spazer, plasma, combinaciones y SBA): sus spritemaps no están en las claves de
+- **los rayos nuevos** (onda, hielo, spazer, plasma, combinaciones y SBA): **hecho en docs/57** (juego de claves
+  común y los tiles del rayo equipado en 0xEA00). Antes: sus spritemaps no estaban en las claves de
   dibujo. Agregarlos a las claves de cada sala de Zebes (`mkmd.beam_sm_tiles`, cada una con los tiles de su
   combinación) hace que Zebes no entre en las páginas del SSF2. Propuesta: un juego de claves común (no por sala)
   que use un lugar fijo de la VRAM donde la Genesis sube los 8 tiles de la combinación equipada (como

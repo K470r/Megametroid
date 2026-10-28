@@ -323,31 +323,95 @@ def msgbox_words(rom):
     return ws
 
 
-def beam_sm_tiles(rom):
-    """spritemaps de los rayos (sin cargar $93:83C1 y cargados $93:83D9, las 12 combinaciones, 10 direcciones) ->
-    dirección en $9A de los 8 tiles que el juego carga para esa combinación (UpdateBeamTilesAndPalette $90:AC8D:
-    kBeamTilePtrs $90:C3B1 -> VRAM $6300). Ninguna spritemap la comparten combinaciones con tiles distintos."""
-    out = {}
-    for tab in (0x83C1, 0x83D9):
-        for b in range(12):
-            v3 = rom.w(0x930000 | (tab + 2 * b))
-            if v3 < 0x8000:
+BEAM_TILE = 1872                  # VRAM 0xEA00-0xEAFF: los 8 tiles del rayo equipado (entre la tabla de sprites de 64
+                                  # y el scroll horizontal; inc/platform/md.h)
+BEAM_LINE = 3                     # la línea de los objetos de la sala: sus colores 9-13 son los 1-5 del rayo
+N_BEAM_COMBOS = 12                # kBeamTilePtrs / kBeamPalettePtrs: equipped_beams & 0xF (plasma y spazer no van juntos)
+
+
+def samus_proj_lists(rom):
+    """todas las listas de instrucciones de los proyectiles de Samus ($93): los proyectiles solo las toman de estas
+    tablas (InitializeProjectile $93:8000, InitializeInstrForSuperMissile $93:8071, InitializeInstrForMissile
+    $93:80A0, KillProjectileInner $93:80CF, InitializeBombExplosion $93:814E, InitializeShinesparkEchoOrSpazerSba
+    $93:8163, InitializeSbaProjectile $93:81A4)"""
+    lists = set()
+
+    def per_dir(tab, n):                    # entradas: daño + una lista por dirección (10)
+        for i in range(n):
+            v = rom.w(0x930000 | (tab + 2 * i))
+            if v < 0x8000:
                 continue
             for d in range(10):
-                ip = rom.w(0x930000 | (v3 + 2 + 2 * d))
-                if ip < 0x8000:
-                    continue
-                for sm in proj_list_sms(rom, ip):
-                    if 0x8000 <= sm and 1 <= rom.w(0x930000 | sm) <= 32:
-                        out.setdefault(sm, rom.w(0x90C3B1 + 2 * b))
+                ip = rom.w(0x930000 | (v + 2 + 2 * d))
+                if ip >= 0x8000:
+                    lists.add(ip)
+    per_dir(0x83C1, N_BEAM_COMBOS)          # kProjectileData_UnchargedBeams
+    per_dir(0x83D9, N_BEAM_COMBOS)          # kProjectileData_ChargedBeams
+    per_dir(0x83F1, 9)                      # kProjectileData_NonBeams
+    per_dir(0x8403, 8)                      # kShinesparkEchoSpazer_ProjectileData (tipos 0x22-0x29)
+    for tab, n in ((0x8413, 16), (0x842B, 3)):   # g_off_938413 (SBA), kRunInstrForSuperMissile: daño + una lista
+        for i in range(n):
+            v = rom.w(0x930000 | (tab + 2 * i))
+            if v >= 0x8000:
+                lists.add(rom.w(0x930000 | (v + 2)))
+    for a in (0x93867B, 0x93867F, 0x938683, 0x938693):   # explosiones: rayo, misil, bomba, supermisil
+        lists.add(rom.w(a))
+    return lists
+
+
+def beam_common_sms(rom):
+    """spritemaps de los proyectiles de Samus hechos solo con los 8 tiles del rayo ($6300: tiles 0x30-0x37, paleta
+    6, piezas de 8x8): los rayos de todas las combinaciones, cargados o no, los SBA y los ecos. Van en un juego de
+    claves común (no por sala): sus tiles los sube la Genesis al cambiar de rayo (UpdateBeamTilesAndPalette)."""
+    out = set()
+    for ip in samus_proj_lists(rom):
+        for sm in proj_list_sms(rom, ip):
+            if not (0x8000 <= sm and rom.w(0x930000 | sm) <= 32):   # (los vacíos también: p. ej. $A117 de la onda)
+                continue
+            kp = key_pieces(rom, ("proj", "%04X" % sm))
+            if all(0x30 <= (at & 0x1FF) <= 0x37 and not (x & 0x8000) for (x, y, at) in kp):
+                assert all((at >> 9) & 7 == 6 for (x, y, at) in kp), "%04X: rayo con otra paleta" % sm
+                out.add(sm)
     return out
+
+
+def beam_common(rom):
+    """juego de claves común de los rayos -> (tiles de las 12 combinaciones ya de la Genesis, [(spritemap, registros)])
+    - tiles: los 8 de kBeamTilePtrs ($90:C3B1, banco $9A) de cada combinación; el color c (1-5) de la paleta del rayo
+      va al lugar fijo 8 + c de la línea 3 (los colores 9-13, que pone la Genesis desde palette_buffer[225-229]);
+      los pocos píxeles de otros colores (el 6 del hielo, el 15 del plasma) van al más parecido de los 1-5 de la
+      paleta de esa combinación (kBeamPalettePtrs $90:C3C9)
+    - registros: cada pieza del SNES es un sprite de 8x8 en BEAM_TILE + (tile - 0x30), línea 3"""
+    tiles = bytearray()
+    for b in range(N_BEAM_COMBOS):
+        tp = rom.w(0x90C3B1 + 2 * b)
+        pal = [rom.w(0x900000 | (rom.w(0x90C3C9 + 2 * b) + 2 * c)) for c in range(16)]
+        near = {c: min(range(1, 6), key=lambda k: color_dist(bgr_to_gen(pal[c]), bgr_to_gen(pal[k])))
+                for c in range(6, 16)}
+        for t in range(8):
+            px = snes_tile4(rom.bytes(0x9A0000 | (tp + 32 * t), 32))
+            px = np.vectorize(lambda c: 0 if c == 0 else 8 + (c if c <= 5 else near[c]))(px)
+            tiles += genesis_tile_bytes(px.astype(np.int32))
+    out = []
+    for sm in sorted(beam_common_sms(rom)):
+        recs = []
+        for (x, y, at) in key_pieces(rom, ("proj", "%04X" % sm)):
+            prio = 1 if ((at >> 12) & 3) == 3 else 0
+            attr = (prio << 15) | (BEAM_LINE << 13) | (((at >> 15) & 1) << 12) | (((at >> 14) & 1) << 11) | \
+                (BEAM_TILE + (at & 0x1FF) - 0x30)
+            dx = x & 0x1FF
+            if dx >= 0x100:
+                dx -= 0x200
+            recs.append((y, 0, attr, dx))
+        out.append((sm, recs))
+    return bytes(tiles), out
 
 
 def zebes_proj_keys(rom):
     """proyectiles de Samus que no son el rayo, desde la ROM: (spritemaps de $93, tiles de las estelas).
     - $93:83F1 (cada entrada: daño + listas por dirección): misiles (1) y bombas (5; HudSelectionHandler_MorphBall
-      usa la primera lista, InitializeInstrForMissile; las bombas en abanico, BombSpread, también); los supermisiles
-      (2) y el rayo cargado normal ($93:83D9, índice 0); las bombas de poder (3) se agregan cuando se porten (docs/46)
+      usa la primera lista, InitializeInstrForMissile; las bombas en abanico, BombSpread, también), los supermisiles
+      (2) y las bombas de poder (3)
     - explosiones: la del misil, KillProjectileInner ($93:80CF) toma la lista de $93:867F ($A039); la de la bomba,
       InitializeBombExplosion ($93:814E): $93:8683 ($A06B); la del rayo ($A007) va con el rayo; la del supermisil
       ($93:8693), con él
@@ -359,9 +423,9 @@ def zebes_proj_keys(rom):
     # (índice, listas): los misiles tienen una por dirección (InitializeProjectile: 10); la bomba una sola
     # supermisiles (2): su lista por dirección ($93:83F1) y la del acompañante de Missile_Func2
     # (InitializeInstrForSuperMissile $93:8071, kRunInstrForSuperMissile $93:842B: una sola lista)
-    # rayo cargado (FireChargedBeam $90:B986, kProjectileData_ChargedBeams $93:83D9): el normal (índice 0). Los demás
-    # rayos (beam_sm_tiles) no entran en las claves de cada sala: docs/56, pendiente
-    for tab, idx in ((0x83F1, ((1, 10), (2, 10), (5, 1))), (0x842B, ((2, 1),)), (0x83D9, ((0, 10),))):
+    # bomba de poder (3): una lista, como la bomba ($93:8671)
+    # los rayos (todas las combinaciones, cargados o no, SBA, ecos) van en el juego común (beam_common, docs/57)
+    for tab, idx in ((0x83F1, ((1, 10), (2, 10), (3, 1), (5, 1))), (0x842B, ((2, 1),))):
         for i, ndir in idx:
             v3 = rom.w(0x930000 | (tab + 2 * i))
             if v3 < 0x8000:
@@ -496,6 +560,27 @@ def main():
     Hh.append(f"#define ARM_CANNON_TILES {len(ac_src)}")
     Hh.append("extern const uint16 kArmCannonSrc[ARM_CANNON_TILES];   /* origen en $9A de cada tile del cañón */")
     Hh.append("extern const uint8 kArmCannonTiles[];                  /* los mismos tiles, ya de la Genesis */")
+    # rayos (docs/57): juego de claves común a todas las salas de Zebes y los tiles de cada combinación
+    btiles, bkeys = beam_common(rom)
+    binfile("kBeamTiles", btiles)
+    brecs, boff, seen_r = [], [], {}
+    for sm, recs in bkeys:
+        blob = rec_header(recs) + b"".join(struct.pack(">hHHh", *r) for r in recs)
+        if blob not in seen_r:                    # (muchas spritemaps son iguales en varias combinaciones)
+            seen_r[blob] = len(brecs)
+            brecs += struct.unpack(">%dH" % (len(blob) // 2), blob)
+        boff.append(seen_r[blob])
+    carray("uint16", "kBeamKeySm", [sm for sm, _ in bkeys])
+    carray("uint16", "kBeamKeyRec", boff, fmt="%u")
+    carray("uint16", "kBeamRecs", brecs)
+    print("rayos: %d spritemaps comunes, %d palabras de registros" % (len(bkeys), len(brecs)))
+    Hh.append(f"#define BEAM_TILE {BEAM_TILE}")
+    Hh.append(f"#define BEAM_COMBOS {N_BEAM_COMBOS}")
+    Hh.append(f"#define BEAM_KEYS {len(bkeys)}")
+    Hh.append("extern const uint8 kBeamTiles[];            /* 8 tiles por combinación (equipped_beams & 0xF), de la Genesis */")
+    Hh.append("extern const uint16 kBeamKeySm[BEAM_KEYS];  /* spritemaps de $93 de los rayos (ordenados) */")
+    Hh.append("extern const uint16 kBeamKeyRec[BEAM_KEYS]; /* sus registros en kBeamRecs */")
+    Hh.append("extern const uint16 kBeamRecs[];")
     keys = sorted(seen_td)
     C.append("/* definiciones de tiles de Samus ($92): dirección, primer tile en kSamusTileBlob, cantidad de tiles\n"
              "   (ya intercalados: columna c, fila r -> 2c + r) */")

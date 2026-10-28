@@ -109,6 +109,11 @@ RisingFallingPlatform_*
 # instrucciones del banco $A5 que usan las listas de Spore Spawn (comunes con Draygon)
 # instrucciones de $A5:E7xx-E9xx (el decomp las llama Draygon_Instr_*; las usan Spore Spawn y Draygon)
 Draygon_Instr_*
+# proyectiles de Spore Spawn ($86:DC5A, DC61: listas del tallo y de las esporas)
+EprojInstr_DC5A
+EprojInstr_SpawnEnemyDrops_0
+# disparo que rebota en la concha de Spore Spawn (caja con disparo $A5:8046 = CreateADudShot_A5)
+CreateADudShot
 EprojPreInstr_A977
 sub_86A887
 # instrucciones comunes de cada banco de enemigos ($XX:80xx-81xx)

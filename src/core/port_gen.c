@@ -220,6 +220,8 @@ void EprojPreInstr_SpikeShootingPlantSpikes_9_MoveX2Y2(uint16 k);
 void EprojPreInstrHelper_SpikeShootingPlantSpikes_Func1(uint16 k);
 void EprojPreInstr_SpikeShootingPlantSpikes(uint16 k);
 uint16 EprojPreInstrHelper_SpikeShootingPlantSpikes_Func2(uint16 k);
+uint16 EprojInstr_DC5A(uint16 k, uint16 epjp);
+uint16 EprojInstr_SpawnEnemyDrops_0(uint16 k, uint16 epjp);
 uint16 EprojInstr_SpawnSporesEproj(uint16 k, uint16 epjp);
 static void EprojInit_Spores(uint16 j);
 static void EprojInit_SporeSpawnStalk(uint16 j);
@@ -248,6 +250,7 @@ void Eproj_Pickup_Missiles(void);
 void Eproj_Pickup_SuperMissiles(void);
 uint16 RandomDropRoutine(uint16 k);
 void RespawnEnemy(uint16 v0);
+void CreateADudShot(void);
 uint16 EnemyInstr_SetAiPreInstr(uint16 k, uint16 jp);
 uint16 EnemyInstr_ClearAiPreInstr(uint16 k, uint16 jp);
 uint16 EnemyInstr_StopScript(uint16 k, uint16 jp);
@@ -268,6 +271,7 @@ void NormalEnemyShotAi(void);
 void NormalEnemyShotAiSkipDeathAnim_CurEnemy(void);
 void EnemyFunc_A6B4_UsedBySporeSpawn(void);
 uint16 NormalEnemyShotAiSkipDeathAnim(void);
+void CreateDudShot(void);
 uint16 CheckIfEnemyTouchesSamus(uint16 k);
 uint16 EnemyFunc_AC67(uint16 k);
 PairU16 EnemyFunc_ACA8(Point16U base_pt, Point16U samus_pt);
@@ -2318,6 +2322,16 @@ uint16 EprojPreInstrHelper_SpikeShootingPlantSpikes_Func2(uint16 k) {  // 0x86DA
     || (int16)(eproj_y_pos[v1] - layer1_y_pos) < 0
     || (int16)(layer1_y_pos + 256 - eproj_y_pos[v1]) < 0;
 }
+uint16 EprojInstr_DC5A(uint16 k, uint16 epjp) {  // 0x86DC5A
+  eproj_properties[k >> 1] = 12288;
+  return epjp;
+}
+uint16 EprojInstr_SpawnEnemyDrops_0(uint16 k, uint16 epjp) {  // 0x86DC61
+  int v2 = k >> 1;
+  eproj_spawn_x = eproj_x_pos[v2]; eproj_spawn_y = eproj_y_pos[v2];
+  SpawnEnemyDrops(addr_kEnemyDef_DF7F, k, 0);
+  return epjp;
+}
 uint16 EprojInstr_SpawnSporesEproj(uint16 k, uint16 epjp) {  // 0x86DC77
   int v2 = k >> 1;
   eproj_spawn_x = eproj_x_pos[v2]; eproj_spawn_y = eproj_y_pos[v2];
@@ -2694,6 +2708,9 @@ void RespawnEnemy(uint16 v0) {  // 0x86F264
   E->bank = Edef->bank; E->field_2F = Edef->hurt_ai_time;
   CallEnemyAi(Edef->bank, Edef->ai_init);
 }
+void CreateADudShot(void) {  // 0xA08046
+  CreateDudShot();
+}
 uint16 EnemyInstr_SetAiPreInstr(uint16 k, uint16 jp) {  // 0xA0806B
   gEnemyData(k)->ai_preinstr = IW_EN((uint16)(jp + 0));
   return (uint16)(jp + 2);
@@ -2950,6 +2967,12 @@ LABEL_18:;
   v8->ai_handler_bits |= 4;
   v8->invincibility_timer = 10;
   return varE2E;
+}
+void CreateDudShot(void) {  // 0xA0A8BC
+  int v0 = collision_detection_index;
+  CreateSpriteAtPos(projectile_x_pos[v0], projectile_y_pos[v0], 6, 0);
+  QueueSfx1_Max3(0x3D);
+  projectile_dir[collision_detection_index] |= 0x10;
 }
 uint16 CheckIfEnemyTouchesSamus(uint16 k) {  // 0xA0ABE7
   EnemyData *E = gEnemyData(k);
@@ -6422,9 +6445,9 @@ int32 FireZoomer_E8A5(uint16 k) {  // 0xA3E8A5
 }
 uint16 Draygon_Instr_1(uint16 k, uint16 jp) {  // 0xA594DD
   gEnemyData(0)->current_instruction = IW_A5((uint16)(jp + 0));
-  gEnemyData(0x40)->current_instruction = IW_A5((uint16)(jp + 4));
-  gEnemyData(0x80)->current_instruction = IW_A5((uint16)(jp + 8));
-  gEnemyData(0xC0)->current_instruction = IW_A5((uint16)(jp + 12));
+  gEnemyData(0x40)->current_instruction = IW_A5((uint16)(jp + 2));
+  gEnemyData(0x80)->current_instruction = IW_A5((uint16)(jp + 4));
+  gEnemyData(0xC0)->current_instruction = IW_A5((uint16)(jp + 6));
   gEnemyData(0)->instruction_timer = 1;
   gEnemyData(0x40)->instruction_timer = 1;
   gEnemyData(0x80)->instruction_timer = 1;
@@ -6498,7 +6521,7 @@ uint16 Draygon_Instr_17(uint16 k, uint16 jp) {  // 0xA59C8A
 uint16 Draygon_Instr_14(uint16 k, uint16 jp) {  // 0xA59E0A
   EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
   ERAM(0x883C + E_k) = IW_A5((uint16)(jp + 0));
-  ERAM(0x883E + E_k) = IW_A5((uint16)(jp + 4));
+  ERAM(0x883E + E_k) = IW_A5((uint16)(jp + 2));
   return (uint16)(jp + 4);
 }
 uint16 Draygon_Instr_16(uint16 k, uint16 jp) {  // 0xA59F57
@@ -6544,7 +6567,7 @@ uint16 Draygon_Instr_24(uint16 k, uint16 jp) {  // 0xA5E771
 uint16 Draygon_Instr_21(uint16 k, uint16 jp) {  // 0xA5E82D
   EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
   ERAM(0x7816 + E_k) = IW_A5((uint16)(jp + 0));
-  ERAM(0x7818 + E_k) = IW_A5((uint16)(jp + 4));
+  ERAM(0x7818 + E_k) = IW_A5((uint16)(jp + 2));
   return (uint16)(jp + 4);
 }
 uint16 Draygon_Instr_53(uint16 k, uint16 j) {  // 0xA5E854
@@ -6831,7 +6854,7 @@ void SporeSpawn_Func_6(void) {  // 0xA5EDF3
       eproj_id[(uint16)((uint16)i) >> 1] = 0;
     E0->current_instruction = addr_kDraygon_Ilist_E77D;
     E0->instruction_timer = 1;
-    *(uint16 *)&boss_bits_for_area[area_index] |= 2;
+    boss_bits_for_area[area_index] |= 2;
     scrolling_finished_hook = 0;
     SpawnHardcodedPlm(0x07, 0x1e, 0xb78f);
   }
@@ -9629,7 +9652,7 @@ uint16 Torizo_Instr_25(uint16 k, uint16 jp) {  // 0xAAC2D9
   if ((gEnemyData(k)->parameter_2 & 0x4000) != 0)
     return (uint16)(IW_AA((uint16)(jp + 0)));
   if (area_index)
-    return (uint16)(IW_AA((uint16)(jp + 4)));
+    return (uint16)(IW_AA((uint16)(jp + 2)));
   else
     return (uint16)(jp + 4);
 }
@@ -9782,7 +9805,7 @@ uint16 Torizo_Instr_26(uint16 k, uint16 jp) {  // 0xAAC5A4
   if (samus_missiles < 5 || ((nmi_frame_counter_word + (samus_x_pos & 1) + (samus_x_pos >> 1)) & 8) != 0)
     return (uint16)(IW_AA((uint16)(jp + 0)));
   else
-    return (uint16)(IW_AA((uint16)(jp + 4)));
+    return (uint16)(IW_AA((uint16)(jp + 2)));
 }
 uint16 Torizo_Instr_18(uint16 k, uint16 jp) {  // 0xAAC5CB
   SpawnEprojWithGfx(0, k, addr_kEproj_BombTorizosChozoOrbs);
@@ -10208,7 +10231,7 @@ uint16 Torizo_Instr_45(uint16 k, uint16 jp) {  // 0xAAD526
       || ((nmi_frame_counter_word + (samus_x_pos & 1) + (samus_x_pos >> 1)) & 8) != 0) {
     return (uint16)(IW_AA((uint16)(jp + 0)));
   } else {
-    return (uint16)(IW_AA((uint16)(jp + 4)));
+    return (uint16)(IW_AA((uint16)(jp + 2)));
   }
 }
 uint16 Torizo_Instr_54(uint16 k, uint16 jp) {  // 0xAAD54D
@@ -10695,7 +10718,7 @@ uint16 SpacePirates_Instr_16(uint16 k, uint16 jp) {  // 0xB2F546
 }
 uint16 SpacePirates_Instr_15(uint16 k, uint16 jp) {  // 0xB2F564
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
-  eproj_spawn_rect = (Rect16U){ E->x_pos, E->y_pos, IW_B2((uint16)(jp + 4)), IW_B2((uint16)(jp + 8)) };
+  eproj_spawn_rect = (Rect16U){ E->x_pos, E->y_pos, IW_B2((uint16)(jp + 2)), IW_B2((uint16)(jp + 4)) };
   SpawnEprojWithGfx(IW_B2((uint16)(jp + 0)), cur_enemy_index, addr_kEproj_PirateClaw);
   return (uint16)(jp + 6);
 }
@@ -11659,7 +11682,7 @@ void EscapeDachora_Init(void) {  // 0xB3EAE5
 void port_nop_v(void) {}
 void port_nop_k(uint16 k) { (void)k; }   /* nullsubs: quien llama puede saltarlas */
 static void port_w_Fireflea_Touch(void) { Fireflea_Touch(cur_enemy_index); }
-static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[186] = {
+static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[187] = {
   {0xA28023, Enemy_NormalTouchAI_A2},
   {0xA2802D, Enemy_NormalShotAI_A2},
   {0xA28041, Enemy_NormalFrozenAI_A2},
@@ -11735,6 +11758,7 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[186] = {
   {0xA4804C, port_nop_v},
   {0xA4B950, port_nop_v},
   {0xA4B950, port_nop_v},
+  {0xA58046, CreateADudShot},
   {0xA5804C, port_nop_v},
   {0xA5804C, port_nop_v},
   {0xA5804C, port_nop_v},
@@ -11852,7 +11876,7 @@ PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las última
   uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 15;
   if (cea[h] == ea) return cf[h];
   PortFnV f = 0;
-  int lo = 0, hi = 185;
+  int lo = 0, hi = 186;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEnemyAi[m].ea;
@@ -12388,6 +12412,8 @@ uint16 port_CallEprojInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0x86B269: return EprojInstr_SetVelTowardsSamus1(k, jp);
   case 0x86D15C: return EprojInstr_D15C(k, jp);
   case 0x86D1B6: return EprojInstr_D1B6(k, jp);
+  case 0x86DC5A: return EprojInstr_DC5A(k, jp);
+  case 0x86DC61: return EprojInstr_SpawnEnemyDrops_0(k, jp);
   case 0x86DC77: return EprojInstr_SpawnSporesEproj(k, jp);
   case 0x86ECE3: return EprojInstr_ECE3(k, jp);
   case 0x86ED17: return EprojInstr_ED17(k, jp);
@@ -12410,6 +12436,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0x86F0D9: Eproj_Pickup_PowerBombs(); return 1;
   case 0x86F0E8: Eproj_Pickup_Missiles(); return 1;
   case 0x86F0F7: Eproj_Pickup_SuperMissiles(); return 1;
+  case 0xA08046: CreateADudShot(); return 1;
   case 0xA0957E: NormalEnemyFrozenAI(); return 1;
   case 0xA0A477: NormalEnemyTouchAi(); return 1;
   case 0xA0A497: NormalEnemyTouchAiSkipDeathAnim_CurEnemy(); return 1;
@@ -12418,6 +12445,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA0A63D: NormalEnemyShotAi(); return 1;
   case 0xA0A6A7: NormalEnemyShotAiSkipDeathAnim_CurEnemy(); return 1;
   case 0xA0A6B4: EnemyFunc_A6B4_UsedBySporeSpawn(); return 1;
+  case 0xA0A8BC: CreateDudShot(); return 1;
   case 0xA0B7A1: EnemyFunc_B7A1(); return 1;
   case 0xA28041: Enemy_NormalFrozenAI_A2(); return 1;
   case 0xA28023: Enemy_NormalTouchAI_A2(); return 1;

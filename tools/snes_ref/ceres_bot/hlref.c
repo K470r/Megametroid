@@ -91,10 +91,10 @@ int main(int argc, char **argv) {
   }
   /* HL_SETXY="n:x:y,...": Samus a (x, y) antes del cuadro grabado n (para pruebas en un lugar de la sala, como el
      ascensor; check.c hace lo mismo) */
-  static long sxy_n[32]; static int sxy_x[32], sxy_y[32]; int nsxy = 0, isxy = 0;
+  static long sxy_n[256]; static int sxy_x[256], sxy_y[256]; int nsxy = 0, isxy = 0;
   if (getenv("HL_SETXY")) {
     char *s = strdup(getenv("HL_SETXY")), *t = strtok(s, ",");
-    for (; t && nsxy < 32; t = strtok(0, ",")) { sscanf(t, "%ld:%d:%d", &sxy_n[nsxy], &sxy_x[nsxy], &sxy_y[nsxy]); nsxy++; }
+    for (; t && nsxy < 256; t = strtok(0, ",")) { sscanf(t, "%ld:%d:%d", &sxy_n[nsxy], &sxy_x[nsxy], &sxy_y[nsxy]); nsxy++; }
   }
   while (fgets(line, sizeof line, g)) {
     int cnt = atoi(line); char *b = strchr(line, ' '); int in = b ? parse(b + 1) : 0;

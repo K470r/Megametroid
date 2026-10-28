@@ -34,7 +34,8 @@ ARRAY_LEN = {
     'projectile_bomb_pre_instructions': 10, 'enemy_drawing_queue_sizes': 8, 'tilemap_stuff': 2048, 'hdma_table_1': 256, 'scrolling_sky_bg2_hdma_data': 64, 'scrolling_sky_bg2_indirect_hdma': 128, 'projectile_variables': 10, 'projectile_timers': 10,
 }
 # variables que el motor define a su manera (no como en la RAM del SNES)
-EXCLUDE = {'level_data', 'BTS'}
+# kraid_unk9000 (7E:9000) cae dentro de la RAM extra de enemigos: es ERAM(0x9000) (inc/core/enemies.h)
+EXCLUDE = {'level_data', 'BTS', 'kraid_unk9000'}
 # variables propias del motor nativo (no están en el SNES): nombre -> declaración
 EXTRA = Path(src / 'vars_extra.txt')
 

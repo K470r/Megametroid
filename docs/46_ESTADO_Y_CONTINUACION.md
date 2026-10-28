@@ -101,6 +101,11 @@ Reglas de Edwin (no negociables):
   Claves del rayo cargado y del destello en `mkmd.zebes_proj_keys`; la VRAM de `mkzobj` lleva los tiles y la paleta
   del rayo. `check` en la sala del Charge Beam (`tools/rooms/chargebeam.sh`): 0 diferencias en 2126 cuadros.
   Regresión: 62 cuadros "distintos" en Ceres (antes 19), todos corridos en el tiempo como los de docs/48 (docs/49).
+- **spore-spawn** (2026-10-22, docs/49): Spore Spawn giraba a toda velocidad por un error del traductor (`jp[n]` leía
+  `jp + 4n`; también afectaba a `Draygon_Instr_1/14`, `Torizo_Instr_25/26/45` y `SpacePirates_Instr_15`). Portado lo
+  que faltaba para la pelea (`EprojInstr_DC5A`, `EprojInstr_SpawnEnemyDrops_0`, `CreateADudShot`; `kraid_unk9000` =
+  `ERAM(0x9000)`) y el cuelgue al morir en la Genesis (palabra en dirección impar en `boss_bits_for_area`). Pelea
+  entera contra el SNES con `tools/rooms/spore_fight.py`: 0 diferencias hasta la muerte.
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 
@@ -117,6 +122,8 @@ Reglas de Edwin (no negociables):
 2. Ojos de las estatuas (paleta/2 líneas del BG), agua del FX 0x26 (BG3), Spore Spawn en BG2 sin probar.
 3. **Bombas de poder** (las bombas normales y las de abanico ya están). Rayos de onda, hielo, spazer y plasma (y sus
    ataques especiales `FireSba_Fire*`): `nt_unimpl` en proj.c.
+2. Ojos de las estatuas (paleta/2 líneas del BG), agua del FX 0x26 (BG3). (Spore Spawn: hecho, docs/49.)
+3. **Bombas de poder** y bombas en abanico (las bombas normales ya están).
 4. Secuencia de muerte (`HandleSamusOutOfHealthAndGameTile`), menú de pausa y mapa.
 5. **Sonido**: hoy solo las voces de la intro. Falta el controlador del Z80 (música y efectos; la cola del motor ya
    existe: `music_upload`, `music_play`, `QueueSfx*`). Ej.: el ojo pide el efecto 0x17 de la biblioteca 2.

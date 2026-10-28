@@ -206,6 +206,10 @@ class Xlate:
             off = KR[m.group(2)] + (2 * int(m.group(4)) if m.group(4) else 0)
             return 'ERAM(0x%04X + (uint16)(%s))' % (0x7800 + off, m.group(1))
         body = re.sub(r'gExtraEnemyRam7800\(([^()]*)\)->kraid\.(\w+)(\[(\d+)\])?', kraid, body)
+        # *(uint16 *)&a[i] |= N con N < 0x100: en el SNES (bajo-alto) solo toca el byte a[i]; en el 68000 la palabra en una
+        # dirección impar es un ADDRESS ERROR (SporeSpawn_Func_6: boss_bits_for_area[area_index] con area_index 1)
+        body = re.sub(r'\*\(uint16 \*\)&(\w+\[[^\]]+\]) \|= ((?:0x)?[0-9A-Fa-f]+);',
+                      lambda m: '%s |= %s;' % (m.group(1), m.group(2)) if int(m.group(2), 0) < 0x100 else m.group(0), body)
         # variables de tipo Enemy_X
         vars_ = {}
         def decl(m):
@@ -466,8 +470,10 @@ class Xlate:
         # enemigo
         iw = 'IW_EN' if name.startswith('EnemyInstr_') else 'IW_%02X' % bank
         b = re.sub(r'\*jp\b', '%s(jp)' % iw, b)
-        b = re.sub(r'\bjp\[(\d+)\]', lambda m: '%s(jp + %d)' % (iw, 2 * int(m.group(1))), b)
+        # primero jp + n (avanza n palabras) y después jp[n]: al revés, el jp + 2n que deja jp[n] se volvía a
+        # duplicar (jp[1] leía jp + 4: Draygon_Instr_21 tomaba la velocidad de Spore Spawn de la palabra siguiente)
         b = re.sub(r'\bjp \+ (\d+)\b', lambda m: '(uint16)(jp + %d)' % (2 * int(m.group(1))), b)
+        b = re.sub(r'\bjp\[(\d+)\]', lambda m: '%s((uint16)(jp + %d))' % (iw, 2 * int(m.group(1))), b)
         if re.search(r'\bjp\[|\(uint8 \*\)jp|\(uint8\*\)jp|INSTR_ADDR_TO_PTR|\bjp - ', b):
             self.todo.append('%s: uso de jp que no sé traducir' % name)
         return b

@@ -230,6 +230,8 @@ for m in re.finditer(r'^(?:static )?[\w ]+?\*?\b(\w+)\([^)]*\) \{  // 0x86([0-9A
     PFUN[m.group(1)] = (int(m.group(2), 16), m.group(3))
 PADDR = {a: n for n, (a, _) in PFUN.items()}
 NAMES86 = {}
+TABLES86 = {m.group(1): int(m.group(2), 16) for m in re.finditer(
+    r'#define (k\w+) \(\(uint16\*\)RomFixedPtr\(0x86([0-9a-fA-F]{4})\)\)', (SRC / 'sm_86.c').read_text())}
 for m in re.finditer(r'\b(addr_\w+) = 0x([0-9a-fA-F]{4})', (SRC / 'ida_types.h').read_text()):
     NAMES86[m.group(1)] = int(m.group(2), 16)
 
@@ -249,6 +251,25 @@ def code_lists(addrs):
                 v = int(a, 16)
             if v is not None:
                 lists.add(v)
+        # tabla de listas ($86:A7AB en EprojInit_BombTorizoStatueBreaking; traducido: BW_86(0xA7AB + 2 * i), en el
+        # decomp kNombre[i] con #define kNombre ((uint16*)RomFixedPtr(0x86XXXX))): sus entradas, mientras sean
+        # listas en orden
+        tabs = [TABLES86.get(a) for a in re.findall(r'eproj_instr_list_ptr\[[^\]]*\] = (\w+)\[', body)]
+        tabs += [int(a, 16) for a in re.findall(r'eproj_instr_list_ptr\[[^\]]*\] = \(\(uint16\)BW_86\(0x([0-9A-F]{4}) \+', body)]
+        for t in tabs:
+            prev = 0
+            for i in range(16) if t else ():
+                v = w(0x860000 | (t + 2 * i))
+                if v < 0x8000 or v <= prev or v >= t:
+                    break
+                lists.add(v)
+                prev = v
+        # tablas de inicio (Eproj_InitXYVelRandom(j, addr_kEprojInit_X_init0, ...)): la lista es su primera palabra
+        for a in [body] if 'Eproj_InitXYVelRandom(' in body else []:     # (la tabla va en una variable: v2 = c ? a : b)
+            for nm in re.findall(r'\baddr_kEprojInit_\w+', a):
+                t = NAMES86.get(nm)
+                if t and w(0x860000 | t) >= 0x8000:
+                    lists.add(w(0x860000 | t))
         for a in re.findall(r'eproj_pre_instr\[[^\]]*\] = 0x([0-9A-F]{4})', body):
             if int(a, 16) in PADDR:
                 todo.append(PADDR[int(a, 16)])
@@ -267,6 +288,8 @@ def ewalk(start, out):
             v = w(0x860000 | p)
             if v in (0xECE3, 0xED17):                # EprojInstr_ECE3/ED17: crean un objeto de sprite (CreateSpriteAtPos)
                 out.add(('s', w(0x860000 | (p + 2))))
+            if 'SetPreInstr' in PADDR.get(v, ''):  # EprojInstr_SetPreInstr_ ($86:8161): su pre-instrucción (argumento)
+                EINSTR_SEEN.add(w(0x860000 | (p + 2)))
             if v & 0x8000:
                 ent = einstr.get(v)
                 if ent is None:
@@ -311,11 +334,92 @@ PICKUP = [ep_list(0x86EF04, i) for i in range(6)]      # 1 energía, 2 energía 
 # probabilidades de lo que suelta ($B4: energía, energía grande, misil, nada, súper, power bomb) -> PICKUP
 DROP_TO_PICKUP = {0: 1, 1: 2, 2: 4, 4: 5, 5: 3}
 
+def eproj_sms(hdr):
+    """spritemaps de un proyectil enemigo (cabecera en $86): su lista y las listas que pone su código (inicio,
+    pre-instrucciones y sus instrucciones), p. ej. los bichos del Kago ($86:D03C/D04A/D052)"""
+    es = set()
+    EINSTR_SEEN.clear()
+    ewalk(w(0x860000 | (hdr + 4)), es)
+    done_l = set()
+    while True:
+        ls = code_lists({w(0x860000 | hdr), w(0x860000 | (hdr + 2))} | EINSTR_SEEN) - done_l
+        if not ls:
+            break
+        for l_ in ls:
+            ewalk(l_, es)
+        done_l |= ls
+    return es
+
+
+# instrucciones de PLM que crean un proyectil con los tiles de la sala (sm_84.c: PlmInstr_X ... SpawnEprojWithRoomGfx(0xYYYY:
+# PlmInstr_SpawnTorizoStatueBreaking $84:D357 -> $86:A993, los trozos de la estatua del Bomb Torizo)
+PLM_EPROJ = {}
+# instrucciones de PLM ($84): (tamaños de sus argumentos, saltos desde un argumento, se detiene)
+PLM_INSTR = {}
+for m in re.finditer(r'^const uint8 \*PlmInstr_(\w+)\([^)]*\) \{  // 0x84([0-9A-F]{4})\n(.*?)^\}',
+                     (SRC / 'sm_84.c').read_text(), re.M | re.S):
+    a, body = int(m.group(2), 16), m.group(3)
+    mm = re.search(r'SpawnEprojWithRoomGfx\((0x[0-9A-Fa-f]{4}|addr_\w+)', body)
+    if mm:
+        v = int(mm.group(1), 16) if mm.group(1).startswith('0x') else NAMES86.get(mm.group(1))
+        if v:
+            PLM_EPROJ[a] = v
+    steps, jumps, stop = set(), set(), False
+    for r in re.findall(r'return ([^;]*);', body):
+        r = r.strip()
+        mj = re.fullmatch(r'INSTRB_RETURN_ADDR\(GET_WORD\(plmp(?: \+ (\d+))?\)\)', r)
+        ms = re.fullmatch(r'plmp(?: \+ (\d+))?', r)
+        if ms:
+            steps.add(int(ms.group(1) or 0))
+        elif mj:
+            jumps.add(int(mj.group(1) or 0))
+        elif r == '0' and m.group(1) == 'Sleep':
+            steps.add(0)                                  # (sigue al despertar)
+        else:
+            stop = True
+    PLM_INSTR[a] = (steps, jumps, stop)
+
+
+def plm_walk(il):
+    """instrucciones de una lista de PLM ($84) por las que se puede pasar"""
+    todo, seen, found = [il], set(), set()
+    while todo and len(seen) < 400:
+        p = todo.pop()
+        while 0x8000 <= p and p not in seen:
+            seen.add(p)
+            v = w(0x840000 | p)
+            if v < 0x8000:                                # (tiempo, instrucción de dibujo)
+                p += 4
+                continue
+            ent = PLM_INSTR.get(v)
+            if ent is None:
+                break
+            found.add(v)
+            steps, jumps, _ = ent
+            for j in jumps:
+                todo.append(w(0x840000 | (p + 2 + j)))
+            if not steps:
+                break
+            for st_ in sorted(steps)[1:]:
+                todo.append(p + 2 + st_)
+            p = p + 2 + min(steps)
+    return found
+
+
 rooms = sorted({int(x.split(':')[0], 16) for x in sys.argv[5].split(',')}) if len(sys.argv) > 5 else []
 lines = set()
 for ra in rooms:
     for st in room_states(ra):
         pop = w(0x8F0000 | st + 8)
+        # proyectiles que crean los PLMs de la sala (PLM_EPROJ): las instrucciones de su lista (plm_walk)
+        plm = w(0x8F0000 | st + 20)
+        q = 0x8F0000 | plm
+        while plm and w(q):
+            for v in plm_walk(w(0x840000 | (w(q) + 2))):
+                if v in PLM_EPROJ:
+                    for sm in eproj_sms(PLM_EPROJ[v]):
+                        lines.add('%04X eproj %04X 0000' % (ra, sm))
+            q += 6
         ets = w(0x8F0000 | st + 10)
         # tilesets: paleta y tiles de cada enemigo (LoadEnemyGfxIndexes, $A0:8BF3)
         gfx = {}
@@ -376,21 +480,9 @@ for ra in rooms:
                     lines.add('%04X enemy %02X %04X %04X %04X' % (ra, bank, sm, p, tiles))
             # sus proyectiles (los que crea el código de su familia): la lista de la cabecera ($86)
             for hdr, room_gfx in eproj_heads(bank, fam) if fam else ():
-                es = set()
-                EINSTR_SEEN.clear()
-                ewalk(w(0x860000 | (hdr + 4)), es)
-                # las listas que pone su código (inicio, pre-instrucciones y sus instrucciones), p. ej. los bichos
-                # del Kago ($86:D03C/D04A/D052)
-                done_l = set()
-                while True:
-                    ls = code_lists({w(0x860000 | hdr), w(0x860000 | (hdr + 2))} | EINSTR_SEEN) - done_l
-                    if not ls:
-                        break
-                    for l_ in ls:
-                        ewalk(l_, es)
-                    done_l |= ls
-                for sm in es:
-                    lines.add('%04X eproj %04X %04X' % (ra, sm, 0 if room_gfx else (pal | tiles)))
+                es = eproj_sms(hdr)
+                for sm in es:   # (con la paleta 0 del código, como Torizo_Init, el proyectil también: eproj_gfx_idx)
+                    lines.add('%04X eproj %04X %04X' % (ra, sm, 0 if room_gfx else ((0 if only0 else pal) | tiles)))
             # al morir: su explosión (0 al dispararle; death_anim) y lo que puede soltar
             eps = DEATH[0] | (DEATH[w(d + 0x22)] if w(d + 0x22) < 5 else set())
             # explosiones que pide el código de la familia con su tipo (Kago_Shot: EnemyDeathAnimation(k, 4))

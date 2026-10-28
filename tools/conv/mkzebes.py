@@ -347,9 +347,13 @@ def put_items(table, vram, items):
     return bytes(table), bytes(vram)
 
 
-def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None):
+def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
-    tiles que haya cargado ese fondo; items: los objetos de la sala (room_items)"""
+    tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
+    para la sala (sin dar: MAX_PALS; 1 en las salas de jefes que usan la línea 1, mkzobj.BOSS_LINE); usage: veces que
+    aparece cada bloque en el nivel (con max_pals 1: al juntar colores pesan los píxeles que se ven, así los colores
+    de bloques que la sala casi no muestra, como los de reacción de todo el juego, ceden antes que los del fondo)"""
+    max_pals = max_pals or MAX_PALS
     ts = tileset(gs)
     table, pal = ts["table"], ts["pal"]
     vram = vram or ts["vram"]
@@ -382,11 +386,11 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None):
                 combos[(t, p)] |= {gc(p, int(c)) for c in np.unique(snes_tile(fr, 0)) if c}
     merges = {}
     level = "subpaleta"
-    bins, npal = None, 2
+    bins, npal = None, min(2, max_pals)
     by_pal = {}
     for (t, p), cs in combos.items():
         by_pal.setdefault(p, set()).update(cs)
-    for npal in range(2, MAX_PALS + 1):
+    for npal in range(min(2, max_pals), max_pals + 1):
         level = "subpaleta"
         bins = pack_palettes(list(by_pal.items()), npal, caps_for(npal))
         if bins:
@@ -395,6 +399,18 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None):
         bins = pack_palettes([(k, cs) for k, cs in combos.items()], npal, caps_for(npal))
         if bins:
             break
+    cw = None
+    if usage is not None and bins is None:                # peso de cada color: píxeles en el nivel
+        cw = {}
+        for mt in blocks:
+            u = usage.get(mt, 0) + 1 / 64
+            for e in ent[mt]:
+                t, p = e & 0x3FF, (e >> 10) & 7
+                a = px(t)
+                for c in np.unique(a):
+                    if c:
+                        g = gc(p, int(c))
+                        cw[g] = cw.get(g, 0) + u * int((a == c).sum())
     while bins is None:
         level = "tile+fusión"
         allc = sorted(set().union(*[{merges.get(c, c) for c in cs} for cs in combos.values()]))
@@ -402,9 +418,15 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None):
         for i in range(len(allc)):
             for j in range(i + 1, len(allc)):
                 dd = color_dist(allc[i], allc[j])
+                if cw is not None:
+                    dd *= min(cw.get(allc[i], 0), cw.get(allc[j], 0))
                 if best is None or dd < best[0]:
                     best = (dd, allc[i], allc[j])
         _, a, b = best
+        if cw is not None and cw.get(b, 0) > cw.get(a, 0):   # se queda el que más se ve
+            a, b = b, a
+        if cw is not None:
+            cw[a] = cw.get(a, 0) + cw.pop(b, 0)
         for k, v in list(merges.items()):
             if v == b:
                 merges[k] = a
@@ -552,6 +574,8 @@ def main():
     import mkmd
     import mkzobj
     mrom = mkmd.Rom(sys.argv[1])
+    zlogs = [x for x in os.environ.get("MM_ZDRAW", str(HERE.parent.parent / "res" / "snes_ref" / "zdraw.log")).split(":") if x]
+    zkeys = mkzobj.read_logs(zlogs)
     for ra in rooms:
         hb = r(0x8F0000 | ra, 11)
         area = hb[1]
@@ -569,7 +593,10 @@ def main():
             # sombra/luz del VDP (md_cone.c), que oscurece lo que no tenga prioridad alta en ningún plano: aquí todas
             # las celdas van con prioridad alta (y los sprites también, md_cone.c)
             eye = mkzobj.has_eye(mrom, st)
-            key = (lvl, gs, plm_ptr, ra, eye)
+            # estados con un jefe de colores propios (mkzobj.BOSS_PALETTES, docs/49): la sala en una sola línea, la
+            # línea 1 es de los objetos
+            boss = mkzobj.boss_line(mrom, st, zkeys.get(ra, set())) is not None
+            key = (lvl, gs, plm_ptr, ra, eye, boss)
             if key not in gfx_keys:
                 d = decompress(lvl)
                 size = d[0] | d[1] << 8
@@ -600,7 +627,11 @@ def main():
                         blocks |= {x & 0x3FF for x in plm_blocks(h)}
                 blocks |= {x & 0x3FF for x in reaction_blocks()}
                 items = room_items(plm_ptr) if plm_ptr else []
-                res = convert(gs, blocks, bg2, vram, anim, items)
+                usage = {}
+                for w_ in list(l1) + list(l2 or []):
+                    usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1
+                res = convert(gs, blocks, bg2, vram, anim, items, max_pals=1 if boss else None,
+                              usage=usage if boss else None)
                 if eye:
                     res["cells"] = [c | 0x8000 for c in res["cells"]]
                     if res["bg2"]:
@@ -615,9 +646,7 @@ def main():
                       f"{len(res['ids'])} bloques, {res['level']}, fusiones {res['merges']}", file=sys.stderr)
             gfx_keys.setdefault(("st", st), gfx_keys[key])
     # ---- objetos (enemigos) de cada estado: mkzobj.py
-    import os
-    import mkzobj
-    logs = [x for x in os.environ.get("MM_ZDRAW", str(HERE.parent.parent / "res" / "snes_ref" / "zdraw.log")).split(":") if x]
+    logs = zlogs
     st_tiles = {k[1]: entries[v]["ntiles"] for k, v in gfx_keys.items() if k[0] == "st"}
     objs = mkzobj.build(sys.argv[1], logs, [(st, ra, ts, st_tiles.get(st, 432)) for st, ra, ts in obj_states])
     obj_list, obj_of = [], {}
@@ -641,8 +670,9 @@ def main():
          'typedef struct { uint16 state; uint16 gfx; uint16 obj; } ZebesState;   /* obj: 0xFFFF sin objetos */',
          'typedef struct { uint8 page; uint16 ntiles, nkeys, nruns; const uint16 *runs; const uint16 *src; const uint16 *keys;',
          '                 const uint16 *recs; uint16 base; } ZebesObj;   /* base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala) */',
-         '/* objetos: tiles desde ZOBJ_BASE; src: 15 índices de palette_buffer (colores 1-15 de la línea 3 debajo del HUD: 9-13 el rayo,',
-         '   0xFFFF sin uso); keys: (spritemap, paleta, tiles, desplazamiento en recs) ordenadas; recs: como los de md_data */',
+         '/* objetos: tiles desde ZOBJ_BASE; src: 30 índices de palette_buffer, colores 1-15 de la línea 3 debajo del HUD (9-13 el rayo)',
+         '   y 1-15 de la línea 1 (solo con un jefe de colores propios, la sala en una línea: mkzobj.BOSS_LINE), 0xFFFF sin uso;',
+         '   keys: (spritemap, paleta, tiles, desplazamiento en recs) ordenadas; recs: como los de md_data */',
          '#define ZOBJ_BASE %d' % __import__('mkzobj').ZOBJ_BASE]
     C = ['/* Generado por tools/conv/mkzebes.py desde la ROM del SNES: no editar. */', '#include "zebes.h"',
          '#include "tables.h"']
@@ -714,7 +744,7 @@ def main():
     g_need = [2 * len(e["runs"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
               sum(8 + 34 * len(v) for v in e["anims"].values()) +
               2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries]
-    o_need = [2 * len(d["runs"]) + 24 + 8 * len(d["keys"]) + 2 * len(d["recs"]) for d in obj_list]
+    o_need = [2 * len(d["runs"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(d["recs"]) for d in obj_list]
     p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
     # cinemáticas de Ceres (mkm7.py, mkgetaway.py: corren antes): se usan una vez por partida, van en páginas y no en
     # la parte fija (docs/48). La Genesis pone la página de cada bloque antes de leerlo (md_cine.h)
@@ -774,7 +804,7 @@ def main():
         page = obj_pages[i]
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_runs[{len(d["runs"])}] = {{' +
                  ','.join(str(x) for x in d["runs"]) + '};')
-        C.append(f'NT_BANK({page}) static const uint16 kZO{i}_src[15] = {{' + ','.join(str(x) for x in d["src"]) + '};')
+        C.append(f'NT_BANK({page}) static const uint16 kZO{i}_src[30] = {{' + ','.join(str(x) for x in d["src"]) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_keys[{4 * len(d["keys"])}] = {{' +
                  ','.join('0x%X' % v for k in d["keys"] for v in k) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_recs[{len(d["recs"])}] = {{' +

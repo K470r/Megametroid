@@ -2,7 +2,7 @@
 # nave.sh [salida.csv]: vuelo de la nave en la intro (escena intro de la regresión): en cada cuadro de la consola, el
 # cuadro del motor que se ve, el cuadro de la nave que pide el motor (ship_now), el que se ve (ship_shown), el que se
 # prepara (ship_load) y los cuadros en que el cambio esperó a la carga (md_ship_wait: tiene que quedar en 0)
-# (MD_M7LOG). docs/50. Variables: XFL (más opciones de compilación, p. ej. "-DMD_VB_NOPS=1"), FR (9000)
+# (MD_M7LOG). docs/54. Variables: XFL (más opciones de compilación, p. ej. "-DMD_VB_NOPS=1"), FR (9000)
 set -e
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 RETRORUN=${RETRORUN:-$ROOT/tools/bin/retrorun}

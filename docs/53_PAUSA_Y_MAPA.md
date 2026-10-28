@@ -1,4 +1,4 @@
-# 49 — Estación de mapa, pausa, mapa y pantalla de equipo
+# 53 — Estación de mapa, pausa, mapa y pantalla de equipo
 
 Fecha: 2026-10-22. Rama `map-station` (desde `dedup-tiles`).
 

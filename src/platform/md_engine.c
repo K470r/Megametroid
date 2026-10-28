@@ -232,7 +232,7 @@ __asm__(
   "    .global md_hint\n"
   "md_hint:\n"
   "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank (interrupción pendiente de antes, al encenderlas): */
-  "    bcc.s 1f\n"                         /* nada (si no, se comería la primera banda: docs/50) */
+  "    bcc.s 1f\n"                         /* nada (si no, se comería la primera banda: docs/54) */
   "    move.l %a0,-(%sp)\n"
   "    movea.l hz_bdp,%a0\n"
   "    move.l #0xC0000000,0xC00004\n"
@@ -477,7 +477,7 @@ static void md_vint_top(void) {
   *(volatile uint16_t *)0xC00000 = cram[0];
   hz_bdp = hz_bd[hz_back ^ 1];
   /* y la primera interrupción: la última del cuadro dejó el registro 10 en 0xFF (sin más interrupciones), así que un
-     cuadro que se ve dos veces salía la segunda vez sin el degradado (docs/50) */
+     cuadro que se ve dos veces salía la segunda vez sin el degradado (docs/54) */
   if (hz_cnt[hz_back ^ 1]) vdp_reg(0x0A, hz_first[hz_back ^ 1]);
 }
 
@@ -521,7 +521,7 @@ static void vb_exit(uint16 sv) {
 static void md_vblank_lag(void);
 static int16 vb_lines_left(void);
 /* líneas que necesita el vblank de un cuadro (lo que tardaron los últimos, con margen): un cuadro que llega con el
-   vblank empezado se toma solo si quedan tantas; si no, en el vblank siguiente (docs/50). Si el vblank se pasara a
+   vblank empezado se toma solo si quedan tantas; si no, en el vblank siguiente (docs/54). Si el vblank se pasara a
    la imagen, sus DMA irían a la velocidad de la imagen y las interrupciones horizontales empezarían tarde. */
 static int16 md_vb_need = 20;
 static uint8 md_vb_room;                       /* este vblank cargó una sala (con la pantalla apagada: no cuenta) */
@@ -1582,7 +1582,7 @@ static uint16 m7_loaded, m7_row;
 /* Cuándo se cambia de imagen no depende de cuánto vblank sobra (así la imagen de cada cuadro del motor es siempre la
    misma): cada imagen cuesta palabras de DMA (m7_cost_of) y cada vblank cuenta M7_BUDGET. Se cambia cuando ese
    presupuesto alcanza y la imagen está armada; el armado de verdad (cine_vblank) usa todo lo que sobra del vblank
-   y casi siempre va adelante (docs/50). */
+   y casi siempre va adelante (docs/54). */
 #ifndef M7_BUDGET
 #define M7_BUDGET 650
 #endif
@@ -1971,7 +1971,7 @@ void DrawCinematicSpritemap(uint16 sm, uint16 x, uint16 y, uint16 chr, uint8 off
   if (!drawkey(9, sm, chr, 0, (int16)x, (int16)y - 2)) missing(9, sm, chr, 0);   /* sin HUD: sin las 2 líneas del juego */
 }
 #include "nmath.h"
-#include "md_pause.c"                         /* la pausa: mapa y equipo (docs/49) */
+#include "md_pause.c"                         /* la pausa: mapa y equipo (docs/53) */
 void DrawMenuSpritemap(uint16 idx, uint16 x, uint16 y, uint16 chr) {   /* $81:891F */
   if (pz_on) { pz_spr(idx, x, y, chr); return; }
   if (!drawkey(10, idx, chr, 0, (int16)x, (int16)y - 2)) missing(10, idx, chr, 0);
@@ -2091,7 +2091,7 @@ static void pipe_take(void) {
 }
 
 /* fundido a negro: cram_out = los colores con cada componente (3 bits) por brillo/15. Se arma al preparar el cuadro
-   (md_post), no en el vblank: son ~25 líneas que se comían el vblank de la cinemática (docs/50) */
+   (md_post), no en el vblank: son ~25 líneas que se comían el vblank de la cinemática (docs/54) */
 static const uint8 kBright[16][8] = {   /* (v * brillo + 7) / 15 (sin divisiones: el 68000 no tiene de 32 bits) */
   { 0, 0, 0, 0, 0, 0, 0, 0 },
   { 0, 0, 0, 0, 0, 0, 0, 0 },

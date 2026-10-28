@@ -2,7 +2,7 @@
 # m7.sh [salida.csv]: cinemática de Ceres (escena ceres de la regresión): en cada cuadro de la consola, el cuadro del
 # motor que se ve, la imagen del modo 7 que pide el motor (m7_want) y la que se ve (m7_shown), si se está armando
 # otra (m7_busy, m7_step), las líneas del vblank al entrar y al salir de cine_vblank y los cuadros en que el cambio
-# esperó al armado (md_m7_wait: tiene que quedar en 0) (MD_M7LOG). docs/50.
+# esperó al armado (md_m7_wait: tiene que quedar en 0) (MD_M7LOG). docs/54.
 # Variables: XFL (más opciones de compilación, p. ej. "-DM7_NOP"), FR (cuadros de la consola, 10900)
 set -e
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)

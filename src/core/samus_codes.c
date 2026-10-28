@@ -52,7 +52,7 @@ NT_LATE static void LoadProjectilePalette(uint16 a) {  // 0x90ACFC (kBeamPalette
 
 NT_LATE static uint8 SamusCode_04_06_Common(void) {  // 0x90F19E
   flare_counter = 0;
-  /* ClearFlareAnimationState ($90:BCBE), copiada: en proj.c queda inlinada (docs/49) */
+  /* ClearFlareAnimationState ($90:BCBE), copiada: en proj.c queda inlinada (docs/53) */
   flare_animation_frame = 0;
   flare_slow_sparks_anim_frame = 0;
   flare_fast_sparks_anim_frame = 0;

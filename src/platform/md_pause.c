@@ -1,4 +1,4 @@
-/* MegaMetroid — la pausa en la Genesis: el mapa y la pantalla de equipo (docs/49). Lo incluye md_engine.c (usa su
+/* MegaMetroid — la pausa en la Genesis: el mapa y la pantalla de equipo (docs/53). Lo incluye md_engine.c (usa su
  * lista de sprites, la CRAM y el HUD).
  *
  * El motor (pause.c) deja todo como el SNES: los mapas de la pausa en la RAM 7E:3000-3FFF y, para el mapa del área,
@@ -11,7 +11,7 @@
  * cargar la sala (g_hooks.room_gfx). Lo que cambia de golpe (entrar, pasar del equipo al mapa) se dibuja con la
  * pantalla oscura, como en el SNES: tiles y marco con la pantalla apagada, el mapa de a PZ_MAPROWS filas por cuadro.
  * md_post y md_vblank (md_engine.c) no cambian salvo un desvío al principio de md_post (md_pause_frame, al final): los
- * tiempos del resto del juego no se mueven (docs/49, regresión). */
+ * tiempos del resto del juego no se mueven (docs/53, regresión). */
 #include "md_pause_data.h"
 
 static void pipe_take(void);                   /* (md_engine.c, más abajo) */
@@ -40,7 +40,7 @@ _Static_assert(1088 + PZ_AROWS * 32 + 64 <= sizeof md_scratch / 2, "md_scratch")
 _Static_assert(PZ_MAPROWS * 64 <= 1024, "md_scratch");
 
 /* vdp_dma_vram y vdp_dma_raw, copiadas: otra llamada a la de md_vdp.h haría que gcc la parta en md_engine.c y correría las direcciones
-   de la ROM (docs/49) */
+   de la ROM (docs/53) */
 NT_LATE static void pz_dma_raw(uint32_t from, uint16_t to, uint16_t words) {   /* vdp_dma_raw */
   volatile uint16_t *pw = &VDP_CTRL;
   *pw = 0x9300 | (words & 0xFF);
@@ -238,7 +238,7 @@ NT_LATE static void md_pause_vblank(void) {
 
 /* ------------------------------------------------------------------ el cuadro en los estados 12-18
    md_post y md_vblank (md_engine.c) son los de siempre con un desvío al principio: así no cambia cómo se compilan ni
-   cuánto tardan fuera de la pausa (la regresión de imagen de Ceres y de la intro depende del ciclo exacto, docs/49) */
+   cuánto tardan fuera de la pausa (la regresión de imagen de Ceres y de la intro depende del ciclo exacto, docs/53) */
 static uint8 md_bright_of_inidisp(void) { return (reg_INIDISP & 0x80) ? 0 : (reg_INIDISP & 0xF); }
 
 NT_LATE static void pz_scale(uint16 *c, uint16 n) {   /* colores de la CRAM con el brillo md_bright (como md_vblank) */

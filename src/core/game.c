@@ -212,7 +212,7 @@ RESUME_2:
   return 0;
 }
 
-/* la pausa (estados 12-18, pause.c; docs/49): fuera del switch de RunGameState para no cambiar cómo se compila (los
+/* la pausa (estados 12-18, pause.c; docs/53): fuera del switch de RunGameState para no cambiar cómo se compila (los
    tiempos de las escenas de Ceres dependen del ciclo exacto) */
 static uint8 RunGameState(uint16 st);
 NT_LATE static uint8 PauseGameState(uint16 st) {

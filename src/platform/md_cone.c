@@ -894,7 +894,7 @@ void md_cone_color(void) {}
 
 /* vblank: los tiles llenos (una vez por sala), los armados de este cuadro y el modo sombra/luz */
 void md_cone_vblank(void) {
-#ifdef MD_VB_NOPS                               /* prueba: el vblank tarda MD_VB_NOPS instrucciones más (docs/50) */
+#ifdef MD_VB_NOPS                               /* prueba: el vblank tarda MD_VB_NOPS instrucciones más (docs/54) */
 #define VB_NOPS_S_(n) #n
 #define VB_NOPS_S(n) VB_NOPS_S_(n)
   __asm__ volatile(".rept " VB_NOPS_S(MD_VB_NOPS) "\n\tnop\n\t.endr");

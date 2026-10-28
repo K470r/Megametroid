@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""spore_fight.py — la pelea contra Spore Spawn (sala 9DC7) grabada en el SNES hasta su muerte (docs/49).
+"""spore_fight.py — la pelea contra Spore Spawn (sala 9DC7) grabada en el SNES hasta su muerte (docs/50).
 
 El bot no apunta: la entrada es la del bot hasta Zebes (in_z2.txt), después Samus mira a la derecha y dispara un misil
 cada 8 cuadros. Spore Spawn se mueve igual haga lo que haga Samus hasta que recibe un golpe, así que en cada tramo en que

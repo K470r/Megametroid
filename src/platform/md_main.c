@@ -10,7 +10,7 @@
  *   3 botones:  A correr (B)  B disparar (X)  C saltar (A)
  *               START corto = elegir ítem (SELECT; dando la vuelta se llega a "nada" = cancelar),
  *               START mantenido = pausa/mapa (START); sin apuntar en diagonal quieto (sí caminando o corriendo)
- *               en la pausa (docs/49; no hay L ni R): A = L, B = R, C = A (equipar), START = START
+ *               en la pausa (docs/53; no hay L ni R): A = L, B = R, C = A (equipar), START = START
  * Con MD_TEST_INPUT la entrada sale de la grabación del SNES (para comparar cuadro a cuadro). */
 #include <genesis.h>
 #include "title.h"

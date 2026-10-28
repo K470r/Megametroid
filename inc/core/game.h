@@ -77,7 +77,7 @@ void CalculateBgScrolls(void);
 uint8 WaitForNMI_Async(void);
 uint8 InitAndLoadGameData_Async(void);        /* gamestart.c: estado 6 */
 void ResumeGameplay(void);                     /* gamestart.c: $80:A149 (al salir de la pausa) */
-/* pausa (pause.c, docs/49): estados 13-17 y lo que la Genesis tiene que pasar a la VRAM */
+/* pausa (pause.c, docs/53): estados 13-17 y lo que la Genesis tiene que pasar a la VRAM */
 uint8 PauseStates(uint16 st);
 uint8 PauseFadeStates(uint16 st);              /* 12 y 18, después de GameState_8_MainGameplay */
 uint16 PauseMapCell(uint16 i);                 /* celda i (64x32) del mapa de la pausa del área actual */

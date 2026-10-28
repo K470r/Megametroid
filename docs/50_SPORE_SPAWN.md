@@ -1,4 +1,4 @@
-# 49 — Spore Spawn (sala 9DC7, Brinstar)
+# 50 — Spore Spawn (sala 9DC7, Brinstar)
 
 Problema (Edwin): en la Genesis el jefe Spore Spawn se movía muchísimo más rápido que en el SNES.
 

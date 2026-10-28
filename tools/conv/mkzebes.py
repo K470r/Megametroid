@@ -593,7 +593,7 @@ def main():
             # sombra/luz del VDP (md_cone.c), que oscurece lo que no tenga prioridad alta en ningún plano: aquí todas
             # las celdas van con prioridad alta (y los sprites también, md_cone.c)
             eye = mkzobj.has_eye(mrom, st)
-            # estados con un jefe de colores propios (mkzobj.BOSS_PALETTES, docs/49): la sala en una sola línea, la
+            # estados con un jefe de colores propios (mkzobj.BOSS_PALETTES, docs/51): la sala en una sola línea, la
             # línea 1 es de los objetos
             boss = mkzobj.boss_line(mrom, st, zkeys.get(ra, set())) is not None
             key = (lvl, gs, plm_ptr, ra, eye, boss)

@@ -1,5 +1,5 @@
 #!/bin/sh
-# MegaMetroid — capturas lado a lado SNES / Genesis de una sala, cuadro a cuadro (docs/49).
+# MegaMetroid — capturas lado a lado SNES / Genesis de una sala, cuadro a cuadro (docs/51).
 #
 # La entrada es la del bot hasta Zebes (tools/snes_ref/ceres_bot/in_z2.txt) más un patrón propio ($PAT). En el SNES
 # (hlref) y en la Genesis (ROM de prueba TEST=1 con MD_TEST_WARP_AT / MD_TEST_SETXY_AT, md_main.c) se salta a la

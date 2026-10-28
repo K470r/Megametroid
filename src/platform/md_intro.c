@@ -130,7 +130,7 @@ static inline int16 it_x9(uint16 x) { return (int16)(x << 7) >> 7; }
 /* ------------------------------------------------------------------ la nave del vuelo (modo 7) */
 #define SHIP_BUDGET 5600                        /* bytes por vblank para la nave */
 /* Cuándo se muestra el cuadro que se prepara no depende de cuánto vblank sobra (así la imagen de cada cuadro del
-   motor es siempre la misma, docs/50): cada cuadro de la nave cuesta sus bytes (ship_bytes) y cada cuadro del motor
+   motor es siempre la misma, docs/54): cada cuadro de la nave cuesta sus bytes (ship_bytes) y cada cuadro del motor
    cuenta SHIP_STEP. Se muestra cuando ese presupuesto alcanza y está cargado; la carga de verdad (ship_vblank) usa lo
    que sobra del vblank y va adelante. */
 #ifndef SHIP_STEP

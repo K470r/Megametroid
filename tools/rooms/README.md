@@ -8,7 +8,7 @@ patrón de disparos y lo comparan con el motor en el PC (`host/check` con las mi
 - `crbatch.sh NN` / `brbatch.sh SALA`: un lote de Crateria / una sala de Brinstar (`rooms_brSALA.txt`).
 - `gdbatch.sh NN [c|br]`: lo mismo con Samus invencible (`HL_GOD=1`) y 1500 cuadros por sala.
 - `spore_fight.py`: la pelea contra Spore Spawn hasta su muerte (lleva a Samus al lado del núcleo en cada tramo
-  abierto) y `check` (docs/49).
+  abierto) y `check` (docs/50).
 - `mkwarp_e.py`: arma la entrada (la del bot hasta Zebes, `in_z2.txt`, más el patrón por sala) y la lista `HL_WARP`.
 
 Pendiente: los scripts tienen las rutas de la máquina donde se escribieron (`/tmp/claude-0/warp` como carpeta de

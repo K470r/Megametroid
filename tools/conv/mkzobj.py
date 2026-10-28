@@ -118,7 +118,7 @@ def has_eye(rom, st):
     return False
 
 
-# Jefes con colores propios (docs/49). En la Genesis los objetos de la sala tienen 10 colores (línea 3 debajo del HUD);
+# Jefes con colores propios (docs/51). En la Genesis los objetos de la sala tienen 10 colores (línea 3 debajo del HUD);
 # un jefe grande del SNES usa varias paletas de sprites (el Torizo: la 1, la 2 y la 7, ~40 colores). En los estados de
 # sala con uno de estos jefes el fondo va en una sola línea (mkzebes.py) y la línea 1 queda para los objetos: 15 colores
 # más. Las paletas del jefe las pone su código (no la lista de la sala): por jefe, (banco, init) -> por área (None: las

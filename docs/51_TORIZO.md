@@ -1,4 +1,4 @@
-# 49 — Dibujo del Bomb Torizo (crateria14)
+# 51 — Dibujo del Bomb Torizo (crateria14)
 
 Fecha: 2026-10-27. Sala 9804 (estados 981B y 9835: con el Torizo; 984F: después). La lógica ya coincidía con el SNES
 (docs/46); el dibujo estaba roto: partes que desaparecían, una pierna negra, colores de estatua pegados, trozos de la

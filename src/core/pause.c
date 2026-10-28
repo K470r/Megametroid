@@ -1,4 +1,4 @@
-/* MegaMetroid — motor nativo: la pausa, el mapa y la pantalla de equipo (banco $82; docs/49).
+/* MegaMetroid — motor nativo: la pausa, el mapa y la pantalla de equipo (banco $82; docs/53).
  * Escrito a mano desde snesrev/sm (sm_82.c), con los nombres y las direcciones del SNES.
  *
  * Estados 13-17 y lo que sigue al juego en el 12 y el 18 (game.c llama antes a GameState_8_MainGameplay). La estación de mapa
@@ -69,7 +69,7 @@ static inline uint16 *R3(uint16 a) { return &cinematic_text_tilemap[(uint16)(a -
 
 static void EnableNMI(void) { reg_NMITIMEN |= 0x80; }   // 0x80834B
 /* (copias de funciones de otros bancos que en el resto del motor quedan inlinadas: llamarlas desde aquí las sacaría
-   como funciones aparte y correría las direcciones de la ROM, docs/49) */
+   como funciones aparte y correría las direcciones de la ROM, docs/53) */
 static void DisableAnimtiles_(void) { animtiles_enable_flag &= ~0x8000; }   // 0x87800B
 static void EnableAnimtiles_(void) { animtiles_enable_flag |= 0x8000; }     // 0x878000
 static void CancelSoundEffects(void) {  // 0x82BE17

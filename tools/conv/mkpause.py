@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MegaMetroid — gráficos de la pausa (mapa y equipo) para la Genesis, desde la ROM del SNES (docs/49).
+"""MegaMetroid — gráficos de la pausa (mapa y equipo) para la Genesis, desde la ROM del SNES (docs/53).
 
 El SNES carga en la pausa ($82:8E75) los tiles de $B6:8000 (BG1/BG2, VRAM 0x0000) y $B6:C000 (sprites, VRAM
 0x2000 = tiles de BG 0x200-0x2FF), y la paleta kPauseScreenPalettes ($B6:F000). Lo que se dibuja sale de mapas
@@ -389,7 +389,7 @@ assert len(tiles) <= PZ_TILE_MAX, "mkpause: %d tiles (máx. %d)" % (len(tiles), 
 
 # ---------------------------------------------------------------- salida
 NSM = 0x68
-c = ["/* Generado por tools/conv/mkpause.py (docs/49): gráficos de la pausa desde la ROM. No editar. */",
+c = ["/* Generado por tools/conv/mkpause.py (docs/53): gráficos de la pausa desde la ROM. No editar. */",
      '#include "md_pause_data.h"']
 
 
@@ -431,7 +431,7 @@ for i in range(NSM):
     for pal in range(8):
         idx.append(spr_idx.get((i, pal), 0xFFFF))
 arr("uint16", "kPzSprIdx", idx, per=8)
-h = ["/* Generado por tools/conv/mkpause.py (docs/49). No editar. */", "#ifndef MD_PAUSE_DATA_H", "#define MD_PAUSE_DATA_H",
+h = ["/* Generado por tools/conv/mkpause.py (docs/53). No editar. */", "#ifndef MD_PAUSE_DATA_H", "#define MD_PAUSE_DATA_H",
      "#include <stdint.h>", "typedef uint8_t uint8; typedef uint16_t uint16;",
      "#define PZ_TILE_BASE %d" % PZ_TILE_BASE, "#define PZ_TILE_COUNT %d" % len(tiles),
      "#define PZ_SPR_COUNT %d   /* spritemaps de $82:C569 */" % NSM,

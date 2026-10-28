@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MegaMetroid — pares Genesis | SNES del mismo cuadro del motor (lado_a_lado.sh, docs/49).
+"""MegaMetroid — pares Genesis | SNES del mismo cuadro del motor (lado_a_lado.sh, docs/51).
 Uso (en la carpeta de trabajo): mont.py salida.png e1 e2 ...  (e: cuadro de la consola de la Genesis)"""
 import sys
 from PIL import Image

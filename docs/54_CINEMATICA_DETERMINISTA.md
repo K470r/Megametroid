@@ -1,9 +1,9 @@
-# 50 — Cinemática de Ceres: la misma imagen en cada cuadro del motor
+# 54 — Cinemática de Ceres: la misma imagen en cada cuadro del motor
 
 La explosión de Ceres y el viaje a Zebes (cuadros del motor ~7100-9900 de la escena `ceres`, docs/41) arman cada
 imagen de la capa del modo 7 en la mitad oculta del plano A, en varios vblanks (docs/35). Antes, cuándo se cambiaba
 a la imagen nueva dependía de cuánto vblank sobraba (`m7_fits` → `vb_lines_left()`): con un solo `nop` más en el
-vblank, la regresión de Ceres pasaba de 19 a 112 cuadros distintos (docs/49, "Regresión"), y no servía para ver si un
+vblank, la regresión de Ceres pasaba de 19 a 112 cuadros distintos (docs/52, "Regresión"), y no servía para ver si un
 cambio empeoraba esa parte.
 
 ## Qué cambió (`src/platform/md_engine.c`)

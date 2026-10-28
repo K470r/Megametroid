@@ -1,4 +1,4 @@
-# 49 — El ojo (MorphBallEye) y su haz de luz: lo que estaba mal y cómo quedó
+# 52 — El ojo (MorphBallEye) y su haz de luz: lo que estaba mal y cómo quedó
 
 Salas: 9A90 (Crateria), 9E9F (la bola) y 9F64. Código: `src/platform/md_cone.c`, `tools/conv/mkzkeys.py`,
 `res/snes_ref/zdraw.log`.
@@ -92,4 +92,4 @@ en `md_cone_vblank` da 112 distintos; con relleno de código o de RAM que no se 
 docs/48 (la misma sensibilidad en la llegada a Zebes y el pozo). Hay que mirarlos lado a lado antes de aprobar
 (`UPDATE=1`, docs/41): no se aprobaron.
 
-Resuelto en docs/50: la imagen del modo 7 de cada cuadro del motor ya no depende del tiempo.
+Resuelto en docs/54: la imagen del modo 7 de cada cuadro del motor ya no depende del tiempo.

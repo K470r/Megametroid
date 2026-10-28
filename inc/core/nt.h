@@ -57,7 +57,7 @@ extern int16 nt_shake_bg1x, nt_shake_bg1y, nt_shake_bg2x, nt_shake_bg2y;
 extern uint16 nt_fade_count;
 
 /* código y datos agregados después de aprobar la regresión de imagen: al final de la parte fija de la ROM (md_ssf2.ld),
-   así no corren las direcciones de lo que ya estaba (docs/49) */
+   así no corren las direcciones de lo que ya estaba (docs/53) */
 #ifdef NT_SSF2
 #define NT_LATE __attribute__((section(".late_text"), noinline))
 #define NT_LATE_DATA __attribute__((section(".late_rodata")))

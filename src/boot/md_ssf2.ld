@@ -88,7 +88,7 @@ SECTIONS
        0x380000, así la ventana 7 del mapeador SSF2 se puede cambiar de página fuera del título. */
     /* MegaMetroid: lo que se agregó después de aprobar la regresión de imagen (docs/41) al final de lo común, para no
        correr las direcciones de lo demás (los tiempos de la intro y de Ceres dependen de dónde caen los datos que se
-       copian por DMA): la pausa (docs/49) */
+       copian por DMA): la pausa (docs/53) */
     . = ALIGN(0x4);
     *pause.o(.text .text.* .rodata .rodata.*)
     *md_pause_data.o(.text .text.* .rodata .rodata.*)

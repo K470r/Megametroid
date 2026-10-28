@@ -567,6 +567,24 @@ def read_music(path):
     return out
 
 
+def write_sample(path, x, loopidx, secs=2.0):
+    """la muestra del SNES sola (--analizar): a su altura natural (32 kHz, pitch $1000), con su lazo hasta `secs`"""
+    import wave
+    x = np.asarray(x, dtype=np.int16)
+    n = int(32000 * secs)
+    if loopidx is not None and loopidx < len(x):
+        y = list(x)
+        while len(y) < n:
+            y += list(x[loopidx:])
+        x = np.array(y[:n], dtype=np.int16)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(32000)
+        w.writeframes(x.astype("<i2").tobytes())
+
+
 def run_track(spc, song, track, frames, ram_path=None):
     ram = f"ram {ram_path}\n" if ram_path else ""
     a, st, _ = spc.run(f"f 1\nup {song}\n{ram}f 2\np 0 {track}\nf {frames + 2}\n", want_states=True)
@@ -624,6 +642,7 @@ def main():
                 h = brr.harmonics(x, l, ins.f0, 8) if ins.f0 else []
                 print(f"# {song:#04x} {s:2d}: {ins.kind:5s} f0={ins.f0 and round(ins.f0, 1)} notas={int(m.sum())} "
                       f"voces={sorted(set(np.nonzero(m)[1].tolist()))} armónicas={np.round(h, 2).tolist()}")
+                write_sample(work / "muestras" / f"{song:02X}_{s}.wav", x, l)
         vg = convert_track(st, instrs, loop, end, MIX)
         vgm = snd / f"{name}.vgm"
         vgm.write_bytes(vg.bytes())

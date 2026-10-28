@@ -176,9 +176,11 @@ Zebes 68 / 86 / 48 (70 / 110 / 69).
 ## Ajustar los instrumentos a oído con Furnace
 
 1. Elegir el instrumento: `python3 tools/snd/mksnd.py sm/sm.smc res/gen/md work/snd --analizar` lista cada muestra
-   (`# CONJ SRCN: tipo f0=... notas=... voces=[...] armónicas=[...]`) y la pista donde suena.
-2. En Furnace, un instrumento **FM (OPN)** (YM2612): armarlo escuchando el original (el audio del SNES:
-   `tools/snd/snesref.py`). Guardarlo con "Save instrument" (.fui, el formato nuevo o el viejo).
+   (`# CONJ SRCN: tipo f0=... notas=... voces=[...] armónicas=[...]`) y la pista donde suena, y guarda cada muestra
+   del SNES sola en `work/snd/muestras/CONJ_SRCN.wav` (en hexadecimal sin `0x`: `03_25.wav`): 2 s a su altura
+   natural, con su lazo. Es lo que hay que imitar.
+2. En Furnace, un instrumento **FM (OPN)** (YM2612): armarlo escuchando el original (esa muestra, o la pista entera
+   del SNES: `tools/snd/snesref.py`). Guardarlo con "Save instrument" (.fui, el formato nuevo o el viejo).
 3. `python3 tools/snd/fui2parche.py coro.fui 0x36 24 --escribir` escribe en `tools/snd/instrumentos.txt` la línea
    `0x36 24 tipo=fm parche=...` (reemplaza la de ese conjunto y muestra, o la agrega). Se le pueden sumar claves
    (`oct=-1 vol=-3`). Avisa lo que la tabla no usa: operadores apagados (van con TL 127), AM, SSG-EG, LFO.

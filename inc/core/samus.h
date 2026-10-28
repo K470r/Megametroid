@@ -75,6 +75,9 @@ void SamusFunc_F433(void);
 void Samus_SetAnimationFrameIfPoseChanged(void);
 void HandleJumpTransition(void);
 void Samus_LoadSuitPalette(void);
+void WriteBeamPalette_A(uint16 a);
+void Samus_Copy10PalColors(uint16 v0);
+void Samus_Copy6PalColors(uint16 j);
 void Samus_Initialize(void);                   /* $91:E00D */
 void Samus_LoadSuitTargetPalette(void);
 void CopyToSamusSuitPalette(uint16 k);

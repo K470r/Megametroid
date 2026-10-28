@@ -246,7 +246,21 @@ static uint8 Samus_HandleSpeedBoosterAnimDelay(const uint8 *jp) {  // 0x90852C
     samus_anim_frame_timer = samus_anim_frame_buffer + bank91_ptr(kDefaultAnimFramePtr)[0];
     return 0;
   }
-  nt_unimpl("Samus_HandleSpeedBoosterAnimDelay (speed booster)");
+  if ((uint8)--speed_boost_counter)
+    return jp[0];
+  uint16 v2 = speed_boost_counter;
+  if (!(speed_boost_counter & 0x400)) {
+    v2 = speed_boost_counter + 256;
+    speed_boost_counter = v2;
+    if (v2 & 0x400) {                            /* velocidad máxima: ecos y sonido */
+      samus_echoes_sound_flag = 1;
+      QueueSfx3_Max6(3);
+    }
+  }
+  int v3 = HI8(v2);
+  speed_boost_counter = kSpeedBoostToCtr[v3] | (speed_boost_counter & 0xFF00);
+  samus_anim_frame = 0;
+  samus_anim_frame_timer = samus_anim_frame_buffer + bank91_ptr(kSpeedBoostToAnimFramePtr[v3])[0];
   return 0;
 }
 
@@ -759,8 +773,19 @@ void Samus_HandleExtraRunspeedX(void) {  // 0x90973E
   }
   if (samus_movement_type != 1 || !(button_config_run_b & joypad1_lastkeys))
     goto no_run;
-  if (equipped_items & 0x2000) {
-    nt_unimpl("Samus_HandleExtraRunspeedX (speed booster)");
+  if (equipped_items & 0x2000) {                 /* speed booster */
+    if (!samus_has_momentum_flag) {
+      samus_has_momentum_flag = 1;
+      special_samus_palette_timer = 1;
+      special_samus_palette_frame = 0;
+      speed_boost_counter = kSpeedBoostToCtr[0];
+    }
+    if ((int16)(samus_x_extra_run_speed - kSamus_HandleExtraRunspeedX_Tab2) >= 0
+        && (int16)(samus_x_extra_run_subspeed - kSamus_HandleExtraRunspeedX_Tab3) >= 0) {
+      samus_x_extra_run_speed = kSamus_HandleExtraRunspeedX_Tab2;
+      samus_x_extra_run_subspeed = kSamus_HandleExtraRunspeedX_Tab3;
+      goto done;
+    }
   } else {
     if (!samus_has_momentum_flag) {
       samus_has_momentum_flag = 1;
@@ -1056,8 +1081,16 @@ static void Samus_Movement_03_SpinJumping(void) {  // 0x90A436
       r18 = 1;
   }
   if (!r18) {
-    if (equipped_items & 0x200)
-      nt_unimpl("Samus_Movement_03_SpinJumping (space jump)");
+    if ((equipped_items & 0x200) && samus_y_dir == 2) {   /* space jump: se puede volver a saltar al caer */
+      /* la palabra en samus_y_subspeed + 1: byte bajo de la velocidad y alto de la subvelocidad */
+      uint16 v = (uint16)(samus_y_speed << 8 | samus_y_subspeed >> 8);
+      uint16 vmin = liquid_physics_type ? 0x80 : 0x280;   // kSamusPhys_JumpMinYVelWater / Air
+      if (!sign16(v - vmin) && sign16(v - 0x500)) {        // kSamusPhys_JumpMaxYVelWater / Air
+        UNUSED_word_7E0DFA = UNUSED_word_7E0DFA & 0xFF00 | 1;
+        if (button_config_jump_a & joypad1_newkeys)
+          Samus_InitJump();
+      }
+    }
     if (samus_pose == kPose_81_FaceR_Screwattack || samus_pose == kPose_82_FaceL_Screwattack)
       samus_contact_damage_index = 3;
     else if (!sign16(flare_counter - 60))

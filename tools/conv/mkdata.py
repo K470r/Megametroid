@@ -168,19 +168,11 @@ H.append(f'static inline const uint16 *bank9B_ptr(uint16 a) {{ return kBank9B_Pa
 arr('uint16', 'word_9BA3C0', words(0x9BA3C0, 6), fmt='0x{:X}')
 # los punteros de color de carga de rayo (por pose de Samus, en el banco $91): palabra en $91
 arr('uint16', 'kTanTable', words(0x91C9D4, 128), fmt='0x{:X}')   # tangentes ($91:C9D4): conos de los rayos X y del ojo
-H.append('uint16 bank91_word(uint16 a);')
-pal91 = {}
-for base in (0x91D7D5, 0x91D7FF):
-    for t in words(base, 3):
-        for k in range(0, 12, 2):
-            pal91[t + k] = w16(0x910000 | (t + k))
-C.append('uint16 bank91_word(uint16 a) {')
-C.append('  switch (a) {')
-for a in sorted(pal91):
-    C.append(f'  case 0x{a:X}: return 0x{pal91[a]:X};')
-C.append('  default: return 0;')
-C.append('  }')
-C.append('}')
+# paletas especiales de Samus ($91:D727-DCB4: punteros de carga, tornillo, speed booster, shinespark, destello de
+# cristal; bank91_word lee una palabra de ahí, byte bajo primero, como RomPtr_91 en el decomp)
+blob('kBank91_Pals', 0x91, 0xD727, 0xDCB4)
+H.append('static inline uint16 bank91_word(uint16 a) { const uint8 *p = kBank91_Pals + (uint16)(a - 0xD727); '
+         'uint16 lo = p[0]; __asm__("" : "+d"(lo)); return lo | p[1] << 8; }')
 
 # tiles de Samus por cuadro de animación ($92:D94E): registros de 4 bytes (top_idx, top_pos, bottom_idx, bottom_pos)
 adp = words(0x92D94E, NUM_POSES)

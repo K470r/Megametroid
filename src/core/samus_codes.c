@@ -135,7 +135,7 @@ NT_LATE static void SamusFunc_E633(void) {  // 0x91E633
     if (samus_has_momentum_flag && !speed_boost_counter) {
       special_samus_palette_timer = speed_boost_counter;
       special_samus_palette_frame = 0;
-      speed_boost_counter = bank91_word(0xB61F);   /* kSpeedBoostToCtr[0] */
+      speed_boost_counter = kSpeedBoostToCtr[0];
     }
   } else {
     speed_echoes_index = 0;

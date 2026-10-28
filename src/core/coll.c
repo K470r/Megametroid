@@ -893,6 +893,59 @@ uint8 BlockCollSpreadBomb(uint16 k) {  // 0x94A621
   return rv;
 }
 
+static void BlockFunc_A0F4(uint16 a, uint16 r22, uint16 r24, uint16 r26, uint16 r28) {  // 0x94A0F4: una fila
+  uint16 v3 = 2 * (Mult8x8((uint8)a, room_width_in_blocks) + HI8(a));
+  int16 v4 = r24 - r22;
+  CollInfo ci = { .ci_r24 = r24, .ci_r26 = r26, .ci_r28 = r28 };
+  do {
+    BlockBombedReact(&ci, v3);
+    v3 += 2;
+  } while (--v4 >= 0);
+}
+
+static void BlockFunc_A11A(uint16 a, uint16 r24, uint16 r26, uint16 r28) {  // 0x94A11A: una columna
+  uint16 v3 = 2 * (Mult8x8((uint8)a, room_width_in_blocks) + HI8(a));
+  int16 v4 = r28 - r26;
+  CollInfo ci = { .ci_r24 = r24, .ci_r26 = r26, .ci_r28 = r28 };
+  do {
+    BlockBombedReact(&ci, v3);
+    v3 += room_width_in_blocks * 2;
+  } while (--v4 >= 0);
+}
+
+static void BlockFunc_A06A(uint16 k) {  // 0x94A06A: el borde del rectángulo de la explosión de la bomba de poder
+  int v1 = k >> 1;
+  int16 v2 = projectile_variables[v1];
+  if (v2) {
+    if (v2 < 0)
+      projectile_variables[v1] = 0;
+    return;
+  }
+  uint16 r18 = HI8(power_bomb_explosion_radius);
+  uint16 r20 = (uint16)(3 * HI8(power_bomb_explosion_radius)) >> 2;
+  int16 v3 = power_bomb_explosion_x_pos - HI8(power_bomb_explosion_radius);
+  if (v3 < 0)
+    v3 = 0;
+  uint16 r22 = (uint16)v3 >> 4;
+  uint16 v4 = (uint16)(r18 + power_bomb_explosion_x_pos) >> 4;
+  if (v4 >= room_width_in_blocks)
+    v4 = room_width_in_blocks - 1;
+  uint16 r24 = v4;
+  uint16 v5 = power_bomb_explosion_y_pos - r20;
+  if ((int16)v5 < 0)
+    v5 = 0;
+  uint16 r26 = v5 >> 4;
+  uint16 v6 = (uint16)(r20 + power_bomb_explosion_y_pos) >> 4;
+  if (v6 >= room_height_in_blocks)
+    v6 = room_height_in_blocks - 1;
+  uint16 r28 = v6;
+  uint16 a = r26 | (r22 << 8);
+  BlockFunc_A0F4(a, r22, r24, r26, r28);
+  BlockFunc_A11A(a, r24, r26, r28);
+  BlockFunc_A0F4(r28 | (r22 << 8), r22, r24, r26, r28);
+  BlockFunc_A11A(r26 | (r24 << 8), r24, r26, r28);
+}
+
 void BombOrPowerBomb_Func1(uint16 v0) {  // 0x949CAC
   uint16 temp_collision_DD2 = BlockFunc_9C73(v0);
   int v1 = v0 >> 1;
@@ -910,7 +963,7 @@ void BombOrPowerBomb_Func1(uint16 v0) {  // 0x949CAC
           if (temp_collision_DD2 == 2)
             BlockColl_BombExplosion(&ci, v0);
           else
-            nt_unimpl("BlockFunc_A06A (bomba de poder contra bloques)");
+            BlockFunc_A06A(v0);
         }
       }
     }

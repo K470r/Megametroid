@@ -386,8 +386,34 @@ static uint8 HudSelectionHandler_MorphBall_Helper(void) {  // 0x90C0AB
 void HudSelectionHandler_MorphBall(void) {  // 0x90BF9D
   if (button_config_shoot_x & joypad1_lastkeys) {
     if (hud_item_index == 3) {
-      if (!(power_bomb_flag & 0x8000) && (HudSelectionHandler_MorphBall_Helper2() & 1) && samus_power_bombs)
-        nt_unimpl("HudSelectionHandler_MorphBall (bomba de poder)");
+      if (!(power_bomb_flag & 0x8000) && (HudSelectionHandler_MorphBall_Helper2() & 1) && samus_power_bombs
+          && !(--samus_power_bombs & 0x8000)) {
+        power_bomb_flag = -1;
+        uint16 v2 = 10;
+        while (projectile_type[v2 >> 1]) {
+          v2 += 2;
+          if ((int16)(v2 - 20) >= 0) {
+            v2 -= 2;
+            break;
+          }
+        }
+        int v4 = v2 >> 1;
+        uint16 v5 = (uint16)(hud_item_index << 8 | hud_item_index >> 8) | projectile_type[v4];   /* swap16 */
+        projectile_type[v4] = v5;
+        projectile_dir[v4] = 0;
+        projectile_x_pos[v4] = samus_x_pos;
+        projectile_y_pos[v4] = samus_y_pos;
+        projectile_variables[v4] = 60;
+        InitializeInstrForMissile(v2);
+        projectile_bomb_pre_instructions[v4] = FUNC16(ProjPreInstr_PowerBomb);
+        cooldown_timer = kNonBeamProjectileCooldowns[HI8(v5) & 0xF];
+        if (samus_auto_cancel_hud_item_index) {
+          hud_item_index = 0;
+          samus_auto_cancel_hud_item_index = 0;
+        } else if (hud_item_index == 3 && !samus_power_bombs) {
+          hud_item_index = 0;
+        }
+      }
     } else if (HudSelectionHandler_MorphBall_Helper() & 1) {
       uint16 v0 = 10;
       while (projectile_type[v0 >> 1]) {
@@ -1881,6 +1907,37 @@ static void ProjPreInstr_EndOfSpazerSba(uint16 k) {  // 0x90DC9C
   }
 }
 
+void SpawnPowerBombExplosion(void);                        /* hdmaobj.c */
+void EnableHdmaObjects(void);
+
+static void ProjPreInstr_PowerBomb(uint16 k) {  // 0x90B0AE
+  if (projectile_dir[k >> 1] & 0xF0) {
+    ClearProjectile(k);
+    return;
+  }
+  /* PowerBomb_Func3 ($90:C157): la cuenta hasta la explosión */
+  uint16 v0 = projectile_index;
+  int v1 = projectile_index >> 1;
+  uint16 v2 = projectile_variables[v1];
+  if (v2) {
+    uint16 v3 = v2 - 1;
+    projectile_variables[v1] = v3;
+    if (v3) {
+      if (v3 == 15)
+        projectile_bomb_instruction_ptr[v1] += 28;
+    } else {
+      power_bomb_explosion_x_pos = projectile_x_pos[v1];
+      power_bomb_explosion_y_pos = projectile_y_pos[v1];
+      EnableHdmaObjects();
+      SpawnPowerBombExplosion();
+      projectile_variables[v0 >> 1] = -1;
+    }
+  } else if (!power_bomb_flag) {
+    ClearProjectile(projectile_index);
+  }
+  BombOrPowerBomb_Func1(k);
+}
+
 static void CallProjPreInstr(uint16 f, uint16 k) {
   switch (f) {
   case FUNC16(ProjPreInstr_Empty): return;
@@ -1890,6 +1947,7 @@ static void CallProjPreInstr(uint16 f, uint16 k) {
   case FUNC16(ProjPreInstr_Func1): ProjPreInstr_Func1(k); return;
   case FUNC16(ProjPreInstr_Bomb): ProjPreInstr_Bomb(k); return;
   case FUNC16(ProjPreInstr_SpreadBomb): ProjPreInstr_SpreadBomb(k); return;
+  case FUNC16(ProjPreInstr_PowerBomb): ProjPreInstr_PowerBomb(k); return;
   case FUNC16(ProjPreInstr_SpeedEcho): ProjPreInstr_SpeedEcho(k); return;
   case FUNC16(ProjPreInstr_WavePlasmaEtc): ProjPreInstr_WaveCommon(k, 4); return;
   case FUNC16(ProjPreInstr_BeamOrIceWave): ProjPreInstr_WaveCommon(k, 3); return;

@@ -895,6 +895,19 @@ void EprojProjCollDet(void) {  // 0xA0996C
 
 void ProcessEnemyPowerBombInteraction(void) {  // 0xA0A306
   enemy_processing_stage = 5;
-  if (HI8(power_bomb_explosion_radius))
-    nt_unimpl("ProcessEnemyPowerBombInteraction (superbomba)");
+  uint16 rx = HI8(power_bomb_explosion_radius);
+  uint16 ry = (rx + (rx >> 1)) >> 1;
+  for (int i = 0x7c0; rx && i >= 0; i -= 0x40) {
+    EnemyData *E = gEnemyData(i);
+    if (E->invincibility_timer || !E->enemy_ptr || E->enemy_ptr == 0xDAFF)
+      continue;
+    const EnemyDefN *ED = enemy_def(E->enemy_ptr);
+    if ((kBankB4B[(uint16)((ED->vulnerability_ptr ? ED->vulnerability_ptr : 0xEC1C) + 15 - 0x8000)] & 0x7F) == 0)   /* ->power_bomb ($B4) */
+      continue;
+    if (abs16(power_bomb_explosion_x_pos - E->x_pos) < rx && abs16(power_bomb_explosion_y_pos - E->y_pos) < ry) {
+      cur_enemy_index = i;
+      CallEnemyAi(E->bank, ED->powerbomb_reaction ? ED->powerbomb_reaction : 0x8037);   // Enemy_NormalPowerBombAI_XX
+      E->properties |= 0x800;
+    }
+  }
 }

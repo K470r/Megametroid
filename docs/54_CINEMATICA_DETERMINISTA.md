@@ -110,3 +110,9 @@ tests/regress/regress.sh intro ceres zebes` (docs/41). Contra la referencia apro
 - intro: 41 distintos, todos en el vuelo (7738-7802): tamaños de la nave en otro cuadro.
 - ceres y zebes: 232 distintos. 5118-5126 es el degradado al empezar la pelea con Ridley; 7105-7950 son la alarma de
   la huida (ahora en todos los cuadros); desde 8186, la cinemática.
+
+## Después (docs/55)
+
+La huida de Ridley (`ga_*`) también quedó determinista con el mismo método (presupuesto por cuadro del motor), y
+`regress.sh` cuenta aparte el borde derecho del círculo (cuadros 8620-8705): con sonido el Z80 le roba ciclos al 68000
+y esa parte ya no puede coincidir cuadro a cuadro.

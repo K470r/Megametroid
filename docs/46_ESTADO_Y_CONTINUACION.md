@@ -146,7 +146,8 @@ Reglas de Edwin (no negociables):
    de partidas y los ganchos de pausa de Kraid/Draygon/Mother Brain.)
 5. **Sonido** (docs/55, rama `intro-audio`): XGM2 con la música y los efectos de la intro a la llegada a Zebes; en Zebes
    solo Samus y puertas. Falta: ajustar la tabla de instrumentos a oído, la música del resto (ventana 6), los efectos
-   de los enemigos (ej.: el ojo pide el efecto 0x17 de la biblioteca 2) y aprobar la regresión (docs/55).
+   de los enemigos (ej.: el ojo pide el efecto 0x17 de la biblioteca 2). Regresión: 0 distintos (huida determinista;
+   el borde del círculo se cuenta aparte, docs/55).
 6. **Música en CD (Mega CD, modo 1)**: al encender se busca el BIOS del Mega CD; si está, se carga un programa en
    su procesador que revisa el disco; con el disco de MegaMetroid la música sale del CD, si no (sin Mega CD o disco
    no válido) suena la del cartucho. Protocolo: MSU-MD salvo que aparezca algo mejor. Detalle y condiciones (música

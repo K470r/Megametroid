@@ -120,29 +120,39 @@ El vblank pierde menos que antes porque ya no espera el bus del Z80.
 ### Regresión de imagen
 
     intro: 8453 cuadros comparados, 0 distintos
-    ceres: 10638 cuadros comparados, 50 distintos en 5126-5128, 8629-8699
-    zebes: 11099 cuadros comparados, 48 distintos en 5126-5128, 8628-8699
+    ceres: 10677 cuadros comparados, 0 distintos
+    zebes: 11145 cuadros comparados, 0 distintos
 
-**No da 0 en Ceres y Zebes**, y no es un error del sonido sino dos partes que dependen del tiempo:
+Con el sonido, el Z80 lee la ROM por el bus del 68000 y le roba ciclos: dos partes de Ceres que dependían de cuánto
+tardaba el 68000 dejaron de coincidir con la referencia (50 y 48 cuadros). Lo que se hizo (decidido por Edwin):
 
-1. **8628-8701: el borde derecho del círculo de la explosión** (docs/54, "lo que todavía cambia con el tiempo"). La
-   interrupción horizontal escribe el scroll de cada línea; según qué instrucción corre el 68000 la escritura llega
-   antes o después de que se dibuje la línea, y el ancho de esa línea sale con el de la vecina. Comparadas las
-   imágenes con las de `main` (mismo cuadro del motor), solo cambian los escalones del borde derecho. Con `main` sin
-   sonido y 7 o 50 `nop` en el vblank pasa lo mismo (11 y 21 cuadros en 8655-8701). Con música el Z80 le roba ciclos
-   al 68000 en cada lectura de la ROM, así que esta parte ya no puede coincidir cuadro a cuadro con una referencia
-   grabada sin sonido.
-   Se probó esperar el borrado horizontal en la interrupción (en todas las líneas o solo en las del borde): no lo
-   vuelve determinista y cuesta cuadros (44-144 que no se ven); se dejó como estaba.
-2. **5126-5128: la huida de Ridley** (el modo 7 del SNES, `ga_*` en `md_engine.c`). Carga los tiles del cuadro con
-   lo que sobra del vblank y cambia cuando están todos; con el Z80 leyendo la ROM la carga termina un cuadro más
-   tarde y durante 3 cuadros se ve la imagen anterior (desde el 5129 es igual a la referencia). Es lo mismo que
-   docs/54 resolvió para el modo 7 y la nave con un presupuesto fijo por cuadro del motor; a la huida todavía no se
-   le hizo.
+1. **La huida de Ridley, determinista** (`ga_post` / `ga_vblank` en `md_engine.c`, como el modo 7 y la nave de
+   docs/54). Antes cargaba los tiles de cada cuadro con lo que sobraba del vblank y cambiaba las celdas cuando
+   estaban y cabían: con el Z80 sonando terminaba un cuadro más tarde (5126-5128). Ahora lo decide la lógica en
+   `md_post`: los tiles cuestan 16 palabras cada uno y cada cuadro del motor después del pedido cuenta `GA_STEP` =
+   1920 (los 120 tiles que entraban en un vblank); sin tiles, el cambio va en el mismo cuadro. Las filas del cambio
+   van enteras si caben en un vblank (`GA_FULL_VBLANK`) o de a partes fijas por cuadro del motor. Los tiles se siguen
+   cargando con lo que sobra del vblank (van a la mitad que no se ve); si al cambiar faltara alguno, el vblank los
+   termina (`EXPFL=-DMD_GAWAIT` cuenta esas esperas en `md_ga_wait`: 0, también con 50 y 300 `nop` en el vblank).
+   Un cuadro que trae filas del cambio solo se toma con el vblank empezado si quedan las líneas que piden
+   (`ga_job_lines` en `md_publish`).
+   Con sonido, mudo (`MD_SND_MUTE`) y con 50 `nop` la huida sale igual cuadro a cuadro. Contra la referencia vieja
+   cambió solo el 5127: el cuadro en que Ridley se va salía con los colores de Ridley en la línea 1 (rayas rojas en
+   las paredes durante un cuadro); ahora la paleta cambia en el mismo cuadro que las celdas. Edwin aprobó la
+   referencia nueva (`UPDATE=1 ... ceres zebes`).
+2. **El borde derecho del círculo de la explosión** (8628-8701, docs/54): la interrupción horizontal escribe el scroll
+   de cada línea y, según qué instrucción corre el 68000, llega antes o después del dibujo de la línea; el ancho de esa
+   línea sale con el de la vecina. Comparadas con `main` en el mismo cuadro del motor, solo cambian los escalones del
+   borde derecho; `main` sin sonido con 7 o 50 `nop` en el vblank también cambia ahí (11 y 21 cuadros). Se probó
+   esperar el borrado horizontal en la interrupción (en todas las líneas o solo en las del borde): no lo vuelve
+   determinista (Genesis Plus GX dibuja la línea entera de una vez) y cuesta 44-144 cuadros. Arreglarlo de raíz sería
+   dibujar el círculo con tiles armados en cada cuadro (como el haz del ojo, sin interrupción por línea), pero en los
+   polos el borde cambia mucho en 8 líneas: más de 100 tiles por cuadro en el vblank más cargado. Por ahora
+   `regress.sh` cuenta los cuadros 8620-8705 de ceres y zebes aparte ("N en el borde del círculo de la explosión
+   (no falla)"); fuera de esa ventana todo sigue contando.
 
-Para que Edwin decida: aprobar las imágenes nuevas (`UPDATE=1 sh tests/regress/regress.sh ceres zebes`, después de
-mirarlas lado a lado) o primero hacer determinista la huida (como docs/54) y contar el borde del círculo como
-corrimiento.
+Cuadros perdidos con todo esto (misma medida de arriba): intro 42 (referencia 42); Ceres 68 / 84 / 18 (70 / 110 / 30);
+Zebes 68 / 86 / 48 (70 / 110 / 69).
 
 ## Herramientas
 
@@ -155,6 +165,8 @@ corrimiento.
 | `tools/snd/snesref.py sm.smc registro.txt salida.wav [desde hasta]` | el audio del SNES de referencia |
 | `MM_SNDLOG=archivo host/check ...` | los pedidos al SPC por cuadro |
 | `RR_WAV=archivo.wav tools/bin/retrorun ...` | graba lo que suena en la Genesis |
+| `EXPFL=-DMD_GAWAIT` | cuenta en `md_ga_wait` los cambios de la huida que tuvieron que terminar de cargar tiles |
+| `EXPFL=-DGA_STEP=n` | presupuesto de la huida por cuadro del motor (1920) |
 | `MM_MUS_DB`, `MM_SFX_GAIN` | (entorno de `mksnd.py`) volumen de la música FM y de los efectos |
 
 ## Lo que falta

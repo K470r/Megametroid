@@ -562,6 +562,7 @@ void md_vint(void) {
 #endif
 /* (fuera de las interrupciones) el cuadro está listo: lo toma el próximo vblank. Si el vblank ya empezó sin cuadro
    (el anterior tardó) y todavía queda lo que necesita (md_vb_need), se escribe ya */
+static int16 ga_job_lines;      /* huida: líneas de vblank que pide su cambio en este cuadro (ga_post) */
 void md_publish(void) {
   spr_out = spr; nspr_out = nspr; ncone_out = ncone;
   spr = spr == spr_bank[0] ? spr_bank[1] : spr_bank[0];
@@ -572,7 +573,7 @@ void md_publish(void) {
   md_pub = 1;
   uint16 vc = VDP_VCOUNT >> 8;
   if ((*(volatile uint16 *)0xC00004 & 8) && vc >= 0xE0 && vc <= LATE_MAX && vtimer != md_vb_tick &&
-      vb_lines_left() >= md_vb_need)
+      vb_lines_left() >= md_vb_need + ga_job_lines)
     md_vblank_run(1);                           /* (y si este vblank todavía no tomó un cuadro y alcanza) */
   __asm__ volatile("move.w %0,%%sr" : : "d"(sr) : "memory");
 }
@@ -1260,17 +1261,36 @@ void RidleyQueueTiles(uint16 src1, uint16 src2, uint16 dst1, uint16 dst2, uint16
 /* ------------------------------------------------------------------ huida de Ridley (modo 7 en el SNES)
  * Cada cuadro ya está armado en el PC (mkgetaway.py): paleta de la línea 1, tiles y el rectángulo de celdas del
  * plano B. La Genesis carga los tiles del cuadro pedido en la mitad libre de la zona de tiles de Ridley (doble búfer,
- * hasta GA_BUDGET tiles por vblank) y, cuando están todos, cambia las celdas y la paleta de una vez. */
+ * hasta GA_BUDGET tiles por vblank, con lo que sobra del vblank: no se ven) y después cambia las celdas y la paleta.
+ * Cuándo se cambia y qué filas van en cada cuadro lo decide la lógica (ga_post), no lo que sobra del vblank: los
+ * tiles de cada cuadro de la huida cuestan 16 palabras cada uno y cada cuadro del motor después del pedido cuenta
+ * GA_STEP (los GA_BUDGET tiles que entraban en un vblank); sin tiles, se cambia en el mismo cuadro. Las filas de un
+ * cambio grande van de a GA_FULL_VBLANK líneas por cuadro del motor. Así la imagen de cada cuadro del motor es
+ * siempre la misma (como el modo 7 y la nave, docs/54; docs/55: con sonido el Z80 le roba ciclos al 68000 y la carga
+ * terminaba un cuadro antes o después). */
 #define GA_BUDGET 120
 #define GA_WORDS_LINE 70                        /* DMA en el vblank (H32): 167 bytes por línea, con margen */
 #define GA_ROW_COST 12                          /* lo que cuesta armar la DMA de cada fila, en palabras */
 #define GA_FULL_VBLANK 26                       /* líneas para la huida en un vblank sin retraso */
+#ifndef GA_STEP
+#define GA_STEP 1920                            /* presupuesto de cada cuadro del motor, en palabras (GA_BUDGET tiles) */
+#endif
 static const uint16 ga_budget = GA_BUDGET;
 static int16 ga_want = -1, ga_shown = -1, ga_loading = -1;
 static uint8 ga_called;
-static int16 ga_want_l;                          /* el cuadro que pidió la lógica (md_post lo pasa a ga_want) */                          /* el motor pidió un cuadro de la huida en este cuadro */
+static int16 ga_want_l;                          /* el cuadro que pidió la lógica (md_post lo pasa a ga_want) */
 static uint16 ga_done;
 static uint8 ga_reg, ga_shown_reg;
+/* lo que decide la lógica (ga_post) para el vblank de este cuadro del motor */
+static int16 ga_sched = -1;                      /* el cuadro que se prepara (sus tiles se cargan) */
+static uint8 ga_sched_reg;                       /* en qué mitad de la zona de tiles */
+static uint16 ga_left;                           /* presupuesto que le falta */
+static int16 ga_sw = -1;                         /* el cuadro que se está cambiando (filas) */
+static int16 ga_job_y0, ga_job_y1;               /* filas de este cuadro del motor ([y0, y1); y0 == y1: ninguna) */
+static uint8 ga_job_last;                        /* con estas filas termina el cambio (paleta) */
+#ifdef MD_GAWAIT
+volatile uint16 md_ga_wait;                      /* (medición) cambios que tuvieron que terminar de cargar tiles */
+#endif
 
 void RidleyGetawayMode7Queue(uint16 list) { (void)list; }   /* el aleteo ya está en los cuadros preparados */
 void RidleyGetawayFrame(void) {
@@ -1420,75 +1440,88 @@ static int16 vb_lines_left(void) {
 }
 int16 md_vb_lines_left(void) { return vb_lines_left(); }   /* md_cone.c */
 
-#ifdef MD_LAGLOG
-volatile uint16 md_ga_log[4][128]; volatile uint16 md_ga_n, md_ga_cost, md_ga_words, md_ga_ndma;
-static void ga_vblank_(void);
-static void ga_vblank(void) {
-  uint16 a = VDP_VCOUNT >> 8, l = vb_lines_left(); uint16 st = ga_loading, d = ga_done; md_ga_cost = 0; md_ga_words = 0;
-  ga_vblank_();
-  uint16 b = VDP_VCOUNT >> 8;
-  if (md_frame_count >= 5000 && md_frame_count < 5128) { uint16 i = md_ga_n++ & 127; md_ga_log[0][i] = a << 8 | b; md_ga_log[1][i] = md_frame_count; md_ga_log[2][i] = ga_loading == -1 ? 0x8000 | md_ga_cost : (ga_done - d); md_ga_log[3][i] = md_ga_words; }
+/* rectángulo de celdas que cambia y cuántas filas entran en un cuadro del motor */
+static uint16 ga_per_row(const GetawayFrame *F) { return ga_uw + GA_ROW_COST + (F->w ? 2 * GA_ROW_COST : 0); }
+/* (lógica, md_post) qué hace el vblank de este cuadro con la huida */
+static void ga_post(void) {
+  ga_job_y0 = ga_job_y1 = 0;
+  ga_job_last = 0;
+  ga_job_lines = 0;
+  uint8 fresh = 0;
+  if (ga_sw < 0 && ga_sched < 0 && ga_want >= 0 && ga_want != ga_shown) {   /* el siguiente: el que pide el motor */
+    ga_sched = ga_want;
+    ga_sched_reg = ga_shown >= 0 ? ga_shown_reg ^ 1 : 0;
+    ga_left = kGetaway[ga_sched].ntiles * 16;
+    fresh = 1;
+  }
+  if (ga_sw < 0 && ga_sched >= 0) {               /* preparando: el presupuesto (desde el cuadro siguiente; sin tiles, ya) */
+    if (!fresh) ga_left = ga_left > GA_STEP ? ga_left - GA_STEP : 0;
+    if (!ga_left) {                               /* empieza el cambio de celdas (en el vblank de este cuadro) */
+      const GetawayFrame *P = ga_shown >= 0 && kGetaway[ga_shown].w ? &kGetaway[ga_shown] : 0;
+      ga_union(P, &kGetaway[ga_sched]);
+      ga_sw = ga_sched;
+      ga_sy = ga_uy0;
+      ga_sy1 = ga_uy0 + ga_uh;
+    }
+  }
+  if (ga_sw < 0) return;
+  const GetawayFrame *F = &kGetaway[ga_sw];       /* filas de este cuadro */
+  /* entero si cabe en un vblank (las filas más la paleta, como antes); si no, por partes de arriba abajo */
+  uint16 cost = ga_uh * (ga_uw + GA_ROW_COST) + (F->w ? F->h * 2 * GA_ROW_COST : 0);
+  uint16 k = cost <= GA_FULL_VBLANK * GA_WORDS_LINE ? ga_sy1 - ga_sy : (GA_FULL_VBLANK * GA_WORDS_LINE) / ga_per_row(F);
+  if (!k) k = 1;
+  if (k > (uint16)(ga_sy1 - ga_sy)) k = ga_sy1 - ga_sy;
+  ga_job_y0 = ga_sy;
+  ga_job_y1 = ga_sy + k;
+  ga_job_lines = (int16)((k * ga_per_row(F)) / GA_WORDS_LINE) + 1;
+  ga_sy += k;
+  if (ga_sy >= ga_sy1) {                          /* termina en este cuadro: se ve el nuevo */
+    ga_job_last = 1;
+    ga_shown = ga_sw;
+    ga_shown_reg = ga_sched_reg;
+    ga_sw = ga_sched = -1;
+    ga_sy = -1;
+  }
 }
-static void ga_vblank_(void) {
-#else
+
+/* (vblank) los tiles del cuadro que se prepara con lo que sobra; las filas que decidió ga_post */
 static void ga_vblank(void) {
-#endif
-  if (ga_want >= 0 && ga_loading < 0 && ga_want != ga_shown) {
-    ga_loading = ga_want;
+  int16 t = ga_job_last ? ga_shown : ga_sched;    /* (al terminar, ga_post ya lo pasó a ga_shown) */
+  if (t >= 0 && t != ga_loading) {                /* otro cuadro: sus tiles desde el principio */
+    ga_loading = t;
     ga_done = 0;
-    ga_reg = ga_shown >= 0 ? ga_shown_reg ^ 1 : 0;
+    ga_reg = ga_job_last ? ga_shown_reg : ga_sched_reg;
   }
   if (ga_loading < 0) return;
   const GetawayFrame *F = &kGetaway[ga_loading];
-  int16 left = vb_lines_left() - 12;              /* líneas de vblank que quedan (12 para el resto del vblank) */
+  uint8 sw = ga_job_y1 > ga_job_y0;
   uint16 n = F->ntiles - ga_done;
   if (n) {
-    int16 b = (left * GA_WORDS_LINE) >> 4;        /* tiles de 16 palabras */
-    if (b <= 0) return;
-    if (n > (uint16)b) n = b;
-    if (n > ga_budget) n = ga_budget;
-    uint8 lp = md_cur_page;
-    map_page_ext(CINE_PAGE_kGetawayTiles);
-    vdp_dma_vram(kGetawayTiles + F->toff + ga_done * 32, (GETAWAY_TILE0 + ga_reg * GETAWAY_REGION + ga_done) * 32, n * 16);
-    map_page_ext(lp);
-    ga_done += n;
-    return;                                       /* el cambio de celdas, en un vblank propio */
-  }
-  /* cambio de celdas: el rectángulo U = el anterior P más el nuevo F se reescribe entero: las celdas de F (con el
-     plano B original donde no está Ridley) y el plano B de la sala en el resto de U. Entero en este vblank si cabe; si
-     no cabe ni en un vblank entero (los últimos cuadros, Ridley de cerca), por partes de arriba abajo, y la paleta
-     al final. */
-  const GetawayFrame *P = ga_shown >= 0 && kGetaway[ga_shown].w ? &kGetaway[ga_shown] : 0;
-  int16 budget = left * GA_WORDS_LINE;
-  if (ga_sy < 0) {
-    ga_union(P, F);
-    uint16 cost = ga_uh * (ga_uw + GA_ROW_COST) + (F->w ? F->h * 2 * GA_ROW_COST : 0);
-#ifdef MD_LAGLOG
-    md_ga_cost = cost;
+    int16 b = ((vb_lines_left() - 12) * GA_WORDS_LINE) >> 4;   /* tiles de 16 palabras: lo que sobra del vblank */
+    if (sw) {                                     /* hay que cambiar ya: todos (no debería pasar) */
+      b = n;
+#ifdef MD_GAWAIT
+      md_ga_wait++;
 #endif
-    if ((int16)cost > budget && cost <= GA_FULL_VBLANK * GA_WORDS_LINE) return;   /* en el vblank siguiente */
-    ga_sy = ga_uy0;
-    ga_sy1 = ga_uy0 + ga_uh;
+    }
+    if (b > 0) {
+      if (n > (uint16)b) n = b;
+      if (!sw && n > ga_budget) n = ga_budget;
+      uint8 lp = md_cur_page;
+      map_page_ext(CINE_PAGE_kGetawayTiles);
+      vdp_dma_vram(kGetawayTiles + F->toff + ga_done * 32, (GETAWAY_TILE0 + ga_reg * GETAWAY_REGION + ga_done) * 32, n * 16);
+      map_page_ext(lp);
+      ga_done += n;
+    }
   }
-  {
-    uint16 per = ga_uw + GA_ROW_COST + (F->w ? 2 * GA_ROW_COST : 0);
-    uint16 k = ga_sy1 - ga_sy;
-    if (budget < (int16)(k * per)) { k = budget > 0 ? (uint16)budget / per : 0; if (!k) return; }
-    ga_union_rows(F, ga_sy, ga_sy + k);
-#ifdef MD_LAGLOG
-    md_ga_words = ga_uw | (k << 8) | (F->w ? 0x8000 : 0);
-#endif
-    ga_sy += k;
-    if (ga_sy < ga_sy1) return;                   /* sigue en el vblank siguiente */
-  }
-  ga_sy = -1;
+  if (!sw) return;
+  ga_union_rows(F, ga_job_y0, ga_job_y1);         /* (ga_union: el rectángulo que dejó ga_post) */
+  if (!ga_job_last) return;
   if (F->w) {
     VDP_CTRL32 = VDP_CMD_CRAM_W(34);
     for (uint16 c = 0; c < 15; c++) { cram[17 + c] = F->pal[c]; VDP_DATA = F->pal[c]; }
   }
   if (!F->w) flash_shown = 0xFF;                  /* sin Ridley: la línea 1 vuelve a sus colores (md_frame) */
-  ga_shown = ga_loading;
-  ga_shown_reg = ga_reg;
   ga_loading = -1;
 }
 
@@ -1545,6 +1578,9 @@ static void md_use_room(const MdRoom *R) {
   arm_src_shown = 0xFFFF;                      /* los tiles de la sala pueden pisar el del cañón */
   ga_want = ga_want_l = ga_shown = ga_loading = -1;
   ga_sy = -1;
+  ga_sched = ga_sw = -1;
+  ga_job_y0 = ga_job_y1 = 0;
+  ga_job_last = 0;
 }
 
 
@@ -2141,6 +2177,7 @@ void md_post(void) {
      (vacío): su cambio repone el plano B de la sala */
   if (!ga_called && ga_shown >= 0 && kGetaway[ga_shown].w) ga_want = GETAWAY_FRAMES - 1;
   ga_called = 0;
+  ga_post();
   md_frame_count++;
   /* tiles de Samus (NMI: NmiTransferSamusToVram) */
   if (nmi_copy_samus_halves & 0xFF) {

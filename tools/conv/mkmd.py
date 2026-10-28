@@ -326,8 +326,8 @@ def msgbox_words(rom):
 def zebes_proj_keys(rom):
     """proyectiles de Samus que no son el rayo, desde la ROM: (spritemaps de $93, tiles de las estelas).
     - $93:83F1 (cada entrada: daño + listas por dirección): misiles (1) y bombas (5; HudSelectionHandler_MorphBall
-      usa la primera lista, InitializeInstrForMissile); los supermisiles (2), las bombas de poder (3) y los rayos
-      cargados se agregan cuando se porten (docs/46)
+      usa la primera lista, InitializeInstrForMissile; las bombas en abanico, BombSpread, también); los supermisiles
+      (2) y el rayo cargado normal ($93:83D9, índice 0); las bombas de poder (3) se agregan cuando se porten (docs/46)
     - explosiones: la del misil, KillProjectileInner ($93:80CF) toma la lista de $93:867F ($A039); la de la bomba,
       InitializeBombExplosion ($93:814E): $93:8683 ($A06B); la del rayo ($A007) va con el rayo; la del supermisil
       ($93:8693), con él
@@ -339,7 +339,9 @@ def zebes_proj_keys(rom):
     # (índice, listas): los misiles tienen una por dirección (InitializeProjectile: 10); la bomba una sola
     # supermisiles (2): su lista por dirección ($93:83F1) y la del acompañante de Missile_Func2
     # (InitializeInstrForSuperMissile $93:8071, kRunInstrForSuperMissile $93:842B: una sola lista)
-    for tab, idx in ((0x83F1, ((1, 10), (2, 10), (5, 1))), (0x842B, ((2, 1),))):
+    # rayo cargado (FireChargedBeam $90:B986, kProjectileData_ChargedBeams $93:83D9): por ahora solo el del rayo
+    # normal (índice 0; onda, hielo, spazer y plasma se agregan cuando se porten)
+    for tab, idx in ((0x83F1, ((1, 10), (2, 10), (5, 1))), (0x842B, ((2, 1),)), (0x83D9, ((0, 10),))):
         for i, ndir in idx:
             v3 = rom.w(0x930000 | (tab + 2 * i))
             if v3 < 0x8000:
@@ -350,6 +352,9 @@ def zebes_proj_keys(rom):
                     sms |= {sm for sm in proj_list_sms(rom, ip) if sm_ok(sm)}
     for ip in (rom.w(0x93867F), rom.w(0x938683), rom.w(0x938693)):   # + explosión del supermisil ($93:80CF)
         sms |= {sm for sm in proj_list_sms(rom, ip) if sm_ok(sm)}
+    # destello de la carga (DrawFlareAnimationComponent $90:BBE1 -> DrawBeamGrappleSpritemap $81:8A37): los 54
+    # spritemaps de g_off_93A1A1 (destello 0-29, chispas lentas 30-35/42-47, rápidas 36-41/48-53)
+    sms |= {rom.w(0x93A1A1 + 2 * i) for i in range(54)}
     trail = set()
     for tab in (0x90B5BB, 0x90B609):
         for i in range(39):

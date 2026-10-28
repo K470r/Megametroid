@@ -1163,8 +1163,13 @@ void EscapeTextCell(uint16 dst, uint16 word) {
 }
 
 uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y);
+void DrawGrappleOrProjectileSpritemap(uint16 sm, uint16 x, uint16 y);
 void DrawProjectileSpritemap(uint16 k, uint16 x, uint16 y) {  // 0x818A4B
-  uint16 sm = projectile_spritemap_pointers[k >> 1];
+  DrawGrappleOrProjectileSpritemap(projectile_spritemap_pointers[k >> 1], x, y);
+}
+
+/* un spritemap de $93 (proyectiles de Samus y el destello de la carga, DrawBeamGrappleSpritemap $81:8A37) */
+void DrawGrappleOrProjectileSpritemap(uint16 sm, uint16 x, uint16 y) {  // 0x818A5F
   if (intro_on) { it_draw(INTRO_KIND_PROJ, sm, 0, (int16)x, (int16)y); return; }
   /* Zebes: misiles, bombas y explosiones con los colores de la sala (mkzobj.py: clave sm, 0, 0xC000) */
   if (md_zebes && zebes_obj_draw(sm, 0, 0xC000, (int16)x, (int16)y)) return;

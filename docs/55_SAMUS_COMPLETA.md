@@ -121,3 +121,15 @@ Genesis: `-DMD_TEST_ITEMS=0x... -DMD_TEST_BEAMS=0x... -DMD_TEST_HUD_ITEM=n`, md_
   segmentos según el ángulo; solo usan el color 15 de la paleta 5) y los sube en el vblank a 5 tiles fijos al final
   de 0xF000 (`GRAPPLE_TILE`, los del haz del ojo: en esa sala no se dibuja). El color: el lugar de la CRAM que sale de
   palette_buffer[223] o, si la sala no lo usa (9D19), el más parecido a ese color (celeste, como el SNES).
+
+### `regress.sh`
+
+intro 0 distintos. Ceres y Zebes: **10 cuadros "distintos"** (8629, 8655-8656, 8664-8665, 8669, 8684-8686, 8690,
+8700), todos en la explosión de Ceres (la nave que se va y el círculo de la explosión), los mismos desde el commit
+del gancho. La lógica no cambió (`host/check` con `ref_full.bin`, cuadros 98-12000: 0 diferencias). Comprobado con
+la ROM de `main` compilada aparte (que da los 0 distintos de la referencia): con este código cada uno de esos cuadros
+del motor se muestra 2 cuadros de consola más tarde que en `main` (el código y los datos crecen y se corren las
+direcciones de la parte fija, como en docs/48 y docs/49). Comparando la misma imagen del motor en las dos ROMs
+cambian entre 0 y 340 píxeles, todos en el borde derecho del círculo de la explosión: en `main` ese borde sale
+desgarrado (la tabla del círculo se cambia mientras se dibuja la pantalla) y aquí sale limpio, o al revés según el
+cuadro. No se aprobaron (`UPDATE=1`): lo decide Edwin.

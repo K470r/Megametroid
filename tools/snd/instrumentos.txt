@@ -1,0 +1,21 @@
+# MegaMetroid — tabla de instrumentos de la música (docs/55): cómo suena en la Genesis cada muestra BRR del SNES.
+# Es nuestra: no tiene nada de la ROM (las muestras se leen de tu ROM al compilar).
+#
+# CONJ SRCN clave=valor ...      (CONJ: conjunto de música o * para todos; SRCN: número de la muestra en la tabla DIR)
+#   tipo=auto   FM aditiva: las 4 armónicas más fuertes de la muestra, una por operador (algoritmo 7). Es lo que se
+#               usa si la muestra no está en la tabla. Sin altura clara (percusión, ruido): el ruido del PSG.
+#   tipo=fm     parche a mano: parche=alg,fb,op1,op2,op3,op4 con cada op = dt:mul:tl:ks:ar:d1r:sl:d2r:rr (en el
+#               orden de los registros del YM2612: S1, S3, S2, S4). Los portadores llevan la envolvente del SNES en
+#               el TL: conviene ar=31, d1r=0, sl=0, d2r=0, rr=15 en ellos.
+#   tipo=psg    onda cuadrada del PSG (desde 109 Hz)
+#   tipo=ruido  ruido del PSG; ruido=0..2 fija la velocidad (si no, según la altura de la nota)
+#   tipo=no     no suena
+#   oct=N       octavas de más o de menos;  f0=Hz  altura de la muestra a 32 kHz (si la medida no sirve)
+#   vol=dB      más fuerte (+) o más suave (-)
+#
+# Medido (tools/snd/mksnd.py --analizar): conjunto, muestra, altura, armónicas, dónde suena.
+
+# Ceres (la sala, pista 6): el retumbo del ambiente. La muestra tiene picos en 176-356 Hz y en 7945 Hz y el SNES la toca
+# muy despacio (pitch ~0x100-0x1D0): se oye a 20-40 Hz. La autocorrelación encuentra 4011 Hz (de la parte aguda) y
+# sonaba tres octavas arriba; con la altura del pico grave las armónicas salen de ahí.
+0x2D 24 tipo=fm f0=356

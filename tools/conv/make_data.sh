@@ -1,10 +1,10 @@
 #!/bin/sh
 # MegaMetroid — datos de la Genesis desde la ROM del SNES de cada quien (docs/32, docs/45). Lo llama `make data`.
 #   1) tablas del motor (host/build.sh -> res/gen/engine) y estado inicial (mkinit -> res/gen/md)
-#   2) gráficos, salas, intro, cinemáticas, voces, título y menú (tools/conv/*.py, tools/genesis_convert/)
+#   2) gráficos, salas, intro, cinemáticas, sonido, título y menú (tools/conv/*.py, tools/snd/, tools/genesis_convert/)
 # Todo lo que sale de aquí viene de la ROM: va en res/gen/ (fuera de git, docs/43).
 # Variables: SMROM, REF (grabación hlref de Ceres), REF_INTRO (la de la intro), SNAP (capturas del SNES: res/snes_ref),
-#            TEST_FRAMES, SKIP_FRONT=1 (no rehacer título y menú), ONLY_VOICE=1 (solo las voces, si faltan)
+#            TEST_FRAMES, SKIP_FRONT=1 (no rehacer título y menú), ONLY_SND=1 (solo el sonido, si falta)
 set -e
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 SMROM=${SMROM:-$ROOT/sm/sm.smc}
@@ -14,7 +14,7 @@ GEN_E=$ROOT/res/gen/engine
 GEN=$ROOT/res/gen/md
 CONV=$ROOT/tools/conv
 mkdir -p $GEN_E $GEN
-if [ -z "$ONLY_VOICE" ]; then
+if [ -z "$ONLY_SND" ]; then
   sh $ROOT/host/build.sh >/dev/null
   $ROOT/host/mkinit ${REF:?falta REF (grabación hlref)} 97 $GEN
   # la intro: la RAM del SNES al elegir partida nueva (cabecera de la grabación de la intro, hlref con HL_ANY desde el
@@ -30,10 +30,10 @@ if [ -z "$ONLY_VOICE" ]; then
   printf '    .section .rodata\n    .align 2\n    .global kInitBlob\nkInitBlob:\n    .incbin "init_state.bin"\n    .align 2\n    .global kInitBlobIntro\nkInitBlobIntro:\n    .incbin "init_state_intro.bin"\n' > $GEN/init_blob.s
   python3 $CONV/mk_test_input.py $REF 98 ${TEST_FRAMES:-5600} $GEN/test_input.s
 fi
-# voces de la intro (docs/40): las muestras del SPC extraídas de la ROM (data/extracted_full/audio)
-[ -f $GEN/md_voice.s ] && [ -n "$ONLY_VOICE" ] || python3 $CONV/mkvoice.py $EXT/audio $GEN
+# sonido (docs/55): música y efectos del N-SPC del decomp (sm/src/spc_player.c) con tu ROM, para el XGM2
+[ -f $GEN/md_snd_data.s ] && [ -n "$ONLY_SND" ] || python3 $ROOT/tools/snd/mksnd.py $SMROM $GEN $ROOT/work/snd
 # pantallas de antes del juego (docs/36): título (grabación del SNES: snes_ref/title.rec) y menú (snes_ref/menu_snaps)
-if [ -z "$ONLY_VOICE" ] && [ -z "$SKIP_FRONT" ]; then
+if [ -z "$ONLY_SND" ] && [ -z "$SKIP_FRONT" ]; then
   mkdir -p $GEN/front
   python3 $ROOT/tools/genesis_convert/make_title_data.py $SMROM $EXT $SNAP/title.rec $GEN/front --proj $GEN >/dev/null
   python3 $ROOT/tools/genesis_convert/make_menu_data.py $SMROM $EXT $SNAP/menu_snaps $GEN/front --proj $GEN >/dev/null

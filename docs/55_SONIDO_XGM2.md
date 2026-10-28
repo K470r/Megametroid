@@ -165,9 +165,36 @@ Zebes 68 / 86 / 48 (70 / 110 / 69).
 | `tools/snd/snesref.py sm.smc registro.txt salida.wav [desde hasta]` | el audio del SNES de referencia |
 | `MM_SNDLOG=archivo host/check ...` | los pedidos al SPC por cuadro |
 | `RR_WAV=archivo.wav tools/bin/retrorun ...` | graba lo que suena en la Genesis |
+| `tools/snd/fui2parche.py instrumento.fui [CONJ SRCN] [--escribir] [--envolvente-snes]` | un instrumento FM de Furnace (.fui) a una línea de `instrumentos.txt` |
+| `make snd` | rehace solo el sonido (`mksnd.py`) y la ROM (~1 min) |
 | `EXPFL=-DMD_GAWAIT` | cuenta en `md_ga_wait` los cambios de la huida que tuvieron que terminar de cargar tiles |
 | `EXPFL=-DGA_STEP=n` | presupuesto de la huida por cuadro del motor (1920) |
 | `MM_MUS_DB`, `MM_SFX_GAIN` | (entorno de `mksnd.py`) volumen de la música FM y de los efectos |
+
+## Ajustar los instrumentos a oído con Furnace
+
+1. Elegir el instrumento: `python3 tools/snd/mksnd.py sm/sm.smc res/gen/md work/snd --analizar` lista cada muestra
+   (`# CONJ SRCN: tipo f0=... notas=... voces=[...] armónicas=[...]`) y la pista donde suena.
+2. En Furnace, un instrumento **FM (OPN)** (YM2612): armarlo escuchando el original (el audio del SNES:
+   `tools/snd/snesref.py`). Guardarlo con "Save instrument" (.fui, el formato nuevo o el viejo).
+3. `python3 tools/snd/fui2parche.py coro.fui 0x36 24 --escribir` escribe en `tools/snd/instrumentos.txt` la línea
+   `0x36 24 tipo=fm parche=...` (reemplaza la de ese conjunto y muestra, o la agrega). Se le pueden sumar claves
+   (`oct=-1 vol=-3`). Avisa lo que la tabla no usa: operadores apagados (van con TL 127), AM, SSG-EG, LFO.
+4. `make snd` y escuchar `out/rom.bin`.
+
+Detalles:
+- Furnace guarda los operadores en el mismo orden que la tabla (los registros: S1, S3, S2, S4) y el detune de 0 a 7
+  con el centro en 3: `fui2parche.py` lo pasa al registro con la tabla de Furnace (`dtTable`, 7 6 5 0 1 2 3 4).
+- La envolvente: el SNES manda el volumen de cada nota y `mksnd.py` lo pone en el TL de los **portadores**. La
+  envolvente propia de un portador (ar, d1r, sl, d2r, rr) se suma a esa: si se quiere solo la del SNES, con
+  `--envolvente-snes` los portadores van con ar=31 d1r=0 sl=0 d2r=0 rr=15. Los **moduladores** llevan su TL y su
+  envolvente tal cual (son el timbre).
+- Arreglado al hacer esto: al cambiar de parche, `mksnd.py` ponía TL=127 en los cuatro operadores y después solo
+  subía el de los portadores, así que en un parche con algoritmo 0-6 los moduladores quedaban mudos (no se notaba:
+  los instrumentos automáticos son de algoritmo 7, todos portadores). Ahora el 127 va solo en los portadores. Con la
+  tabla de hoy el sonido es el mismo byte a byte; con un parche de algoritmo 0 los moduladores llevan su TL.
+- `ONLY_SND=1 sh tools/conv/make_data.sh` solo hace el sonido si falta (lo usa el `Makefile`): para rehacerlo después
+  de cambiar la tabla, `make snd`.
 
 ## Lo que falta
 

@@ -218,6 +218,19 @@ static void DisplayViewablePartOfRoom(void) {  // 0x80A176 (las columnas visible
   }
 }
 
+void LoadRoomPlmGfx(void);   /* plm.c */
+NT_LATE void ResumeGameplay(void) {  // 0x80A149 (al salir de la pausa)
+  DisableNMI();
+  DisableIrqInterrupts();
+  LoadCRETilesTilesetTilesAndPalette();
+  /* LoadLibraryBackground y los tiles y mapas de la sala en la VRAM: la Genesis (g_hooks.room_gfx) */
+  if (g_hooks.room_gfx) g_hooks.room_gfx();
+  DisplayViewablePartOfRoom();
+  LoadRoomPlmGfx();
+  EnableNMI();
+  EnableIrqInterrupts();
+}
+
 static void UpdateMusicTrackIndex(void) {  // 0x82E09B
   if (game_state < 40 && room_music_track_index) {
     uint16 r18 = room_music_data_index << 8 | room_music_track_index;

@@ -25,6 +25,13 @@ Empezar por [46 — Estado y cómo continuar](46_ESTADO_Y_CONTINUACION.md).
 | 45 | Compilación reproducible desde la ROM de cada quien |
 | 46 | Estado del proyecto y cómo continuar |
 | 47 | Estructura del proyecto (SGDK), `Makefile`, recursos propios y privados |
+| 48 | Tamaño de la ROM (depósito de tiles, lo que sigue), Mega CD, traducción |
+| 49 | Rayo cargado, destello de la carga y bombas en abanico |
+| 50 | Spore Spawn: velocidad (error del traductor con `jp[n]`), pelea comprobada contra el SNES |
+| 51 | Dibujo del Bomb Torizo: colores de jefes (línea 1), claves de PLMs, comparación lado a lado con el SNES |
+| 52 | El ojo (MorphBallEye) y su haz: claves del ojo, tiles del haz en dos bancos, métodos evaluados |
+| 53 | Estación de mapa, pausa, mapa y pantalla de equipo (motor y Genesis) |
+| 54 | Cinemática de Ceres: la misma imagen del modo 7 en cada cuadro del motor (presupuesto fijo) |
 
 Los documentos 01-25 (análisis y prototipos anteriores al motor nativo) quedaron en la carpeta de trabajo, fuera del
 repositorio.

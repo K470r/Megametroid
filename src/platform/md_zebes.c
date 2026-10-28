@@ -189,7 +189,11 @@ const MdRoom *zebes_use(void) {
   zroom.room = room_ptr;
   zroom.state = roomdefroomstate_ptr;
   zroom.plane_w = 64; zroom.plane_h = 64;
-  zroom.planeA = 0; zroom.planeB = 0; zroom.b_mode = 0;
+  zroom.planeA = 0; zroom.planeB = 0;
+  /* fondo de biblioteca (64x32 celdas en el plano B, como el BG2 del SNES): b_mode 1, el plano B se mueve con los
+     registros del SNES (BG2HOFS = bg2_x_scroll + layer2_x_pos, door.c); p. ej. 9804, la sala del Bomb Torizo, con
+     bg2_x_scroll = 256 */
+  zroom.b_mode = !zg->l2 && !zg->sky && zg->bg2 ? 1 : 0;
   zroom.patch = 0; zroom.npatch = 0; zroom.wall = 0; zroom.door_sm = 0; zroom.flash_line = 0;
   memcpy(zsrc, base->src, 64);
   uint8 lp = md_cur_page;
@@ -198,15 +202,57 @@ const MdRoom *zebes_use(void) {
     zsrc[i] = i < (uint16)zg->npal * 16 ? (uint8)zg->src[i] : 0xFF;
   memset(meta_idx, 0, META_IDX_BYTES);
   for (uint16 i = 0; i < zg->nmeta; i++) meta_idx[zg->ids[i] & 0x3FF] = i + 1;
+  if (zo && zg->npal == 1) {                 /* jefe de colores propios (mkzobj.BOSS_LINE): la línea 1 es de los objetos */
+    map_page(zo->page);
+    for (uint16 i = 1; i < 16; i++) {
+      uint16 s = zo->src[14 + i];
+      zsrc[16 + i] = s == 0xFFFF ? 0xFF : (uint8)s;
+    }
+  }
   map_page(lp);
   zsrc[0] = 0;                               /* color de fondo: palette_buffer[0] */
   zroom.src = zsrc;
+  /* lista del fundido (NT_FADE_LIST, AdvancePaletteFadeForAllPalettes): la de la sala base (Samus, HUD, rayo) más
+     los colores de esta sala y de sus objetos (el despertar del Bomb Torizo es un fundido de sus paletas) */
+  {
+    static uint8 zfade[256];
+    uint8 seen[32];
+    uint16 n = 0;
+    memset(seen, 0, sizeof seen);
+    #define ZFADE_ADD(c) do { uint8 c_ = (c); if (!(seen[c_ >> 3] & (1 << (c_ & 7)))) { seen[c_ >> 3] |= 1 << (c_ & 7); zfade[n++] = c_; } } while (0)
+    for (uint16 i = 0; i < base->nfade; i++) ZFADE_ADD(base->fade[i]);
+    for (uint16 i = 1; i < 64; i++) if (zsrc[i] != 0xFF) ZFADE_ADD(zsrc[i]);
+    if (zo) {
+      map_page(zo->page);
+      for (uint16 i = 0; i < 30; i++) if (zo->src[i] != 0xFFFF) ZFADE_ADD((uint8)zo->src[i]);
+      map_page(lp);
+    }
+    #undef ZFADE_ADD
+    zroom.fade = zfade; zroom.nfade = n;
+  }
   md_zebes = 1;
   drawn[0] = drawn[1] = 0;
   ncol = nrow = nblk = nsky = 0;
   nanim = nlanim = nlblk = lfull = 0;
   full_redraw = 0;
   return &zroom;
+}
+
+/* tiles de la sala o de sus objetos: los tramos (en la página rp) dicen qué tiles del depósito común (kZebesPool,
+   mkzebes.py) van, en orden, desde el tile vt de la VRAM */
+static void zebes_dma_runs(uint8 rp, const uint16 *r, uint16 nr, uint16 vt) {
+  for (; nr; nr--, r += 2) {
+    map_page(rp);
+    uint16 j = r[0], n = r[1];
+    while (n) {
+      uint16 o = j & (ZEBES_POOL_CHUNK - 1), k = ZEBES_POOL_CHUNK - o;
+      const ZebesPool *pc = &kZebesPool[j / ZEBES_POOL_CHUNK];
+      if (k > n) k = n;
+      map_page(pc->page);
+      vdp_dma_vram(pc->tiles + (uint32)o * 32, vt * 32, k * 16);
+      vt += k; j += k; n -= k;
+    }
+  }
 }
 
 /* (pantalla apagada) tiles de la sala, los de los objetos de la sala base y los planos */
@@ -217,12 +263,8 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
     vdp_dma_vram(base->tiles + base->bg_tiles * 32, (BG_BASE + base->bg_tiles) * 32,
                  (base->tiles_total - base->bg_tiles) * 16);
   uint8 lp = md_cur_page;
-  map_page(zg->page);
-  vdp_dma_vram(zg->tiles, ZT_BASE * 32, zg->ntiles * 16);
-  if (zo) {
-    map_page(zo->page);
-    vdp_dma_vram(zo->tiles, zo->base * 32, zo->ntiles * 16);
-  }
+  zebes_dma_runs(zg->page, zg->runs, zg->nruns, ZT_BASE);
+  if (zo) zebes_dma_runs(zo->page, zo->runs, zo->nruns, zo->base);
   map_page(lp);
   vdp_fill_vram(MD_VRAM_PLANE_A, 0, 0x1000);
   vdp_fill_vram(MD_VRAM_PLANE_B, 0, 0x1000);
@@ -473,6 +515,7 @@ const uint16 *zebes_obj_find(uint16 sm, uint16 pal, uint16 tiles) {
 
 /* proyectiles enemigos de Zebes (md_engine.c): la página de los objetos puesta mientras se dibujan */
 uint8 zebes_obj_page(void) { return zo ? zo->page : 0xFF; }
+uint16 zebes_obj_end(void) { return zo ? zo->base + zo->ntiles : ZOBJ_BASE; }   /* md_cone.c: tiles libres hasta 1279 */
 
 /* claves ya buscadas (por dispersión del spritemap): casi siempre el mismo enemigo con el mismo cuadro */
 static struct { uint16 sm, pal, tiles; const uint16 *rec; const void *zo; } zcache[64];

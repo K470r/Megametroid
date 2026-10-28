@@ -54,9 +54,14 @@ static const char *kNotCompared[] = {
   /* las interrupciones del motor no son las del SNES (IRQ de la PPU) */
   "reg_NMITIMEN",
   /* 7E:9800: tabla HDMA de ventana (rayos X, etc.; el SNES también la usa en Ceres); el motor solo la limpia */
-  "hdma_table_1", 0
+  "hdma_table_1",
+  /* cola de escrituras a la VRAM: el motor no la usa (la Genesis dibuja de otra forma); el SNES la deja llena en los
+     cuadros sin NMI con actualización (caja de mensaje) */
+  "vram_write_queue_tail", 0
 };
 static int not_compared(const char *n) {
+  /* en la pausa (estados 13-17) el scroll del BG1 es el del mapa: lo arma el motor y se compara */
+  if (game_state >= 13 && game_state <= 17 && (!strcmp(n, "reg_BG1HOFS") || !strcmp(n, "reg_BG1VOFS"))) return 0;
   for (int i = 0; kNotCompared[i]; i++) if (!strcmp(kNotCompared[i], n)) return 1;
   return 0;
 }
@@ -188,10 +193,10 @@ int main(int argc, char **argv) {
     for (; t && nwarp < 64; t = strtok(0, ",")) { warp_n[nwarp] = atol(t); warp_door[nwarp] = strtoul(strchr(t, ':') + 1, 0, 16); nwarp++; }
   }
   /* HL_SETXY="n:x:y,...": como hlref, Samus a (x, y) antes del cuadro grabado n */
-  static long sxy_n[32]; static int sxy_x[32], sxy_y[32]; int nsxy = 0, isxy = 0;
+  static long sxy_n[256]; static int sxy_x[256], sxy_y[256]; int nsxy = 0, isxy = 0;
   if (getenv("HL_SETXY")) {
     char *ss = strdup(getenv("HL_SETXY")), *t = strtok(ss, ",");
-    for (; t && nsxy < 32; t = strtok(0, ",")) { sscanf(t, "%ld:%d:%d", &sxy_n[nsxy], &sxy_x[nsxy], &sxy_y[nsxy]); nsxy++; }
+    for (; t && nsxy < 256; t = strtok(0, ",")) { sscanf(t, "%ld:%d:%d", &sxy_n[nsxy], &sxy_x[nsxy], &sxy_y[nsxy]); nsxy++; }
   }
   for (long f = from + 1; f <= to; f++) {
     cur_frame = f;

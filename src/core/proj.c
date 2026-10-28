@@ -83,6 +83,9 @@ static uint8 Samus_CanFireBeam(void) {  // 0x90AC39
   return 1;
 }
 
+static void FireChargedBeam(void);
+static uint8 FireSba(void);
+
 static void HudSelectionHandler_NothingOrPowerBombs(void) {  // 0x90B80D
   prev_beam_charge_counter = flare_counter;
   if (hyper_beam_flag || !(equipped_beams & 0x1000)) {
@@ -90,7 +93,66 @@ static void HudSelectionHandler_NothingOrPowerBombs(void) {  // 0x90B80D
       FireUnchargedBeam();
     return;
   }
-  nt_unimpl("HudSelectionHandler_NothingOrPowerBombs (rayo cargado)");
+  if (new_projectile_direction_changed_pose) {
+    if (sign16(flare_counter - 60))
+      goto fire_uncharged;
+    goto fire_charged;
+  }
+  if (!(button_config_shoot_x & joypad1_lastkeys)) {
+    if (!flare_counter)
+      return;
+    if (sign16(flare_counter - 60))
+      goto fire_uncharged;
+    goto fire_charged;
+  }
+  if (sign16(flare_counter - 120)) {
+    if (++flare_counter == 1) {
+      ClearFlareAnimationState();
+      FireUnchargedBeam();
+    }
+  } else if (FireSba() & 1) {
+    flare_counter = 0;
+    ClearFlareAnimationState();
+    Samus_LoadSuitPalette();
+  }
+  return;
+fire_uncharged:                                            /* LABEL_14 */
+  flare_counter = 0;
+  ClearFlareAnimationState();
+  FireUnchargedBeam();
+  return;
+fire_charged:                                              /* LABEL_15 */
+  flare_counter = 0;
+  ClearFlareAnimationState();
+  FireChargedBeam();
+}
+
+/* Ataques especiales (rayo cargado + bomba de poder elegida). Con el rayo solo (sin onda, hielo,
+   spazer ni plasma) no hacen nada (FireSba_ClearCarry). */
+static uint8 FireSba(void) {  // 0x90CCC0
+  static const uint16 kCostOfSbaInPowerBombs[12] = {  // 0x90CC21
+    0, 1, 1, 0, 1, 0, 0, 0,
+    1, 0, 0, 0,
+  };
+  if (hud_item_index != 3)
+    return 0;
+  uint16 v1 = 2 * (equipped_beams & 0xF);
+  int16 v2 = samus_power_bombs - kCostOfSbaInPowerBombs[v1 >> 1];
+  if (v2 < 0)
+    v2 = 0;
+  samus_power_bombs = v2;
+  uint8 rv = 0;                                            /* kFireSbaFuncs: FireSba_ClearCarry ($90:CD18) */
+  switch (v1 >> 1) {
+  case 1: nt_unimpl("FireSba_FireWave"); break;
+  case 2: nt_unimpl("FireSba_FireIce"); break;
+  case 4: nt_unimpl("FireSba_FireSpazer"); break;
+  case 8: nt_unimpl("FireSba_FirePlasma"); break;
+  }
+  if (!samus_power_bombs) {
+    hud_item_index = 0;
+    samus_auto_cancel_hud_item_index = 0;
+  }
+  return rv;
 }
 
 static void HudSelectionHandler_MissilesOrSuperMissiles(void);
@@ -152,7 +214,43 @@ static uint8 HudSelectionHandler_MorphBall_Helper2(void) {  // 0x90C0E7
 
 static void InitializeInstrForMissile(uint16 v0);
 static void ProjPreInstr_Bomb(uint16 k);
+static void ProjPreInstr_SpreadBomb(uint16 k);
 static const uint8 kNonBeamProjectileCooldowns[9];
+
+/* bombas en abanico: la bola con el rayo cargado ($90:D849) */
+static const uint16 kBombSpread_Tab0[5] = { 0x78, 0x6e, 0x64, 0x6e, 0x78 };
+static const uint16 kBombSpread_Tab1[5] = { 0x8100, 0x8080, 0, 0x80, 0x100 };
+static const uint16 kBombSpread_Tab2[5] = { 0, 1, 2, 1, 0 };
+static const uint16 kBombSpread_Tab3[5] = { 0, 0, 0x8000, 0, 0 };
+
+static void BombSpread(void) {  // 0x90D849
+  if (bomb_functions[0] != FUNC16(ProjPreInstr_SpreadBomb)) {
+    uint16 v0 = 10;
+    do {
+      int v1 = v0 >> 1;
+      projectile_type[v1] = 0x8500;
+      projectile_dir[v1] = 0;
+      projectile_bomb_pre_instructions[v1] = FUNC16(ProjPreInstr_SpreadBomb);
+      InitializeInstrForMissile(v0);
+      projectile_x_pos[v1] = samus_x_pos;
+      projectile_bomb_x_subpos[v1] = 0;
+      projectile_y_pos[v1] = samus_y_pos;
+      projectile_bomb_y_subpos[v1] = 0;
+      int v2 = (uint16)(v0 - 10) >> 1;
+      projectile_bomb_x_speed[v1] = kBombSpread_Tab1[v2];
+      projectile_timers[v1] = kBombSpread_Tab3[v2];
+      uint16 v3 = -(int16)(kBombSpread_Tab2[v2] + ((bomb_spread_charge_timeout_counter >> 6) & 3));
+      projectile_bomb_y_speed[v1] = v3;
+      projectile_unk_A[v1] = v3;
+      projectile_variables[v1] = kBombSpread_Tab0[v2];
+      v0 += 2;
+    } while ((int16)(v0 - 20) < 0);
+    bomb_counter = 5;
+    cooldown_timer = kNonBeamProjectileCooldowns[HI8(projectile_type[5]) & 0xF];
+    bomb_spread_charge_timeout_counter = 0;
+    flare_counter = 0;
+  }
+}
 
 static uint8 HudSelectionHandler_MorphBall_Helper(void) {  // 0x90C0AB
   if (equipped_items & 0x1000) {
@@ -161,7 +259,7 @@ static uint8 HudSelectionHandler_MorphBall_Helper(void) {  // 0x90C0AB
     if ((joypad1_lastkeys & kButton_Down) && sign16((bomb_spread_charge_timeout_counter & 0xC0) - 192)) {
       ++bomb_spread_charge_timeout_counter;
     } else {
-      nt_unimpl("BombSpread (bombas con el rayo cargado)");    /* $90:D849: hace falta el rayo cargado */
+      BombSpread();
       Samus_LoadSuitPalette();
       QueueSfx1_Max9(2);
     }
@@ -301,12 +399,108 @@ void Samus_ArmCannon_Draw(void) {  // 0x90C663
     DrawArmCannon(-1, -1, attr, src);                     /* fuera de pantalla: el tile igual se copia */
 }
 
+/* destello de la carga: tres partes (el destello, las chispas lentas y las rápidas), cada una con su cuadro y su
+   tiempo; en la RAM del SNES van seguidas (flare_animation_frame/timer + 0, 2, 4) */
+static uint16 *const kFlareFrame[3] = { &flare_animation_frame, &flare_slow_sparks_anim_frame, &flare_fast_sparks_anim_frame };
+static uint16 *const kFlareTimer[3] = { &flare_animation_timer, &flare_slow_sparks_anim_timer, &flare_fast_sparks_anim_timer };
+
+static uint16 b93(uint16 a);
+void DrawGrappleOrProjectileSpritemap(uint16 sm, uint16 x, uint16 y);   /* capa de la Genesis: spritemap de $93 */
+
+static void DrawBeamGrappleSpritemap(uint16 a, uint16 x, uint16 y) {  // 0x818A37
+  DrawGrappleOrProjectileSpritemap(b93(0xA1A1 + 2 * a), x, y);       /* g_off_93A1A1 */
+}
+
+static void DrawFlareAnimationComponent(uint16 k) {  // 0x90BBE1
+  static const uint16 word_93A225[3] = { 0, 0x1e, 0x24 };
+  static const uint16 word_93A22B[3] = { 0, 0x2a, 0x30 };
+  static const int16 kProjectileOriginOffsets_X[13] = { 2, 18, 15, 17, 3, -4, -17, -15, -18, -2, -4, -4, -4 };
+  static const int16 kProjectileOriginOffsets_Y[13] = { -28, -19, 1, 6, 17, 17, 6, 1, -20, -28, -20, -2, 8 };
+  static const int16 kProjectileOriginOffsets2_X[10] = { 2, 19, 20, 18, 3, -4, -18, -20, -19, -2 };
+  static const int16 kProjectileOriginOffsets2_Y[10] = { -32, -22, -3, 6, 25, 25, 6, -3, -20, -32 };
+  uint16 r18 = LO8(*kFlareFrame[k >> 1]);
+  uint16 v1 = (samus_pose_x_dir == 4) ? word_93A22B[k >> 1] : word_93A225[k >> 1];
+  uint16 r22 = r18 + v1;
+  uint16 r24 = kPoseParams[samus_pose].y_offset_to_gfx;
+  uint16 v2 = kPoseParams[samus_pose].direction_shots_fired;
+  if (v2 != 255 && v2 != 16) {
+    int v4 = v2 & 0xF;
+    uint16 old_x = samus_x_pos, old_y = samus_y_pos;
+    if (ceres_status & 0x8000)
+      Mode7Rotate(&samus_x_pos, &samus_y_pos);          // Samus_CalcPos_Mode7
+    uint16 r20, v5;
+    if (samus_movement_type == 1) {
+      r20 = samus_x_pos + kProjectileOriginOffsets2_X[v4] - layer1_x_pos;
+      v5 = samus_y_pos + kProjectileOriginOffsets2_Y[v4] - r24 - layer1_y_pos;
+    } else {
+      r20 = samus_x_pos + kProjectileOriginOffsets_X[v4] - layer1_x_pos;
+      v5 = samus_y_pos + kProjectileOriginOffsets_Y[v4] - r24 - layer1_y_pos;
+    }
+    if (!(v5 & 0xFF00))
+      DrawBeamGrappleSpritemap(r22, r20, v5);
+    if (ceres_status & 0x8000)
+      samus_y_pos = old_y, samus_x_pos = old_x;
+  }
+}
+
 void HandleChargingBeamGfxAudio(void) {  // 0x90BAFC
   if (hyper_beam_flag) {
-    if (flare_counter)
-      nt_unimpl("HandleChargingBeamGfxAudio (hiperrayo)");
+    if (flare_counter) {
+      for (int i = 4; i >= 0; i -= 2) {
+        uint16 *tm = kFlareTimer[i >> 1], *fr = kFlareFrame[i >> 1];
+        bool v7 = *tm == 1;
+        bool v8 = (--*tm & 0x8000) != 0;
+        if (v7 || v8) {
+          if ((*fr)-- == 1) {
+            if (i == 4)
+              flare_counter = 0;
+          } else {
+            *tm = 3;
+          }
+        }
+        DrawFlareAnimationComponent(i);
+      }
+    }
   } else if ((int16)flare_counter > 0) {
-    nt_unimpl("HandleChargingBeamGfxAudio (carga)");
+    if (flare_counter == 1) {
+      flare_animation_frame = 0;
+      flare_slow_sparks_anim_frame = 0;
+      flare_fast_sparks_anim_frame = 0;
+      flare_animation_timer = 3;
+      flare_slow_sparks_anim_timer = 5;
+      flare_fast_sparks_anim_timer = 4;
+    }
+    if (!sign16(flare_counter - 15)) {
+      if (flare_counter == 16)
+        QueueSfx1_Max9(8);
+      uint16 v0 = 0, v9;
+      do {
+        uint16 *tm = kFlareTimer[v0 >> 1], *fr = kFlareFrame[v0 >> 1];
+        int16 v1 = *tm - 1;
+        *tm = v1;
+        if (v1 < 0) {
+          uint16 v2 = *fr + 1;
+          *fr = v2;
+          uint16 v3 = v2;
+          const uint8 *r0 = bank90_flare(bank90_flare_word(0xC481 + v0));   /* kFlareAnimDelays */
+          int16 v4 = r0[v2];
+          if (v4 == 255) {
+            *fr = 0;
+            v3 = 0;
+          } else if (v4 == 254) {
+            uint16 v5 = *fr - r0[v3 + 1];
+            *fr = v5;
+            v3 = v5;
+          }
+          *tm = r0[v3];
+        }
+        v9 = v0;
+        DrawFlareAnimationComponent(v0);
+        if (sign16(flare_counter - 30))
+          break;
+        v0 += 2;
+      } while ((int16)(v9 - 4) < 0);
+    }
   }
 }
 
@@ -449,6 +643,44 @@ static void ProjPreInstr_Bomb(uint16 k) {  // 0x90B099
   } else {
     Bomb_Func2();
     BombOrPowerBomb_Func1(k);
+  }
+}
+
+uint8 BlockCollSpreadBomb(uint16 k);                       /* coll.c */
+static void ProjPreInstr_SpreadBomb(uint16 k) {  // 0x90D8F7
+  int v1 = k >> 1;
+  if (projectile_dir[v1] & 0xF0) {
+    ClearProjectile(k);
+    return;
+  }
+  Bomb_Func2();
+  if (projectile_variables[v1]) {
+    add_hilo(&projectile_bomb_y_speed[v1], &projectile_timers[v1], IPAIR32(samus_y_accel, samus_y_subaccel));
+    add_hilo(&projectile_y_pos[v1], &projectile_bomb_y_subpos[v1], IPAIR32(projectile_bomb_y_speed[v1], projectile_timers[v1]));
+    if (BlockCollSpreadBomb(k) & 1) {
+      add_hilo(&projectile_y_pos[v1], &projectile_bomb_y_subpos[v1], -IPAIR32(projectile_bomb_y_speed[v1], projectile_timers[v1]));
+      if (projectile_bomb_y_speed[v1] & 0x8000) {
+        projectile_bomb_y_speed[v1] = 0;
+        projectile_y_radius[v1] = 0;
+      } else {
+        projectile_timers[v1] = kBombSpread_Tab3[v1 - 5];
+        projectile_bomb_y_speed[v1] = projectile_unk_A[v1];
+      }
+      return;
+    }
+    uint16 t = projectile_bomb_x_speed[v1];
+    if (t & 0x8000)
+      add_hilo(&projectile_x_pos[v1], &projectile_bomb_x_subpos[v1], -(int32)((uint32)(t & 0x7fff) << 8));
+    else
+      add_hilo(&projectile_x_pos[v1], &projectile_bomb_x_subpos[v1], (int32)((uint32)t << 8));
+  }
+  if (BlockCollSpreadBomb(k) & 1) {
+    uint16 t = projectile_bomb_x_speed[v1];
+    projectile_bomb_x_speed[v1] ^= 0x8000;
+    if (!(t & 0x8000))
+      add_hilo(&projectile_x_pos[v1], &projectile_bomb_x_subpos[v1], -(int32)((uint32)t << 8));
+    else
+      add_hilo(&projectile_x_pos[v1], &projectile_bomb_x_subpos[v1], (int32)((uint32)(t & 0x7fff) << 8));
   }
 }
 
@@ -664,9 +896,84 @@ static void FireUnchargedBeam(void) {  // 0x90B887
   }
 }
 
+static const uint16 kFireChargedBeam_Funcs[12] = {
+  FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
+  FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
+  FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
+  FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
+  FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
+  FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
+};
+
+static void FireChargedBeam(void) {  // 0x90B986
+  static const uint16 kChargedProjectile_Sfx[12] = { 0x17, 0x19, 0x18, 0x1a, 0x1b, 0x1e, 0x1c, 0x1d, 0x1f, 0x22, 0x20, 0x21 };
+  static const uint8 kProjectileCooldown_Uncharged[38] = {
+    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 12, 15, 0, 0, 0, 0,
+    30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 0, 0, 0, 0,
+     0,  0,  0,  0,  0,  0,
+  };
+  if (Samus_CanFireBeam() & 1) {
+    uint16 v0 = 0;
+    while (projectile_damage[v0 >> 1]) {
+      v0 += 2;
+      if ((int16)(v0 - 10) >= 0) {
+        v0 -= 2;
+        break;
+      }
+    }
+    uint16 r20 = v0;
+    if (!(InitProjectilePositionDirection(r20) & 1)) {
+      projectile_invincibility_timer = 10;
+      uint16 v1 = r20;
+      int v2 = r20 >> 1;
+      projectile_timers[v2] = 4;
+      uint16 v3 = (equipped_beams & 0x100F) | 0x8010;
+      projectile_type[v2] = v3;
+      QueueSfx1_Max15(kChargedProjectile_Sfx[v3 & 0xF]);
+      play_resume_charging_beam_sfx = 0;
+      InitializeProjectile(v1);
+      uint16 v5 = projectile_type[v2];
+      cooldown_timer = kProjectileCooldown_Uncharged[v5 & 0x3F];
+      projectile_bomb_x_speed[v2] = 0;
+      projectile_bomb_y_speed[v2] = 0;
+      projectile_index = v1;
+      if (v5 & 1) {
+        nt_unimpl("WaveBeam_CheckColl");
+      } else {
+        CheckBeamCollByDir(v1);
+        v1 = projectile_index;
+        if (projectile_type[projectile_index >> 1] & 0xF00) {
+          charged_shot_glow_timer = 4;                     /* LABEL_14 */
+          return;
+        }
+      }
+      r20 = v1;
+      projectile_bomb_pre_instructions[v1 >> 1] = kFireChargedBeam_Funcs[projectile_type[v1 >> 1] & 0xF];
+      SetInitialProjectileSpeed(r20);
+      charged_shot_glow_timer = 4;
+      return;
+    }
+  }
+  if (!sign16(prev_beam_charge_counter - 16)) {
+    play_resume_charging_beam_sfx = 0;
+    QueueSfx1_Max15(2);
+  }
+}
+
 /* ------------------------------------------------------------------ estelas ($90:B657, $9B:A3CC) */
 static uint16 b90t(uint16 a) { return kBank90_Trails[(uint16)(a - BANK90_TRAILS_LO) >> 1]; }
-static uint16 b9bt(uint16 a) { return kBank9B_TrailPtrs[(uint16)(a - BANK9B_TRAILPTRS_LO) >> 1]; }
+/* $9B: las tablas de punteros de las estelas. Las de primer nivel ($9B:A4B3-A56E) y las del rayo normal están en
+   kBank9B_TrailPtrs; las de los rayos cargados y demás ($9B:A58F, A98F...) caen dentro del bloque de bytes de los
+   desplazamientos (kBank9B_TrailOffsets, $9B:A56F-B3A7): se leen de ahí (byte bajo primero, como el SNES) */
+static uint16 b9bt(uint16 a) {
+  if (a < 0xA56F)
+    return kBank9B_TrailPtrs[(uint16)(a - BANK9B_TRAILPTRS_LO) >> 1];
+  if (a >= 0xB3A6) nt_unimpl("b9bt (dirección fuera de las tablas de estelas preparadas)");
+  const uint8 *p = &kBank9B_TrailOffsets[(uint16)(a - 0xA56F)];
+  uint8 hi = p[1];
+  __asm__("" : "+r"(hi));
+  return (uint16)(p[0] | hi << 8);
+}
 
 static void ProjectileTrail_Func5(uint16 k, uint16 j) {  // 0x9BA3CC
   uint16 R22 = ProjectileInsts_GetValue(k);
@@ -1051,14 +1358,6 @@ static void ProjPreInstr_SuperMissile(uint16 k) {  // 0x90AFE5
 
 /* Reflexión de misil/super misil/rayo (pirata dorado, $90:BE00) */
 void ProjectileReflection(uint16 r20) {  // 0x90BE00
-  static const uint16 kFireChargedBeam_Funcs[12] = {  // 0x90B986
-    FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
-    FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
-    FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
-    FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
-    FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
-    FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
-  };
   uint16 v0 = r20;
   int v1 = r20 >> 1;
   uint16 v2 = projectile_type[v1];
@@ -1141,6 +1440,7 @@ static void CallProjPreInstr(uint16 f, uint16 k) {
   case FUNC16(ProjPreInstr_SuperMissile): ProjPreInstr_SuperMissile(k); return;
   case FUNC16(ProjPreInstr_Func1): ProjPreInstr_Func1(k); return;
   case FUNC16(ProjPreInstr_Bomb): ProjPreInstr_Bomb(k); return;
+  case FUNC16(ProjPreInstr_SpreadBomb): ProjPreInstr_SpreadBomb(k); return;
   default: nt_unimpl_v("CallProjPreInstr (proyectil sin portar)", f); return;
   }
 }

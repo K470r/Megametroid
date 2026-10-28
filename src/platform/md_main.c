@@ -10,6 +10,7 @@
  *   3 botones:  A correr (B)  B disparar (X)  C saltar (A)
  *               START corto = elegir ítem (SELECT; dando la vuelta se llega a "nada" = cancelar),
  *               START mantenido = pausa/mapa (START); sin apuntar en diagonal quieto (sí caminando o corriendo)
+ *               en la pausa (docs/53; no hay L ni R): A = L, B = R, C = A (equipar), START = START
  * Con MD_TEST_INPUT la entrada sale de la grabación del SNES (para comparar cuadro a cuadro). */
 #include <genesis.h>
 #include "title.h"
@@ -41,12 +42,36 @@ extern const u16 kTestInputLen;
 static u16 test_pos;
 #endif
 
+extern u16 game_state;                          /* el motor (vars.c) */
 static bool six;
 #define START_HOLD 20                           /* mando de 3 botones: cuadros de START mantenido para la pausa */
 static u16 start_frames;
 
 static u16 read_joy(void) {
 #ifdef MD_TEST_INPUT
+#ifdef MD_TEST_WARP_AT
+  /* pruebas (EXPFL="-DMD_TEST_WARP_AT=n -DMD_TEST_WARP_DOOR=0x8BC2 ..."): lo mismo que HL_WARP / HL_SETXY de hlref en
+     el cuadro n de la entrada, para comparar la imagen con la del SNES cuadro a cuadro en cualquier sala */
+  { extern uint16_t game_state, door_def_ptr, door_transition_function, samus_health, samus_max_health;
+    static u8 warped;
+    if (!warped && test_pos >= MD_TEST_WARP_AT && game_state == 8) {
+      warped = 1;
+      door_def_ptr = MD_TEST_WARP_DOOR;
+      door_transition_function = 0xE17D;           /* DoorTransitionFunction_HandleElevator */
+      game_state = 9;
+      samus_health = samus_max_health;
+    }
+#ifdef MD_TEST_SETXY_AT
+    extern uint16_t samus_x_pos, samus_y_pos, samus_prev_x_pos, samus_prev_y_pos;
+    static u8 placed;
+    if (!placed && test_pos >= MD_TEST_SETXY_AT && game_state == 8) {
+      placed = 1;
+      samus_x_pos = samus_prev_x_pos = MD_TEST_SETXY_X;
+      samus_y_pos = samus_prev_y_pos = MD_TEST_SETXY_Y;
+    }
+#endif
+  }
+#endif
   if (test_pos < kTestInputLen) return kTestInput[test_pos++];
 #endif
   u16 pad = JOY_readJoypad(JOY_1);
@@ -66,6 +91,12 @@ static u16 read_joy(void) {
     if (pad & BUTTON_MODE) s |= SNES_SELECT;
     if (pad & BUTTON_START) s |= SNES_START;
     start_frames = 0;
+  } else if (game_state >= 12 && game_state <= 16) {   /* pausa: L y R para pasar del mapa al equipo */
+    if (pad & BUTTON_A) s |= SNES_L;
+    if (pad & BUTTON_B) s |= SNES_R;
+    if (pad & BUTTON_C) s |= SNES_A;
+    if (pad & BUTTON_START) s |= SNES_START;
+    start_frames = (pad & BUTTON_START) ? START_HOLD : 0;   /* (al volver al juego, START todavía apretado: nada) */
   } else {
     if (pad & BUTTON_C) s |= SNES_A;
     if (pad & BUTTON_A) s |= SNES_B;

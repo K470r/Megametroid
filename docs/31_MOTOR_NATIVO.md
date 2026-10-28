@@ -67,6 +67,7 @@ SNES después de cada cuadro y no se comparan (`kNotCompared`, `elem_skip`).
 | Puertas de Ceres (enemigo E23F) | $A6 | ceres_door.c | escrito |
 | Plataforma del ascensor (proyectiles enemigos), PLM B7EB | $86/$84 | eproj.c | escrito |
 | HUD: energía, ítems, minimapa | $80/$90 | hud.c, samus_move.c | escrito |
+| Pausa: mapa, equipo, estación de mapa (estados 12-18) | $82/$80 | pause.c, game.c, gamestart.c | escrito (docs/53) |
 | Sala de Ridley **sin Ridley**: solo la cápsula de la bebé | $A6 | ceres_ridley.c | escrito (a propósito distinto del SNES) |
 
 Datos preparados en el PC (`mkdata.py` → `gen/tables.c`): salas de Ceres (cabeceras, estados, puertas, nivel y BTS

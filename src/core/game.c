@@ -212,6 +212,17 @@ RESUME_2:
   return 0;
 }
 
+/* la pausa (estados 12-18, pause.c; docs/53): fuera del switch de RunGameState para no cambiar cómo se compila (los
+   tiempos de las escenas de Ceres dependen del ciclo exacto) */
+static uint8 RunGameState(uint16 st);
+NT_LATE static uint8 PauseGameState(uint16 st) {
+  if (st == 12 || st == 18) {                      // GameState_12_Pausing_Darkening_Async / GameState_18_Unpausing
+    if (RunGameState(8)) return 1;                 /* GameState_8_MainGameplay (así no se agrega otra llamada) */
+    return PauseFadeStates(st);
+  }
+  return PauseStates(st);                          /* 13-17 */
+}
+
 /* RunOneFrameOfGame ($82:8948) + NMI ($80:9583) + interrupciones de línea del cuadro.
  * Los estados que esperan cuadros (puertas) son corrutinas como en el decomp: coroutine_state_0 = estado + 10
  * mientras esperan, y al volver se salta el comienzo del cuadro (mando, HDMA, aleatorio). */
@@ -307,7 +318,9 @@ static uint8 RunGameState(uint16 st) {
     return 0;
   case 31: case 0xFFFF: return 0;                   /* fin de juego -> Ceres de nuevo / reinicio: lo hace la Genesis */
   case 25: case 26: return GameOverStates(st);      /* gameover.c */
-  default: nt_unimpl("game_frame (estado de juego sin portar)"); return 0;
+  default:
+    if ((uint16)(st - 12) <= 6) return PauseGameState(st);   /* 12-18: la pausa */
+    nt_unimpl("game_frame (estado de juego sin portar)"); return 0;
   }
 }
 

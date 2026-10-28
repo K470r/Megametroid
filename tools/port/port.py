@@ -304,7 +304,12 @@ def main():
             out.append('uint8 port_%s(uint32 ea%s) {  /* 0: no está traducida */' % (d, ', ' + params if params else ''))
             out.append('  %s f = port_Find%s(ea);\n  if (!f) return 0;\n  f(%s);\n  return 1;\n}\n'
                        % (ft, d, (params.split()[-1] if params else 'cur_enemy_index') if withk else ''))
-    open(OUT, 'w').write('\n'.join(out) + '\n')
+    # palette_buffer escrito a mano por el código del enemigo (Torizo_Hurt, Torizo_C2B0, Spore Spawn...): el SNES sube
+    # la paleta entera en cada NMI, la Genesis solo los colores marcados (nt_pal_dirty, nt.h)
+    text = re.sub(r'(palette_buffer\[([^\]\n]+)\] = [^;\n]+;)',
+                  lambda m: '{ %s nt_pal_dirty((uint8)(%s), (uint8)(%s)); }' % (m.group(1), m.group(2), m.group(2)),
+                  '\n'.join(out))
+    open(OUT, 'w').write(text + '\n')
     banks = sorted(x.used_banks | {(g.funcs[n][3] >> 16) for n in funcs if g.funcs[n][3]} | set(ROM_STRUCTS.values()))
     open(os.path.join(HERE, 'banks.txt'), 'w').write(' '.join('%02X' % b for b in banks) + '\n')
     h = ['/* Generado por tools/port/port.py: lectura de los bancos de la ROM (kBankXXB, gen/tables.c) */',

@@ -9,8 +9,10 @@ typedef struct {
     u16 w, h;              /* celdas */
     s16 x0, y0;            /* origen de la imagen en coordenadas pantalla + scroll del SNES */
     u16 col_major;         /* 1 = mapa por columnas (tomas con paneo horizontal) */
-    const u32 *tiles;
-    const u16 *map;        /* palabras de tilemap sin la base de tiles (0 = vacío) */
+    const u8 *tiles;       /* LZ4W en bloques independientes de 100 tiles (tile_blk: desplazamiento de cada uno) */
+    const u16 *tile_blk;
+    const u16 *map;        /* palabras de tilemap sin la base de tiles (0 = vacío); en los tamaños, LZ4W por mitad */
+    const u16 *map_blk;    /* tamaños: desplazamiento (bytes) de cada mitad comprimida; tomas: 0 (mapa sin comprimir) */
     const u8 *pal;         /* [4][16]: índice de la paleta SNES para cada color (0xFF = sin usar) */
 } TitleScene;
 

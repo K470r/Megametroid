@@ -29,6 +29,20 @@ _Static_assert(TILE_USER_INDEX == 16, "make_title_data.py (TILE_BASE) supone TIL
    la línea 0 junto con la paleta, los sprites y el scroll. make_title_data.py usa el mismo valor. */
 #define FRAME_BYTES  3200
 #define CHUNK_TILES  (FRAME_BYTES / 32)
+/* Los tiles de las escenas y los mapas de los tamaños vienen comprimidos con LZ4W (make_title_data.py: bloques de
+   FRAME_BYTES y mitades de mapa): cada paso descomprime lo que se va a transferir en este búfer y la lista de DMA
+   lo copia desde ahí en el vblank. En un cuadro va a lo sumo un bloque de tiles y una mitad de mapa. El búfer es
+   RAM del juego (enemy_ram7800, 8 KB): mientras se ve el título el juego no corre y al empezar una partida sus
+   variables se ponen como al encender (md_main.c, reset_game_vars). */
+extern u8 enemy_ram7800[];
+#define ZBUF_TILES   (enemy_ram7800)
+#define ZBUF_MAP     (enemy_ram7800 + FRAME_BYTES)
+_Static_assert(FRAME_BYTES + 14 * 64 * 2 <= 8192, "el búfer del título no entra en enemy_ram7800");
+static const u8 *unpack_tiles(const TitleScene *sc, u16 done)    /* el bloque que empieza en el tile done */
+{
+    lz4w_unpack(sc->tiles + sc->tile_blk[done / CHUNK_TILES], ZBUF_TILES);
+    return ZBUF_TILES;
+}
 #define MAP_HALF     (14 * PW)   /* medio mapa de un tamaño: 14 filas de 64 celdas (palabras) */
 
 /* Memoria de trabajo del título: se pide al montón y se libera al salir, así el juego (que
@@ -258,14 +272,16 @@ static void prep_job(u16 cur)
                 u16 n = sc->num_tiles - job.done;
                 if (n > budget / 32) n = budget / 32;
                 if (!n) return;
-                dma_add(sc->tiles + job.done * 8, (tile_base(job.scene) + job.done) * 32, n * 16, 2);
+                if (n > CHUNK_TILES) n = CHUNK_TILES;   /* (los tiles van primero en el cuadro: es un bloque entero) */
+                dma_add(unpack_tiles(sc, job.done), (tile_base(job.scene) + job.done) * 32, n * 16, 2);
                 budget -= n * 32;
                 job.done += n;
                 if (job.done >= sc->num_tiles) { job.phase = 1; job.done = 0; }
                 continue;
             }
             if (budget < MAP_HALF * 2) return;
-            dma_add(sc->map + job.done * PW, plane_addr(job.bank) + job.done * PW * 2, MAP_HALF, 2);
+            lz4w_unpack((const u8 *) sc->map + sc->map_blk[job.done / 14], ZBUF_MAP);
+            dma_add(ZBUF_MAP, plane_addr(job.bank) + job.done * PW * 2, MAP_HALF, 2);
             budget -= MAP_HALF * 2;
             job.done += 14;
             if (job.done >= 28) break;
@@ -279,7 +295,7 @@ static void prep_job(u16 cur)
     {
         u16 n = sc->num_tiles - job.done;
         if (n > CHUNK_TILES) n = CHUNK_TILES;
-        dma_add(sc->tiles + job.done * 8, (tile_base(job.scene) + job.done) * 32, n * 16, 2);
+        dma_add(unpack_tiles(sc, job.done), (tile_base(job.scene) + job.done) * 32, n * 16, 2);
         job.done += n;
         if (job.done >= sc->num_tiles) { job.phase = 1; job.done = 0; }
         return;

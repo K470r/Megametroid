@@ -32,6 +32,10 @@ no se editan; se cambia el traductor o se escribe la función a mano en otro arc
 - Bancos poco usados (81, 82, 86, 8B, 8D) están como bytes y no como palabras: la parte fija de la ROM (4 MB) no
   alcanzaba.
 
+- Argumentos de las instrucciones: `jp[n]` es la palabra n después de la instrucción → `IW_XX(jp + 2n)`, y `jp + n`
+  avanza n palabras → `jp + 2n`. Se reemplaza primero `jp + n` y después `jp[n]`; al revés, el `jp + 2n` de `jp[n]` se
+  volvía a duplicar (`jp[1]` leía `jp + 4`: Spore Spawn giraba a toda velocidad, docs/50).
+
 ## Verificación
 
 `tools/rooms/crall.sh` (ver docs/41): las 34 salas de Crateria con enemigos, grabadas en el SNES con un patrón de
@@ -48,6 +52,12 @@ La lista sale de `res/snes_ref/zdraw.log`, que junta:
   explosiones al morir (`death_anim` del enemigo: listas $86:EFD5; los tipos 3 y 4 crean objetos de sprite con
   `CreateSpriteAtPos`, listas de $B4:BDA8), el humo al recibir un disparo y lo que pueden soltar.
 - `merge.py` junta los registros (las claves de destello se quitan si son pocas).
+- (docs/51) `mkzkeys.py` también agrega los proyectiles que crean los PLMs de la sala (recorre sus listas: `plm_walk`;
+  p. ej. los trozos de la estatua del Bomb Torizo, la estación de guardado), sigue tablas de listas
+  (`BW_86(0xA7AB + 2 * i)`, `Eproj_InitXYVelRandom`) y las pre-instrucciones puestas por una lista
+  (`EprojInstr_SetPreInstr_`). Las familias que ponen `palette_index = 0` en su inicio dan proyectiles con g = 0.
+- `port.py` agrega `nt_pal_dirty` después de cada escritura a `palette_buffer` del código traducido (la Genesis solo
+  sube los colores marcados).
 
 En la Genesis, `md_missing_ring` (RAM) guarda las últimas claves que no se encontraron: el recorrido de prueba de todas
 las salas con enemigos tiene que dejarlo vacío.

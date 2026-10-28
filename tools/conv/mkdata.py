@@ -196,6 +196,11 @@ pp2 = words(0x90C7DF, NUM_POSES)
 arr('uint16', 'kPlayerPoseToPtr', pp2, fmt='0x{:X}')
 blob('kBank90_ArmCannon', 0x90, 0xC7A5, 0xCD00)
 H.append('static inline const uint8 *bank90_armcannon(uint16 a) { return kBank90_ArmCannon + (uint16)(a - 0xC7A5); }')
+# destello de la carga del rayo (HandleChargingBeamGfxAudio $90:BAFC): kFlareAnimDelays ($90:C481, 3 punteros) y sus
+# listas de tiempos (bytes; 255 vuelve al principio, 254 n retrocede n)
+blob('kBank90_Flare', 0x90, 0xC481, 0xC4B5)
+H.append('static inline const uint8 *bank90_flare(uint16 a) { return kBank90_Flare + (uint16)(a - 0xC481); }')
+H.append('static inline uint16 bank90_flare_word(uint16 a) { const uint8 *p = bank90_flare(a); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }')
 
 # pendientes (arreglos del decomp, sm_94.c)
 for name in ('kAlignYPos_Tab0', 'kTab948E54', 'kBlockColl_Horiz_Slope_NonSquare_Tab'):
@@ -415,7 +420,7 @@ arr('uint16', 'kBeamPalettes', sum((words(0x900000 | x, 16) for x in bp), []), f
 # ------------------------------------------------------------------ proyectiles (banco $93) y estelas ($90, $9B)
 # Las listas de instrucciones de proyectil empiezan en direcciones impares: se emiten como palabras desde una base
 # impar (todas las direcciones que usa el juego tienen la misma paridad; el motor lo comprueba).
-B93_LO, B93_HI = 0x83C1, 0xA201
+B93_LO, B93_HI = 0x83C1, 0xA20D   # hasta el final de g_off_93A1A1 (spritemaps del destello de la carga)
 arr('uint16', 'kBank93', words(0x930000 | B93_LO, (B93_HI - B93_LO) // 2), fmt='0x{:X}')
 H.append(f'#define BANK93_LO 0x{B93_LO:X}')
 H.append(f'#define BANK93_HI 0x{B93_HI:X}')
@@ -618,6 +623,10 @@ bankbytes('kBank87B', 0x87)   # tiles animados (listas; los tiles en sí, la Gen
 bankbytes('kBank84B', 0x84)   # PLMs (cabeceras, listas de instrucciones, tablas de bloques)
 bankbytes('kBank8FB', 0x8F)
 wordblob('kBank85_MsgBox', 0x85, 0x869B, 0x95C0)   # cajas de mensaje: MsgBoxConfig y mapas de los mensajes (msgbox.c)
+# pausa: mapas del BG2 y del equipo ($B6:E000-EFFF) y paletas ($B6:F000-F1FF), de a palabras (direcciones pares)
+arr('uint16', 'kBankB6_Pause', words(0xB6E000, 0x900), fmt='0x{:X}')
+C[:] = [l.replace('const uint16 kBankB6_Pause', 'NT_LATE_DATA const uint16 kBankB6_Pause') for l in C]   # al final de la parte fija (nt.h)
+H.append('static inline uint16 BB6W(uint16 a) { return kBankB6_Pause[(uint16)(a - 0xE000) >> 1]; }')
 wordblob('kBankA2_Gunship', 0xA2, 0xA5BE, 0xA7D8)   # nave de Samus: listas de instrucciones y tablas
 wordblob('kBank90_Atmos', 0x90, 0x8B93, 0x8C1F)     # efectos de ambiente (pisadas, polvo, burbujas)
 wordblob('kBank94_React', 0x94, 0x9100, 0xA060)     # bloques especiales: qué PLM crea cada uno

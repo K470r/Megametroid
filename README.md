@@ -10,19 +10,40 @@ falta: [docs/46](docs/46_ESTADO_Y_CONTINUACION.md). Índice de la documentación
 ## Qué hace falta
 
 - Linux (Debian/Ubuntu probado): `sudo apt install git build-essential gcc-m68k-linux-gnu python3 python3-numpy
-  python3-pil util-linux`
+  python3-pil util-linux default-jre-headless` (Java: lo usan rescomp y lz4w de SGDK)
 - Tu volcado de **Super Metroid (Japón / EE. UU.)**, 3 MB, sin cabecera de copiadora (la quita `check_rom.py`):
   SHA-1 `da957f0d63d14cb441d215462904c4fa8519c613`, MD5 `21f3e98df4780ee1c667b84e57d88675`.
 
-## Compilar
+## Compilar la ROM de la Genesis
 
-    sh tools/setup/setup_tools.sh                     # baja y compila: decomp (sm/), SGDK, Genesis Plus GX, snes9x, retrorun
-    python3 tools/check_rom.py /ruta/a/tu_volcado.smc # comprueba la ROM y la copia a sm/sm.smc
-    sh tools/inputs/make_inputs.sh                    # extrae y graba desde tu ROM lo que se necesita (~2 min, ~4 GB en work/)
-    . work/inputs/env.sh
-    make full                                         # datos (res/gen/) + ROM -> out/rom.bin
+En Linux, o en Windows con WSL (Ubuntu). La primera vez tarda unos minutos y usa ~5 GB de disco; todo queda dentro de
+la carpeta del proyecto.
 
-La ROM sale igual byte a byte que la del estado actual (ver [docs/45](docs/45_REPRODUCIBLE.md)).
+1. Instalar lo necesario (una vez): el comando de "Qué hace falta", arriba.
+2. Bajar el proyecto y entrar en la carpeta:
+
+       git clone https://github.com/K470r/Megametroid
+       cd Megametroid
+
+3. Bajar y compilar las herramientas (decomp, SGDK, emuladores):
+
+       sh tools/setup/setup_tools.sh
+
+4. Poner tu volcado de Super Metroid (lo comprueba y lo copia a `sm/sm.smc`):
+
+       python3 tools/check_rom.py /ruta/a/tu_volcado.smc
+
+5. Extraer y grabar desde tu ROM lo que se necesita (~2 min, ~4 GB en `work/`):
+
+       sh tools/inputs/make_inputs.sh
+
+6. Compilar:
+
+       . work/inputs/env.sh && make full
+
+La ROM queda en **`out/rom.bin`**: se carga en MiSTer, en la Mega EverDrive o en un emulador con mapeador SSF2
+(Genesis Plus GX, BlastEm). Sale igual byte a byte para cualquiera que use la misma ROM (ver
+[docs/45](docs/45_REPRODUCIBLE.md)).
 Después de la primera vez, para recompilar solo el código: `make` (`make TEST=1` con la entrada grabada,
 `make clean` para empezar de cero). Detalle de la estructura y del `Makefile`: [docs/47](docs/47_ESTRUCTURA_SGDK.md).
 

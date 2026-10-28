@@ -44,6 +44,10 @@ Reglas de Edwin (no negociables):
   la forma solo se suman x e y. Cuadros del motor en 300: 300 quieta, caminando y dando vueltas bajo el haz (antes
   294); barridos en las 3 salas: 72 de 72. Lo que se paga: el haz sigue a Samus con unos cuadros de demora (cada
   ~8-10 cuadros uno nuevo; más en la sala 9A90, con el haz casi horizontal: cada uno cuesta ~250 líneas).
+- **Ojo y haz arreglados** (eye-beam, docs/52): faltaban las claves de 12 de los 14 cuadros del ojo (lista calculada
+  de `MorphBallEye_Func_3`, ahora en `mkzkeys.py`): por eso desaparecía parte del ojo. Los bordes del haz ya no se
+  vuelven escalones de 8 px: los tiles armados van en dos bancos (el que se muestra y el que se arma) sobre tres tramos
+  de VRAM (libres después de los objetos, `0xFC00`, filas ocultas del Window) y se suben de a poco en cada vblank.
 - **Enemigos con spritemaps extendidos** (crateria11: los piratas de la sala del pozo y otras): `mkzkeys.py` ahora
   expande las partes (`extra_properties & 4` de la población, como `WriteEnemyOams`). Eran los invisibles que hacían
   daño al volver de Brinstar con la bola y los misiles.
@@ -57,7 +61,7 @@ Reglas de Edwin (no negociables):
   y `_Multibox`), salto con bomba (`SamusProjectileInteractionHandler` → `SetupBombJump` → `Samus_HandleTransitionsB_3`
   → `Samus_MoveHandler_BombJumpStart/Main`) y el rebote de la bola al caer (`Samus_HandleTransFromBlockColl_1_1..3`,
   `Samus_MorphBallBounce*`). `check` contra el SNES: 0 diferencias (700 cuadros con bombas, saltos y bloques rotos en
-  el aterrizaje; 3600 cuadros al azar en 4 salas). Faltan: bombas de poder, bombas en abanico (rayo cargado).
+  el aterrizaje; 3600 cuadros al azar en 4 salas). Faltan: bombas de poder (las bombas en abanico: crateria14).
 - **Claves de enemigos de todas las salas de Crateria y Brinstar** desde la ROM (`mkzkeys.py` sobre todas las salas
   alcanzables por puertas, áreas 0 y 1; antes solo las jugadas): 31 salas no tenían ninguna (enemigos invisibles).
   Norfair, Maridia y demás: cuando se llegue (inflan la ROM).
@@ -95,6 +99,31 @@ Reglas de Edwin (no negociables):
   - RAM: 7E:3000-3FFF es un solo arreglo (`cinematic_text_tilemap[2048]`; `menu_tilemap` y `cinematic_bg_tilemap`
     son alias, `alias` en `vars_extra.txt`): 2 KB menos. `md_ssf2.ld` falla si `_bend` pasa de 0xE0FFE3F0 (con
     menos memoria para SGDK la consola no arranca).
+- **crateria14** (2026-10-22, rama `charge-beam`, docs/49): **rayo cargado** (`HudSelectionHandler_NothingOrPowerBombs`
+  entera, `FireChargedBeam`, `FireSba` sin los rayos que faltan), **destello de la carga** (`HandleChargingBeamGfxAudio`,
+  `DrawFlareAnimationComponent`) y **bombas en abanico** (`BombSpread`, `ProjPreInstr_SpreadBomb`, `BlockCollSpreadBomb`).
+  Claves del rayo cargado y del destello en `mkmd.zebes_proj_keys`; la VRAM de `mkzobj` lleva los tiles y la paleta
+  del rayo. `check` en la sala del Charge Beam (`tools/rooms/chargebeam.sh`): 0 diferencias en 2126 cuadros.
+  Regresión: 62 cuadros "distintos" en Ceres (antes 19), todos corridos en el tiempo como los de docs/48 (docs/49).
+- **spore-spawn** (2026-10-22, docs/50): Spore Spawn giraba a toda velocidad por un error del traductor (`jp[n]` leía
+  `jp + 4n`; también afectaba a `Draygon_Instr_1/14`, `Torizo_Instr_25/26/45` y `SpacePirates_Instr_15`). Portado lo
+  que faltaba para la pelea (`EprojInstr_DC5A`, `EprojInstr_SpawnEnemyDrops_0`, `CreateADudShot`; `kraid_unk9000` =
+  `ERAM(0x9000)`) y el cuelgue al morir en la Genesis (palabra en dirección impar en `boss_bits_for_area`). Pelea
+  entera contra el SNES con `tools/rooms/spore_fight.py`: 0 diferencias hasta la muerte.
+- **crateria14** (2026-10-27, docs/51): el **Bomb Torizo se dibuja como en el SNES** (cuerpo entero, colores de
+  estatua, despertar, destellos, ojo, trozos de la estatua, orbes). Jefes con colores propios (`mkzobj.BOSS_PALETTES`):
+  sus paletas salen de las funciones del decomp que las escriben; en sus estados la sala va en una línea y la línea 1 es
+  de los objetos (`ZebesObj.src` de 30). `port.py` marca `nt_pal_dirty` cuando el código escribe `palette_buffer`.
+  `mkzkeys.py`: proyectiles de PLMs (`plm_walk`), tablas de listas, pre-instrucciones puestas por lista. Comparación
+  lado a lado con el SNES cuadro a cuadro: `tools/compare/lado_a_lado.sh` (ROM de prueba con `MD_TEST_WARP_AT`).
+- **Estación de mapa, pausa, mapa y equipo** (map-station, 2026-10-22; docs/53): el cuelgue al usar la estación de
+  mapa era la pausa sin portar (la caja "MAP DATA ACCESS COMPLETED" abre la pausa: `game_state = 12`) y
+  `CallSomeSamusCode(6)`. Portados los estados 12-18 del banco $82 (`src/core/pause.c`): mapa con scroll, íconos y
+  destinos, pantalla de equipo (equipar, reserva), L/R/START; `check`: 0 diferencias. Genesis: `md_pause.c` y
+  `tools/conv/mkpause.py` (tiles, celdas, colores y sprites de la pausa desde la ROM; tiles en la página 18). El
+  minimapa del HUD muestra el mapa cargado. START ya abre la pausa en cualquier sala (también en el visor: START solo).
+  Regresión: intro 0; Ceres/Zebes 97 (antes 19): las mismas clases de cuadros (pozo que gira, círculo de la
+  explosión), sensibles al ciclo: la base con +40 ciclos por cuadro en `md_post` ya da 76. Falta aprobarla a ojo.
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 
@@ -109,14 +138,21 @@ Reglas de Edwin (no negociables):
 1. (Hecho en crateria13) Caja de mensaje, pelea con Bomb Torizo, niebla/neblina como tinte. Falta: las nubes de la
    niebla (forma), el degradado de la neblina (hoy un color medio), la muerte de Samus (c11).
 2. Ojos de las estatuas (paleta/2 líneas del BG), agua del FX 0x26 (BG3), Spore Spawn en BG2 sin probar.
+3. **Bombas de poder** (las bombas normales y las de abanico ya están). Rayos de onda, hielo, spazer y plasma (y sus
+   ataques especiales `FireSba_Fire*`): `nt_unimpl` en proj.c.
+2. Ojos de las estatuas (paleta/2 líneas del BG), agua del FX 0x26 (BG3). (Spore Spawn: hecho, docs/50.)
 3. **Bombas de poder** y bombas en abanico (las bombas normales ya están).
-4. Secuencia de muerte (`HandleSamusOutOfHealthAndGameTile`), menú de pausa y mapa.
+4. Secuencia de muerte (`HandleSamusOutOfHealthAndGameTile`). (Pausa y mapa: hechos, docs/53; falta el mapa del menú
+   de partidas y los ganchos de pausa de Kraid/Draygon/Mother Brain.)
 5. **Sonido**: hoy solo las voces de la intro. Falta el controlador del Z80 (música y efectos; la cola del motor ya
    existe: `music_upload`, `music_play`, `QueueSfx*`). Ej.: el ojo pide el efecto 0x17 de la biblioteca 2.
-6. **Música en CD (Mega CD, modo 1)**: decidido un **controlador propio** (programa para el procesador del Mega CD).
-   Sin Mega CD o sin disco de MegaMetroid suena la música del cartucho; con disco válido, las pistas del CD. Edwin
-   junta versiones (covers) en `res/` (mp3) para el disco. Ojo: SSF2 accede solo bajo 0x400000, compatible con el
-   modo 1. La X3 no tiene CD: siempre la del cartucho.
+6. **Música en CD (Mega CD, modo 1)**: al encender se busca el BIOS del Mega CD; si está, se carga un programa en
+   su procesador que revisa el disco; con el disco de MegaMetroid la música sale del CD, si no (sin Mega CD o disco
+   no válido) suena la del cartucho. Protocolo: MSU-MD salvo que aparezca algo mejor. Detalle y condiciones (música
+   del cartucho primero, ventana 6 para el Z80, permisos de los covers): docs/48. La X3 no tiene CD.
+6b. **Tamaño de la ROM** (docs/48): hecho el depósito común de tiles (12,0 → 10,5 MB). Lo urgente es la parte fija
+   (~290 KB libres para todo el código que falta): cinemáticas de Ceres a páginas, título comprimido, recortar las
+   copias de bancos.
 7. Rendimiento: salas pesadas pierden ~61 cuadros cada 600 (docs/44: 92B3 la peor). El haz del ojo ya no quita
    cuadros (crateria12). Ver "Lo que queda" en docs/44. Los rayos X (más adelante) podrán usar el mismo armado por pasos.
 8. Después de Crateria: el resto de Zebes (la sala de Kraid y otras se ven mal en el visor: esperado).
@@ -156,6 +192,8 @@ Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escr
 - **`make`** (sin `data`) no rehace el estado inicial: si cambian las variables del motor (gen_vars), correr `mkinit`
   (ver `Makefile`) o la ROM no arranca.
   La cuenta de bytes por página deja 4 KB de margen (alineaciones).
+- **Parte fija + título ≤ 4 MB**: con el título (730 KB) al final, lo libre hasta los 4 MB era ~80 KB antes de la
+  pausa (docs/53: `pause.c` con `-Os`, sus tiles en la página 18). Código poco usado: `#pragma GCC optimize("Os")`.
 - **Parte fija de la ROM ≤ 4 MB** (lo demás va en páginas SSF2). `-O3` con desenrollado infla funciones con bucles:
   el cono pasó de 1.5 KB a 88 KB; ahí se usa `#pragma GCC optimize("O2", ...)`.
 - **RAM**: la pila queda entre `_bend` (symbol.txt) y 0xE1000000; con 5 KB más de variables la ROM no arrancó
@@ -164,8 +202,14 @@ Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escr
   (tiles 1920-2047): ahí van los del cono y, con la caja de mensaje, los de la caja (después se recarga el cono).
   Mapa en `inc/platform/md.h`.
 - **Colores**: línea 3 debajo del HUD = objetos de la sala (10 colores) + rayo (9-13); la cambia una interrupción.
+  En los estados con un jefe de `BOSS_PALETTES` (hoy el Torizo) la sala usa solo la línea 0 y la línea 1 es del jefe
+  (docs/51). Toda escritura a `palette_buffer` fuera de las funciones del motor tiene que marcar `nt_pal_dirty`.
+- **Una llamada más por cuadro** en el camino común (`md_post`) corre los tiempos de Ceres y la regresión lo marca
+  (19 → 99 cuadros, todos corrimientos): lo que depende de la sala se decide al cargarla.
 - **Perfil**: los `poke` dependen de las direcciones de cada compilación: regenerar el guion al recompilar.
 - **H32**: 64 sprites, 16 por línea; el cono va al final de la lista (detrás de todo, se recorta primero).
+- **VRAM del haz** (docs/52): además de 0xF000-0xFFFF usa los tiles libres después de los objetos de la sala y las
+  filas 5-31 del Window (como la caja de mensaje). RAM: `cinematic_text_tilemap` desde el byte 1024.
 - La regresión marca "corrimientos" cuando cambia la velocidad del código: comparar a ojo (lado a lado con la ROM
   anterior) antes de aprobar.
 

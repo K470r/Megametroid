@@ -30,6 +30,9 @@ extern EnemySpawnData enemy_spawn_data[ENEMY_COUNT];
 /* RAM extra de los enemigos (7E:7800-97FF): variables de jefes como Ridley */
 extern uint16 enemy_ram7800[0x1000];
 #define ERAM(addr) (enemy_ram7800[(uint16)((addr) - 0x7800) >> 1])
+/* 7E:9000: el decomp la nombra aparte, pero es la misma RAM que ERAM(0x9000) (Draygon_Instr_22 $A5:E872 la escribe y
+   EprojPreInstr_SporeSpawners $86:DD46 la lee; check la compara como parte de enemy_ram7800) */
+#define kraid_unk9000 ERAM(0x9000)
 static inline EnemySpawnData *gEnemySpawnData(uint16 k) { return &enemy_spawn_data[k >> 6]; }
 
 #include "tables.h"

@@ -688,6 +688,13 @@ static uint16 PlmInstr_LoadItemPlmGfx(uint16 p, uint16 k) {  // 0x848764
   return p + 10;
 }
 
+NT_LATE void LoadRoomPlmGfx(void) {  // 0x848232 (al salir de la pausa: los tiles de los objetos otra vez)
+  plm_item_gfx_index = 0;
+  for (uint16 v0 = 0; v0 != 8; v0 += 2)
+    if (plm_item_gfx_ptrs[v0 >> 1])   /* (arreglo del decomp: el original no mira si hay) */
+      PlmInstr_LoadItemPlmGfx(plm_item_gfx_ptrs[v0 >> 1], v0);
+}
+
 static uint16 PlmInstr_CopyFromRamToVram(uint16 p, uint16 k) {  // 0x8487E5 (copia a la VRAM: la Genesis)
   return p + 7;
 }

@@ -24,6 +24,7 @@ Empezar por [46 — Estado y cómo continuar](46_ESTADO_Y_CONTINUACION.md).
 | 44 | Optimización en las salas con enemigos; lecturas impares (bswap) |
 | 45 | Compilación reproducible desde la ROM de cada quien |
 | 46 | Estado del proyecto y cómo continuar |
+| 47 | Estructura del proyecto (SGDK), `Makefile`, recursos propios y privados |
 
 Los documentos 01-25 (análisis y prototipos anteriores al motor nativo) quedaron en la carpeta de trabajo, fuera del
 repositorio.

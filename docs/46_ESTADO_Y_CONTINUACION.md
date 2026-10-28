@@ -24,7 +24,7 @@ Reglas de Edwin (no negociables):
   primeros misiles (7 salas), ascensor, lluvia, paralaje, FX. Visor de salas (START + izquierda/derecha).
 - Bola morfo: se toma (ícono en su pedestal, docs/45 → `mkzebes.py room_items`), se usa: rodar en el suelo y caer
   (`Samus_Movement_04/08`, iguales al SNES: 0 diferencias en `check`).
-- Ojos (MorphBallEye) y su haz de luz (crateria10, `native/md/md_cone.c`): la forma es la tabla por línea del SNES
+- Ojos (MorphBallEye) y su haz de luz (crateria10, `src/platform/md_cone.c`): la forma es la tabla por línea del SNES
   (`CalculateXrayHdmaTableInner`), línea por línea (tiles de los bordes armados en cada cuadro, llenos fijos en el
   medio), con el modo sombra/luz del VDP (color 14 de la línea 3: aclarar). Para que el modo no oscurezca la sala, en
   los estados de sala con el ojo todas las celdas tienen prioridad alta (`mkzebes.py`, campo `eye` de `ZebesGfx`), los
@@ -69,7 +69,7 @@ Reglas de Edwin (no negociables):
     `ProjectileReflection`; la explosión y el temblor ya estaban (`KillProjectileInner`). Claves en
     `mkmd.zebes_proj_keys` (índice 2 y `$93:8693`). HUD: misil / supermisil / nada resaltados como en el SNES
     (`kHudTilemaps_Missiles` entero en las celdas del HUD). `check`: 0 diferencias disparando supermisiles.
-  - **Cajas de mensaje** (banco $85, `native/src/msgbox.c`): corrutinas como en el decomp (`coroutine_state_3/4`;
+  - **Cajas de mensaje** (banco $85, `src/core/msgbox.c`): corrutinas como en el decomp (`coroutine_state_3/4`;
     `GameState_8_MainGameplay` y `PlmHandler` ahora se reanudan, `coroutine_state_1/2`). La Genesis las dibuja con
     sprites (`md_msgbox_post`, tiles `kMsgTiles` de `mkmd.py` en 0xF000 y en las filas libres de la ventana) y en
     sus líneas la línea 3 vuelve a los colores del HUD (interrupción `md_hint_msg`); los colores 25/26 de la CGRAM
@@ -96,7 +96,7 @@ Reglas de Edwin (no negociables):
     son alias, `alias` en `vars_extra.txt`): 2 KB menos. `md_ssf2.ld` falla si `_bend` pasa de 0xE0FFE3F0 (con
     menos memoria para SGDK la consola no arranca).
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
-  PC (`native/host/check`), 41 salas con Samus invencible (docs/41, 44).
+  PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 
 ## Lo que falta (en el orden acordado)
 
@@ -125,13 +125,13 @@ Reglas de Edwin (no negociables):
 
 ## Cómo se trabaja (comandos)
 
-    sh native/host/build.sh                       # motor en el PC: check, mkinit... y native/gen/
-    cd native/md && SKIP_DATA=1 sh build.sh       # ROM (rápido, con los datos ya generados)
-    cd native/md && sh build.sh                   # completo (necesita REF y REF_INTRO: . work/inputs/env.sh)
-    MM_MAX_PALS=2 python3 native/tools/mkzebes.py sm/sm.smc native/gen   # gráficos de Zebes (y objetos: mkzobj)
+    sh host/build.sh                       # motor en el PC: check, mkinit... y res/gen/engine/
+    make                                          # ROM (rápido, con los datos ya generados)
+    make full                                     # completo (necesita REF y REF_INTRO: . work/inputs/env.sh)
+    MM_MAX_PALS=2 python3 tools/conv/mkzebes.py sm/sm.smc res/gen/engine   # gráficos de Zebes (y objetos: mkzobj)
     python3 tools/port/port.py                    # traducir del decomp lo que piden los enemigos (docs/42)
     sh tests/regress/regress.sh  /  UPDATE=1 ...  # regresión de imagen / aprobar (comparar a ojo antes)
-    native/host/check ref.bin sm/sm.smc 1 30000 0 # comparar el motor con una grabación del SNES
+    host/check ref.bin sm/sm.smc 1 30000 0 # comparar el motor con una grabación del SNES
     tools/bin/retrorun tools/bin/genesis_plus_gx_libretro.so rom.bin guion.txt   # hold N botones, poke, shot, dumpram
 
 `hlref` (el SNES de referencia, `tools/snes_ref/ceres_bot/hlref.c`): `hlref rom entrada.txt salida.bin desde [hasta]`,
@@ -143,7 +143,7 @@ Medición de cuadros perdidos y perfil del 68000: `tools/perf/salas/` (docs/44; 
 Probar en la Genesis una sala: ROM con `TEST=1` (entrada de `tests/regress/inputs/zebes_shoot.s`), en retrorun
 `hold 11700 -`, `poke <viewer_debug_next> <índice> 2`, `hold 3 S`, `hold 3 SR`: el visor salta a esa sala; con
 `poke` a `collected_items`/`equipped_items` se dan objetos, y a `samus_x_pos`/`samus_y_pos` se mueve a Samus (las
-direcciones salen de `native/md/out/symbol.txt`, `& 0xFFFF`). La sala de la bola es el índice 48 (0x30).
+direcciones salen de `out/symbol.txt`, `& 0xFFFF`). La sala de la bola es el índice 48 (0x30).
 
 Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escritorio enlazado); las ROM se llaman
 `MegaMetroid_crateriaN.bin`.
@@ -153,8 +153,8 @@ Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escr
 - **Lecturas de palabra impares**: GCC junta `p[1] | p[2] << 8` en un `move.w` → ADDRESS ERROR en el 68000. Se
   compila con `-fdisable-tree-bswap` (docs/44). `-mstrict-align` no sirve.
 - **Páginas SSF2**: los datos de Zebes llegan a la 23 (`md_ssf2.ld`) y usan lo que dejan libre las de la intro (19-20).
-- **`SKIP_DATA=1`** no rehace el estado inicial: si cambian las variables del motor (gen_vars), correr `mkinit`
-  (ver `native/md/build.sh`) o la ROM no arranca.
+- **`make`** (sin `data`) no rehace el estado inicial: si cambian las variables del motor (gen_vars), correr `mkinit`
+  (ver `Makefile`) o la ROM no arranca.
   La cuenta de bytes por página deja 4 KB de margen (alineaciones).
 - **Parte fija de la ROM ≤ 4 MB** (lo demás va en páginas SSF2). `-O3` con desenrollado infla funciones con bucles:
   el cono pasó de 1.5 KB a 88 KB; ahí se usa `#pragma GCC optimize("O2", ...)`.
@@ -162,7 +162,7 @@ Entregar a Edwin: la ROM y las fuentes van a `C:\proyectos\MegaMetroid` (el escr
   (pantalla negra). Para búferes grandes usar RAM que la escena no usa (el cono usa `cinematic_bg_tilemap`).
 - **VRAM**: tiles 0-1279 ocupados (sala desde 448, objetos desde 880 o `ZebesObj.base`); libre 0xF000-0xFFFF
   (tiles 1920-2047): ahí van los del cono y, con la caja de mensaje, los de la caja (después se recarga el cono).
-  Mapa en `native/md/md.h`.
+  Mapa en `inc/platform/md.h`.
 - **Colores**: línea 3 debajo del HUD = objetos de la sala (10 colores) + rayo (9-13); la cambia una interrupción.
 - **Perfil**: los `poke` dependen de las direcciones de cada compilación: regenerar el guion al recompilar.
 - **H32**: 64 sprites, 16 por línea; el cono va al final de la lista (detrás de todo, se recorta primero).

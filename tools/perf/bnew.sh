@@ -1,7 +1,7 @@
 #!/bin/sh
-# bnew.sh BASE EMU [etiqueta]: líneas medias por cuadro (versión actual) desde BASE; variables de build.sh en el entorno
+# bnew.sh BASE EMU [etiqueta]: líneas medias por cuadro (versión actual) desde BASE; variables del Makefile en el entorno
 B=$1; E=$2
-cd /home/claude/mm/native/md && SKIP_DATA=1 TEST=1 EXPFL="-DMD_BUSYLOG=$B $XFL" sh build.sh >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/bx.bin && cp out/rom.out /tmp/claude-0/it/bx.out || { echo FALLO; exit 1; }
+cd /home/claude/mm && TEST=1 EXPFL="-DMD_BUSYLOG=$B $XFL" make rom >/dev/null 2>&1 && cp out/rom.bin /tmp/claude-0/it/bx.bin && cp out/rom.out /tmp/claude-0/it/bx.out || { echo FALLO; exit 1; }
 cd /tmp/claude-0/it && printf "hold $E -\ndumpram bx.ram\n" > bx.txt && RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx/genesis_plus_gx_libretro.so bx.bin bx.txt >/dev/null 2>&1
 python3 - $B "$3" <<'PY'
 import subprocess, sys

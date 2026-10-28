@@ -1,7 +1,7 @@
 # Medición de velocidad en la Genesis (docs/39)
 
 Guiones de trabajo (rutas del entorno de desarrollo: ajustar `retrorun`, el núcleo de Genesis Plus GX con perfilador
-`gpgx_prof` y las grabaciones). Todos compilan la ROM de prueba (`TEST=1`, entrada de `native/md/gen/test_input.s`).
+`gpgx_prof` y las grabaciones). Todos compilan la ROM de prueba (`TEST=1`, entrada de `res/gen/md/test_input.s`).
 
 - `bnew.sh BASE EMU [etiqueta]`: líneas medias y máximas por cuadro del motor desde BASE (`MD_BUSYLOG`). Con `OPT=...`
   prueba otras opciones del compilador.
@@ -14,5 +14,5 @@ Guiones de trabajo (rutas del entorno de desarrollo: ajustar `retrorun`, el núc
   interrupción vertical al tomar cada cuadro).
 - `progcmp.sh E...`, `stopcmp.sh N...`: avance del motor y capturas congeladas (`STOP_AT`) de una versión anterior
   (copia en otro directorio) contra la actual.
-- `ssum.sh BASE REF`: suma del estado de la Genesis contra el motor del PC (`native/host/simsum`), 256 cuadros.
+- `ssum.sh BASE REF`: suma del estado de la Genesis contra el motor del PC (`host/simsum`), 256 cuadros.
 - `sprab.sh BASE REF "A" "B"`: lista de sprites de dos variantes de compilación (`MD_SPRSUM`).

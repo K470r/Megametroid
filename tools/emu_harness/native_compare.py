@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MegaMetroid — compara la ROM nativa de la Genesis (native/md, compilada con TEST=1) con el SNES (docs/32).
+"""MegaMetroid — compara la ROM nativa de la Genesis (src/platform, compilada con TEST=1) con el SNES (docs/32).
 
 1. Corre la ROM en Genesis Plus GX (retrorun) con la entrada de la grabación del bot, captura cada cuadro y
    registra variables del motor (cuadro del motor, sala, Samus, cámara).

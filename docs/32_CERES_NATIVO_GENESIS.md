@@ -2,12 +2,12 @@
 
 ## Qué hay
 
-`native/md/out/rom.bin` (copia: `MegaMetroid_Ceres_nativo.bin`): la estación Ceres jugable, desde que Samus
+`out/rom.bin` (copia: `MegaMetroid_Ceres_nativo.bin`): la estación Ceres jugable, desde que Samus
 baja en el ascensor hasta la sala de la cápsula de la bebé y, desde docs/33, la pelea con Ridley y su huida
 (falta el escape de la estación).
 
 - El juego es el motor nativo de docs/31: C escrito a mano para el 68000, con la lógica leída del decomp.
-- Lo que el SNES hacía con su PPU lo hace `native/md/` con datos que el PC ya dejó en el formato del VDP. La
+- Lo que el SNES hacía con su PPU lo hace `src/platform/` con datos que el PC ya dejó en el formato del VDP. La
   Genesis no convierte nada del SNES: copia tiles y planos por DMA, lee tablas y escribe sprites.
 - `MegaMetroid_Ceres_nativo_demo.bin`: la misma ROM, pero el mando lo maneja la grabación del bot del SNES
   (sirve para ver el recorrido completo sin jugar y para la comparación automática).
@@ -18,23 +18,23 @@ cancelar ítem. Con 3 botones: START + arriba/abajo para apuntar.
 ## Cómo se arma
 
 ```
-REF=<grabación hlref de Ceres> sh native/md/build.sh          # ROM para jugar
-REF=... TEST=1 sh native/md/build.sh                         # ROM con la entrada del bot
+REF=<grabación hlref de Ceres> make full          # ROM para jugar
+REF=... TEST=1 make full                         # ROM con la entrada del bot
 ```
 
-1. `native/host/build.sh`: tablas del motor (`mkdata.py`, `gen_vars.py`, `gen_enums.py`), comprobación `check`
+1. `host/build.sh`: tablas del motor (`mkdata.py`, `gen_vars.py`, `gen_enums.py`), comprobación `check`
    y `mkinit`.
-2. `native/host/mkinit`: el estado del motor al empezar el juego en Ceres (cuadro 97 de la grabación), ya en
+2. `host/mkinit`: el estado del motor al empezar el juego en Ceres (cuadro 97 de la grabación), ya en
    big-endian para el 68000. La Genesis solo lo copia. (Cuando se una con la intro, esto lo harán los estados
    6 y 7 del juego portados.)
-3. `native/tools/mkmd.py`: todos los datos de dibujo (ver abajo).
+3. `tools/conv/mkmd.py`: todos los datos de dibujo (ver abajo).
 4. gcc para 68000 + SGDK (solo arranque, espera del vblank y mando).
 
-## Datos de dibujo (`mkmd.py` → `native/md/gen/`)
+## Datos de dibujo (`mkmd.py` → `res/gen/md/`)
 
 | Qué | Cómo queda en la Genesis |
 |---|---|
-| Salas | Planos A y B completos (64x64 celdas; el pozo, 32x128) y sus tiles. Se cargan enteros al entrar: no hay dibujo de columnas/filas. El pozo (modo 7 en el SNES) sale del mapa de modo 7 del tileset 17; la puerta del fondo del pozo alterna dos versiones de 4 celdas. La capa 2 de "biblioteca" es la del SNES tal cual (`native/md/snes_ref/<sala>.bin`, capturas de VRAM hechas con `hlref HL_VRAM`). |
+| Salas | Planos A y B completos (64x64 celdas; el pozo, 32x128) y sus tiles. Se cargan enteros al entrar: no hay dibujo de columnas/filas. El pozo (modo 7 en el SNES) sale del mapa de modo 7 del tileset 17; la puerta del fondo del pozo alterna dos versiones de 4 celdas. La capa 2 de "biblioteca" es la del SNES tal cual (`res/snes_ref/<sala>.bin`, capturas de VRAM hechas con `hlref HL_VRAM`). |
 | Colores | Cada color de la CRAM dice de qué índice de `palette_buffer` sale; `kCram555` (32768 entradas) da el color de la Genesis. Así los fundidos y ciclos de color del motor se ven igual. Solo se recalculan los colores que cambiaron. |
 | Samus | Tiles por definición ($92) ya intercalados (columna c, fila r → 2c + r): un sprite de 16x16 del SNES es uno de 2x2 de la Genesis. Las 2283 spritemaps convertidas a registros de sprite. |
 | Puertas, rayo, cápsula, plataforma | Por sala: registros de sprite por spritemap y sus tiles. El rayo normal en las 10 direcciones y su explosión se sacan de las listas del banco $93. |
@@ -43,7 +43,7 @@ REF=... TEST=1 sh native/md/build.sh                         # ROM con la entrad
 
 ## Verificación
 
-- Motor contra el SNES en el PC (`native/host/check`): recorrido del bot (1725 cuadros), entrada al azar (7900
+- Motor contra el SNES en el PC (`host/check`): recorrido del bot (1725 cuadros), entrada al azar (7900
   cuadros) y tres recorridos del bot con ráfagas al azar (`hlbot HL_NOISE`): 0 diferencias.
 - ROM en Genesis Plus GX (`tools/emu_harness/native_compare.py`): las variables del motor en la Genesis son las
   mismas que en el SNES en los 2250 cuadros; imagen contra el SNES sin el color math: diferencia media de 0,3

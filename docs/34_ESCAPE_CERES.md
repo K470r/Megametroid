@@ -10,7 +10,7 @@ y Samus subiendo al ascensor. Ahí la pantalla se funde a negro (estado 33) y qu
 Lo que sigue (estado 34 en adelante: la nave saliendo de Ceres, la explosión de la estación y, si el tiempo llega a
 cero, la explosión con Samus adentro y el fin de juego) está en `35_CINEMATICAS_CERES.md`.
 
-## Motor (`native/src`)
+## Motor (`src/core`)
 
 | Qué | Dónde |
 |---|---|
@@ -26,7 +26,7 @@ Verificación: `check` con 0 diferencias del cuadro 97 al 8296 en las 9 grabacio
 `native_compare` ahora descarta las muestras con el motor a mitad de un cuadro (`md_busy`): en un cuadro perdido
 el emulador puede cortar con el cuadro siguiente a medias, y eso no es una diferencia.
 
-## Genesis (`native/md`, `mkmd.py`)
+## Genesis (`src/platform`, `mkmd.py`)
 
 - **Salas del escape.** Cada sala tiene otro estado en la huida (E097, E04D, E003, DFB9, DF71), con su captura de
   VRAM del SNES (`snes_ref/<sala>_<estado>.bin`, no se distribuye).
@@ -60,7 +60,7 @@ Cuadros perdidos en la grabación del bot (Genesis Plus GX), por tramo de cuadro
 
 Cambios:
 
-1. **Compilación**: `-O3 -funroll-loops -finline-limit=1500` en lugar de `-O2` (variable `OPT` de `build.sh`). El
+1. **Compilación**: `-O3 -funroll-loops -finline-limit=1500` en lugar de `-O2` (variable `OPT` del `Makefile`). El
    motor es C con muchas funciones chicas por objeto; integrarlas ahorra más que nada. Comparado con el SNES: 0
    diferencias.
 2. **Tabla de rotación** a mano: la parte entera de cada línea con `swap` en 16.16 (37 ciclos por línea en lugar de
@@ -69,4 +69,4 @@ Cambios:
    cuadro. Probado y descartado: alargar la espera del vblank tardío hasta la línea 250 (gana poco y duplica los
    vblanks que se pasan a la imagen).
 
-Mediciones: `LAGLOG=1 LAG_BASE=4000 sh build.sh` registra desde el cuadro 4000 del motor.
+Mediciones: `make LAGLOG=1 LAG_BASE=4000` registra desde el cuadro 4000 del motor.

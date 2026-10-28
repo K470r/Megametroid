@@ -15,7 +15,7 @@ Las dos salidas del escape de Ceres, completas:
 ROMs: `MegaMetroid_Ceres_nativo.bin` (para jugar), `_demo.bin` (entrada de la grabación del escape completo, hasta
 Zebes) y `_demo_tiempo.bin` (la misma partida, pero sin tocar el control al final del escape: se acaba el tiempo).
 
-## Motor (`native/src`)
+## Motor (`src/core`)
 
 | Qué | Dónde |
 |---|---|
@@ -33,7 +33,7 @@ empezar el cuadro. `nt_clear_ram(desde, hasta)` borra por direcciones del SNES c
 Verificación: `check` con 0 diferencias en las 10 grabaciones (`ref_full` hasta el cuadro 10103, donde empieza la
 carga de Zebes; `ref_timeup` hasta el final del menú).
 
-## Genesis (`native/md`)
+## Genesis (`src/platform`)
 
 ### Salas sin nivel
 

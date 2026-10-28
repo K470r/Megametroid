@@ -8,17 +8,17 @@ Flujo de la ROM: título → menú → **START GAME** → intro (los botones pas
 
 ## Lógica
 
-`native/src/intro.c` es el código del SNES ($8B) portado: funciones de cinemática (`IntroCinematicFunction`),
+`src/core/intro.c` es el código del SNES ($8B) portado: funciones de cinemática (`IntroCinematicFunction`),
 objetos de fondo (texto que se escribe letra por letra, con su brillo), objetos de sprite (Mother Brain, Rinkas,
 huevo, larva...), Samus en los recuerdos con la entrada de demostración y los fundidos cruzados de paleta.
 
-Comprobación: `native/host/check` contra la grabación del SNES desde que empieza el estado 30: 0 diferencias en los
+Comprobación: `host/check` contra la grabación del SNES desde que empieza el estado 30: 0 diferencias en los
 8456 cuadros de la intro (y desde el cuadro de `CinematicFunction_Intro_Initial`).
 
 El estado inicial de la intro en la Genesis es la RAM del SNES al elegir partida nueva (`mkinit ... -1`, cabecera de
 la grabación `REF_INTRO`): `md_init(1)` lo copia y el motor ejecuta `Intro_Initial`.
 
-## Dibujo (`native/md/md_intro.c`, datos de `native/tools/mkintro.py`)
+## Dibujo (`src/platform/md_intro.c`, datos de `tools/conv/mkintro.py`)
 
 La Genesis sigue la escena por los registros del SNES (`IntroScene`, en `intro.c` porque la usan también la Genesis y
 el registro de dibujo del PC):
@@ -55,10 +55,10 @@ los planos chicos y la ventana apagada; 223 el cañón, 224-255 Samus.
 ## Datos (se generan con tu ROM; no se distribuyen)
 
 1. Grabación de la intro con hlref (`HL_ANY=1`, desde el cuadro en que empieza el estado 30) y la de la intro entera.
-2. `tools/snes_ref/intro_usage.py ref_intro.bin data/extracted_full native/md/snes_ref/intro_usage.json`
-3. Registro de dibujo: `MM_DRAWLOG=... native/host/check ref_intro.bin sm.smc 1 8456 0`, las líneas `C18x` de
-   `spr8c`, `proj` y `trail` en `native/md/snes_ref/intro_draw.log`.
-4. `native/md/build.sh` con `REF_INTRO=<grabación desde el estado 30>`: `mkinit -1` y `mkintro.py`.
+2. `tools/snes_ref/intro_usage.py ref_intro.bin data/extracted_full res/snes_ref/intro_usage.json`
+3. Registro de dibujo: `MM_DRAWLOG=... host/check ref_intro.bin sm.smc 1 8456 0`, las líneas `C18x` de
+   `spr8c`, `proj` y `trail` en `res/snes_ref/intro_draw.log`.
+4. `Makefile` con `REF_INTRO=<grabación desde el estado 30>`: `mkinit -1` y `mkintro.py`.
 
 Pruebas: `TEST=1 TEST_INTRO=1` arranca la intro con la entrada grabada (cuadro a cuadro igual que el SNES);
 `STOP_AT=N` la congela en el cuadro N para comparar capturas.

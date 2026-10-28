@@ -9,7 +9,7 @@ como en el SNES.
 Lo que sigue a la huida (texto "EMERGENCY", cuenta regresiva y escape de la estación hasta el ascensor) está en
 docs/34.
 
-## Motor (`native/src`)
+## Motor (`src/core`)
 
 - `ceres_ridley.c`: Ridley, su cola (`tilemap_stuff`), la bebé, los estados de la pelea de Ceres
   (`CeresRidley_Func_2`-`27`, `Ridley_Func_44`-`53`), las instrucciones (`Ridley_Instr_*`), el daño y la huida
@@ -21,11 +21,11 @@ docs/34.
 - `samus_move.c`/`samus_pose.c`: empujón y retroceso al recibir daño, Samus empujada fuera del camino de Ridley.
 - `game.c`: temblor de la sala (`HandleRoomShaking`); la capa de la Genesis lo suma al scroll de los planos.
 
-Verificación: `native/host/check` contra las grabaciones del SNES (bot y bot con ráfagas al azar, `HL_NOISE`
+Verificación: `host/check` contra las grabaciones del SNES (bot y bot con ráfagas al azar, `HL_NOISE`
 11-14): 0 diferencias hasta el comienzo del escape. En la Genesis (`native_compare.py`), las variables del motor
 son iguales al SNES en los 5445 cuadros de la grabación hasta el escape.
 
-## Dibujo en la Genesis (`native/md`, `mkmd.py`, `mkgetaway.py`)
+## Dibujo en la Genesis (`src/platform`, `mkmd.py`, `mkgetaway.py`)
 
 | Qué | Cómo |
 |---|---|
@@ -65,7 +65,7 @@ Cambios:
 5. Menores: las colas de dibujo de enemigos vacías no se llaman; sin el recorrido de objetos de sprite (no hay
    en lo portado); las mitades de Samus recuerdan su última búsqueda.
 
-Mediciones: `LAGLOG=1 sh build.sh` registra los cuadros de la consola de cada cuadro del motor
+Mediciones: `make LAGLOG=1` registra los cuadros de la consola de cada cuadro del motor
 (`md_lag_log`) y los vblanks que se pasaron a la imagen (`md_vb_over`). `STOP_AT=N` congela en el cuadro N.
 
 ## Correcciones

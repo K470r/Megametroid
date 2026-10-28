@@ -1,13 +1,13 @@
 #!/bin/sh
 # perframe.sh A B: lo que ocupa cada cuadro de emulador A..B (perfil por diferencias)
 cd /tmp/claude-0/t7
-for n in $(seq $1 $2); do printf "hold $n -\n" > h$n.txt; MM_PROF=/tmp/claude-0/t7/q$n.bin RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx_prof/genesis_plus_gx_libretro.so /home/claude/mm/native/md/out/rom.bin h$n.txt >/dev/null 2>&1 & done
+for n in $(seq $1 $2); do printf "hold $n -\n" > h$n.txt; MM_PROF=/tmp/claude-0/t7/q$n.bin RR_PAD=6 /home/claude/m68kbin/retrorun /home/claude/gpgx_prof/genesis_plus_gx_libretro.so /home/claude/mm/out/rom.bin h$n.txt >/dev/null 2>&1 & done
 wait
 python3 - $1 $2 <<'PY'
 import numpy as np, bisect, sys
 A,B=int(sys.argv[1]),int(sys.argv[2])
 syms=[]
-for l in open('/home/claude/mm/native/md/out/symbol.txt'):
+for l in open('/home/claude/mm/out/symbol.txt'):
     p=l.split()
     if len(p)>=3 and p[1] in 'tTwW': syms.append((int(p[0],16)&0xFFFFFF,p[2]))
 syms.sort(); addrs=[x for x,_ in syms]

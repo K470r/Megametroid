@@ -23,7 +23,8 @@ SOFTWARE.
 -------------------------------------------------------------------------------
 Third-party notice
 
-Parts of native/src (port_gen.c, port_gen.h and functions written from it) are
+Parts of src/core and inc/core (port_gen.c, port_gen.h and functions written from
+them) are
 derived from the Super Metroid decompilation https://github.com/snesrev/sm,
 also under the MIT License:
 

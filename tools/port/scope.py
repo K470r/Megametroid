@@ -19,7 +19,7 @@ def enemy_roots(g, e):
         if a in g.addr: out.append(g.addr[a])
     return bank, out
 NATIVE = set()
-for f in glob.glob(os.path.join(os.path.dirname(__file__), '../../native/src/*.c')):
+for f in glob.glob(os.path.join(os.path.dirname(__file__), '../../src/core/*.c')):
     for m in re.finditer(r'^[A-Za-z_][\w \*]*?\b([A-Za-z_]\w*)\([^;]*\)\s*\{', open(f).read(), re.M):
         NATIVE.add(m.group(1))
 if __name__ == '__main__':

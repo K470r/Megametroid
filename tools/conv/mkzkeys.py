@@ -141,6 +141,14 @@ def entries_for1(bank, fam):
         body = m.group(0)
         for mm in re.finditer(r'\baddr_\w*?_?([0-9A-F]{4})\b', body):
             res.add(int(mm.group(1), 16))
+        # listas calculadas: current_instruction = ((v & máscara) >> n) +- base (MorphBallEye_Func_3, $A8:9160: una
+        # lista por ángulo, ((ángulo & 0xF0) >> 2) - 28756 = $8FAC + 4 * i): todos los valores posibles
+        for mm in re.finditer(r'current_instruction = \(\(\w+ & 0x([0-9A-Fa-f]+)\) >> (\d+)\) ([-+]) (\d+);', body):
+            mask, sh, base = int(mm.group(1), 16), int(mm.group(2)), int(mm.group(4))
+            base = -base if mm.group(3) == '-' else base
+            for v in range(mask + 1):
+                if v & ~mask == 0:
+                    res.add(((v >> sh) + base) & 0xFFFF)
         for mm in re.finditer(r'\b(?:g_)?off_([0-9A-Fa-f]{2})([0-9A-Fa-f]{4})\b', body):
             if int(mm.group(1), 16) != bank:
                 continue

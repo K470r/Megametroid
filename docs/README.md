@@ -29,6 +29,7 @@ Empezar por [46 — Estado y cómo continuar](46_ESTADO_Y_CONTINUACION.md).
 | 49 | Rayo cargado, destello de la carga y bombas en abanico |
 | 49 | Spore Spawn: velocidad (error del traductor con `jp[n]`), pelea comprobada contra el SNES |
 | 49 | Dibujo del Bomb Torizo: colores de jefes (línea 1), claves de PLMs, comparación lado a lado con el SNES |
+| 49 | El ojo (MorphBallEye) y su haz: claves del ojo, tiles del haz en dos bancos, métodos evaluados |
 
 Los documentos 01-25 (análisis y prototipos anteriores al motor nativo) quedaron en la carpeta de trabajo, fuera del
 repositorio.

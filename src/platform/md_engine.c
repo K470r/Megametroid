@@ -1382,6 +1382,7 @@ static int16 vb_lines_left(void) {
   uint16 line = vc < 0xE0 ? 262 : vc < 0xE5 ? vc : vc + 6;
   return (int16)(262 - line);
 }
+int16 md_vb_lines_left(void) { return vb_lines_left(); }   /* md_cone.c */
 
 #ifdef MD_LAGLOG
 volatile uint16 md_ga_log[4][128]; volatile uint16 md_ga_n, md_ga_cost, md_ga_words, md_ga_ndma;

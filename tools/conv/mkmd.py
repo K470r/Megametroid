@@ -323,6 +323,26 @@ def msgbox_words(rom):
     return ws
 
 
+def beam_sm_tiles(rom):
+    """spritemaps de los rayos (sin cargar $93:83C1 y cargados $93:83D9, las 12 combinaciones, 10 direcciones) ->
+    dirección en $9A de los 8 tiles que el juego carga para esa combinación (UpdateBeamTilesAndPalette $90:AC8D:
+    kBeamTilePtrs $90:C3B1 -> VRAM $6300). Ninguna spritemap la comparten combinaciones con tiles distintos."""
+    out = {}
+    for tab in (0x83C1, 0x83D9):
+        for b in range(12):
+            v3 = rom.w(0x930000 | (tab + 2 * b))
+            if v3 < 0x8000:
+                continue
+            for d in range(10):
+                ip = rom.w(0x930000 | (v3 + 2 + 2 * d))
+                if ip < 0x8000:
+                    continue
+                for sm in proj_list_sms(rom, ip):
+                    if 0x8000 <= sm and 1 <= rom.w(0x930000 | sm) <= 32:
+                        out.setdefault(sm, rom.w(0x90C3B1 + 2 * b))
+    return out
+
+
 def zebes_proj_keys(rom):
     """proyectiles de Samus que no son el rayo, desde la ROM: (spritemaps de $93, tiles de las estelas).
     - $93:83F1 (cada entrada: daño + listas por dirección): misiles (1) y bombas (5; HudSelectionHandler_MorphBall
@@ -341,7 +361,8 @@ def zebes_proj_keys(rom):
     # (InitializeInstrForSuperMissile $93:8071, kRunInstrForSuperMissile $93:842B: una sola lista)
     # rayo cargado (FireChargedBeam $90:B986, kProjectileData_ChargedBeams $93:83D9): por ahora solo el del rayo
     # normal (índice 0; onda, hielo, spazer y plasma se agregan cuando se porten)
-    for tab, idx in ((0x83F1, ((1, 10), (2, 10), (5, 1))), (0x842B, ((2, 1),)), (0x83D9, ((0, 10),))):
+    sms |= set(beam_sm_tiles(rom))           # todos los rayos (docs/55): sin cargar y cargados, las 12 combinaciones
+    for tab, idx in ((0x83F1, ((1, 10), (2, 10), (5, 1))), (0x842B, ((2, 1),))):
         for i, ndir in idx:
             v3 = rom.w(0x930000 | (tab + 2 * i))
             if v3 < 0x8000:

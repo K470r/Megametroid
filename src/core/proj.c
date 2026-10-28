@@ -127,6 +127,122 @@ fire_charged:                                              /* LABEL_15 */
   FireChargedBeam();
 }
 
+static const uint8 kProjectileCooldown_Uncharged[38] = {  // 0x90C254
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 12, 15, 0, 0, 0, 0,
+  30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 0, 0, 0, 0,
+   0,  0,  0,  0,  0,  0,
+};
+static uint16 b93(uint16 a);
+void InitializeProjectile(uint16 k);
+
+static void InitializeSbaProjectile(uint16 k) {  // 0x9381A4
+  int v1 = k >> 1;
+  uint16 v2 = b93(0x8413 + 2 * (projectile_type[v1] & 0xF));   // g_off_938413
+  uint16 v3 = b93(v2);
+  projectile_damage[v1] = v3;
+  if (sign16(v3))
+    nt_unimpl("InitializeSbaProjectile (daño negativo: InvalidInterrupt_Crash)");
+  projectile_bomb_instruction_ptr[v1] = b93(v2 + 2);
+  projectile_bomb_instruction_timers[v1] = 1;
+}
+
+static uint8 FireSba_FireWave(void) {  // 0x90CD1A
+  static const int16 kFireSba_FireWave_X[4] = { 128, 128, -128, -128 };
+  static const int16 kFireSba_FireWave_Y[4] = { 128, -128, -128, 128 };
+  for (int i = 6; i >= 0; i -= 2) {
+    int v1 = i >> 1;
+    projectile_timers[v1] = 4;
+    projectile_type[v1] = (equipped_beams & 0x100F) | 0x8010;
+    projectile_dir[v1] = 0;
+    projectile_bomb_pre_instructions[v1] = FUNC16(ProjPreInstr_WaveSba);
+    projectile_bomb_y_speed[v1] = 600;
+    projectile_bomb_x_speed[v1] = 0;
+    projectile_variables[v1] = 0;
+    projectile_bomb_x_subpos[v1] = 0;
+    projectile_bomb_y_subpos[v1] = 0;
+    projectile_x_pos[v1] = kFireSba_FireWave_X[v1] + samus_x_pos;
+    projectile_y_pos[v1] = kFireSba_FireWave_Y[v1] + samus_y_pos;
+    InitializeSbaProjectile(i);
+  }
+  projectile_counter = 4;
+  cooldown_timer = kProjectileCooldown_Uncharged[projectile_type[0] & 0x3F];
+  used_for_sba_attacksB60 = 4;
+  QueueSfx1_Max6(0x28);
+  return 1;
+}
+
+static const uint16 kIcePlasmaSbaProjectileOriginAngles[8] = { 0, 0x40, 0x80, 0xc0, 0x20, 0x60, 0xa0, 0xe0 };
+
+static uint8 FireSba_FireIce(void) {  // 0x90CD9B
+  if (projectile_bomb_pre_instructions[0] == FUNC16(ProjPreInstr_IceSba2)
+      || projectile_bomb_pre_instructions[0] == FUNC16(ProjPreInstr_IceSba))
+    return 0;
+  for (int i = 6; i >= 0; i -= 2) {
+    int v2 = i >> 1;
+    projectile_timers[v2] = 4;
+    projectile_type[v2] = (equipped_beams & 0x100F) | 0x8010;
+    projectile_dir[v2] = 0;
+    projectile_bomb_pre_instructions[v2] = FUNC16(ProjPreInstr_IceSba);
+    projectile_variables[v2] = kIcePlasmaSbaProjectileOriginAngles[v2];
+    projectile_bomb_y_speed[v2] = 600;
+    InitializeProjectile(i);
+  }
+  projectile_counter = 4;
+  cooldown_timer = kProjectileCooldown_Uncharged[projectile_type[0] & 0x3F];
+  used_for_sba_attacksB60 = (samus_pose_x_dir == 4) ? -4 : 4;
+  QueueSfx1_Max6(0x23);
+  return 1;
+}
+
+static uint8 FireSba_FireSpazer(void) {  // 0x90CE14
+  static const int16 kFireSpazer_Timer[4] = { 0, 0, 4, 4 };
+  static const int16 kFireSpazer_Yspeed[4] = { 4, -4, 4, -4 };
+  for (int i = 6; i >= 0; i -= 2) {
+    int v1 = i >> 1;
+    projectile_timers[v1] = kFireSpazer_Timer[v1];
+    projectile_dir[v1] = 5;
+    projectile_bomb_pre_instructions[v1] = FUNC16(ProjPreInstr_SpazerSba);
+    projectile_bomb_x_speed[v1] = 40;
+    projectile_bomb_y_speed[v1] = kFireSpazer_Yspeed[v1];
+    projectile_variables[v1] = 0;
+    projectile_unk_A[v1] = 0;
+    projectile_bomb_x_subpos[v1] = 0;
+    projectile_bomb_y_subpos[v1] = 0;
+    if ((int16)(i - 4) >= 0) {
+      projectile_type[v1] = 0x8024;              /* el rayo de la punta: como los ecos del shinespark */
+      InitializeShinesparkEchoOrSpazerSba(i);
+    } else {
+      projectile_type[v1] = (equipped_beams & 0x100F) | 0x8010;
+      InitializeSbaProjectile(i);
+    }
+  }
+  projectile_counter = 4;
+  cooldown_timer = kProjectileCooldown_Uncharged[projectile_type[0] & 0x3F];
+  used_for_sba_attacksB60 = 0;
+  QueueSfx1_Max6(0x25);
+  return 1;
+}
+
+static uint8 FireSba_FirePlasma(void) {  // 0x90CE98
+  if (projectile_bomb_pre_instructions[0] == FUNC16(ProjPreInstr_PlasmaSba))
+    return 0;
+  for (int i = 6; i >= 0; i -= 2) {
+    int v2 = i >> 1;
+    projectile_type[v2] = (equipped_beams & 0x100F) | 0x8010;
+    projectile_dir[v2] = 0;
+    projectile_bomb_pre_instructions[v2] = FUNC16(ProjPreInstr_PlasmaSba);
+    projectile_variables[v2] = kIcePlasmaSbaProjectileOriginAngles[v2];
+    projectile_bomb_x_speed[v2] = 40;
+    projectile_bomb_y_speed[v2] = 0;
+    InitializeSbaProjectile(i);
+  }
+  projectile_counter = 4;
+  cooldown_timer = kProjectileCooldown_Uncharged[projectile_type[0] & 0x3F];
+  used_for_sba_attacksB60 = (samus_pose_x_dir == 4) ? -4 : 4;
+  QueueSfx1_Max6(0x27);
+  return 1;
+}
+
 /* Ataques especiales (rayo cargado + bomba de poder elegida). Con el rayo solo (sin onda, hielo,
    spazer ni plasma) no hacen nada (FireSba_ClearCarry). */
 static uint8 FireSba(void) {  // 0x90CCC0
@@ -143,10 +259,10 @@ static uint8 FireSba(void) {  // 0x90CCC0
   samus_power_bombs = v2;
   uint8 rv = 0;                                            /* kFireSbaFuncs: FireSba_ClearCarry ($90:CD18) */
   switch (v1 >> 1) {
-  case 1: nt_unimpl("FireSba_FireWave"); break;
-  case 2: nt_unimpl("FireSba_FireIce"); break;
-  case 4: nt_unimpl("FireSba_FireSpazer"); break;
-  case 8: nt_unimpl("FireSba_FirePlasma"); break;
+  case 1: rv = FireSba_FireWave(); break;
+  case 2: rv = FireSba_FireIce(); break;
+  case 4: rv = FireSba_FireSpazer(); break;
+  case 8: rv = FireSba_FirePlasma(); break;
   }
   if (!samus_power_bombs) {
     hud_item_index = 0;
@@ -791,6 +907,7 @@ static uint8 InitProjectilePositionDirection(uint16 r20) {  // 0x90BA56
 /* palabra que el original lee a caballo entre dos variables: byte alto de a y byte bajo de la siguiente (b) */
 static inline uint16 mid16(uint16 a, uint16 b) { return HI8(a) | (uint16)(LO8(b) << 8); }
 
+static void WaveBeam_CheckColl(uint16 k);
 static void InitializeProjectileSpeed(uint16 k, uint16 r22) {  // 0x90B1F3
   uint16 r18;
   int kh = k >> 1;
@@ -869,11 +986,6 @@ static void CheckBeamCollByDir(uint16 k) {  // 0x90BD64
 
 static void FireUnchargedBeam(void) {  // 0x90B887
   static const uint16 kUnchargedProjectile_Sfx[12] = { 0xb, 0xd, 0xc, 0xe, 0xf, 0x12, 0x10, 0x11, 0x13, 0x16, 0x14, 0x15 };
-  static const uint8 kProjectileCooldown_Uncharged[38] = {
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 12, 15, 0, 0, 0, 0,
-    30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 0, 0, 0, 0,
-     0,  0,  0,  0,  0,  0,
-  };
   static const uint8 kBeamAutoFireCooldowns[12] = { 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19 };
   static const uint16 kProjectileBombPreInstr[12] = {
     FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_BeamOrIceWave),
@@ -921,7 +1033,7 @@ static void FireUnchargedBeam(void) {  // 0x90B887
         if (projectile_type[projectile_index >> 1] & 0xF00)
           return;
       } else {
-        nt_unimpl("WaveBeam_CheckColl");
+        WaveBeam_CheckColl(v1);
       }
       projectile_bomb_pre_instructions[v1 >> 1] = kProjectileBombPreInstr[projectile_type[v1 >> 1] & 0xF];
       SetInitialProjectileSpeed(v1);
@@ -945,11 +1057,6 @@ static const uint16 kFireChargedBeam_Funcs[12] = {
 
 static void FireChargedBeam(void) {  // 0x90B986
   static const uint16 kChargedProjectile_Sfx[12] = { 0x17, 0x19, 0x18, 0x1a, 0x1b, 0x1e, 0x1c, 0x1d, 0x1f, 0x22, 0x20, 0x21 };
-  static const uint8 kProjectileCooldown_Uncharged[38] = {
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 12, 15, 0, 0, 0, 0,
-    30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 0, 0, 0, 0,
-     0,  0,  0,  0,  0,  0,
-  };
   if (Samus_CanFireBeam() & 1) {
     uint16 v0 = 0;
     while (projectile_damage[v0 >> 1]) {
@@ -976,7 +1083,7 @@ static void FireChargedBeam(void) {  // 0x90B986
       projectile_bomb_y_speed[v2] = 0;
       projectile_index = v1;
       if (v5 & 1) {
-        nt_unimpl("WaveBeam_CheckColl");
+        WaveBeam_CheckColl(v1);
       } else {
         CheckBeamCollByDir(v1);
         v1 = projectile_index;
@@ -1470,6 +1577,310 @@ static void ProjPreInstr_Beam_NoWaveBeam(uint16 k) {  // 0x90AEF3
   DeleteProjectileIfFarOffScreen();
 }
 
+static void WaveBeam_CheckColl(uint16 k) {  // kWaveBeam_CheckColl_Funcs ($90:BDC0)
+  switch (projectile_dir[k >> 1] & 0xF) {
+  case 0: case 4: case 5: case 9: BlockCollWaveBeamVert(projectile_index); break;   // _0459 ($90:BDD4)
+  case 1: case 3: case 6: case 8: {                                                 // _1368 ($90:BDDC)
+    uint16 v0 = projectile_index;
+    if (!(BlockCollWaveBeamHoriz(projectile_index) & 1))
+      BlockCollWaveBeamVert(v0);
+    break;
+  }
+  case 2: BlockCollWaveBeamHoriz(projectile_index); break;                          // _2 ($90:BDEA)
+  case 7: {                                                                         // _7 ($90:BDF2)
+    uint16 v0 = projectile_index;
+    projectile_bomb_x_speed[projectile_index >> 1] = -1;
+    BlockCollWaveBeamHoriz(v0);
+    break;
+  }
+  default: nt_unimpl("WaveBeam_CheckColl (dirección)"); break;
+  }
+}
+
+static void ProjPreInstr_Wave_Shared(uint16 k) {  // 0x90B103
+  static const int16 kDirToVelMult16_X[10] = { 0, 16, 16, 16, 0, 0, -16, -16, -16, 0 };
+  static const int16 kDirToVelMult16_Y[10] = { -16, -16, 0, 16, 16, 16, 16, 0, -16, -16 };
+  int v1 = k >> 1;
+  int v3 = projectile_dir[v1] & 0xF;
+  projectile_bomb_x_speed[v1] += kDirToVelMult16_X[v3];
+  projectile_bomb_y_speed[v1] += kDirToVelMult16_Y[v3];
+  switch (v3) {
+  case 0: case 4: case 5: case 9:                       // ProjPreInstr_WavePlasmaEtc_0459
+    BlockCollWaveBeamVert(projectile_index);
+    break;
+  case 1: case 3: case 6: case 8: {                     // ProjPreInstr_WavePlasmaEtc_1368
+    uint16 v = projectile_index;
+    if (!(BlockCollWaveBeamHoriz(projectile_index) & 1))
+      BlockCollWaveBeamVert(v);
+    break;
+  }
+  default:                                              // ProjPreInstr_WavePlasmaEtc_27
+    BlockCollWaveBeamHoriz(projectile_index);
+    break;
+  }
+  DeleteProjectileIfFarOffScreen();
+}
+
+static void ProjPreInstr_WaveCommon(uint16 k, uint16 timer) {  // ProjPreInstr_WavePlasmaEtc $90:B0C3 (4) / BeamOrIceWave $90:B0E4 (3)
+  int v1 = k >> 1;
+  if (projectile_dir[v1] & 0xF0) {
+    ClearProjectile(k);
+  } else if (projectile_timers[v1]-- == 1) {
+    projectile_timers[v1] = timer;
+    SpawnProjectileTrail(k);
+    ProjPreInstr_Wave_Shared(projectile_index);
+  } else {
+    ProjPreInstr_Wave_Shared(k);
+  }
+}
+
+/* ------------------------------------------------------------------ ataques especiales (SBA) */
+static void ProjPreInstr_IceSba(uint16 k) {  // 0x90CF09
+  int v1 = k >> 1;
+  if (projectile_dir[v1] & 0xF0) {
+    QueueSfx1_Max6(0x24);
+    ClearProjectile(k);
+    return;
+  }
+  if (projectile_timers[v1]-- == 1) {
+    projectile_timers[v1] = 4;
+    SpawnProjectileTrail(k);
+    k = projectile_index;
+  }
+  int v3 = k >> 1;
+  Point16U pt = Projectile_SinLookup(projectile_variables[v3], 0x20);
+  projectile_x_pos[v3] = pt.x + samus_x_pos;
+  projectile_y_pos[v3] = pt.y + samus_y_pos;
+  projectile_variables[v3] = (uint8)(used_for_sba_attacksB60 + projectile_variables[v3]);
+  if (projectile_bomb_y_speed[v3]-- == 1) {
+    projectile_bomb_pre_instructions[v3] = FUNC16(ProjPreInstr_IceSba2);
+    projectile_bomb_x_speed[v3] = 40;
+    QueueSfx1_Max6(0x24);
+  }
+  cooldown_timer = 2;
+  flare_counter = 0;
+}
+
+static bool SbaOffScreen(uint16 x, uint16 y) {   /* fuera de la pantalla con margen (IceSba2, PlasmaSbaFunc_2) */
+  return sign16(x - layer1_x_pos + 32) || !sign16(x - layer1_x_pos - 288)
+      || sign16(y - layer1_y_pos - 16) || !sign16(y - layer1_y_pos - 256);
+}
+
+static void ProjPreInstr_IceSba2(uint16 k) {  // 0x90CF7A
+  int v1 = k >> 1;
+  if (projectile_dir[v1] & 0xF0) {
+    ClearProjectile(k);
+    return;
+  }
+  if (projectile_timers[v1]-- == 1) {
+    projectile_timers[v1] = 4;
+    SpawnProjectileTrail(k);
+    k = projectile_index;
+  }
+  int v3 = k >> 1;
+  Point16U pt = Projectile_SinLookup(projectile_variables[v3], projectile_bomb_x_speed[v3]);
+  uint16 x = pt.x + samus_x_pos;
+  projectile_x_pos[v3] = x;
+  int16 v5 = x - layer1_x_pos;
+  bool off = sign16(v5 + 32) || !sign16(v5 - 288);
+  if (!off) {                                    /* (la y solo se escribe si la x está en pantalla) */
+    uint16 y = pt.y + samus_y_pos;
+    projectile_y_pos[v3] = y;
+    int16 v7 = y - layer1_y_pos;
+    off = sign16(v7 - 16) || !sign16(v7 - 256);
+  }
+  if (off) {
+    ClearProjectile(k);
+  } else {
+    projectile_variables[v3] = (uint8)(used_for_sba_attacksB60 + projectile_variables[v3]);
+    projectile_bomb_x_speed[v3] = (uint8)(projectile_bomb_x_speed[v3] + 8);
+    cooldown_timer = 2;
+    flare_counter = 0;
+  }
+}
+
+static void ProjPreInstr_PlasmaSba(uint16 k) {  // 0x90D793
+  int v1 = k >> 1;
+  if (projectile_dir[v1] & 0xF0) {
+    ClearProjectile(k);
+    return;
+  }
+  cooldown_timer = 2;
+  flare_counter = 0;
+  Point16U pt = Projectile_SinLookup(projectile_variables[v1], projectile_bomb_x_speed[v1]);
+  projectile_x_pos[v1] = pt.x + samus_x_pos;
+  projectile_y_pos[v1] = pt.y + samus_y_pos;
+  projectile_variables[v1] = (uint8)(used_for_sba_attacksB60 + projectile_variables[v1]);
+  switch (projectile_bomb_y_speed[v1]) {
+  case 0: {                                      // _Func_0 ($90:D7E1): se abre
+    uint16 v2 = (uint8)(projectile_bomb_x_speed[v1] + 4);
+    projectile_bomb_x_speed[v1] = v2;
+    if (!sign16(v2 - 192))
+      projectile_bomb_y_speed[v1] = 1;
+    break;
+  }
+  case 1: {                                      // _Func_1 ($90:D7FA): se cierra
+    uint16 v2 = (uint8)(projectile_bomb_x_speed[v1] - 4);
+    projectile_bomb_x_speed[v1] = v2;
+    if (sign16(v2 - 45))
+      projectile_bomb_y_speed[v1] = 2;
+    break;
+  }
+  case 2:                                        // _Func_2 ($90:D813): sale
+    if (SbaOffScreen(projectile_x_pos[v1], projectile_y_pos[v1]))
+      ClearProjectile(k);
+    else
+      projectile_bomb_x_speed[v1] = (uint8)(projectile_bomb_x_speed[v1] + 4);
+    break;
+  default: nt_unimpl("ProjPreInstr_PlasmaSba (Unreachable)"); break;
+  }
+}
+
+static void ProjPreInstr_WaveSba(uint16 k) {  // 0x90DA08
+  int v1 = k >> 1;
+  if (projectile_dir[v1] & 0xF0) {
+    QueueSfx1_Max6(0x29);
+    ClearProjectile(k);
+    return;
+  }
+  uint16 t = projectile_bomb_y_speed[v1]--;
+  if (t == 1 || (int16)(t - 1) < 0) {
+    QueueSfx1_Max6(0x29);
+    ClearProjectile(k);
+    return;
+  }
+  uint16 R34 = projectile_bomb_x_speed[v1];
+  if (projectile_timers[v1]-- == 1) {
+    projectile_timers[v1] = 4;
+    SpawnProjectileTrail(k);
+    k = projectile_index;
+  }
+  if ((int16)(samus_x_pos - projectile_x_pos[v1]) < 0) {
+    if (!sign16(projectile_bomb_x_speed[v1] + 2047))
+      projectile_bomb_x_speed[v1] -= 64;
+  } else if (sign16(projectile_bomb_x_speed[v1] - 2048)) {
+    projectile_bomb_x_speed[v1] += 64;
+  }
+  add_hilo(&projectile_x_pos[v1], &projectile_bomb_x_subpos[v1], (int32)(int16)projectile_bomb_x_speed[v1] << 8);
+  if ((int16)(samus_y_pos - projectile_y_pos[v1]) < 0) {
+    if (!sign16(projectile_variables[v1] + 2047))
+      projectile_variables[v1] -= 64;
+  } else if (sign16(projectile_variables[v1] - 2048)) {
+    projectile_variables[v1] += 64;
+  }
+  add_hilo(&projectile_y_pos[v1], &projectile_bomb_y_subpos[v1], (int32)(int16)projectile_variables[v1] << 8);
+  if (k == 6 && ((projectile_bomb_x_speed[3] ^ R34) & 0x8000))
+    QueueSfx1_Max6(0x28);                        /* el cuarto cambia de lado */
+  cooldown_timer = 2;
+  flare_counter = 0;
+}
+
+static void FireEndOfSpazerSba(uint16 j) {  // 0x90DC67
+  static const int16 kFireEndOfSpazerSba[4] = { 16, 16, -16, -16 };
+  int v1 = j >> 1;
+  projectile_x_pos[v1] += kFireEndOfSpazerSba[v1];
+  projectile_dir[v1] = 5;
+  projectile_timers[v1] = 4;
+  projectile_bomb_pre_instructions[v1] = FUNC16(ProjPreInstr_EndOfSpazerSba);
+  if ((int16)(j - 4) < 0) {
+    projectile_type[v1] = 0x8024;
+    InitializeShinesparkEchoOrSpazerSba(j);
+  }
+}
+
+static void ProjPreInstr_SpazerSba(uint16 k) {  // 0x90DB06
+  static const uint8 kOther[4] = { 4, 6, 0, 2 };   /* kProjPreInstr_SpazerSba_FuncsA: borra también su pareja */
+  int v1 = k >> 1;
+  if (projectile_dir[v1] & 0xF0) {
+    ClearProjectile(k);                          // _FuncA_0..3 ($90:DB57-DB84)
+    ClearProjectile(kOther[v1]);
+    return;
+  }
+  if (projectile_timers[v1]-- == 1) {
+    projectile_timers[v1] = 4;
+    SpawnProjectileTrail(k);
+    k = projectile_index;
+  }
+  int v4 = k >> 1;
+  Point16U pt = Projectile_SinLookup(projectile_variables[v4], projectile_bomb_x_speed[v4]);
+  projectile_x_pos[v4] = pt.x + samus_x_pos;
+  uint16 r22 = pt.y;
+  switch (projectile_unk_A[v4] >> 1) {
+  case 0: {                                      // _FuncB_0 ($90:DB93): giran hasta arriba
+    static const int16 kProjPreInstr_SpazerSba_Yspeed[4] = { 2, -2, 2, -2 };
+    projectile_y_pos[v4] = r22 + samus_y_pos;
+    uint16 v2 = (uint8)(LO8(projectile_bomb_y_speed[v4]) + LO8(projectile_variables[v4]));
+    projectile_variables[v4] = v2;
+    if (v2 == 128) {
+      projectile_bomb_x_speed[v4] = 160;
+      projectile_bomb_y_speed[v4] = kProjPreInstr_SpazerSba_Yspeed[v4];
+      projectile_dir[v4] = 0;
+      projectile_unk_A[v4] = 2;
+    }
+    break;
+  }
+  case 1: {                                      // _FuncB_1 ($90:DBCF): se juntan
+    static const int16 kSpazerProjectileYSpeed[4] = { -2, 2, -2, 2 };
+    uint16 v1b = r22 + samus_y_pos - 114;
+    projectile_y_pos[v4] = v1b;
+    if (sign16(v1b - layer1_y_pos - 16)) {
+      FireEndOfSpazerSba(k);
+    } else {
+      projectile_variables[v4] = (uint8)(LO8(projectile_bomb_y_speed[v4]) + LO8(projectile_variables[v4]));
+      uint16 v3 = projectile_bomb_x_speed[v4] - 5;
+      projectile_bomb_x_speed[v4] = v3;
+      if (!v3) {
+        projectile_bomb_y_speed[v4] = kSpazerProjectileYSpeed[v4];
+        projectile_variables[v4] = (uint8)(projectile_variables[v4] + 0x80);
+        projectile_unk_A[v4] = 4;
+        if (!k)
+          QueueSfx1_Max6(0x26);
+      }
+    }
+    break;
+  }
+  case 2: {                                      // _FuncB_2 ($90:DC30): se separan
+    uint16 v1b = r22 + samus_y_pos - 114;
+    projectile_y_pos[v4] = v1b;
+    if (sign16(v1b - layer1_y_pos - 16)) {
+      FireEndOfSpazerSba(k);
+    } else {
+      projectile_variables[v4] = (uint8)(LO8(projectile_bomb_y_speed[v4]) + LO8(projectile_variables[v4]));
+      uint16 v3 = projectile_bomb_x_speed[v4] + 5;
+      projectile_bomb_x_speed[v4] = v3;
+      if (!sign16(v3 - 96))
+        FireEndOfSpazerSba(k);
+    }
+    break;
+  }
+  default: nt_unimpl("ProjPreInstr_SpazerSba (índice)"); break;
+  }
+  cooldown_timer = 2;
+  flare_counter = 0;
+}
+
+static void ProjPreInstr_EndOfSpazerSba(uint16 k) {  // 0x90DC9C
+  int v1 = k >> 1;
+  if (projectile_dir[v1] & 0xF0) {
+    ClearProjectile(k);
+    return;
+  }
+  if (projectile_timers[v1]-- == 1) {
+    projectile_timers[v1] = 4;
+    SpawnProjectileTrail(k);
+    k = projectile_index;
+  }
+  int v3 = k >> 1;
+  uint16 v4 = projectile_y_pos[v3] + 8;
+  projectile_y_pos[v3] = v4;
+  if (!sign16(v4 - layer1_y_pos - 248)) {
+    ClearProjectile(k);
+  } else {
+    cooldown_timer = 2;
+    flare_counter = 0;
+  }
+}
+
 static void CallProjPreInstr(uint16 f, uint16 k) {
   switch (f) {
   case FUNC16(ProjPreInstr_Empty): return;
@@ -1480,6 +1891,14 @@ static void CallProjPreInstr(uint16 f, uint16 k) {
   case FUNC16(ProjPreInstr_Bomb): ProjPreInstr_Bomb(k); return;
   case FUNC16(ProjPreInstr_SpreadBomb): ProjPreInstr_SpreadBomb(k); return;
   case FUNC16(ProjPreInstr_SpeedEcho): ProjPreInstr_SpeedEcho(k); return;
+  case FUNC16(ProjPreInstr_WavePlasmaEtc): ProjPreInstr_WaveCommon(k, 4); return;
+  case FUNC16(ProjPreInstr_BeamOrIceWave): ProjPreInstr_WaveCommon(k, 3); return;
+  case FUNC16(ProjPreInstr_IceSba): ProjPreInstr_IceSba(k); return;
+  case FUNC16(ProjPreInstr_IceSba2): ProjPreInstr_IceSba2(k); return;
+  case FUNC16(ProjPreInstr_PlasmaSba): ProjPreInstr_PlasmaSba(k); return;
+  case FUNC16(ProjPreInstr_WaveSba): ProjPreInstr_WaveSba(k); return;
+  case FUNC16(ProjPreInstr_SpazerSba): ProjPreInstr_SpazerSba(k); return;
+  case FUNC16(ProjPreInstr_EndOfSpazerSba): ProjPreInstr_EndOfSpazerSba(k); return;
   default: nt_unimpl_v("CallProjPreInstr (proyectil sin portar)", f); return;
   }
 }

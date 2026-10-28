@@ -94,6 +94,8 @@ void BlockInsideDetection(void);
 void CalculateBlockAt(uint16 r26, uint16 r28, uint16 r30, uint16 r32);
 uint8 BlockCollNoWaveBeamHoriz(uint16 k);
 uint8 BlockCollNoWaveBeamVert(uint16 k);
+uint8 BlockCollWaveBeamHoriz(uint16 k);
+uint8 BlockCollWaveBeamVert(uint16 k);
 uint8 BlockCollMissileHoriz(uint16 k);
 uint8 BlockCollMissileVert(uint16 k);
 

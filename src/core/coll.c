@@ -672,6 +672,52 @@ uint8 BlockCollNoWaveBeamHoriz(uint16 k) {  // 0x94A23B
   return 1;
 }
 
+/* rayo de onda: atraviesa los bloques (solo los activa) y no se mata al chocar ($94:A352, $94:A3E4) */
+uint8 BlockCollWaveBeamHoriz(uint16 k) {  // 0x94A352
+  int v1 = k >> 1;
+  int32 amt = (int32)(int16)projectile_bomb_x_speed[v1] << 8;
+  uint16 some_pos = BlockGetSomePos1(k);
+  uint16 prod = Mult8x8((uint16)(projectile_y_pos[v1] - projectile_y_radius[v1]) >> 4, room_width_in_blocks);
+  add_hilo(&projectile_x_pos[v1], &projectile_bomb_x_subpos[v1], amt);
+  uint16 r24 = projectile_x_pos[v1];
+  uint16 v7 = (amt < 0) ? projectile_x_pos[v1] - projectile_x_radius[v1] : projectile_x_radius[v1] + projectile_x_pos[v1] - 1;
+  uint16 v8 = 2 * (prod + (v7 >> 4));
+  if (!sign16(some_pos - 16))
+    return 0;
+  CollInfo ci = { .ci_r18_r20 = amt, .ci_r24 = r24, .ci_r26 = some_pos, .ci_r28 = v7, .ci_r30 = 0, .ci_r38 = some_pos, .ci_r40 = some_pos };
+  uint8 v9 = HI8(projectile_y_pos[v1]);
+  if (!sign8(v9) && (int16)(v9 - room_height_in_scrolls) < 0 && (int16)(HI8(v7) - room_width_in_scrolls) < 0) {
+    do {
+      BlockShotReact(&ci, v8, false);
+      v8 += room_width_in_blocks * 2;
+    } while (!(--ci.ci_r38 & 0x8000));
+  }
+  return 0;
+}
+
+uint8 BlockCollWaveBeamVert(uint16 k) {  // 0x94A3E4
+  int v1 = k >> 1;
+  int32 amt = (int32)(int16)projectile_bomb_y_speed[v1] << 8;
+  uint16 some_pos = BlockGetSomePos2(k);
+  add_hilo(&projectile_y_pos[v1], &projectile_bomb_y_subpos[v1], amt);
+  uint16 r24 = projectile_y_pos[v1];
+  uint16 v7 = (amt < 0) ? projectile_y_pos[v1] - projectile_y_radius[v1] : projectile_y_radius[v1] + projectile_y_pos[v1] - 1;
+  uint16 prod = Mult8x8(v7 >> 4, room_width_in_blocks);
+  uint16 v8 = (uint16)(projectile_x_pos[v1] - projectile_x_radius[v1]) >> 4;
+  uint16 v9 = 2 * (prod + v8);
+  if (!sign16(some_pos - 16))
+    return 0;
+  uint8 v10 = HI8(projectile_x_pos[v1]);
+  CollInfo ci = { .ci_r18_r20 = amt, .ci_r24 = r24, .ci_r26 = some_pos, .ci_r28 = v7, .ci_r30 = 0, .ci_r38 = some_pos, .ci_r40 = some_pos };
+  if (!sign8(v10) && (int16)(v10 - room_width_in_scrolls) < 0 && (int16)(HI8(v7) - room_height_in_scrolls) < 0) {
+    do {
+      BlockShotReact(&ci, v9, true);
+      v9 += 2;
+    } while (!(--ci.ci_r38 & 0x8000));
+  }
+  return 0;
+}
+
 /* misiles: un solo bloque (el del centro), sin radio ($94:A46F, $94:A4D9) */
 uint8 BlockCollMissileHoriz(uint16 k) {  // 0x94A46F
   int v1 = k >> 1;

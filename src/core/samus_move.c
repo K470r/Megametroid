@@ -1117,7 +1117,7 @@ static void Samus_Movement_03_SpinJumping(void) {  // 0x90A436
       uint16 v = (uint16)(samus_y_speed << 8 | samus_y_subspeed >> 8);
       uint16 vmin = liquid_physics_type ? 0x80 : 0x280;   // kSamusPhys_JumpMinYVelWater / Air
       if (!sign16(v - vmin) && sign16(v - 0x500)) {        // kSamusPhys_JumpMaxYVelWater / Air
-        UNUSED_word_7E0DFA = UNUSED_word_7E0DFA & 0xFF00 | 1;
+        UNUSED_word_7E0DFA = (UNUSED_word_7E0DFA & 0xFF00) | 1;
         if (button_config_jump_a & joypad1_newkeys)
           Samus_InitJump();
       }

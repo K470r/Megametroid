@@ -16,6 +16,7 @@
 #include "nmath.h"
 #include "room.h"
 #include "plm.h"
+#include "hdmaobj.h"
 #include "enemies.h"
 #include "enums.h"
 
@@ -650,7 +651,8 @@ static uint16 PlmInstr_ClearPreInstr(uint16 p, uint16 k) {  // 0x8486CA
 
 static void CallPlmInstrFunc(uint32 ea) {
   switch (ea) {
-  case fnVariaSuitPickup: case fnGravitySuitPickup:   /* animación de los trajes ($91): aún sin portar */
+  case fnVariaSuitPickup: VariaSuitPickup(); return;       /* suit.c */
+  case fnGravitySuitPickup: GravitySuitPickup(); return;
   default: nt_unimpl("PlmInstr_CallFunction (función sin portar)"); return;
   }
 }

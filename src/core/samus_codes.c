@@ -216,6 +216,15 @@ static uint8 SamusCode(uint16 a) {
     frame_handler_beta = FUNC16(EmptyFunction);
     samus_draw_handler = FUNC16(SamusDisplayHandler_SamusReceivedFatal);
     return 1;
+  case 0x15:                                   // SamusCode_15_CalledBySuitAcquision ($90:F310)
+    Samus_UpdatePreviousPose();
+    flare_counter = 0;
+    ClearFlareAnimationState();
+    Samus_LoadSuitPalette();
+    frame_handler_alfa = FUNC16(Samus_FrameHandlerAlfa_Func13);   /* SamusCode_11_15_Common ($90:F2FC) */
+    frame_handler_beta = FUNC16(EmptyFunction);
+    samus_draw_handler = FUNC16(SamusDisplayHandler_SamusReceivedFatal);
+    return 1;
   case 0x14:                                   // 0x90F331: sonidos al recibir daño
     if (sign16(samus_health - 31))
       QueueSfx3_Max6(2);

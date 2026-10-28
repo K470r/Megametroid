@@ -1080,6 +1080,8 @@ static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   case FUNC16(HdmaobjPreInstr_EA3C): HdmaobjPreInstr_EA3C(k); break;
   case FUNC16(HdmaobjPreInstr_EACB): HdmaobjPreInstr_EACB(k); break;
   case FUNC16(HdmaobjPreInstr_BombTorizoHazeColorMathBgColor): fx_layer_blending_config_c = 44; break;   // 0x88DD43
+  case FUNC16(HdmaobjPreInstr_VariaSuitPickup): HdmaobjPreInstr_SuitPickup(k, false); break;   // 0x88E026
+  case FUNC16(HdmaobjPreInstr_GravitySuitPickup): HdmaobjPreInstr_SuitPickup(k, true); break;  // 0x88E05C
   default: nt_unimpl_v("HdmaobjPreInstr (pre-instrucción sin portar)", f); break;
   }
 }
@@ -1091,6 +1093,7 @@ static void CallHdmaobjFarFunc(uint32 ea, uint16 k) {   /* HdmaobjInstr_CallFarF
   case fnHdmaobj_ExplodeYellow: Hdmaobj_ExplodeYellow(); break;
   case fnHdmaobj_ExplodeWhite: Hdmaobj_ExplodeWhite(); break;
   case fnHdmaobj_CleanUpTryCrystalFlash: Hdmaobj_CleanUpTryCrystalFlash(k); break;
+  case fnInitializeSuitPickupHdma: InitializeSuitPickupHdma(); break;
   default: nt_unimpl_v("HdmaobjInstr_CallFarFunc (función sin portar)", ea); break;
   }
 }
@@ -1099,6 +1102,12 @@ static uint16 ListW(uint8 bank, uint16 a) {
   switch (bank) {
   case 0x88: return B88W(a);
   case 0x81: return B81W(a);
+  case 0x91: {                                   /* el rayo de luz de los trajes ($91:D5A2-D691) */
+    const uint8 *q = kBank91_SuitHdma + (uint16)(a - 0xD5A2);
+    uint16 lo = q[0];
+    __asm__("" : "+d"(lo));
+    return lo | q[1] << 8;
+  }
   default: nt_unimpl("objeto de HDMA (banco sin preparar)"); return FUNC16(HdmaobjInstr_Delete);
   }
 }

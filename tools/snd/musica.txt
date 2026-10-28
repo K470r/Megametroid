@@ -1,0 +1,16 @@
+# MegaMetroid — música del cartucho (docs/55): qué pistas se convierten y cómo. Solo números: la música sale de tu ROM.
+#
+# conjunto pista tipo [cuadros]
+#   conjunto: el de QueueMusic_Delayed8(0xFF00 | conjunto) (la tabla $8F:E7E1); pista: la de QueueMusic(pista).
+#   tipo: xgm2 (FM y PSG con tools/snd/instrumentos.txt) o pcm (grabada tal cual: las voces).
+#   cuadros: cuánto se graba si la pista no tiene lazo ni termina sola.
+#
+# Desde la intro hasta que la nave llega a Zebes (los pedidos del SNES: MM_SNDLOG en host/check, docs/55):
+0x3F 5 pcm     # "The last Metroid is in captivity" (CinematicFunction_Intro_Initial, $8B:A395)
+0x42 5 pcm     # "The galaxy is at peace" ($8B:A613)
+0x36 5 xgm2    # la intro: el diario y los recuerdos (CinematicFunc_Intro_SetupTextPage2, $8B:A66F)
+0x2D 5 xgm2    # el vuelo a Ceres (CinematicFunction_Intro_Func54, $8B:BCA0)
+0x2D 6 xgm2    # Ceres (la sala, LoadNewMusicTrackIfChanged)
+0x24 5 xgm2    # la pelea con Ridley (CeresRidley, $A6:A0F5)
+0x24 7 xgm2    # la huida de Ceres ($A6:A4E8)
+0x2D 7 xgm2    # Ceres explota y el viaje a Zebes ($8B:C2B5 / cinematic.c)

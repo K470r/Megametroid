@@ -1,6 +1,7 @@
 # 40 — Sonido en la Genesis
 
-Estado: solo las voces de la intro. La música y los efectos vendrán con un controlador propio para el Z80.
+Estado (2026-10-28): **reemplazado por docs/55** (XGM2: música y efectos de la intro a la llegada a Zebes; las voces
+ahora son pistas PCM del XGM2, `tools/conv/mkvoice.py` ya no existe). Lo de abajo es cómo era antes.
 
 ## Cómo pide el motor la música
 

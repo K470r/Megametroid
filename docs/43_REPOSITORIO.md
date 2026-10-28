@@ -27,7 +27,7 @@ compila.
 | `src/core/` | el motor nativo de 68000 (C), incluido `port_gen.c/.h` (generado del decomp, sin datos de la ROM) |
 | `Makefile`, `src/platform/`, `inc/platform/`, `src/front/`, `inc/front/`, `src/boot/` | la parte propia de la Genesis (VDP, dibujo, sonido, cabecera, enlace) |
 | `host/*.c *.h build.sh` | el motor compilado en el PC: `check`, `mkinit`, `zcover`, `tour`... (sin los binarios) |
-| `tools/conv/*.py` | conversores: `mkdata`, `mkmd`, `mkzebes`, `mkzobj`, `mkzkeys`, `mkintro`, `mkvoice`... |
+| `tools/conv/*.py` | conversores: `mkdata`, `mkmd`, `mkzebes`, `mkzobj`, `mkzkeys`, `mkintro`... (el sonido: `tools/snd/`, docs/55; las tablas `musica.txt`, `efectos.txt` e `instrumentos.txt` son nuestras) |
 | `tools/port/` | el traductor del decomp (docs/42), `roots.txt` |
 | `tools/genesis_convert/`, `tools/emu_harness/`, `tools/snes_ref/` | conversores, `retrorun`, grabador del SNES (`hlref`) — solo fuentes y scripts |
 | `tools/setup/`, `tools/inputs/` | instalar las herramientas; rehacer desde la ROM todo lo que no se sube (docs/45) |

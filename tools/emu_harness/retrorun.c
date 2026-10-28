@@ -14,6 +14,7 @@
  *   trace <archivo> <addr_hex:len,...>  a partir de aquí, cada frame agrega esos bytes (binario)
  *   untrace
  *   (variable RR_PAD=6: mando de 6 botones en Genesis Plus GX)
+ *   (variable RR_WAV=archivo.wav: graba lo que suena, 16 bits estéreo a la frecuencia del núcleo: docs/55)
  *   (variable RR_VARS="clave=valor;...": opciones del núcleo, p. ej. snes9x_layer_5=disabled)
  *   input <archivo>                reproduce un archivo de entrada: una línea por frame con botones
  *   hashseq <archivo> <addr_hex>   en cada cuadro: "cuadro valor hash" (valor: palabra de 16 bits de la RAM del
@@ -96,8 +97,27 @@ static void video_cb(const void *data, unsigned w, unsigned h, size_t pitch) {
         for (unsigned y = 0; y < h; y++) memcpy(fb + y * w, (const uint8_t *) data + y * pitch, w * 2);
     }
 }
-static void audio_cb(int16_t l, int16_t r) { (void) l; (void) r; }
-static size_t audio_batch_cb(const int16_t *d, size_t f) { (void) d; return f; }
+static FILE *wav_f;
+static uint32_t wav_frames;
+static void audio_cb(int16_t l, int16_t r) {
+    if (wav_f) { int16_t s[2] = { l, r }; fwrite(s, 2, 2, wav_f); wav_frames++; }
+}
+static size_t audio_batch_cb(const int16_t *d, size_t f) {
+    if (wav_f) { fwrite(d, 4, f, wav_f); wav_frames += f; }
+    return f;
+}
+static void wav_close(unsigned rate) {           /* cabecera RIFF al terminar */
+    if (!wav_f) return;
+    uint32_t bytes = wav_frames * 4, x;
+    uint16_t s;
+    fseek(wav_f, 0, SEEK_SET);
+    fwrite("RIFF", 1, 4, wav_f); x = 36 + bytes; fwrite(&x, 4, 1, wav_f); fwrite("WAVEfmt ", 1, 8, wav_f);
+    x = 16; fwrite(&x, 4, 1, wav_f); s = 1; fwrite(&s, 2, 1, wav_f); s = 2; fwrite(&s, 2, 1, wav_f);
+    fwrite(&rate, 4, 1, wav_f); x = rate * 4; fwrite(&x, 4, 1, wav_f); s = 4; fwrite(&s, 2, 1, wav_f);
+    s = 16; fwrite(&s, 2, 1, wav_f); fwrite("data", 1, 4, wav_f); fwrite(&bytes, 4, 1, wav_f);
+    fclose(wav_f);
+    wav_f = 0;
+}
 static void poll_cb(void) {}
 static int16_t input_cb(unsigned port, unsigned dev, unsigned idx, unsigned id) {
     (void) idx;
@@ -211,6 +231,7 @@ int main(int argc, char **argv) {
     fclose(rf);
     struct retro_game_info gi = { argv[2], rom, (size_t) n, NULL };
     if (!p_retro_load_game(&gi)) { fprintf(stderr, "load_game falló\n"); return 1; }
+    if (getenv("RR_WAV")) { wav_f = fopen(getenv("RR_WAV"), "wb"); uint8_t z[44] = { 0 }; fwrite(z, 1, 44, wav_f); }
     if (p_retro_set_controller_port_device) {
         /* RR_PAD=6: mando de 6 botones en Genesis Plus GX (subclase 1 del joypad) */
         const char *pad = getenv("RR_PAD");
@@ -297,5 +318,10 @@ int main(int argc, char **argv) {
         }
     }
     printf("frames=%ld\n", frame);
+    if (wav_f) {
+        struct retro_system_av_info av;
+        p_retro_get_system_av_info(&av);
+        wav_close((unsigned) (av.timing.sample_rate + 0.5));
+    }
     return 0;
 }

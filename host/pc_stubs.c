@@ -15,13 +15,24 @@ static unsigned rid(void) {
   switch (roomdefroomstate_ptr) { case 0xE097: case 0xE04D: case 0xE003: case 0xDFB9: case 0xDF71: return roomdefroomstate_ptr; }
   return room_ptr;
 }
+/* MM_SNDLOG: los pedidos al SPC con el cuadro del SNES (nmi_frame_counter_word, sin vueltas) y el estado del juego
+   (tools/snd/mksnd.py arma con esto la línea de tiempo del sonido, docs/55) */
+static void sndlog(const char *k, unsigned a, unsigned b) {
+  static FILE *f; static int init; static unsigned long hi; static uint16 last;
+  if (!init) { init = 1; if (getenv("MM_SNDLOG")) f = fopen(getenv("MM_SNDLOG"), "w"); }
+  if (!f) return;
+  if (nmi_frame_counter_word < last) hi += 0x10000;
+  last = nmi_frame_counter_word;
+  fprintf(f, "%lu %u %s %u %u\n", hi + nmi_frame_counter_word, game_state, k, a, b);
+  fflush(f);
+}
 #define room_ptr rid()
-void sfx_play(uint16 channel, uint8 id) { LOG("%04X sfx %u %02X\n", room_ptr, channel, id); }
+void sfx_play(uint16 channel, uint8 id) { LOG("%04X sfx %u %02X\n", room_ptr, channel, id); if (id) sndlog("sfx", channel, id); }
 void DrawSamusSpritemap(uint16 idx, uint16 x, uint16 y) { LOG("%04X samus %u\n", room_ptr, idx); }
 void DrawSamusFrontExtra(void) { LOG("%04X front\n", room_ptr); }
 void samus_tiles_changed(void) { LOG("%04X tiles %04X %04X %04X\n", room_ptr, nmi_copy_samus_halves, nmi_copy_samus_top_half_src, nmi_copy_samus_bottom_half_src); }
 void hud_minimap_update(uint16 a, uint16 b, uint16 c) { LOG("%04X minimap %04X %04X %04X\n", room_ptr, a, b, c); }
-void music_upload(uint16 i) { LOG("%04X musicup %04X\n", room_ptr, i); }
+void music_upload(uint16 i) { LOG("%04X musicup %04X\n", room_ptr, i); sndlog("up", i, 0); }
 void DrawEnemySpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, uint16 tiles) { LOG("%04X enemy %02X %04X %04X %04X\n", room_ptr, bank, sm, pal, tiles); }
 void DrawSpriteObjSpritemap(uint16 sm, uint16 x, uint16 y, uint16 pal, uint16 tiles) { LOG("%04X sprobj %04X %04X %04X\n", room_ptr, sm, pal, tiles); }
 void CeresDoor_QueueMode7Transfers(uint16 w) { LOG("%04X m7door %u\n", room_ptr, w); }
@@ -37,7 +48,7 @@ void DrawGrappleOrProjectileSpritemap(uint16 sm, uint16 x, uint16 y) { LOG("%04X
 void DrawProjectileTrailSprite(uint16 x, uint16 y, uint16 t) { LOG("%04X trail %04X\n", room_ptr, t); }
 void DrawGrappleOam(int16 x, int16 y, uint16 chr) { LOG("%04X grapple %04X\n", room_ptr, chr); (void)x; (void)y; }
 void GrappleTiles(uint16 point_src, uint16 beam_src) { (void)point_src; (void)beam_src; }
-void music_play(uint8 t) { LOG("%04X music %02X\n", room_ptr, t); }
+void music_play(uint8 t) { LOG("%04X music %02X\n", room_ptr, t); sndlog("play", t, 0); }
 void EscapeTextCell(uint16 dst, uint16 w) { LOG("%04X text %04X %04X\n", room_ptr, dst, w); }
 void DrawTimerSpritemap(uint16 sm, uint16 x, uint16 y) { LOG("%04X spr80 %04X 0A00\n", room_ptr, sm); }
 /* cinemáticas y menús: "salas" propias para la Genesis (C001 Ceres explota, C002 Zebes, C0FF fin de juego) */

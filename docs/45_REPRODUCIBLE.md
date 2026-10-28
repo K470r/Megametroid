@@ -15,8 +15,8 @@ crateria7) y la regresión da 0 diferencias.
     make full                                     # -> out/rom.bin
     sh tests/regress/regress.sh                   # 0 distintos = la imagen aprobada
 
-Las voces de la intro salen de las muestras del SPC extraídas (`data/extracted_full/audio`, songsets 3F y 42:
-`tools/conv/mkvoice.py`, docs/40). No hace falta ningún archivo aparte.
+El sonido (música, efectos y las voces de la intro) sale del N-SPC del decomp (`sm/src/spc_player.c`) corrido con tu
+ROM: `tools/snd/mksnd.py`, docs/55 (usa `gcc` y `java` para `xgm2tool`). No hace falta ningún archivo aparte.
 
 ## Qué rehace `make_inputs.sh` y con qué
 

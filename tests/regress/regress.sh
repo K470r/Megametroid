@@ -12,6 +12,11 @@
 # se cuenta como corrimiento y no falla, salvo que la misma línea cambie en muchos cuadros (eso es un cambio de verdad,
 # como una línea de otro color debajo del HUD).
 #
+# El borde derecho del círculo de la explosión de Ceres (cuadros 8620-8705 del motor en las escenas ceres y zebes) se
+# cuenta aparte y no falla: la interrupción horizontal que escribe el scroll de cada línea llega antes o después del
+# dibujo de la línea según qué instrucción corre el 68000, y con sonido el Z80 le roba ciclos (docs/54, docs/55). Se
+# informa cuántos cuadros cambiaron ahí; fuera de esa ventana todo sigue contando.
+#
 # Uso: regress.sh [escena...]          comparar (escenas: intro ceres zebes; sin nada, todas)
 #      UPDATE=1 regress.sh [escena...] aprobar: la imagen actual pasa a ser la de referencia
 # Variables: RETRORUN, CORE (Genesis Plus GX libretro)
@@ -53,6 +58,8 @@ def load(data):
 g = load(gzip.open(sys.argv[1]).read())
 c = load(open(sys.argv[2], 'rb').read())
 bad, shift, rowcount = [], [], {}
+CIRC = {'ceres': (8620, 8705), 'zebes': (8620, 8705)}.get(sys.argv[3])   # borde del círculo (ver arriba)
+circ = []
 for f in sorted(g):
     if f not in c or g[f] == c[f]:
         continue
@@ -65,6 +72,8 @@ for f in sorted(g):
     if len(d) <= 8 and len(runs) <= 4 and all(b - a < 3 for a, b in runs):
         shift.append(f)
         for i in d: rowcount[i] = rowcount.get(i, 0) + 1
+    elif CIRC and CIRC[0] <= f <= CIRC[1]:
+        circ.append(f)
     else:
         bad.append(f)
 steady = sorted(i for i, k in rowcount.items() if k > 0.2 * len(g))
@@ -78,6 +87,7 @@ def ranges(fs):
 msg = '%s: %d cuadros comparados, %d distintos' % (sys.argv[3], len(g), len(bad))
 if bad: msg += ' en ' + ranges(bad)
 if shift: msg += '; %d con corrimientos de una línea' % len(shift)
+if circ: msg += '; %d en el borde del círculo de la explosión (no falla)' % len(circ)
 if steady: msg += '; LÍNEAS QUE CAMBIAN SIEMPRE: %s' % steady[:10]
 if miss: msg += '; %d cuadros que no se vieron' % len(miss)
 print(msg)

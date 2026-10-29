@@ -20,6 +20,8 @@ SNES de `make_inputs.sh` con `MM_SNDLOG` (nuevo en `host/pc_stubs.c`: cuadro del
 
 | Cuadro SNES | Estado | Pedido | Qué es (función del decomp) |
 |---|---|---|---|
+| título 363 | 1 | $03, 5 | el título (`CinematicFunctionOpening` $8B:9B68; `src/front/title.c`, ver abajo) |
+| al salir del título | 1 | $03, 6 | el menú de partidas (`HandleCinematicsTransitions_1` $8B:9A83) |
 | 2068 / 2167 | 30 | conjunto $3F, pista 5 | "The last Metroid is in captivity" (`CinematicFunction_Intro_Initial` $8B:A395) |
 | 2375 / 2390 | 30 | $42, 5 | "The galaxy is at peace" (`CinematicFunc_Intro_QueueGalaxyIsAtPeace` $8B:A613) |
 | 2678 / 2693 | 30 | $36, 5 | la intro: diario y recuerdos (`CinematicFunc_Intro_SetupTextPage2` $8B:A66F) |
@@ -166,6 +168,8 @@ Zebes 68 / 86 / 48 (70 / 110 / 69).
 | `MM_SNDLOG=archivo host/check ...` | los pedidos al SPC por cuadro |
 | `RR_WAV=archivo.wav tools/bin/retrorun ...` | graba lo que suena en la Genesis |
 | `tools/snd/fui2parche.py instrumento.fui [CONJ SRCN] [--escribir] [--envolvente-snes]` | un instrumento FM de Furnace (.fui) a una línea de `instrumentos.txt` |
+| `make fur` (`tools/snd/mkfur.py sm.smc [carpeta] [CONJ PISTA...]`) | las canciones del juego como proyectos de Furnace (`work/furnace/*.fur`) |
+| `tools/snd/fur2tabla.py proyecto.fur [--escribir] [--envolvente-snes] [--revisar]` | los instrumentos FM de un proyecto de Furnace a `instrumentos.txt` |
 | `make snd` | rehace solo el sonido (`mksnd.py`) y la ROM (~1 min) |
 | `EXPFL=-DMD_GAWAIT` | cuenta en `md_ga_wait` los cambios de la huida que tuvieron que terminar de cargar tiles |
 | `EXPFL=-DGA_STEP=n` | presupuesto de la huida por cuadro del motor (1920) |
@@ -174,9 +178,11 @@ Zebes 68 / 86 / 48 (70 / 110 / 69).
 ## Ajustar los instrumentos a oído con Furnace
 
 1. Elegir el instrumento: `python3 tools/snd/mksnd.py sm/sm.smc res/gen/md work/snd --analizar` lista cada muestra
-   (`# CONJ SRCN: tipo f0=... notas=... voces=[...] armónicas=[...]`) y la pista donde suena.
-2. En Furnace, un instrumento **FM (OPN)** (YM2612): armarlo escuchando el original (el audio del SNES:
-   `tools/snd/snesref.py`). Guardarlo con "Save instrument" (.fui, el formato nuevo o el viejo).
+   (`# CONJ SRCN: tipo f0=... notas=... voces=[...] armónicas=[...]`) y la pista donde suena, y guarda cada muestra
+   del SNES sola en `work/snd/muestras/CONJ_SRCN.wav` (en hexadecimal sin `0x`: `03_25.wav`): 2 s a su altura
+   natural, con su lazo. Es lo que hay que imitar.
+2. En Furnace, un instrumento **FM (OPN)** (YM2612): armarlo escuchando el original (esa muestra, o la pista entera
+   del SNES: `tools/snd/snesref.py`). Guardarlo con "Save instrument" (.fui, el formato nuevo o el viejo).
 3. `python3 tools/snd/fui2parche.py coro.fui 0x36 24 --escribir` escribe en `tools/snd/instrumentos.txt` la línea
    `0x36 24 tipo=fm parche=...` (reemplaza la de ese conjunto y muestra, o la agrega). Se le pueden sumar claves
    (`oct=-1 vol=-3`). Avisa lo que la tabla no usa: operadores apagados (van con TL 127), AM, SSG-EG, LFO.
@@ -196,6 +202,65 @@ Detalles:
 - `ONLY_SND=1 sh tools/conv/make_data.sh` solo hace el sonido si falta (lo usa el `Makefile`): para rehacerlo después
   de cambiar la tabla, `make snd`.
 
+## Las canciones enteras en Furnace (`make fur`)
+
+Para elegir los instrumentos escuchando la canción completa: `make fur` escribe en `work/furnace/` un proyecto de
+Furnace por canción del juego (37: las de las áreas, los jefes, las cinemáticas, el título, los créditos y las cuatro
+del motor; sin las voces PCM ni las pistas que en el SPC son silencio). Salen de tu ROM: no van a git.
+
+Qué tiene cada proyecto (`tools/snd/mkfur.py`):
+- El sistema Genesis (YM2612 + PSG), 60 filas por segundo (velocidad 1: una fila por cuadro del SNES), patrones de
+  256 filas y el lazo de la canción (`0Bxx` al final; `0D00` donde termina la parte que no se repite).
+- Las notas **tal como las arma la ROM**: `convert_track` (`mksnd.py`) anota lo que suena en cada canal de la Genesis
+  (su parámetro `trace`) y `mkfur.py` lo pasa a filas: nota e instrumento al tocar, `OFF` al soltar, el volumen del
+  SNES en la columna de volumen (FM: 127 menos la atenuación en pasos del TL; PSG: 15 menos la atenuación), la altura
+  fina con `E5xx` (1/128 de semitono: el vibrato y los deslizamientos), `EAFF`/`EA00` (nota ligada) cuando la altura
+  se va más de un semitono sin volver a tocar, `08xy` el paneo y `2001` en el ruido (blanco, con sus 3 velocidades:
+  C, C# y D).
+- Un instrumento por muestra del SNES: `03_25` (conjunto $03, muestra 25), con el parche de hoy de
+  `instrumentos.txt`. Los del PSG y el ruido se llaman `03_25 psg` / `03_24 ruido`.
+- El formato de Furnace 0.6.8.1 (versión 228, bloque `INFO`): lo abren esa versión y las siguientes.
+- Además, en `work/furnace/`: `instrumentos_por_cancion.txt` (los instrumentos de cada canción, su tipo y cuántas
+  notas tocan) y `muestras/CONJ_MUESTRA.wav` (cada muestra del SNES sola, como `--analizar`).
+
+Cómo se usa:
+1. `make fur` y abrir en Furnace, por ejemplo, `work/furnace/03_5_titulo.fur`. Play: suena la canción entera.
+2. Cambiar los instrumentos FM (los que se llaman `CONJ_MUESTRA`) escuchando. Las notas del proyecto no se usan
+   para la ROM (salen del SPC): lo que se cambia ahí no llega al juego.
+3. Guardar el proyecto (con cualquier nombre) y pasar los instrumentos a la tabla, todos de una vez:
+   `python3 tools/snd/fur2tabla.py work/furnace/03_5_titulo.fur --envolvente-snes --escribir`.
+4. `make snd` y escuchar `out/rom.bin`. Un `make fur` después rehace los proyectos con los instrumentos nuevos (y
+   las otras canciones del mismo conjunto ya los traen).
+
+`fur2tabla.py` lee el `.fur` comprimido o no, del formato viejo (`INFO`) o del nuevo (`INF2`, Furnace en
+desarrollo), y pasa cada instrumento FM con `fui2parche.to_parche`: la misma línea que guardarlo como `.fui`.
+
+Comprobado (2026-10-28), sin Furnace en el contenedor (compilarlo no se permitió: código de afuera):
+- `fur2tabla.py --revisar` lee los proyectos campo por campo como el cargador de Furnace
+  (`src/engine/fileOps/fur.cpp`, rama `INFO`): versión 228, YM2612 + PSG, 10 canales, punteros, carpetas, patrones.
+- Desde los patrones, siguiendo órdenes y saltos, la nota + `E5xx`, el volumen y las notas encendidas de cada canal
+  en cada cuadro dan lo mismo que la traza de la ROM: las 37 canciones, 0 distintos.
+- Los parches: proyecto → `fur2tabla.py` → la misma línea que el instrumento de la tabla (detune incluido).
+- `mksnd.py` con la traza: la música de la ROM sale igual byte a byte.
+- Oído en Furnace por Edwin: suena como en la ROM.
+
+## La percusión (2026-10-29)
+
+Las muestras que van al ruido del PSG (platillos, golpes) son grabaciones que se apagan solas y no tienen lazo: el
+DSP corta la voz cuando la muestra termina. Antes la Genesis tomaba solo la envolvente ADSR de la voz (que se queda
+arriba mientras la tecla sigue apretada) y el ruido sonaba parejo ("lluvia"). Ahora (`convert_track`, `amp`):
+- cada voz lleva su posición en la muestra (`vpos`: `pitch` × 32000 / 4096 por segundo, desde la nota) y el volumen
+  se multiplica por el de la grabación en ese punto (RMS cada 64 muestras, `Instr.senv`); al terminar la muestra
+  (sin lazo) la voz se suelta, como en el DSP;
+- la velocidad del ruido (`noise_rate`) es la de las 3 del PSG cuyo brillo (centroide del espectro de |sinc| hasta
+  16 kHz) se parece más al de la muestra tocada a esa altura. `ruido=0..2` en la tabla la fija (antes `ruido=0` no
+  se podía pedir).
+- En el proyecto de Furnace cada golpe es una nota nueva (las notas del PSG y del ruido no llevaban la marca de nota
+  nueva y los golpes seguidos se juntaban en uno).
+
+Cambian las pistas con percusión: título y menú ($03), la intro ($36), Ridley y la huida ($24), el vuelo a Ceres y el
+viaje a Zebes ($2D). El `03_24` del título no era percusión: es un teclado grave de 100 Hz (`instrumentos.txt`).
+
 ## Lo que falta
 
 - Escuchar y ajustar la tabla de instrumentos a oído (la FM aditiva es un punto de partida medido, no un arreglo).
@@ -205,3 +270,74 @@ Detalles:
   debajo de 0x300000 (o el título a una página).
 - Los efectos de los enemigos en Zebes (hoy, solo Samus y puertas).
 - El programa del Mega CD (`snd_cd_play`).
+
+## El título y el menú de partidas (2026-10-28)
+
+El título no corre el motor (es `src/front/title.c`, con la línea de tiempo grabada del SNES), así que pide la
+música él mismo, como el SNES:
+- **Pista 5 del conjunto $03** desde el cuadro de la línea de tiempo en que el SNES la escribe en el puerto del SPC
+  (`g_title_music_frame`, 363). Lo calcula `make_title_data.py` (`music_frame`) desde `title.rec`:
+  `CinematicFunctionOpening` pide `QueueMusic_Delayed8(0xFF03)` y `(5)`; `HandleMusicQueue` sube el conjunto 8
+  cuadros después (el contador de cuadros se detiene los 39 que tarda `APU_UploadBank`) y escribe la pista 8 más tarde.
+  El logo de arranque va sin música, como en el SNES. Si se salta al título antes de ese cuadro, la música empieza al
+  llegar a la pantalla de título; al volver a empezar la secuencia, vuelve a empezar la música.
+- **Pista 6** (el menú de partidas) al terminar el fundido a negro de START. La intro la corta al pedir el $3F.
+
+`find_loop` (`mksnd.py`) busca ahora el período de las notas también desde el último patrón: la pista del título es una
+entrada que no se repite (cuadros 0-1511) y un patrón que repite solo (4909 cuadros). Sin eso la grababa entera hasta
+`MAX_FRAMES`. Las otras pistas salen iguales. Tamaño: título 8,5 KB, menú 4,5 KB.
+
+Comprobado: en Genesis Plus GX (`RR_WAV`), la música se oye desde el cuadro 369 del título (el 363 más la primera
+nota); `regress.sh` 0 distintos; lo común termina en 0x341FCC.
+
+
+### Los chillidos del bebé metroide (2026-10-29, rama `titulo-bebe`)
+
+En el SNES son **efectos de sonido**, no música. El bebé del título es un objeto de modo 7
+(`addr_kMode7ObjBabyMetroidInTitle` $8B:A355, lo crea `CinematicFunctionOpening`); su lista de instrucciones
+($8B:A12B) da vueltas a 4 cuadros de animación de 10 cuadros cada uno y, al terminar las vueltas que pide
+`Mode7Instr_SetTimer`, ejecuta un chillido y un destello de paleta (`CinematicSetPal2/3/4`):
+
+| instrucción | efecto | cuándo |
+|---|---|---|
+| `PlayBabyMetroidCry1` $8B:A25B | `QueueSfx3_Max6(0x23)` | después de 2 vueltas ($8B:A145) |
+| `PlayBabyMetroidCry2` $8B:A263 | `QueueSfx3_Max6(0x26)` | después de 4 vueltas ($8B:A1A9) |
+| `PlayBabyMetroidCry3` $8B:A26B | `QueueSfx3_Max6(0x27)` | después de 3 vueltas ($8B:A20D); `Goto` $8B:A12B |
+
+Un ciclo dura 546 cuadros (de Cry1 a Cry2 222, a Cry3 182, a Cry1 142). `HandleSoundEffects` ($82:89EF) corre en el
+mismo cuadro del bucle principal que `HandleMode7Objects`, y la cola de la biblioteca 3 está vacía: el efecto se
+escribe en el puerto del SPC en el mismo cuadro en que se ejecuta la instrucción. Comprobado con snes9x grabando
+`sfx_readpos`/`sfx_cur`/`sfx3_queue` ($645, $64F, $676): 13 chillidos en `title.rec`, en los cuadros 425, 647, 829,
+971, 1193, 1375, 1517, 1739, 1921, 2063, 2285, 2467 y 2609.
+
+Cómo se hace:
+- `make_title_data.py` (`cry_frames`): no hace falta grabar nada nuevo. Con los punteros de instrucciones del objeto
+  (`m7obj` de la grabación) y la lista de la ROM, cada vez que el puntero pasa de `a` a `b` se recorre la lista desde
+  `a` (con los dos caminos de `Mode7Instr_DecTimerAndGoto`) hasta la espera que lo deja en `b`; los
+  `PlayBabyMetroidCry` del camino son los chillidos de ese cuadro. Da exactamente los 13 cuadros de arriba.
+- Los cuadros pasan a la línea de tiempo ya remapeada (`Rec.src`: el cuadro original de cada lugar después de
+  `hold_boot_logo` y `speed_up_zoom`): el primer lugar que muestra ese cuadro o uno posterior. Los del alejamiento se
+  adelantan con él: 1517, 1739, 1921... pasan a 1495, 1653, 1813... Salen en `g_title_cry_frame` / `g_title_cry_sfx`
+  (`title_data.c`).
+- `title.c` (`title_cries`): en cada cuadro de la línea de tiempo, los chillidos de ese cuadro van a
+  `sfx_play(2, efecto)` (`md_snd.c`: la biblioteca 3, con sus reglas de prioridad), como los del juego.
+- `tools/snd/efectos.txt`: 3/$23, $26 y $27 grabados con el conjunto del título ($03). El $23 sale igual byte a byte
+  que el de la intro (conjunto $36) y se comparte; $26 y $27 son nuevos (11 456 y 9 920 bytes).
+- **Saltar la intro** (`MaybeSkipCinematics` $8B:9A48) y **salir con START** (`CinematicFunc_Func10` $8B:9F52) no tocan
+  el objeto ni cortan el efecto que suena. En la Genesis los chillidos siguen la línea de tiempo: después del salto,
+  los del cuadro del título en adelante (con la animación del bebé que se ve); durante el fundido de salida siguen
+  sonando como en el SNES. Diferencia: en el SNES el bebé sigue su propia cuenta durante el fundido del salto (unos
+  15 cuadros) y después del salto su fase no es la de la línea de tiempo; en la Genesis la animación del bebé ya salta
+  con la línea de tiempo, y los chillidos van con ella.
+- **Al volver a empezar la secuencia** (el SNES se va a las demos y, al volver, `CinematicFunctionOpening` crea otra
+  vez el objeto): los chillidos vuelven a empezar desde el primero.
+
+Comprobado (Genesis Plus GX con `RR_WAV`, contra snes9x con `RR_WAV`, buscando cada chillido por correlación con su
+muestra PCM):
+- SNES: cada chillido empieza 3,2-4,2 cuadros después de escribirse en el puerto. Genesis: 2,2-2,7 cuadros después
+  de su cuadro de la línea de tiempo (1 cuadro antes, como la música: 369 contra 370). En la ROM sin chillidos la
+  correlación en esos lugares es 0,01-0,04; con chillidos, 0,1-0,6 (la música del título tapa en parte los últimos).
+- Con START en el cuadro 661 (salta al 1742): siguen los de 1813, 1955... Sin tocar nada, dos vueltas enteras de la
+  secuencia: los 13 en cada vuelta, en los mismos cuadros.
+- La música de la ROM no cambia (md5 de `res/gen/md/snd/*.xgc` iguales); lo común termina en 0x347414 (antes
+  0x341FCC); `_bend` 0xE0FFE210 (igual); `regress.sh` 0 distintos.

@@ -282,14 +282,51 @@ def make_instr(ram, song, srcn, table):
         ins.f0 = float(kv["f0"])
     ins.oct = int(kv.get("oct", 0))
     ins.vol = float(kv.get("vol", 0))
-    ins.noise = int(kv.get("ruido", 0))
+    ins.noise = int(kv.get("ruido", -1))            # -1: la velocidad sale de la altura (noise_rate)
+    if ins.kind == "ruido":
+        # la percusión es una grabación (un platillo...) que se apaga sola y, sin lazo, el DSP corta la voz al final:
+        # su volumen a lo largo de la muestra (RMS cada 64 muestras) y su brillo (centroide del espectro)
+        xs = np.asarray(x, dtype=np.float64)
+        blk = np.array([np.sqrt(np.mean(xs[i:i + 64] ** 2)) for i in range(0, len(xs), 64)] or [0.0])
+        ins.senv = blk / blk.max() if blk.max() > 0 else blk
+        ins.sloop = loopidx
+        sp = np.abs(np.fft.rfft((xs - xs.mean()) * np.hanning(len(xs)))) if len(xs) > 1 else np.zeros(2)
+        fr = np.fft.rfftfreq(len(xs), 1 / 32000.0) if len(xs) > 1 else np.zeros(2)
+        ins.cent = float((sp * fr).sum() / sp.sum()) if sp.sum() > 0 else 4000.0
     return ins
+
+
+def _noise_centroids():
+    """centroide del ruido blanco del PSG en sus 3 velocidades (el registro se corre a reloj/16/N, N = 16, 32, 64): el
+    espectro es |sinc(f/fs)|, medido hasta 16 kHz (lo que da el DSP del SNES a 32 kHz)"""
+    f = np.linspace(1, 16000, 4000)
+    out = []
+    for n in (16, 32, 64):
+        fs = PSG_CLOCK / 16.0 / n
+        m = np.abs(np.sinc(f / fs))
+        out.append(float((m * f).sum() / m.sum()))
+    return out
+
+
+NOISE_CENT = None
+
+
+def noise_rate(ins, pitch):
+    """la velocidad del ruido (0 la más aguda) cuyo brillo se parece más al de la muestra tocada a esa altura"""
+    global NOISE_CENT
+    if ins.noise >= 0:
+        return ins.noise
+    if NOISE_CENT is None:
+        NOISE_CENT = _noise_centroids()
+    played = getattr(ins, "cent", 4000.0) * pitch / 4096.0
+    return int(np.argmin([abs(np.log(max(played, 1.0) / c)) for c in NOISE_CENT]))
 
 
 # ---------------------------------------------------------------- música: del SPC a la Genesis
 def find_loop(st):
     """(inicio, fin) del lazo en cuadros, o None si la pista termina. 1) la lista de patrones vuelve atrás
-    (music_ptr_toplevel); 2) si no cambia (un patrón que se repite), el período de las notas"""
+    (music_ptr_toplevel); 2) si no cambia (un patrón que se repite), el período de las notas desde la primera nota
+    o, si no, desde el último patrón (el título: una entrada que no se repite y un patrón que repite solo)"""
     tp = st[:, 96].astype(int) | st[:, 97].astype(int) << 8
     play = st[:, 98]
     first = {}
@@ -309,14 +346,15 @@ def find_loop(st):
     kon_f = np.nonzero(sig.any(axis=1))[0]
     if not len(kon_f):
         return None
-    s = kon_f[0]
     n = len(sig)
-    for P in range(30, (n - s) // 2):
-        a, b = sig[s:n - P], sig[s + P:]
-        same = (a == b).all(axis=1)
-        # el tick del SPC no cae justo en el cuadro: se acepta una diferencia de un cuadro
-        if same.mean() > 0.995:
-            return int(s), int(s + P)
+    last = max(f for f in range(1, len(tp)) if tp[f] != tp[f - 1])
+    for s in dict.fromkeys((int(kon_f[0]), last)):
+        for P in range(30, (n - s) // 2):
+            a, b = sig[s:n - P], sig[s + P:]
+            same = (a == b).all(axis=1)
+            # el tick del SPC no cae justo en el cuadro: se acepta una diferencia de un cuadro
+            if same.mean() > 0.995:
+                return int(s), int(s + P)
     return None
 
 
@@ -372,8 +410,11 @@ class Vgm:
         return out
 
 
-def convert_track(st, instrs, loop, end, mix):
-    """estados del SPC por cuadro -> VGM (YM2612: canales 0-4; PSG: 0-2 tono, 3 ruido)"""
+def convert_track(st, instrs, loop, end, mix, trace=None):
+    """estados del SPC por cuadro -> VGM (YM2612: canales 0-4; PSG: 0-2 tono, 3 ruido). Con `trace` (una lista)
+    anota además lo que suena en cada canal y cuadro, para el proyecto de Furnace (mkfur.py):
+    (cuadro, canal, instrumento, Hz, atenuación (pasos del TL o del PSG), paneo, nota nueva, ruido) o
+    (cuadro, canal, None, ...) al soltarlo."""
     v = st[:, :96].reshape(-1, 8, 12)
     n = len(v) if end is None else end
     srcn = v[:, :, 0]
@@ -409,9 +450,22 @@ def convert_track(st, instrs, loop, end, mix):
             return "ruido"
         return ins.kind
 
+    vpos = [0.0] * 8                                  # dónde va cada voz en su muestra (muestras de 32 kHz)
+
     def amp(voice, f):
         e = max(env[f, voice], envmax[f, voice] if kon[f, voice] else 0)
-        return e / 2047.0 * max(abs(volL[f, voice]), abs(volR[f, voice])) / 127.0
+        a = e / 2047.0 * max(abs(volL[f, voice]), abs(volR[f, voice])) / 127.0
+        ins = instrs.get(int(srcn[f, voice]))
+        senv = getattr(ins, "senv", None)
+        if senv is not None and not noise_dsp[f, voice]:   # la percusión: lo que suena de la grabación
+            k = int(vpos[voice] / 64)
+            if k >= len(senv):
+                lp = ins.sloop
+                if lp is None:
+                    return 0.0                        # sin lazo: el DSP corta la voz al final de la muestra
+                k = lp // 64 + (k - lp // 64) % max(1, len(senv) - lp // 64)
+            a *= senv[min(k, len(senv) - 1)]
+        return a
 
     def release(c):
         kind, i = c
@@ -422,8 +476,12 @@ def convert_track(st, instrs, loop, end, mix):
             vg.psg(0x9F | (i << 5))
         last[c].pop("att", None)
         owner[c] = None
+        if trace is not None:
+            trace.append((f, c, None, 0, 0, 0, False, 0))
 
     for f in range(n):
+        for voice in range(8):                        # avance de cada voz en su muestra
+            vpos[voice] = 0.0 if kon[f, voice] else vpos[voice] + pitch[f - 1, voice] * 32000.0 / 4096.0 / 60.0
         if loop and f == loop[0]:
             vg.mark_loop()
             for c in chans:                          # al volver, todo se escribe de nuevo
@@ -479,7 +537,7 @@ def convert_track(st, instrs, loop, end, mix):
                     vg.ym(port, 0xB0 + ch, (ins.fb << 3) | ins.alg)
                     patch[c] = ins
                     last[c].pop("att", None)
-                last[c]["kon"] = True
+            last[c]["kon"] = True
             last[c]["ins"] = ins
         # estado de cada canal en uso
         for c in chans:
@@ -497,6 +555,7 @@ def convert_track(st, instrs, loop, end, mix):
             hz = (ins.f0 or 0) * pitch[f, voice] / 4096.0 * (2.0 ** ins.oct)
             L, R = abs(volL[f, voice]), abs(volR[f, voice])
             pan = 0xC0 if min(L, R) >= 0.4 * max(L, R) else (0x80 if L > R else 0x40)
+            kon_now = last[c].pop("kon", False)
             if kind == "fm":
                 port, ch = (0, i) if i < 3 else (1, i - 3)
                 if last[c].get("pan") != pan:
@@ -504,7 +563,6 @@ def convert_track(st, instrs, loop, end, mix):
                     last[c]["pan"] = pan
                 blk, fn = ym_freq(hz)
                 fr = (blk << 11) | fn
-                kon_now = last[c].pop("kon", False)
                 if kon_now:
                     vg.ym(0, 0x28, (port << 2) | ch)
                 if last[c].get("fr") != fr or kon_now:
@@ -519,6 +577,8 @@ def convert_track(st, instrs, loop, end, mix):
                     last[c]["att"] = att
                 if kon_now:
                     vg.ym(0, 0x28, 0xF0 | (port << 2) | ch)
+                if trace is not None:
+                    trace.append((f, c, ins, hz, att, pan, kon_now, 0))
             elif kind == "psg":
                 nn = int(round(PSG_CLOCK / (32 * hz))) if hz > 0 else 1023
                 nn = min(1023, max(1, nn))
@@ -530,8 +590,10 @@ def convert_track(st, instrs, loop, end, mix):
                 if last[c].get("att") != att:
                     vg.psg(0x90 | (i << 5) | att)
                     last[c]["att"] = att
+                if trace is not None:
+                    trace.append((f, c, ins, hz, att, pan, kon_now, 0))
             else:                                    # ruido: blanco, la velocidad según la altura
-                rate = ins.noise if ins.noise else (0 if pitch[f, voice] >= 0x1800 else 1 if pitch[f, voice] >= 0x0C00 else 2)
+                rate = noise_rate(ins, pitch[f, voice])
                 if last[c].get("n") != rate:
                     vg.psg(0xE0 | 4 | rate)
                     last[c]["n"] = rate
@@ -539,6 +601,8 @@ def convert_track(st, instrs, loop, end, mix):
                 if last[c].get("att") != att:
                     vg.psg(0xF0 | att)
                     last[c]["att"] = att
+                if trace is not None:
+                    trace.append((f, c, ins, hz, att, pan, kon_now, rate))
         vg.wait()
     for c in chans:
         if owner[c] is not None:
@@ -563,6 +627,24 @@ def read_music(path):
         if p:
             out.append((int(p[0], 0), int(p[1], 0), p[2], int(p[3]) if len(p) > 3 else MAX_FRAMES))
     return out
+
+
+def write_sample(path, x, loopidx, secs=2.0):
+    """la muestra del SNES sola (--analizar): a su altura natural (32 kHz, pitch $1000), con su lazo hasta `secs`"""
+    import wave
+    x = np.asarray(x, dtype=np.int16)
+    n = int(32000 * secs)
+    if loopidx is not None and loopidx < len(x):
+        y = list(x)
+        while len(y) < n:
+            y += list(x[loopidx:])
+        x = np.array(y[:n], dtype=np.int16)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(32000)
+        w.writeframes(x.astype("<i2").tobytes())
 
 
 def run_track(spc, song, track, frames, ram_path=None):
@@ -622,6 +704,7 @@ def main():
                 h = brr.harmonics(x, l, ins.f0, 8) if ins.f0 else []
                 print(f"# {song:#04x} {s:2d}: {ins.kind:5s} f0={ins.f0 and round(ins.f0, 1)} notas={int(m.sum())} "
                       f"voces={sorted(set(np.nonzero(m)[1].tolist()))} armónicas={np.round(h, 2).tolist()}")
+                write_sample(work / "muestras" / f"{song:02X}_{s}.wav", x, l)
         vg = convert_track(st, instrs, loop, end, MIX)
         vgm = snd / f"{name}.vgm"
         vgm.write_bytes(vg.bytes())

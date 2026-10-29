@@ -5,6 +5,10 @@
 #   tipo: xgm2 (FM y PSG con tools/snd/instrumentos.txt) o pcm (grabada tal cual: las voces).
 #   cuadros: cuánto se graba si la pista no tiene lazo ni termina sola.
 #
+# El título y el menú de partidas (src/front/title.c):
+0x03 5 xgm2    # el título (CinematicFunctionOpening, $8B:9B68)
+0x03 6 xgm2    # el menú de partidas (HandleCinematicsTransitions_1, $8B:9A83)
+#
 # Desde la intro hasta que la nave llega a Zebes (los pedidos del SNES: MM_SNDLOG en host/check, docs/55):
 0x3F 5 pcm     # "The last Metroid is in captivity" (CinematicFunction_Intro_Initial, $8B:A395)
 0x42 5 pcm     # "The galaxy is at peace" ($8B:A613)

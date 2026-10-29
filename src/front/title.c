@@ -38,6 +38,35 @@ extern u8 enemy_ram7800[];
 #define ZBUF_TILES   (enemy_ram7800)
 #define ZBUF_MAP     (enemy_ram7800 + FRAME_BYTES)
 _Static_assert(FRAME_BYTES + 14 * 64 * 2 <= 8192, "el búfer del título no entra en enemy_ram7800");
+/* Música (src/platform/md_snd.c, docs/55): como el SNES, el conjunto $03 con la pista 5 (CinematicFunctionOpening,
+   $8B:9B68) desde el cuadro en que el SNES la escribe en el puerto (g_title_music_frame), y la 6 (el menú de
+   partidas) al terminar de fundir a negro con START (HandleCinematicsTransitions_1, $8B:9A83). music_data_index:
+   HandleMusicQueue lo pone al subir el conjunto. */
+extern u16 music_data_index;
+void music_upload(u16 i);
+void music_play(u8 t);
+/* Chillidos del bebé metroide: el objeto de modo 7 del bebé (addr_kMode7ObjBabyMetroidInTitle $8B:A355, lo crea
+   CinematicFunctionOpening) ejecuta PlayBabyMetroidCry1/2/3 ($8B:A25B/A263/A26B): QueueSfx3_Max6($23/$26/$27), que
+   HandleSoundEffects escribe en el puerto del SPC en el mismo cuadro. g_title_cry_frame: esos cuadros de la línea de
+   tiempo (make_title_data.py, cry_frames); se tocan con sfx_play (src/platform/md_snd.c), como los del juego.
+   Ni saltar la intro ni salir con START tocan el objeto (MaybeSkipCinematics $8B:9A48, CinematicFunc_Func10
+   $8B:9F52): los chillidos siguen la línea de tiempo y el que suena no se corta. */
+void sfx_play(u16 j, u8 id);
+static u16 cry_i;
+static void title_cries(u16 cur)
+{
+    while (cry_i < g_title_cry_n && g_title_cry_frame[cry_i] <= cur)
+    {
+        if (g_title_cry_frame[cry_i] == cur) sfx_play(2, g_title_cry_sfx[cry_i]);   /* biblioteca 3 */
+        cry_i++;
+    }
+}
+static void title_music_reset(void)
+{
+    music_data_index = 0x03;
+    music_upload(0x03);
+    cry_i = 0;
+}
 static const u8 *unpack_tiles(const TitleScene *sc, u16 done)    /* el bloque que empieza en el tile done */
 {
     lz4w_unpack(sc->tiles + sc->tile_blk[done / CHUNK_TILES], ZBUF_TILES);
@@ -430,6 +459,7 @@ void title_run(void)
     VDP_setEnable(TRUE);
     SYS_enableInts();
     reset_state();
+    title_music_reset();
     nseg = 0;
     for (u16 f = 0; f < g_title_frames && nseg < MAX_SEG; f++)
         if (!nseg || tl[f].scene != seg_scene[nseg - 1])
@@ -454,6 +484,8 @@ void title_run(void)
         const TitleFrame *f = &tl[cur];
         mm_title_cur = cur;
         apply_pdelta(f);
+        if (cur >= g_title_music_frame) music_play(5);      /* (la misma pista no vuelve a empezar) */
+        title_cries(cur);                                   /* (una vez por cuadro de la línea de tiempo) */
 
         if (pressed & (BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_C))
         {
@@ -550,8 +582,10 @@ void title_run(void)
                a negro): aquí vuelve a empezar la secuencia */
             cur = 0;
             reset_state();
+            title_music_reset();
         }
     }
+    music_play(6);                  /* el menú de partidas */
     /* salida: dejar el VDP como lo espera el juego */
     want_grad = 0xFF;
     apply_grad();

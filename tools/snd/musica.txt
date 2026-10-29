@@ -18,3 +18,4 @@
 0x24 5 xgm2    # la pelea con Ridley (CeresRidley, $A6:A0F5)
 0x24 7 xgm2    # la huida de Ceres ($A6:A4E8)
 0x2D 7 xgm2    # Ceres explota y el viaje a Zebes ($8B:C2B5 / cinematic.c)
+0x2D 8 xgm2    # Ceres explota con Samus dentro (CinematicFunctionBlackoutFromCeres $8B:C11B, kGameState_37)

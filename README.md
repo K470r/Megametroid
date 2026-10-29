@@ -1,21 +1,22 @@
 # MegaMetroid
 
-Super Metroid para la Sega Genesis / Mega Drive. El código del juego está reescrito a mano para el 68000 a partir del
-decomp de snesrev (`sm/`), y todo lo que viene de la ROM se convierte en el PC desde **tu propia ROM**: este
-repositorio no contiene nada de Nintendo (ni la ROM, ni datos extraídos, ni ROM compiladas).
+Metroid 3 (Super Metroid) para Sega Genesis/Mega Drive. El código del juego está reescrito a mano para el 68000 a partir del
+decomp de snesrev (`sm/`), no incluye código fuente propietario ni código fuente sujeto a derechos de autor; todo lo que 
+viene de la ROM se convierte en el PC desde **un dump propio del cartucho**: este repositorio no contiene nada de la first-party 
+(ni la ROM, ni datos extraídos, ni ROM compiladas).
 
 Estado (2026-10-29): se juega desde el encendido hasta Brinstar. Lo que anda, lo que falta y el plan, más abajo
 ([Estado del port](#estado-del-port)). Detalle técnico: [docs/46](docs/46_ESTADO_Y_CONTINUACION.md). Índice de la
 documentación: [docs/README.md](docs/README.md).
 
-## Qué hace falta
+## Requisitos
 
 - Linux (Debian/Ubuntu probado) o Windows con WSL (Ubuntu). En una sola línea:
 
       sudo apt update && sudo apt install git build-essential gcc-m68k-linux-gnu python3 python3-numpy python3-pil util-linux default-jre-headless
 
   (Java lo usan rescomp, lz4w y xgm2tool de SGDK.) Si `apt` da "404 Not Found", falta el `sudo apt update`.
-- Tu volcado de **Super Metroid (Japón / EE. UU.)**, 3 MB, sin cabecera de copiadora (la quita `check_rom.py`):
+- Un volcado de tu propio cartucho de **Super Metroid (Japón / EE. UU.)**, 3 MB, sin cabecera de copiadora (la quita `check_rom.py`):
   SHA-1 `da957f0d63d14cb441d215462904c4fa8519c613`, MD5 `21f3e98df4780ee1c667b84e57d88675`.
 
 ## Compilar la ROM de la Genesis
@@ -96,7 +97,7 @@ normal (`out/rom.bin`) en un emulador.
 ## Estado del port
 
 **Anda:**
-- Encendido (logo Síndrome), título con su música y los chillidos del bebé metroide, menú de partidas y opciones.
+- Encendido (logo), título con su música y los chillidos del bebé metroide, menú de partidas y opciones.
 - Intro completa con voces, música y efectos; Ceres entero (Ridley, la huida, la explosión) y el viaje a Zebes.
 - Zebes: todas las salas a las que se llega por puertas están convertidas (6 áreas); Crateria con sus enemigos y el
   camino de Brinstar hasta la bola morfo y los primeros misiles; pausa y mapa ([docs/53](docs/53_PAUSA_Y_MAPA.md)).
@@ -107,7 +108,7 @@ normal (`out/rom.bin`) en un emulador.
 - Spore Spawn ([docs/50](docs/50_SPORE_SPAWN.md)), Torizo ([docs/51](docs/51_TORIZO.md)), ojos y su haz de luz
   ([docs/52](docs/52_OJO_HAZ.md)).
 
-**Falta, en este orden** (decidido el 2026-10-29):
+**Falta, en este orden**:
 1. Música y efectos de sonido de todo el juego (hoy, del título a la llegada a Zebes): hacerles lugar en la ROM
    (una ventana de la ROM para el sonido, por área: [docs/48](docs/48_TAMANO_ROM.md)). En curso.
 2. Los enemigos de todas las salas y sus particularidades (bloques con el ícono del arma que los rompe), por áreas.

@@ -281,7 +281,7 @@ def plm_blocks(h):
     if h not in _plm_cache:
         bl = scan.blocks_of_plm(h) if (w16(0x840000 | h) & 0xFFFF) in DOOR_SETUPS else \
             set().union(*[scan.blocks_of_draw(d) for d in scan.draws_of_list(w16(0x840000 | h + 2), set())])
-        _plm_cache[h] = bl
+        _plm_cache[h] = bl | scan.blocks_of_setup(h)
     return _plm_cache[h]
 
 

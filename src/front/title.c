@@ -74,8 +74,11 @@ static const u8 *unpack_tiles(const TitleScene *sc, u16 done)    /* el bloque qu
 }
 #define MAP_HALF     (14 * PW)   /* medio mapa de un tamaño: 14 filas de 64 celdas (palabras) */
 
-/* Memoria de trabajo del título: se pide al montón y se libera al salir, así el juego (que
-   necesita casi toda la RAM para el level data del SNES) no la pierde. */
+/* Memoria de trabajo del título: RAM del juego que no se usa mientras se ve el título (tilemap_stuff, 4 KB), como
+   los búferes de LZ4W en enemy_ram7800. Antes se pedía al montón de SGDK, pero el montón es lo que queda entre las
+   variables (_bend) y la pila: cuando crecieron las variables del juego (2026-10-29, +240 bytes) no alcanzó, el título
+   se salía sin dibujar y arrancaba el menú con la pantalla de 320. Al empezar la partida reset_game_vars la pone en
+   cero. */
 #define POOL_WORDS 1024
 #define MAX_SEG 64
 typedef struct {
@@ -88,7 +91,9 @@ typedef struct {
     u16 pool[POOL_WORDS];
     struct { const void *src; u16 dst, len, step; } dl[48];
 } TitleMem;
-static TitleMem *M;
+extern u8 tilemap_stuff[];
+#define M ((TitleMem *) tilemap_stuff)
+_Static_assert(sizeof(TitleMem) <= 0x1000, "TitleMem no entra en tilemap_stuff (4 KB)");
 #define snes_pal (M->snes_pal)
 #define cram (M->cram)
 #define bright_lut (M->bright_lut)
@@ -442,8 +447,6 @@ static void reset_state(void)
 void title_run(void)
 {
     tl = (const TitleFrame *) ttl_timeline;
-    M = MEM_alloc(sizeof(TitleMem));
-    if (!M) return;
     for (u16 b = 0; b < 16; b++)
         for (u16 c = 0; c < 8; c++) bright_lut[b][c] = (c * b + 7) / 15;
     SYS_disableInts();
@@ -602,6 +605,4 @@ void title_run(void)
     VDP_setVerticalScroll(BG_B, 0);
     VDP_setEnable(TRUE);
     SYS_enableInts();
-    MEM_free(M);
-    M = NULL;
 }

@@ -261,6 +261,17 @@ arriba mientras la tecla sigue apretada) y el ruido sonaba parejo ("lluvia"). Ah
 Cambian las pistas con percusión: título y menú ($03), la intro ($36), Ridley y la huida ($24), el vuelo a Ceres y el
 viaje a Zebes ($2D). El `03_24` del título no era percusión: es un teclado grave de 100 Hz (`instrumentos.txt`).
 
+## Arreglos al unir todo (2026-10-29)
+
+- **El título no arrancaba** (empezaba en el menú, con la pantalla de 320): su memoria de trabajo (`TitleMem`, 3,9 KB)
+  se pedía al montón de SGDK, que es lo que queda entre las variables (`_bend`) y la pila. Con los 240 bytes de
+  variables que sumó el hielo (docs/58) ya no alcanzaba y `title_run` se salía. Ahora usa `tilemap_stuff` (RAM del
+  juego, 4 KB, libre mientras se ve el título; `reset_game_vars` la pone en cero al empezar la partida), como los
+  búferes de LZ4W en `enemy_ram7800`. `regress.sh` no lo veía: sus ROM de prueba empiezan sin el título. Hay que
+  probar el arranque normal (`out/rom.bin` sin `TEST=1`) cada vez que crezcan las variables.
+- **Ceres explota con Samus dentro** (no escapar a tiempo): el SNES pide la pista 8 del conjunto $2D
+  (`CinematicFunctionBlackoutFromCeres` $8B:C11B, `kGameState_37`), que no estaba en `musica.txt`. Agregada (768 bytes).
+
 ## Lo que falta
 
 - Escuchar y ajustar la tabla de instrumentos a oído (la FM aditiva es un punto de partida medido, no un arreglo).

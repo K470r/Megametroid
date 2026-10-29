@@ -28,10 +28,28 @@ def instr_table():
     return tab
 
 
+def setup_table():
+    """dirección de la función de inicio -> bloques que escribe en el nivel o en plm_variable (los bloques que
+    reaparecen: PlmSetup_RespawningShotBlock $84:CE6B escribe (bloque & 0xF000) | 0x52 y su lista lo dibuja al final
+    con PlmInstr_DrawPlmBlock; así también las de bomba, bomba de poder, supermisil, crumble y speed boost)"""
+    src = PLM_C.read_text()
+    tab = {}
+    for m in re.finditer(r'static uint8 (PlmSetup_\w+)\(uint16 j\) \{  // 0x84([0-9A-F]{4})\n(.*?)\n\}\n', src, re.S):
+        bl = {int(x, 16) for x in re.findall(r'& 0xF000\) \| 0x([0-9A-F]+)\)?;', m.group(3))}
+        if bl:
+            tab[int(m.group(2), 16)] = bl
+    return tab
+
+
 class PlmScan:
     def __init__(self, rom_w16):
         self.w = rom_w16                      # w(addr24) -> palabra
         self.tab = instr_table()
+        self.setups = setup_table()
+
+    def blocks_of_setup(self, header):
+        """bloques que pone la función de inicio del PLM (setup_table)"""
+        return set(self.setups.get(self.w(0x840000 | header), ()))
 
     def draws_of_list(self, start, seen):
         """punteros de instrucciones de dibujo de una lista"""

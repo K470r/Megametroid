@@ -131,6 +131,11 @@ Reglas de Edwin (no negociables):
   los ciclos de color van como momentos (`HOOK_PALETTES`, `hook_moments`), la fusión pesa con la raíz de los píxeles y
   conserva el índice que cicla. Además las claves de enemigos de otro estado de la misma sala ya no ocupan colores
   (`tileset_pals`: paletas que son líneas de otro estado y no de este). Quedan 2 de los 4 tonos del brillo (10 lugares).
+- **Bloques que reaparecen visibles** (2026-10-29): al volver, el PLM (`PlmSetup_RespawningShotBlock` $84:CE6B y las
+  de bomba, bomba de poder, supermisil, crumble y speed boost) escribe un bloque fijo (0x52, 0x58, 0x57, 0x9F, 0xBC,
+  0xB6) que su lista dibuja con `PlmInstr_DrawPlmBlock`; `plmscan.py` solo miraba las instrucciones de dibujo y esos
+  tiles no se convertían (el bloque estaba pero no se veía). Ahora `setup_table` los lee de `plm.c`; hasta 6 bloques
+  más por sala (el estado más grande: 417 tiles de 432).
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 

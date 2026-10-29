@@ -115,9 +115,12 @@ def plm_sprite_copies(rom, st):
 # (EnemyShot_* $A0:A6DE..A79A). Cada clave de un enemigo que se puede congelar lleva su par con la paleta 0x0C00: los
 # mismos tiles del SNES con los colores de la paleta de hielo (kBeamPalettePtrs[2], $90:C3C9; es la misma en las
 # combinaciones con hielo). Los colores 1-5 van a los lugares fijos 9-13 del rayo (siguen a palette_buffer[225-229]
-# como en el SNES); los 6-15 a los lugares que no usan los enemigos de la sala (con su índice 230-239: también
-# siguen al SNES) y, si no queda ninguno, al más parecido de los 1-5.
+# como en el SNES) y los 6-15 al más parecido de los 1-5 (en la línea 3 no queda ningún lugar libre: docs/58).
+# No van en los tiles de la sala sino en un juego común (frozen_entry): cada congelado distinto una vez, con sus
+# tiles en el depósito de mkzebes.py; la clave de la sala guarda su número (0x8000 | número). La Genesis sube sus
+# tiles a la VRAM cuando se dibuja (md_zebes.c, frz_*).
 FROZEN_PAL = "0C00"
+FROZEN_REF = 0x8000
 ICE_COMBOS = (2, 3, 6, 7)            # wave/ice/spazer/plasma: índices de Vulnerability con hielo (sin plasma)
 
 
@@ -485,7 +488,7 @@ def zkey(k):
 
 
 def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=OBJ_SLOT_LIST, extra_pal=None, base=ZOBJ_BASE,
-                  boss=None, vcopies=(), ice=None):
+                  boss=None, vcopies=()):
     """boss: (banco del jefe, momentos [{índice: color}]) en los estados con un jefe de BOSS_PALETTES: sus piezas de
     algunas paletas del SNES van en la línea BOSS_LINE (15 colores; se elige el reparto que menos junta)"""
     compose_min = compose_min or COMPOSE_MIN
@@ -503,13 +506,11 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     pieces = {}
     counts = Counter()
     bcounts = {}                                          # paleta del SNES del jefe -> Counter de sus píxeles
-    fcounts = Counter()                                   # colores 6-15 de la paleta de hielo en los congelados
     for k in sorted(keys):
         key = {"e": ("enemy",), "s": ("enemy", "B4"), "p": ("eproj",), "j": ("proj",), "t": ("trail",)}[k[0]] + k[1:]
         kp = mkmd.key_pieces(rom, key)
         wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else 1
         is_boss = boss is not None and k[0] == "e" and int(k[1], 16) == boss[0]
-        frozen = k[0] == "e" and k[3] == FROZEN_PAL
         wtrail = k[0] == "t" and (int(k[1], 16) & 0x1FF) in WAVE_TRAIL_TILES and (int(k[1], 16) >> 9) & 7 == WAVE_TRAIL_PAL
         out = []
         for (x, y, at) in kp:
@@ -523,9 +524,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
                     for c in np.unique(px):
                         if c and 128 + p * 16 + int(c) not in BEAM_IDX and not wtrail:   # el rayo: lugares fijos 9-13
                             nn = int((px == c).sum()) * wgt
-                            if frozen:
-                                fcounts[128 + p * 16 + int(c)] += nn
-                            elif is_boss:
+                            if is_boss:
                                 bcounts.setdefault(p, Counter())[128 + p * 16 + int(c)] += nn
                             else:
                                 counts[128 + p * 16 + int(c)] += nn
@@ -568,23 +567,6 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         src[sl - 1] = i
     for sl, i in BEAM_SRC.items():
         src[sl - 1] = i
-    # congelados: los colores 6-15 de la paleta de hielo en los lugares libres (los que más píxeles pintan primero);
-    # los que no entran, al más parecido de los que ya tienen lugar (1-5 y los puestos)
-    free = [sl for sl in slots if sl not in slot.values()]
-    nfree = 0
-    for i in sorted(fcounts, key=lambda i: -fcounts[i]):
-        if i in slot:                                     # (otra clave ya usa ese índice: comparte el lugar)
-            continue
-        if free:
-            slot[i] = free.pop(0)
-            rep[i] = i
-            src[slot[i] - 1] = i
-            nfree += 1
-    icol = lambda i: mkmd.bgr_to_gen(ice[i - 224]) if ice and 224 <= i < 240 else gen(i)
-    for i in fcounts:
-        if i not in slot:
-            cand = [j for j in slot if 224 <= j < 240]
-            rep[i] = min(cand, key=lambda j: color_dist(icol(i), icol(j)))
     slot1 = {i: s + 1 for s, i in enumerate(sorted(alive1, key=lambda i: -alive1[i]))}
     for i, sl in slot1.items():
         src[15 + sl - 1] = i
@@ -611,7 +593,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         recs = []
         maps = [piece_map(pc) for pc in pieces[k]]
         nspr[0] += len(pieces[k])
-        if len(pieces[k]) >= compose_min and not (k[0] == "e" and k[3] == FROZEN_PAL):   # (congelados: pieza por pieza)
+        if len(pieces[k]) >= compose_min:
             recs = compose(bank, [pc[:6] for pc in pieces[k]], maps, [piece_line(pc) for pc in pieces[k]])
             print('  %s: %d piezas -> %d sprites, hasta %d puntos por línea' % (k[1:], len(pieces[k]), len(recs), line_dots(recs)), file=sys.stderr)
             nspr[1] += len(recs)
@@ -647,62 +629,121 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
               f"las demás en la {OBJ_LINE} ({len(alive)} colores, {merged} fusiones)", file=sys.stderr)
     return dict(base=base, tiles=tiles, src=src, keys=sorted(index), recs=[v & 0xFFFF for v in recs_all],
                 merged=merged + merged1, ncolors=len(counts) + sum(len(c) for c in bcounts.values()), nspr=nspr,
-                boss_line=bool(boss), frozen=(len(fcounts), nfree))
+                boss_line=bool(boss))
 
 
-def build(rom_path, log_paths, states):
-    """states: [(estado, sala, tilesets_ptr)] -> {estado: datos o None}"""
+def state_vram(rom, tilesets_ptr, vcopies=()):
+    """VRAM de los sprites del SNES de un estado de sala (enemy_vram con las copias de sus PLMs)"""
+    vram, pal = enemy_vram(rom, tilesets_ptr)
+    if vcopies:
+        vram = bytearray(vram)
+        for a, data in vcopies:
+            vram[a:a + len(data)] = data[:0x10000 - a]
+        vram = bytes(vram)
+    return vram
+
+
+def ice_slots(rom):
+    """color c (1-15) de la paleta de hielo -> lugar de la línea 3: 1-5 a los fijos 9-13 del rayo, 6-15 al más
+    parecido de los 1-5"""
+    ice = ice_palette(rom)
+    g = [mkmd.bgr_to_gen(c) for c in ice]
+    return {c: 8 + (c if c <= 5 else min(range(1, 6), key=lambda k: color_dist(g[c], g[k]))) for c in range(1, 16)}
+
+
+def frozen_entry(rom, vram, k, islot, common):
+    """el congelado de la clave de enemigo k = ("e", banco, sm, paleta, tiles) en el juego común (common: {"index":
+    {contenido: número}, "list": [(tiles, registros)]}) -> su número, o None si no dibuja nada. Pieza por pieza
+    (como mkzobj sin juntar): los tiles del SNES con los colores de hielo (islot), los repetidos (con o sin giro) una
+    vez; los registros llevan el tile desde 0 (la Genesis le suma dónde los subió)"""
+    tiles, tidx, recs = [], {}, []
+    for (x, y, at) in mkmd.key_pieces(rom, ("enemy", k[1], k[2], FROZEN_PAL, k[4])):
+        T, big = at & 0x1FF, bool(x & 0x8000)
+        n = 2 if big else 1
+        blk = []
+        for dx in range(n):                               # orden de la Genesis: columna por columna
+            for dy in range(n):
+                px = mkmd.obj_tile_px(vram, T, dx, dy)
+                blk.append(genesis_tile_bytes(np.vectorize(lambda c: islot[c] if c else 0)(px).astype(np.int32)))
+        if all(not any(b) for b in blk):
+            continue
+        blk = tuple(blk)
+        if blk not in tidx:
+            tidx[blk] = len(tiles)
+            tiles += blk
+        prio = 1 if ((at >> 12) & 3) == 3 else 0
+        attr = (prio << 15) | (OBJ_LINE << 13) | (((at >> 15) & 1) << 12) | (((at >> 14) & 1) << 11) | tidx[blk]
+        dx = x & 0x1FF
+        if dx >= 0x100:
+            dx -= 0x200
+        recs.append((y, 0x0500 if big else 0, attr, dx))
+    if not recs:
+        return None
+    words = list(struct.unpack(">5h", mkmd.rec_header(recs))) + [v for r in recs for v in r]
+    content = (b"".join(tiles), tuple(words))
+    if content not in common["index"]:
+        common["index"][content] = len(common["list"])
+        common["list"].append((content[0], [v & 0xFFFF for v in words]))
+    return common["index"][content]
+
+
+def build(rom_path, log_paths, states, frozen=None):
+    """states: [(estado, sala, tilesets_ptr)] -> {estado: datos o None}. frozen: {"index": {}, "list": []} que se
+    llena con el juego común de los congelados (frozen_entry)"""
     rom = mkmd.Rom(rom_path)
     keys = read_logs(log_paths)
     psms, ptrail = mkmd.zebes_proj_keys(rom)
     pkeys = {("j", "%04X" % sm) for sm in psms} | {("t", "%04X" % t) for t in ptrail}
     out, cache = {}, {}
-    ice = ice_palette(rom)
-    use_frozen = os.environ.get("MM_FROZEN", "0") != "0"   # (medida en docs/58: no entra; falta decidir)
+    islot = ice_slots(rom)
+    frozen = frozen if frozen is not None else {"index": {}, "list": []}
     for st, room, ts, room_tiles in states:
         k = keys.get(room, set()) | pkeys
         # las claves son por sala: las de enemigos de otro estado (otro banco: p. ej. 9804 después del Torizo) no van
         bks = pop_banks(rom, st)
         k = {x for x in k if x[0] != "e" or int(x[1], 16) in bks}
-        if use_frozen:                            # congelados: la misma clave con la paleta 0x0C00 (FROZEN_PAL)
-            fb = frozen_banks(rom, st)
-            bk0 = boss_of(rom, st)
-            k |= {("e", x[1], x[2], FROZEN_PAL, x[4]) for x in k
-                  if x[0] == "e" and int(x[1], 16) in fb and not (bk0 and int(x[1], 16) == bk0[0])}
         eye = has_eye(rom, st)
         ipal = init_palettes(rom, st)
         low = min(ZOBJ_BASE, 448 + ((room_tiles + 7) & ~7))   # justo después de los tiles de la sala (md_zebes.c)
         bk = boss_line(rom, st, k)
         boss = (bk[0], boss_moments(rom, bk, rom.d[rom.off(0x8F0000 | (room + 1))])) if bk else None
         vc = plm_sprite_copies(rom, st)
-        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc))   # lo mismo: se comparte
-        if ck not in cache:
+        fb = frozen_banks(rom, st) - ({boss_of(rom, st)[0]} if boss_of(rom, st) else set())
+        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb))
+        if ck not in cache:                       # (lo mismo: se comparte)
             sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else OBJ_SLOT_LIST
-            kn = {x for x in k if not (x[0] == "e" and x[3] == FROZEN_PAL)}     # sin los congelados
-            # los congelados nunca le quitan lugar a los demás: si con ellos no entran los tiles (ni desde el final de
-            # los de la sala), sin ellos; recién después, sin juntar piezas
-            tries = [(k, None, ZOBJ_BASE), (k, None, low)]
-            if kn != k:
-                tries += [(kn, None, ZOBJ_BASE), (kn, None, low)]
-            tries += [(k, 1 << 30, low)] + ([(kn, 1 << 30, low)] if kn != k else [])
-            seen = set()
-            for kk, cm, bs in tries:
-                if (len(kk), cm, bs) in seen:
-                    continue
-                seen.add((len(kk), cm, bs))
-                cache[ck] = convert_state(rom, kk, ts, None, cm, slots=sl, extra_pal=ipal, base=bs, boss=boss, vcopies=vc, ice=ice)
-                if cache[ck] is not None:
-                    break
-            if cache[ck] is None:
-                print(f"  ¡sala {room:04X} (tiles {ts:04X}): sus objetos no entran ni sin juntar piezas!", file=sys.stderr)
+            cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc)
+            if cache[ck] is None and low < ZOBJ_BASE:   # más lugar: desde el final de los tiles de la sala
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc)
+            if cache[ck] is None:                 # no entran los tiles: sin juntar piezas (comparten los tiles del SNES)
+                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc)
+                if cache[ck] is None:
+                    print(f"  ¡sala {room:04X} (tiles {ts:04X}): sus objetos no entran ni sin juntar piezas!", file=sys.stderr)
             d = cache[ck]
             if d:
-                nf = sum(1 for x in d['keys'] if x[1] == int(FROZEN_PAL, 16))
-                print(f"objetos sala {room:04X}: {len(d['keys'])} spritemaps, {len(d['tiles']) // 32} tiles, "
+                # congelados (FROZEN_PAL): la misma clave con la paleta 0x0C00 y el número del juego común
+                have = {(x[0], x[1], x[2]) for x in d["keys"]}
+                vram, nf = None, 0
+                for x in sorted(k):
+                    if x[0] != "e" or int(x[1], 16) not in fb or x[3] == FROZEN_PAL:
+                        continue
+                    fk = (int(x[2], 16), int(FROZEN_PAL, 16), int(x[4], 16))
+                    if fk in have:
+                        continue
+                    vram = vram or state_vram(rom, ts, vc)
+                    j = frozen_entry(rom, vram, x, islot, frozen)
+                    if j is not None:
+                        assert j < 0x8000
+                        d["keys"].append(fk + (FROZEN_REF | j,))
+                        have.add(fk)
+                        nf += 1
+                d["keys"].sort()
+                assert len(d["recs"]) < FROZEN_REF, "objetos: los registros pasan de 0x8000 palabras"
+                print(f"objetos sala {room:04X}: {len(d['keys'])} spritemaps ({nf} congelados), {len(d['tiles']) // 32} tiles, "
                       f"sprites {d['nspr'][0]} -> {d['nspr'][1]}, "
-                      f"{d['ncolors']} colores ({d['merged']} fusiones), congelados {nf}"
-                      f"{' (NO ENTRAN)' if kn != k and not nf else ''} (hielo: {d['frozen'][0]} colores, {d['frozen'][1]} en lugares libres)",
-                      file=sys.stderr)
+                      f"{d['ncolors']} colores ({d['merged']} fusiones)", file=sys.stderr)
         if cache[ck]:
             out[st] = cache[ck]
+    print(f"congelados: {len(frozen['list'])} distintos, {sum(len(t) for t, r in frozen['list']) // 32} tiles, "
+          f"{sum(len(r) for t, r in frozen['list'])} palabras de registros", file=sys.stderr)
     return out

@@ -1,179 +1,201 @@
-# 58 — Enemigos congelados, explosión de la bomba de poder y estelas de la onda
+# 58 — Enemigos congelados, luz de la bomba de poder y estelas de la onda
 
-Fecha: 2026-10-28. Rama `hielo-pb-estelas` (desde `main`). Los tres puntos de "Lo que falta" de docs/57, en este
-orden: enemigos congelados, la explosión de la bomba de poder (y el rayo de luz de los trajes) y las estelas de los
-rayos con la paleta 5.
+Fecha: 2026-10-29. Rama `hielo-pb-estelas` (desde `main`, b12aadf). Los tres puntos de "Lo que falta" de docs/57, en
+ese orden. Decisiones de Edwin:
+- congelados: un juego común que se sube a la VRAM al congelarse (no la propuesta por sala de docs/57: no entraba);
+- bomba de poder: mixto, tinte de los colores cuando el óvalo cubre toda el área de juego y sprites de luz del modo
+  sombra/luz mientras crece.
 
-Estado: **punto 3 hecho**. Los puntos 1 y 2 están medidos y analizados; las propuestas esperan la decisión de Edwin
-(abajo).
+| Punto | Estado |
+|---|---|
+| 1. Enemigos congelados | hecho |
+| 2. Luz de la explosión de la bomba de poder | hecho (con más cuadros perdidos que `main` en la explosión: abajo) |
+| 2b. Rayo de luz de los trajes | no se hizo (abajo: cómo se haría con lo mismo) |
+| 3. Estelas del rayo de onda | hecho |
 
-## 3. Estelas del rayo de onda (hecho)
-
-### Lo que hace el SNES (decomp)
-
-- `SpawnProjectileTrail` ($90:B657) elige las listas de la estela de cada proyectil en `off_90B5BB` (izquierda) y
-  `off_90B609` (derecha) por `projectile_type & 0x3F` (rayos) o `31 + tipo` (misiles: 32, supermisiles: 33).
-- Las listas de los tiles 0x3C-0x3F con la paleta 5 (atributo `0x2A3C`...) son **solo las del rayo de onda**: la
-  entrada 1 (onda sin cargar) y la 17 (onda cargada). Las demás entradas con estela (2, 3, 6, 7, 10, 11, 16, 18, 19,
-  22, 23, 26, 27) usan los tiles 0x38-0x3B con la paleta 6; los misiles, 0x48-0x4B con la paleta 5.
-- Esos tiles usan los colores 5, 6 y 7 de la paleta 5 de los sprites (7C1D, 5814, 300A, la paleta inicial
-  `$9A:8000`), que son casi los 2, 3 y 4 de la paleta de la onda (7C1F, 5816, 300C, `kBeamPalettePtrs[1]` en
-  `$90:C3C9`). Cuando sale una estela de onda, la onda es el rayo equipado: su paleta es la paleta 6 de ese momento.
-
-### Lo que se hizo (`tools/conv/mkzobj.py`)
-
-- Las claves de esas estelas (`("t", "2A3C")`... de `mkmd.zebes_proj_keys`) ya no toman los colores de la sala.
-  Cada píxel va al lugar fijo 8 + c del color c más parecido de los 1-5 de la paleta de onda (`wave_trail_slots`).
-  Salen 5→10, 6→11 y 7→12: los colores 9-13 de la línea 3, que la Genesis copia de `palette_buffer[225-229]` en cada
-  cuadro, igual que con los tiles del rayo (docs/57).
-- Esos colores ya no entran en la cuenta de colores de la sala: hay algo menos que juntar (las páginas quedan con
-  133 KB libres; antes, 130).
-- Las estelas de los misiles (tiles 0x48-0x4B, paleta 5) siguen con los colores de la sala, como antes.
-
-### Comprobación
-
-- Lado a lado en 9D19 (`tools/compare/lado_a_lado.sh`, puerta 8DAE, `XY_N=250 X=784 Y=740`, entrada
-  `in_chargebeam.txt`, `EXTRA_FL="-DMD_TEST_GOD -DMD_TEST_ITEMS=0x1004 -DMD_TEST_BEAMS=0x1001"`,
-  `HL_ITEMS=1004 HL_POKE=9A6:1001,9A8:1001`): la Genesis de `main`, la de esta rama y el SNES en el mismo cuadro del
-  motor (mosaico para Edwin). Antes, los anillos de la estela salían morado oscuro; ahora salen magenta, como en el
-  SNES. (La cámara de la Genesis queda corrida en vertical en esta prueba, igual que en docs/57: es la colocación
-  con `SETXY`, no el dibujo.)
-- `make` con los datos nuevos da el mismo md5 dos veces (`312d3957…`).
-
-## 1. Enemigos congelados (medido: la propuesta de docs/57 no entra)
+## 1. Enemigos congelados
 
 ### Lo que hace el SNES (decomp)
 
 - `WriteEnemyOams` ($A0:944A): con `frozen_timer` distinto de 0, el enemigo se dibuja con `palette_index = 0x0C00`
-  (la paleta 6, la del rayo) en vez de la suya; mientras `frozen_timer >= 0x5A`, siempre, y después un cuadro sí y
-  otro no (`frozen_timer & 2`). Los mismos tiles con los colores de la paleta del rayo equipado.
-- Con el hielo equipado, la paleta 6 es la de hielo (`kBeamPalettePtrs[2]`, la misma en las 6 combinaciones con
-  hielo): 7FFF 7EC0 6DE0 54E0 7F6E 730A 6665 5E22 7FA0 7B60 7720 72A0 6E60 7F91 20C0 (15 colores).
+  (la paleta 6, la del rayo) en vez de la suya: mientras `frozen_timer >= 0x5A`, siempre; después, un cuadro sí y
+  otro no (`frozen_timer & 2`). Mismos tiles, colores de la paleta del rayo equipado.
+- Con el hielo equipado la paleta 6 es la de hielo (`kBeamPalettePtrs[2]`, $90:C3C9; la misma en las 6 combinaciones
+  con hielo): 7FFF 7EC0 6DE0 54E0 7F6E 730A 6665 5E22 7FA0 7B60 7720 72A0 6E60 7F91 20C0.
 - Se congela (`EnemyShot`, $A0:A6DE…A79A) si la vulnerabilidad al rayo con hielo (`EnemyDef.vulnerability_ptr`,
   +0x3C; sin ella `$B4:EC1C`) es 0xFF, o si el disparo lo mata y `(power & 0xF0) != 0x80`.
 
-### Lo que se midió (`mkzobj.py` con `MM_FROZEN=1`)
+### Por qué no la propuesta de docs/57
 
-Se implementó la propuesta de docs/57 para medirla. Por cada clave de un enemigo que se puede congelar
-(`frozen_banks`), una clave con la paleta 0x0C00: los mismos tiles del SNES, los colores 1-5 del hielo en los lugares
-fijos 9-13 del rayo y los 6-15 en lugares libres (si no hay, al más parecido). Los congelados van pieza por pieza (sin
-`compose`) y nunca le quitan lugar a los enemigos normales: si con ellos no entran los tiles en la VRAM, ese estado
-queda sin congelados.
+Por sala (una clave 0x0C00 por cada spritemap con sus tiles en los de la sala): +~140 KB (no entraba en las páginas
+11-21) y en 9CB3, 9D19 y 9E9F los tiles no entraban en la VRAM. Además en la línea 3 no queda ningún color libre: los
+enemigos de cada estado usan de 13 a 57 colores distintos para 10 lugares (`MM_ZOBJ_STATS=1` en `mkzobj.py`).
 
-| | `main` | con congelados por sala |
-|---|---|---|
-| Claves de objetos (292 estados) | 29 361 | 31 244 (+1 883) |
-| Sprites en los registros | 81 691 | 90 649 (+8 958) |
-| Tiles del depósito | 40 493 | 41 491 (+998) |
-| Páginas de Zebes | 11-21, 130 KB libres | **11-22** (+~140 KB: no entra en las de hoy) |
-| Estados donde no entran en la VRAM | — | 9CB3, 9D19 y 9E9F (los dos de 9E9F): ahí seguirían invisibles |
-| Lugares libres de la línea 3 para los colores 6-15 del hielo | — | ninguno: los enemigos de cada estado usan entre 13 y 57 colores distintos para 10 lugares (`MM_ZOBJ_STATS=1`) |
+### Lo que se hizo
 
-Una primera versión que dejaba armar (`compose`) también a los congelados entraba en 11-21 (55 KB libres), pero en
-9 estados los enemigos grandes perdían su armado (más sprites por línea): se descartó.
+PC (`tools/conv/mkzobj.py`, `mkzebes.py`):
+- `frozen_banks`: los bancos de la población de cada estado que el hielo puede congelar (la regla de arriba). Los
+  jefes (`BOSS_PALETTES`) no.
+- `frozen_entry`: para cada clave de enemigo `(banco, sm, paleta, tiles)` de esos bancos, el congelado: las piezas
+  del spritemap con la paleta 0x0C00 (`key_pieces`), pieza por pieza (sin `compose`), los tiles del SNES de la sala
+  (`state_vram`) con los colores 1-5 del hielo en los lugares fijos 9-13 del rayo (siguen a `palette_buffer[225-229]`
+  como en el SNES) y los 6-15 en el más parecido de los 1-5 (`ice_slots`). Cada congelado distinto se guarda una vez
+  (por contenido): **653** en Crateria y Brinstar.
+- La clave de la sala `(sm, 0x0C00, tiles)` guarda `0x8000 | número` en lugar del desplazamiento de sus registros.
+- `mkzebes.py`: los tiles de los congelados van al depósito común (`kZebesPool`, sin repetir) y cada congelado guarda
+  sus tramos: `kZebesFrz` (primer tramo, tramos, tiles, registros), `kZebesFrzRuns`, `kZebesFrzRecs` (los registros
+  con el tile desde 0), todo en una página (`ZEBES_FRZ_PAGE`).
 
-Para el resto de las pruebas, la ROM de esta rama se compila **sin** los congelados (`MM_FROZEN` vale 0 por omisión):
-las páginas, la regresión y las comparaciones son las de `main` más el punto 3.
+Genesis (`src/platform/md_zebes.c`, `md_engine.c`):
+- `zebes_obj_draw`: si la clave es de un congelado, `frz_draw`: busca o toma un lugar en la VRAM (`frz_get`), dibuja
+  sus registros y les suma el primer tile.
+- Lugar: las filas 5-31 del plano Window (tiles 1802-1855, no se ven: la ventana solo muestra el HUD), en 3 lugares
+  de 18 tiles (el 90 % de los congelados tiene 16 o menos; los más grandes, hasta 54, toman lugares seguidos). Un
+  lugar se suelta si su congelado no se dibujó en 8 cuadros (el parpadeo del final). Los tiles se suben en el vblank
+  (`frz_vblank`, con los tramos del depósito como al cargar la sala).
+- Sin lugar, con la caja de mensaje abierta (usa esas filas; al cerrarse se vuelven a subir: `zebes_frz_reset`) o en
+  las salas del ojo (las usa el haz), el congelado se dibuja con su paleta (`DrawEnemySpritemap`): no queda invisible
+  ni cuenta como clave faltante.
 
-### Propuestas (para Edwin)
+### Comprobación
 
-- **1a. La de docs/57 (por sala)**: está hecha, se enciende con `MM_FROZEN=1`. Cuesta una página más del SSF2 (la 22:
-  ROM de 11,25 a 11,75 MB) y en 9CB3, 9D19 y 9E9F los congelados no se verían (VRAM llena).
-- **1b. Congelados comunes por tipo de enemigo, subidos a la VRAM al congelarse** (recomendada): un juego de claves
-  común en una página (no por sala), como el de los rayos. Medido sobre todas las claves de Crateria y Brinstar: 1 713
-  claves de congelados, **655 distintas** por contenido, **1 115 tiles distintos** (35 KB) y ~25 KB de registros:
-  ~65 KB en las páginas, entra en lo libre de hoy. En la VRAM solo se necesita el spritemap que está congelado (un
-  enemigo congelado no se anima): 10 tiles en la mediana, 16 en el 90 % y 64 como mucho. Se suben en el vblank (como
-  los tiles del rayo o del gancho) a un tramo fijo de ~64 tiles: los libres después de los objetos y las filas ocultas
-  del Window (como el haz del ojo y la caja de mensaje; al cerrar la caja se vuelven a subir). Cada sala solo guarda
-  qué clave común usa cada congelado (~14 KB en total). Lo que falta resolver: qué hacer si se congelan a la vez más
-  enemigos de los que entran (lo más probable: los últimos con su paleta normal) y las salas del ojo, donde el haz usa
-  esos tiles.
-- **1c. Sin tiles nuevos**: dibujar al congelado con sus tiles normales y otra línea de colores. No hay ninguna libre
-  (0 y 1: la sala; 2: Samus; 3: enemigos y rayo), así que no sirve sin quitarle colores a la sala o a los enemigos.
+- `md_missing_ring` vacío después de disparar con el hielo en 9D19, 92FD, 93FE, 965B, 9E52, 9F11 y 9E9F
+  (`lado_a_lado.sh`, `in_chargebeam.txt`, `HL_POKE=9A6:1002,9A8:1002`, `MD_TEST_BEAMS=0x1002`).
+- Lado a lado con el SNES en 9D19 (mosaico para Edwin): los colores del congelado son los del SNES.
+- En Crateria la entrada desde la puerta no llega a congelar ningún enemigo (92FD, 93FE, 965B): solo se comprobó que
+  no falten claves. Falta probar a mano varias salas con enemigos congelados a la vez (más de 3 congelados distintos:
+  los que no entran se ven con su paleta).
 
-## 2. La explosión de la bomba de poder (analizada, falta elegir el método)
+## 2. Luz de la explosión de la bomba de poder
 
 ### Lo que hace el SNES (decomp, banco $88)
 
-- `SpawnPowerBombExplosion` ($88:8AA4) crea dos objetos de HDMA: la ventana 2 por línea (izquierda y derecha:
-  `power_bomb_explosion_left_hdma` / `_right_hdma`, 192 líneas por distancia al centro, indirectas en
-  `kIndirectHdmaTable_PowerBombExplodeLeft/Right`) y la configuración.
-- Matemática de color (`LayerBlendPowerBombFunc_0` $88:8219): `CGWSEL = 2` (suma la subpantalla), `CGADSUB = 0x37`
-  (suma, sin la mitad, a BG1, BG2, BG3, sprites y fondo), `TS = TSW = BG3` con `W34SEL = 8`: dentro de la ventana el
-  BG3 se quita de la subpantalla y se suma el color fijo (`COLDATA`). Afuera la sala queda igual. En la sala A66A
-  (`Func_6`) no se aclaran BG2 ni BG3 (`CGADSUB = 0x31`).
-- Las etapas (los `HdmaobjPreInstr_PowerBombExplode_*`):
-  1. **Destello previo** (`PreExplosionWhite` $88:90DF): óvalo escalado por `power_bomb_pre_explosion_flash_radius`
-     (`CalculatePowerBombHdmaScaled_*`: media anchura = radio × `g_byte_88A206[j]`, media altura hasta
-     radio × 191/256), colores de `g_byte_889079` (gris 16 → amarillento); crece muy rápido (unos 3 cuadros).
-  2. **Destello amarillo** (`PreExplosionYellow` $88:91A8): formas ya escaladas (`pre_scaled_power_bomb_explosion_shape_def_ptr`,
-     192 bytes por cuadro, hasta `$88:A206`).
-  3. **Explosión amarilla** (`ExplosionYellow` $88:8DE9): el óvalo crece de 4 a 134 (radio 0x0400 → 0x8600, aceleración
-     0x30: ~37 cuadros); colores de `kPowerBombExplosionColors` ($88:8D85: R = G de 14 a 28, B de 10 a 0).
-  4. **Explosión blanca** (`ExplosionWhite` $88:8EB2): formas ya escaladas hasta `$88:9F06`.
-  5. **Resplandor** (`Stage5_Afterglow` $88:8B98): la misma forma, el color fijo baja de a 1 cada 3 cuadros hasta 0.
-- Lo mismo usa el destello de cristal (`SpawnCrystalFlashHdmaObjs`) y el rayo de luz de los trajes
-  (`InitializeSuitPickupHdma` $91:D692: ventana por línea de `hdma_table_1`, `CGADSUB = 0x33`, `COLDATA` de
-  `suit_pickup_color_math_*`): **una forma por línea y un color que se suma**.
+- `SpawnPowerBombExplosion` ($88:8AA4): dos objetos de HDMA; la ventana 2 por línea desde las tablas indirectas
+  `$89:9800` / `$89:A101` (una línea por fila) a `power_bomb_explosion_left_hdma` / `_right_hdma` (192 filas por
+  distancia al centro), y la matemática de color (`LayerBlendPowerBombFunc_0` $88:8219: `CGADSUB = 0x37`, dentro de
+  la ventana se suma `COLDATA` a BG1, BG2, sprites y fondo; afuera nada).
+- La secuencia de formas es siempre la misma (`HdmaobjPreInstr_PowerBombExplode_*`, lista $88:8ACE): destello blanco
+  (escalado por el radio, 3 cuadros), destello amarillo (4 formas ya escaladas), explosión amarilla (escalada, de 4 a
+  134 de media anchura en ~38 cuadros), explosión blanca (17 formas ya escaladas, hasta 508 x 382) y resplandor (la
+  última forma; el color baja de a 1 cada 3 cuadros). Las ya escaladas cortan en el primer 0 y dejan lo del cuadro
+  anterior. Con la bomba cerca de Samus, ~100 de los ~160 cuadros cubren toda la pantalla.
 
-Mosaico del SNES para Edwin (9D19, `in_powerbomb.txt`): el óvalo es grande (media anchura de hasta 134 px, media
-altura de hasta 100) y casi siempre queda cortado por un borde de la pantalla; afuera la sala no cambia.
+### Lo que se hizo
 
-### Lo que la Genesis puede hacer (y lo que no)
+PC (`tools/conv/mkpbomb.py`, en `make_data.sh`): simula la secuencia del SNES (las mismas cuentas) y, para cada una de
+las **58 formas** (clave: etapa y radio o número de la forma ya escalada), un cuarto del óvalo (abajo a la derecha)
+cubierto con cajas de hasta 4 x 4 tiles por bandas de 32 líneas: columnas llenas en toda la banda con 16 tiles llenos
+fijos; las del borde, con sus tiles (color 14 de la línea 3, "aclarar"), seguidos por caja. Tablas en la parte común
+(`kPbKey`, `kPbShape`, `kPbBox`); los 2511 tiles (80 KB) en la última página de los niveles (la 10, `PB_PAGE`).
 
-- La Genesis no suma colores. Tiene el modo sombra/luz: los sprites operador (color 14 de la línea 3) aclaran lo que
-  tapan **hacia el blanco** (c/2 + 1/2), siempre en la misma medida; no pueden sumar amarillo ni bajar poco a poco
-  como el resplandor.
-- Cambiar los colores (el tinte de `tint15`, que ya suma un color a todos los de la sala: niebla, neblina del Torizo)
-  da **el color exacto** del SNES, pero vale para la línea entera: no puede seguir el borde izquierdo y derecho del
-  óvalo dentro de una línea.
-- Con sprites, el óvalo grande necesita ~40 sprites (radio 120: ~38, hasta 8 por línea) además de Samus y los
-  enemigos (64 en H32, 16 y 256 puntos por línea): en las líneas casi llenas no queda lugar para los demás sprites.
-- Todas las formas del SNES salen de tablas de la ROM (el radio escala `g_byte_88A206`; las etapas 2 y 4 usan formas
-  ya escaladas del banco $88). Se pueden preparar en el PC: para cada forma, los sprites de la luz y los tiles de sus
-  bordes, sin armar nada en la Genesis (a diferencia del haz del ojo, que depende de la posición de Samus y se arma
-  de a pasos).
+Motor (`src/core/hdmaobj.c`): `nt_pb_shape` anota la forma que armó cada etapa (no es RAM del SNES; `host/check` no
+la ve).
 
-### Métodos posibles (para Edwin)
+Genesis (`src/platform/md_cone.c`, junto al haz del ojo):
+- `pb_decide`, en cada cuadro de la explosión: si la primera y la última línea del área de juego están enteras dentro
+  (las formas se angostan hacia arriba y hacia abajo), **tinte**; si no, **luz**.
+- Tinte (`md_cone_pb_tint` → `md_engine.c`): el color fijo del SNES sumado a todos los colores de la sala, Samus y los
+  objetos, como la niebla (docs/46). El color y el resplandor son los del SNES. Para que no cueste tanto, tres tablas
+  por canal (rojo, verde, azul → CRAM: `kCram555` es canal por canal, comprobado en los 32768 colores) y el color se
+  toma uno de cada 3 cuadros (`PB_TINT_EVERY`; el resplandor del SNES baja cada 3).
+- Luz (`pb_build`, `pb_emit` en ensamblador): los sprites de los cuatro cuartos con los giros alrededor del centro
+  (línea de la Genesis = línea del SNES + 2), en `cone_sat` (al final de la tabla del VDP, como el haz del ojo).
+  Solo se suben los tiles de las cajas que se ven (una DMA por caja, hasta 53 tiles por vblank, desde la página 10, a
+  0xF000-0xFF3F); si la forma y lo que se ve no cambiaron, nada. Si no entran los sprites (44 como mucho) o los tiles,
+  el tinte.
+- Modo sombra/luz: el VDP oscurece lo que no tiene prioridad alta en ningún plano. Desde que se pone la bomba
+  (`power_bomb_flag`, `HudSelectionHandler_MorphBall` $90:BF9D) hasta que termina la explosión, las celdas del plano A
+  van con prioridad alta (`zebes_force_prio`, `tile_fix`); el plano B no hace falta. La ventana dibujada se reescribe
+  de a 2 columnas por cuadro (`prio_sweep`) mientras la bomba espera, cuando sobra tiempo: de una vez costaba ~10
+  cuadros perdidos. Los sprites van con prioridad alta y los dos que tapan el HUD (`eye_room_sprites`) mientras las
+  celdas la tengan. La luz se enciende cuando las celdas están listas.
 
-- **2a. Sombra/luz con sprites, formas preparadas en el PC.** La forma exacta en cada cuadro; aclara hacia el blanco.
-  Para el resplandor (que en el SNES baja de a poco), la luz se apaga cuando el color fijo pasa por la mitad, o se
-  alterna un cuadro sí y otro no. Sirve tal cual para el rayo de luz de los trajes (otra forma por línea) y para la
-  bomba de poder en las peleas. Riesgo: en las líneas casi llenas los sprites de la luz se comen el límite por línea.
-- **2b. Tinte por líneas.** Las líneas que toca el óvalo cambian sus colores al tinte exacto (una interrupción
-  horizontal al principio y otra al final, como la de los colores debajo del HUD). Colores y resplandor exactos,
-  ningún sprite, muy barato; pero la forma es una franja de lado a lado, no un óvalo, y el cambio de 48 colores a
-  mitad de pantalla deja puntos en una o dos líneas.
-- **2c. Mixto.** Sprites de luz (2a) mientras el óvalo crece; en el resplandor (la forma ya no cambia y cubre casi
-  todo), el tinte exacto (2b) con la forma por líneas. Más trabajo; las dos partes se ven distintas en el cambio.
+### Comprobación
 
-Recomendación: **2a**. Es la forma del SNES cuadro a cuadro, no carga al 68000 (todo preparado en el PC) y es el
-método que se reusa para el rayo de luz de los trajes y las peleas. Antes de implementarlo hay que medir cuántos
-sprites usa la forma más grande que sale en pantalla y qué queda para Samus y los enemigos.
+- Lado a lado con el SNES en 9D19 (mosaico para Edwin): `lado_a_lado.sh` con `XY_N=60 X=600 Y=699` (Samus en el piso
+  dentro de la vista) y `HL_POKE=9C6:A,9C8:A,9CA:A,9CC:A,9CE:A,9D0:A,9D2:3` (lo mismo que pone `MD_TEST_AMMO`). La
+  posición de la bomba y de la cámara de las dos se comprobó en la RAM (la grabación de `hlref` y un volcado de la
+  Genesis): (600, 921) en las dos, cámara a 0-3 píxeles. El óvalo sale en el mismo lugar y con el mismo tamaño en cada
+  cuadro; el tinte sigue el color y la bajada del SNES.
+- `tools/rooms/powerbomb.sh`: 0 diferencias (la lógica no cambió).
+- Cuadros perdidos en la primera explosión de esa prueba (160 cuadros del motor, `md_shown_frame` repetidos):
 
-## Límites (esta rama, sin congelados)
+| | perdidos |
+|---|---|
+| `main` (sin luz) | 44 |
+| esta rama | 59 |
+| esta rama sin la luz (`MD_PB_NOLIGHT`) | ~52 |
+| esta rama sin luz ni tinte (`MD_PB_NOLIGHT MD_PB_NOTINT`) | ~45 |
+
+  En `main` la explosión ya pierde ~1 de cada 3 cuadros: la lógica de la bomba (`BlockBombedReact`, ~150 líneas por
+  cuadro en la etapa blanca; `ProcessEnemyPowerBombInteraction`, `BombOrPowerBomb_Func1`) llena el cuadro. La luz y el
+  tinte suman ~15 más. Lo que se probó: el redibujo de la prioridad de a columnas y antes de la explosión (−20), el
+  armado en ensamblador, el tinte con tablas y a 20 Hz (−5). Lo que queda es repartido (no hay un punto caliente) y
+  con la explosión ya pasada de tiempo cualquier costo chico se vuelve un cuadro entero.
+
+### Diferencias con el SNES
+
+- Mientras crece, la luz aclara hacia el blanco (sombra/luz), no suma amarillo ni rosa; no aclara a Samus ni a los
+  enemigos que quedan debajo (como el haz del ojo, docs/52).
+- Cuando el óvalo cubre casi todo pero no las esquinas (o no entra en 44 sprites), el tinte ilumina también las
+  esquinas.
+- Mientras la bomba espera y explota, los sprites quedan delante de todas las celdas del plano A (prioridad alta).
+- En los cuadros con luz, los colores 14 y 15 de la línea 3, que usan los enemigos fuera de las salas del ojo, son
+  "aclarar" y "oscurecer".
+- El tinte se actualiza cada 3 cuadros: en el destello (que cambia de color muy rápido) va un poco atrasado.
+
+### El rayo de luz de los trajes (no hecho)
+
+`InitializeSuitPickupHdma` ($91:D692) es el mismo mecanismo: una ventana por línea (`hdma_table_1`) y un color que se
+suma (`CGADSUB = 0x33`, `suit_pickup_color_math_*`). Con lo de arriba: las formas del rayo por cuadro preparadas en el
+PC (`mkpbomb.py`) o, como es un rayo vertical angosto, armadas en la Genesis con `cone_bands` / `cone_build` del haz del
+ojo; la prioridad y los sprites, igual que con la bomba (`zebes_force_prio` mientras dura la animación).
+
+## 3. Estelas del rayo de onda
+
+- `SpawnProjectileTrail` ($90:B657) toma las listas de `$90:B5BB` / `$90:B609` por `projectile_type & 0x3F`. Los
+  tiles 0x3C-0x3F con la paleta 5 son solo los de la onda (entradas 1 y 17); los demás rayos usan 0x38-0x3B (paleta 6)
+  y los misiles 0x48-0x4B (paleta 5).
+- Sus colores 5-7 (7C1D, 5814, 300A) son casi los 2-4 de la paleta de la onda (7C1F, 5816, 300C), la del rayo equipado
+  cuando salen. `mkzobj.py` (`wave_trail_slots`) los pone en los lugares fijos 10-12 del rayo (los 9-13 de la línea 3,
+  de `palette_buffer[225-229]`), como los tiles del rayo (docs/57). Antes salían con los colores de la sala (en 9D19,
+  morado oscuro).
+- Comprobado lado a lado en 9D19 (Genesis de `main`, de esta rama y SNES): magenta como en el SNES.
+
+## Límites
 
 | | `main` | Ahora | Límite |
 |---|---|---|---|
-| Fin de la parte común (`__mm_title_start`) | 0x33EAB4 | 0x33EAB4 | 0x380000 |
-| RAM `_bend` | 0xE0FFE210 | 0xE0FFE210 | 0xE0FFE3F0 |
-| Páginas de Zebes (`mkzebes.py`) | 11-21, 130 KB libres | 11-21, 133 KB libres | sin aviso |
+| Fin de la parte común (`__mm_title_start`) | 0x33EAB4 | 0x341DB4 (+13 KB) | 0x380000 |
+| RAM `_bend` | 0xE0FFE210 | 0xE0FFE300 | 0xE0FFE3F0 |
+| Páginas de Zebes | 11-21 | 11-21 (2-18 KB libres por página) | 23 |
+| Página 10 (niveles) | 168 KB libres | 86 KB libres (los tiles de la luz) | |
 | ROM | 11 264 KB | 11 264 KB | |
+
+`mkzebes.py` deja ahora 2 KB de margen al final de cada página (antes 4): medido en `rom.map`, lo real queda hasta ~1 KB
+por encima de su cuenta; el enlace falla si una página pasa de 512 KB (`md_ssf2.ld`). `MM_PAGE_MARGIN` lo cambia.
 
 ## Comprobación contra el SNES
 
-La lógica no cambió (solo `mkzobj.py`): `tools/rooms/beams.sh` (11 combinaciones), `sba.sh` (4), `powerbomb.sh`,
-`chargebeam.sh` y la grabación Ceres → Zebes (`host/check ref_full.bin … 97 1822 0`): **0 diferencias** en todas.
+`tools/rooms/beams.sh` (11 combinaciones), `sba.sh` (4), `powerbomb.sh`, `chargebeam.sh` y la grabación Ceres → Zebes
+(`host/check ref_full.bin … 97 1822 0`): **0 diferencias** en todas.
 
 ## Regresión
 
 `sh tests/regress/regress.sh`: intro 0 distintos, Ceres 0 distintos, Zebes 0 distintos. No se aprobaron referencias
 nuevas.
 
+## Notas de las pruebas (`lado_a_lado.sh`)
+
+- Sin `SETXY`, Samus entra a 9D19 por la puerta 8DAE en lugares distintos en el SNES y en la Genesis (también en
+  `main`): (471, 699) contra (551, 790). Con `SETXY` en el aire, la bomba se pone mientras cae y cae distinto. Para
+  comparar la bomba: Samus en el piso dentro de la vista (`XY_N=60 X=600 Y=699`).
+- `MD_TEST_AMMO` pone 10 misiles, supermisiles y bombas de poder: en el SNES hace falta el mismo `HL_POKE` completo.
+- En 9F11 los enemigos (D87F) salen celestes en la Genesis y rojos en el SNES, también en `main`: no es de esta rama.
+
 ## Lo que falta
 
-- Punto 1: elegir entre 1a y 1b (o otra) e implementarlo; comprobar en varias salas de Crateria y Brinstar lado a lado
-  con el SNES y que `md_missing_ring` quede sin claves de congelados.
-- Punto 2: elegir el método e implementarlo para la bomba de poder; después, el rayo de luz de los trajes. Medir los
-  cuadros perdidos (`tools/perf/`, docs/44).
+- Rayo de luz de los trajes (arriba).
+- La explosión de la bomba de poder pierde cuadros (ya en `main`): su lógica (`BlockBombedReact` y demás) necesita
+  una pasada de velocidad; después, volver a medir lo que suma la luz.
+- Probar a mano congelados en más salas (varios a la vez) y la bomba en las salas del ojo.

@@ -82,7 +82,7 @@ I_MD   := -I$(INC)/platform -I$(INC)/core -I$(GEN) -I$(GEN_E)
 CORE_C := $(wildcard $(SRC)/core/*.c) $(GEN_E)/vars.c $(GEN_E)/tables.c $(GEN_E)/zebes.c
 MD_C   := $(SRC)/platform/md_engine.c $(SRC)/platform/md_zebes.c $(SRC)/platform/md_cone.c
 GEN_C  := $(GEN)/md_data.c $(GEN)/md_getaway.c $(GEN)/md_m7.c $(GEN)/md_intro_data.c $(GEN)/init_state.c \
-          $(GEN)/md_pause_data.c
+          $(GEN)/md_pause_data.c $(GEN)/md_pbomb_data.c
 SGDK_C := $(SRC)/platform/md_main.c $(SRC)/platform/md_snd.c
 FRONT  := title menu sound front
 GEN_S  := md_bins md_cine init_blob md_voice md_snd_data

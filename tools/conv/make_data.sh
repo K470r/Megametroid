@@ -23,6 +23,7 @@ if [ -z "$ONLY_SND" ]; then
   python3 $CONV/mkintro.py $SMROM $EXT $SNAP $GEN
   python3 $CONV/mkmd.py $SMROM $EXT $SNAP $GEN_E $GEN $SNAP/draw.log $SNAP/hud.log
   python3 $CONV/mkpause.py $SMROM $GEN                     # la pausa: mapa y equipo (docs/53; usa md_data.h)
+  python3 $CONV/mkpbomb.py $SMROM $GEN                     # la luz de la bomba de poder (docs/58)
   # las cinemáticas antes que mkzebes.py: él reparte sus bloques en las páginas del SSF2 (md_cine.s, docs/48)
   python3 $CONV/mkgetaway.py $SNAP/getaway.npz $GEN
   python3 $CONV/mkm7.py $SNAP $GEN

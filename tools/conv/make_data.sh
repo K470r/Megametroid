@@ -28,7 +28,8 @@ if [ -z "$ONLY_SND" ]; then
   python3 $CONV/mkgetaway.py $SNAP/getaway.npz $GEN
   python3 $CONV/mkm7.py $SNAP $GEN
   MM_MAX_PALS=2 python3 $CONV/mkzebes.py $SMROM $GEN_E 2>/dev/null
-  printf '    .section .rodata\n    .align 2\n    .global kInitBlob\nkInitBlob:\n    .incbin "init_state.bin"\n    .align 2\n    .global kInitBlobIntro\nkInitBlobIntro:\n    .incbin "init_state_intro.bin"\n' > $GEN/init_blob.s
+  # el estado inicial va en la página 7: md_init lo lee con la ventana 7 en 7 (reset_game_vars, md_main.c; docs/48)
+  printf '    .section .rodata_page7,"a"\n    .align 2\n    .global kInitBlob\nkInitBlob:\n    .incbin "init_state.bin"\n    .align 2\n    .global kInitBlobIntro\nkInitBlobIntro:\n    .incbin "init_state_intro.bin"\n' > $GEN/init_blob.s
   python3 $CONV/mk_test_input.py $REF 98 ${TEST_FRAMES:-5600} $GEN/test_input.s
 fi
 # sonido (docs/55): música y efectos del N-SPC del decomp (sm/src/spc_player.c) con tu ROM, para el XGM2

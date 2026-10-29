@@ -343,12 +343,22 @@ H.append('#define NT_BANK(n) __attribute__((section(".bank" #n)))   /* página n
 H.append('#else')
 H.append('#define NT_BANK(n)')
 H.append('#endif')
+# los niveles de Ceres (área 6) van en la página 7, con los tiles y planos de sus salas (mkmd.py): en Ceres la ventana 7
+# queda en 7 y lo común no los lleva (docs/48, docs/55)
+ceres_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if hb[1] == 6 for _, _, st in sels}
 page, used, lvl_page = LEVEL_PAGE0, 0, {}
 for i, lvl in enumerate(sorted(levels)):
     lvl_idx[lvl] = i
     d = decompress(lvl)
     size = d[0] | d[1] << 8
     need = size + size // 2 + 4
+    if lvl in ceres_lvls:
+        lvl_page[lvl] = 7
+        C.append(f'NT_BANK(7) const uint16 kLevel{i}_Data[{size // 2}] = {{' + ','.join(
+            '0x%X' % v for v in struct.unpack('<%dH' % (size // 2), d[2:2 + size])) + '};')
+        C.append(f'NT_BANK(7) const uint8 kLevel{i}_Bts[{size // 2}] = {{' + ','.join(
+            str(v) for v in d[2 + size:2 + size + size // 2]) + '};')
+        continue
     if used + need > 0x80000:
         page, used = page + 1, 0
     used += need

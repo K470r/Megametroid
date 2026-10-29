@@ -175,8 +175,8 @@ static void pipe_wait(u16 cost) {
    Las de SGDK (mando, vtimer, interrupciones) y las de las pantallas de antes del juego no se tocan. */
 extern u8 _game_data_start[], _game_data_end[], _game_bss_start[], _game_bss_end[];
 extern const u8 _game_data_rom[];
-static void map_normal_page(void) {             /* la ventana 7 del SSF2 con su página de siempre: allí están los datos
-                                                   del título y la copia de las variables (la partida deja otra puesta) */
+static void map_normal_page(void) {             /* la ventana 7 del SSF2 con su página de siempre (las salas de Ceres;
+                                                   la partida o el título dejan otra puesta) */
   __asm__ volatile("" ::: "memory");
   *(volatile u8 *)0xA130FF = 7;
   __asm__ volatile("" ::: "memory");
@@ -241,8 +241,11 @@ static u16 play_game(u16 intro) {
 
 /* Título -> partidas y opciones (SALIR vuelve al título) -> juego. Con MD_TEST_INPUT (comparación cuadro a cuadro
    con la grabación del SNES) o MD_NO_TITLE se empieza directo en el juego. */
+#define MD_TITLE_PAGE 22                        /* el título va al final de la página 22 (md_ssf2.ld, .bank22) */
 static void front_screens(void) {
-  map_normal_page();
+  __asm__ volatile("" ::: "memory");
+  *(volatile u8 *)0xA130FF = MD_TITLE_PAGE;       /* la ventana 7 con la página del título (el menú no la lee) */
+  __asm__ volatile("" ::: "memory");
   VDP_init();                                     /* el juego deja el VDP a su manera: SGDK lo vuelve a armar */
   for (;;) {
     title_run();

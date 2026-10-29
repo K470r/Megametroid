@@ -30,6 +30,7 @@ cuál; la Genesis toma el color con kCram555 (tabla de 32768 colores BGR555 -> C
 se ven igual.
 """
 import json
+import re
 import os
 import struct
 import sys
@@ -1703,7 +1704,11 @@ def write_out(out_dir, C, Hh, bins):
     (out_dir / "md_data.c").write_text("\n".join(c) + "\n")
     s = ["/* Generado por tools/conv/mkmd.py: bloques grandes (big-endian, alineados) */"]
     for sym, f in bins:
-        s += ["    .section .rodata", "    .align 2", f"    .global {sym}", f"{sym}:", f'    .incbin "bins/{f}"']
+        # las salas de Ceres (tiles y planos) van en la página 7: se leen con la ventana 7 en 7, la página del nivel de
+        # Ceres (nt_map_level_page(0)). Así lo común queda debajo de 0x300000 (docs/48, docs/55)
+        m = re.match(r"kRoom(?:Tiles|PlaneA|PlaneB)_([0-9A-F]{4})$", sym)
+        sec = ".rodata_page7,\"a\"" if m and 0xDF45 <= int(m.group(1), 16) <= 0xE0B5 else ".rodata"
+        s += [f"    .section {sec}", "    .align 2", f"    .global {sym}", f"{sym}:", f'    .incbin "bins/{f}"']
     (out_dir / "md_bins.s").write_text("\n".join(s) + "\n")
 
 

@@ -290,3 +290,54 @@ entrada que no se repite (cuadros 0-1511) y un patrón que repite solo (4909 cua
 Comprobado: en Genesis Plus GX (`RR_WAV`), la música se oye desde el cuadro 369 del título (el 363 más la primera
 nota); `regress.sh` 0 distintos; lo común termina en 0x341FCC.
 
+
+### Los chillidos del bebé metroide (2026-10-29, rama `titulo-bebe`)
+
+En el SNES son **efectos de sonido**, no música. El bebé del título es un objeto de modo 7
+(`addr_kMode7ObjBabyMetroidInTitle` $8B:A355, lo crea `CinematicFunctionOpening`); su lista de instrucciones
+($8B:A12B) da vueltas a 4 cuadros de animación de 10 cuadros cada uno y, al terminar las vueltas que pide
+`Mode7Instr_SetTimer`, ejecuta un chillido y un destello de paleta (`CinematicSetPal2/3/4`):
+
+| instrucción | efecto | cuándo |
+|---|---|---|
+| `PlayBabyMetroidCry1` $8B:A25B | `QueueSfx3_Max6(0x23)` | después de 2 vueltas ($8B:A145) |
+| `PlayBabyMetroidCry2` $8B:A263 | `QueueSfx3_Max6(0x26)` | después de 4 vueltas ($8B:A1A9) |
+| `PlayBabyMetroidCry3` $8B:A26B | `QueueSfx3_Max6(0x27)` | después de 3 vueltas ($8B:A20D); `Goto` $8B:A12B |
+
+Un ciclo dura 546 cuadros (de Cry1 a Cry2 222, a Cry3 182, a Cry1 142). `HandleSoundEffects` ($82:89EF) corre en el
+mismo cuadro del bucle principal que `HandleMode7Objects`, y la cola de la biblioteca 3 está vacía: el efecto se
+escribe en el puerto del SPC en el mismo cuadro en que se ejecuta la instrucción. Comprobado con snes9x grabando
+`sfx_readpos`/`sfx_cur`/`sfx3_queue` ($645, $64F, $676): 13 chillidos en `title.rec`, en los cuadros 425, 647, 829,
+971, 1193, 1375, 1517, 1739, 1921, 2063, 2285, 2467 y 2609.
+
+Cómo se hace:
+- `make_title_data.py` (`cry_frames`): no hace falta grabar nada nuevo. Con los punteros de instrucciones del objeto
+  (`m7obj` de la grabación) y la lista de la ROM, cada vez que el puntero pasa de `a` a `b` se recorre la lista desde
+  `a` (con los dos caminos de `Mode7Instr_DecTimerAndGoto`) hasta la espera que lo deja en `b`; los
+  `PlayBabyMetroidCry` del camino son los chillidos de ese cuadro. Da exactamente los 13 cuadros de arriba.
+- Los cuadros pasan a la línea de tiempo ya remapeada (`Rec.src`: el cuadro original de cada lugar después de
+  `hold_boot_logo` y `speed_up_zoom`): el primer lugar que muestra ese cuadro o uno posterior. Los del alejamiento se
+  adelantan con él: 1517, 1739, 1921... pasan a 1495, 1653, 1813... Salen en `g_title_cry_frame` / `g_title_cry_sfx`
+  (`title_data.c`).
+- `title.c` (`title_cries`): en cada cuadro de la línea de tiempo, los chillidos de ese cuadro van a
+  `sfx_play(2, efecto)` (`md_snd.c`: la biblioteca 3, con sus reglas de prioridad), como los del juego.
+- `tools/snd/efectos.txt`: 3/$23, $26 y $27 grabados con el conjunto del título ($03). El $23 sale igual byte a byte
+  que el de la intro (conjunto $36) y se comparte; $26 y $27 son nuevos (11 456 y 9 920 bytes).
+- **Saltar la intro** (`MaybeSkipCinematics` $8B:9A48) y **salir con START** (`CinematicFunc_Func10` $8B:9F52) no tocan
+  el objeto ni cortan el efecto que suena. En la Genesis los chillidos siguen la línea de tiempo: después del salto,
+  los del cuadro del título en adelante (con la animación del bebé que se ve); durante el fundido de salida siguen
+  sonando como en el SNES. Diferencia: en el SNES el bebé sigue su propia cuenta durante el fundido del salto (unos
+  15 cuadros) y después del salto su fase no es la de la línea de tiempo; en la Genesis la animación del bebé ya salta
+  con la línea de tiempo, y los chillidos van con ella.
+- **Al volver a empezar la secuencia** (el SNES se va a las demos y, al volver, `CinematicFunctionOpening` crea otra
+  vez el objeto): los chillidos vuelven a empezar desde el primero.
+
+Comprobado (Genesis Plus GX con `RR_WAV`, contra snes9x con `RR_WAV`, buscando cada chillido por correlación con su
+muestra PCM):
+- SNES: cada chillido empieza 3,2-4,2 cuadros después de escribirse en el puerto. Genesis: 2,2-2,7 cuadros después
+  de su cuadro de la línea de tiempo (1 cuadro antes, como la música: 369 contra 370). En la ROM sin chillidos la
+  correlación en esos lugares es 0,01-0,04; con chillidos, 0,1-0,6 (la música del título tapa en parte los últimos).
+- Con START en el cuadro 661 (salta al 1742): siguen los de 1813, 1955... Sin tocar nada, dos vueltas enteras de la
+  secuencia: los 13 en cada vuelta, en los mismos cuadros.
+- La música de la ROM no cambia (md5 de `res/gen/md/snd/*.xgc` iguales); lo común termina en 0x347414 (antes
+  0x341FCC); `_bend` 0xE0FFE210 (igual); `regress.sh` 0 distintos.

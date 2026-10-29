@@ -33,3 +33,9 @@
 3 0x23 0x36
 3 0x24 0x24
 3 0x2C
+#
+# Título (src/front/title.c): los chillidos del bebé metroide (PlayBabyMetroidCry1/2/3, $8B:A25B/A263/A26B), con el
+# conjunto del título cargado.
+3 0x23 0x03
+3 0x26 0x03
+3 0x27 0x03

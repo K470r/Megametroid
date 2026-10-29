@@ -45,10 +45,27 @@ _Static_assert(FRAME_BYTES + 14 * 64 * 2 <= 8192, "el búfer del título no entr
 extern u16 music_data_index;
 void music_upload(u16 i);
 void music_play(u8 t);
+/* Chillidos del bebé metroide: el objeto de modo 7 del bebé (addr_kMode7ObjBabyMetroidInTitle $8B:A355, lo crea
+   CinematicFunctionOpening) ejecuta PlayBabyMetroidCry1/2/3 ($8B:A25B/A263/A26B): QueueSfx3_Max6($23/$26/$27), que
+   HandleSoundEffects escribe en el puerto del SPC en el mismo cuadro. g_title_cry_frame: esos cuadros de la línea de
+   tiempo (make_title_data.py, cry_frames); se tocan con sfx_play (src/platform/md_snd.c), como los del juego.
+   Ni saltar la intro ni salir con START tocan el objeto (MaybeSkipCinematics $8B:9A48, CinematicFunc_Func10
+   $8B:9F52): los chillidos siguen la línea de tiempo y el que suena no se corta. */
+void sfx_play(u16 j, u8 id);
+static u16 cry_i;
+static void title_cries(u16 cur)
+{
+    while (cry_i < g_title_cry_n && g_title_cry_frame[cry_i] <= cur)
+    {
+        if (g_title_cry_frame[cry_i] == cur) sfx_play(2, g_title_cry_sfx[cry_i]);   /* biblioteca 3 */
+        cry_i++;
+    }
+}
 static void title_music_reset(void)
 {
     music_data_index = 0x03;
     music_upload(0x03);
+    cry_i = 0;
 }
 static const u8 *unpack_tiles(const TitleScene *sc, u16 done)    /* el bloque que empieza en el tile done */
 {
@@ -468,6 +485,7 @@ void title_run(void)
         mm_title_cur = cur;
         apply_pdelta(f);
         if (cur >= g_title_music_frame) music_play(5);      /* (la misma pista no vuelve a empezar) */
+        title_cries(cur);                                   /* (una vez por cuadro de la línea de tiempo) */
 
         if (pressed & (BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_C))
         {

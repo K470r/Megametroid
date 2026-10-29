@@ -19,3 +19,7 @@
 # muy despacio (pitch ~0x100-0x1D0): se oye a 20-40 Hz. La autocorrelación encuentra 4011 Hz (de la parte aguda) y
 # sonaba tres octavas arriba; con la altura del pico grave las armónicas salen de ahí.
 0x2D 24 tipo=fm f0=356
+
+# el teclado grave del título y el menú: el detector de altura lo tomaba como ruido (onda muy suave: la autocorrelación
+# no baja en los primeros retardos); su lazo es de 320 muestras, un ciclo justo a 100 Hz
+0x03 24 tipo=fm f0=100

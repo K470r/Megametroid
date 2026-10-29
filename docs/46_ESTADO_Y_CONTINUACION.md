@@ -124,6 +124,13 @@ Reglas de Edwin (no negociables):
   minimapa del HUD muestra el mapa cargado. START ya abre la pausa en cualquier sala (también en el visor: START solo).
   Regresión: intro 0; Ceres/Zebes 97 (antes 19): las mismas clases de cuadros (pozo que gira, círculo de la
   explosión), sensibles al ciclo: la base con +40 ciclos por cuadro en `md_post` ya da 76. Falta aprobarla a ojo.
+- **Caras de Brinstar (9F11, 9F64, 9E9F, 9A44) con su brillo** (2026-10-29): con la bola, `BlueBrinstarFaceBlock_Func_1`
+  ($A8:E86E, gancho de dibujo) cicla `palette_buffer[línea + 9..12]` en rojo ($A8:E7CC). La Genesis ya lo hacía, pero
+  `mkzobj.py` armaba los colores con la paleta fija y juntaba esos índices con otros de igual color (en 9F11 la línea 7
+  es de los Roach D87F y de las caras EA7F: la lista de tiles carga las dos paletas ahí y gana la de las caras). Ahora
+  los ciclos de color van como momentos (`HOOK_PALETTES`, `hook_moments`), la fusión pesa con la raíz de los píxeles y
+  conserva el índice que cicla. Además las claves de enemigos de otro estado de la misma sala ya no ocupan colores
+  (`tileset_pals`: paletas que son líneas de otro estado y no de este). Quedan 2 de los 4 tonos del brillo (10 lugares).
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 

@@ -128,6 +128,18 @@ Reglas de Edwin (no negociables):
   las filas ocultas del Window), luz de la explosión de la bomba de poder (tinte de los colores cuando cubre la
   pantalla, sprites del modo sombra/luz con las formas del SNES preparadas en el PC mientras crece) y estelas de la
   onda con los colores del rayo. Falta el rayo de luz de los trajes; la explosión pierde cuadros (ya en `main`).
+- **Caras de Brinstar (9F11, 9F64, 9E9F, 9A44) con su brillo** (2026-10-29): con la bola, `BlueBrinstarFaceBlock_Func_1`
+  ($A8:E86E, gancho de dibujo) cicla `palette_buffer[línea + 9..12]` en rojo ($A8:E7CC). La Genesis ya lo hacía, pero
+  `mkzobj.py` armaba los colores con la paleta fija y juntaba esos índices con otros de igual color (en 9F11 la línea 7
+  es de los Roach D87F y de las caras EA7F: la lista de tiles carga las dos paletas ahí y gana la de las caras). Ahora
+  los ciclos de color van como momentos (`HOOK_PALETTES`, `hook_moments`), la fusión pesa con la raíz de los píxeles y
+  conserva el índice que cicla. Además las claves de enemigos de otro estado de la misma sala ya no ocupan colores
+  (`tileset_pals`: paletas que son líneas de otro estado y no de este). Quedan 2 de los 4 tonos del brillo (10 lugares).
+- **Bloques que reaparecen visibles** (2026-10-29): al volver, el PLM (`PlmSetup_RespawningShotBlock` $84:CE6B y las
+  de bomba, bomba de poder, supermisil, crumble y speed boost) escribe un bloque fijo (0x52, 0x58, 0x57, 0x9F, 0xBC,
+  0xB6) que su lista dibuja con `PlmInstr_DrawPlmBlock`; `plmscan.py` solo miraba las instrucciones de dibujo y esos
+  tiles no se convertían (el bloque estaba pero no se veía). Ahora `setup_table` los lee de `plm.c`; hasta 6 bloques
+  más por sala (el estado más grande: 417 tiles de 432).
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 

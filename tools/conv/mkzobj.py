@@ -166,6 +166,29 @@ def ice_palette(rom):
     return [rom.w(a + 2 * c) for c in range(16)]
 
 
+SEL_LEN = {0xE5E6: 0, 0xE5FF: 2, 0xE612: 3, 0xE629: 3, 0xE652: 2, 0xE669: 2}   # RoomDefStateSelect (mkzebes.py)
+
+
+def room_states(rom, room):
+    q, sts = 0x8F0000 | (room + 11), []
+    while True:
+        n = SEL_LEN[rom.w(q)]
+        if n == 0:
+            sts.append((q + 2) & 0xFFFF)
+            return sts
+        sts.append(rom.w(q + n))
+        q += 2 + n
+
+
+def tileset_pals(rom, st):
+    """palette_index de los enemigos de la lista de tiles del estado (LoadEnemyGfxIndexes $A0:8BF3)"""
+    out, e = set(), 0xB40000 | rom.w(0x8F0000 | (st + 10))
+    while rom.w(e) != 0xFFFF:
+        out.add((rom.w(e + 2) & 0xF) << 9)
+        e += 4
+    return out
+
+
 def has_eye(rom, st):
     p = 0xA10000 | rom.w(0x8F0000 | (st + 8))
     while rom.w(p) != 0xFFFF:
@@ -223,6 +246,44 @@ def fn_palettes(rom, bank, name):
     return out
 
 
+# colores que un enemigo cicla en su línea de palette_buffer desde su gancho de dibujo (enemy_gfx_drawn_hook): por init
+# (banco, dirección), (función del gancho, primer color de la línea, cuántos, tabla en la ROM, pasos). Valen como momentos
+# (boss_moments): sin ellos los índices del ciclo se juntaban con otros de igual color en la paleta de la sala y la
+# Genesis no los mostraba (las caras de 9F11 no brillaban en rojo con la bola).
+HOOK_PALETTES = {
+    (0xA8, 0xE82E): ("BlueBrinstarFaceBlock_Func_1", 9, 4, 0xA8E7CC, 8),   # $A8:E86E: palette_buffer[línea + 9..12]
+}
+
+
+def hook_moments(rom, st, tilesets_ptr):
+    """[{índice de palette_buffer: color}] de cada paso de los ciclos de HOOK_PALETTES de los enemigos del estado (la
+    línea: la del enemigo en la lista de tiles, como LoadEnemyGfxIndexes $A0:8BF3)"""
+    lines = {}
+    e = 0xB40000 | tilesets_ptr
+    while rom.w(e) != 0xFFFF:
+        lines.setdefault(rom.w(e), rom.w(e + 2) & 0xF)
+        e += 4
+    out = []
+    p = 0xA10000 | rom.w(0x8F0000 | (st + 8))
+    seen = set()
+    while rom.w(p) != 0xFFFF:
+        ed = rom.w(p)
+        a = 0xA00000 | ed
+        hk = HOOK_PALETTES.get((rom.d[rom.off(a + 0x0C)], rom.w(a + 0x12)))
+        if hk and ed in lines and ed not in seen:
+            seen.add(ed)
+            _, first, n, tab, steps = hk
+            base = 128 + 16 * lines[ed] + first
+            for s in range(steps):
+                m = {base + c: rom.w(tab + 2 * (n * s + c)) for c in range(n)}
+                if s < len(out):
+                    out[s].update(m)
+                else:
+                    out.append(m)
+        p += 16
+    return out
+
+
 def boss_of(rom, st):
     """(clave de BOSS_PALETTES, momentos [{índice: color}]) si la población del estado tiene un jefe con colores
     propios; si no, None"""
@@ -253,9 +314,10 @@ def boss_moments(rom, boss, area):
     return moments
 
 
-def merge_colors(counts, vec, cap, sqrt_w=False):
+def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset()):
     """agrupa los índices de counts (índice -> píxeles) en a lo sumo cap colores: los de igual color (en todos los
-    momentos, vec) se comparten; si sobran, se juntan los dos más parecidos (pesando por píxeles). Devuelve
+    momentos, vec) se comparten; si sobran, se juntan los dos más parecidos (pesando por píxeles). Al juntar, queda
+    el de keep si hay uno (los colores que cicla un enemigo: así el lugar sigue cambiando como en el SNES). Devuelve
     (representante de cada índice, píxeles por representante, fusiones, costo)"""
     rep, groups = {}, {}
     for i in sorted(counts, key=lambda i: -counts[i]):
@@ -281,11 +343,13 @@ def merge_colors(counts, vec, cap, sqrt_w=False):
                 if best is None or w < best[0]:
                     best = (w, al[a_], al[b_])
         w, ia, ib = best
-        keep, drop = (ia, ib) if alive[ia] >= alive[ib] else (ib, ia)
-        alive[keep] += alive.pop(drop)
+        kp, drop = (ia, ib) if alive[ia] >= alive[ib] else (ib, ia)
+        if drop in keep and kp not in keep:
+            kp, drop = drop, kp
+        alive[kp] += alive.pop(drop)
         for i in rep:
             if rep[i] == drop:
-                rep[i] = keep
+                rep[i] = kp
         merged += 1
         cost += w
     return rep, alive, merged, cost
@@ -488,9 +552,10 @@ def zkey(k):
 
 
 def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=OBJ_SLOT_LIST, extra_pal=None, base=ZOBJ_BASE,
-                  boss=None, vcopies=()):
+                  boss=None, vcopies=(), anim=()):
     """boss: (banco del jefe, momentos [{índice: color}]) en los estados con un jefe de BOSS_PALETTES: sus piezas de
-    algunas paletas del SNES van en la línea BOSS_LINE (15 colores; se elige el reparto que menos junta)"""
+    algunas paletas del SNES van en la línea BOSS_LINE (15 colores; se elige el reparto que menos junta).
+    anim: los pasos de los ciclos de color de los enemigos (hook_moments), momentos sobre el último del jefe"""
     compose_min = compose_min or COMPOSE_MIN
     vram, pal = enemy_vram(rom, tilesets_ptr)
     if vcopies:                                           # copias de los PLMs (plm_sprite_copies)
@@ -501,6 +566,8 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     if extra_pal:
         pal.update(extra_pal)
     moments = boss[1] if boss else [{}]
+    moments = moments + [{**moments[-1], **a} for a in anim]
+    akeep = frozenset(i for a in anim for i in a)
     bank = mkmd.TileBank(base)
     # piezas de cada clave y colores que usan (por paleta del SNES de las piezas del jefe, para repartir las líneas)
     pieces = {}
@@ -546,9 +613,9 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             (c1 if p in s1 else c3).update(c)
         if bp and not s1:
             continue
-        # (con jefe, la fusión pesa con la raíz de los píxeles: un color chico y llamativo, como el ojo del Torizo,
-        # no se pierde contra las superficies grandes)
-        r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss))
+        # (con jefe o ciclos de color, la fusión pesa con la raíz de los píxeles: un color chico y llamativo, como el
+        # ojo del Torizo o el brillo de las caras de 9F11, no se pierde contra las superficies grandes)
+        r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss or anim), keep=akeep)
         if os.environ.get("MM_ZOBJ_STATS"):
             c3e = Counter({i: n for i, n in c3.items() if n >= 1})       # sin los proyectiles de Samus (peso 1/64)
             print("  colores de enemigos distintos:", len(merge_colors(c3e, vec, 99)[1]), "de", len(slots), file=sys.stderr)
@@ -702,6 +769,11 @@ def build(rom_path, log_paths, states, frozen=None):
         # las claves son por sala: las de enemigos de otro estado (otro banco: p. ej. 9804 después del Torizo) no van
         bks = pop_banks(rom, st)
         k = {x for x in k if x[0] != "e" or int(x[1], 16) in bks}
+        # ni las de otro estado con un banco que está en los dos (9F11: Zoomer y caras de 9F3D en el banco de los Roach
+        # y las caras de 9F23): su paleta es una línea de la lista de tiles de otro estado que este no usa
+        mine = tileset_pals(rom, st)
+        other = set().union(*(tileset_pals(rom, o) for o in room_states(rom, room) if o != st)) - mine
+        k = {x for x in k if x[0] != "e" or int(x[3], 16) not in other}
         eye = has_eye(rom, st)
         ipal = init_palettes(rom, st)
         low = min(ZOBJ_BASE, 448 + ((room_tiles + 7) & ~7))   # justo después de los tiles de la sala (md_zebes.c)
@@ -709,14 +781,15 @@ def build(rom_path, log_paths, states, frozen=None):
         boss = (bk[0], boss_moments(rom, bk, rom.d[rom.off(0x8F0000 | (room + 1))])) if bk else None
         vc = plm_sprite_copies(rom, st)
         fb = frozen_banks(rom, st) - ({boss_of(rom, st)[0]} if boss_of(rom, st) else set())
-        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb))
+        an = hook_moments(rom, st, ts)
+        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an))
         if ck not in cache:                       # (lo mismo: se comparte)
             sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else OBJ_SLOT_LIST
-            cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc)
+            cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an)
             if cache[ck] is None and low < ZOBJ_BASE:   # más lugar: desde el final de los tiles de la sala
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an)
             if cache[ck] is None:                 # no entran los tiles: sin juntar piezas (comparten los tiles del SNES)
-                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc)
+                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an)
                 if cache[ck] is None:
                     print(f"  ¡sala {room:04X} (tiles {ts:04X}): sus objetos no entran ni sin juntar piezas!", file=sys.stderr)
             d = cache[ck]

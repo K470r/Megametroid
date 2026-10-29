@@ -103,6 +103,7 @@ class Rec:
         self.d = Path(path).read_bytes()
         self.n = len(self.d) // REC
         self.o = offsets()
+        self.src = list(range(self.n))      # cuadro de la grabación original en cada lugar (después de remap)
 
     def f(self, i, name):
         o, s = self.o[name]
@@ -120,6 +121,7 @@ class Rec:
     def remap(self, src):
         """Rehace la grabación con el cuadro src[i] en el lugar i (mismo largo)."""
         self.d = b"".join(self.d[j * REC:(j + 1) * REC] for j in src)
+        self.src = [self.src[j] for j in src]
 
 
 def speed_up_zoom(rec, speed):
@@ -168,6 +170,64 @@ def music_frame(rec):
             return j + 1 + 8
         i = j + 1
     sys.exit("title.rec: no se ve la subida de la música del título")
+
+
+# Instrucciones de los objetos de modo 7 (ProcessMode7ObjectInstructions $8B:9537, CallMode7Instr): las que tienen
+# bit 15 son funciones (dirección en el banco $8B) con los bytes de argumento que leen; las demás, una entrada
+# "esperar n cuadros" de 4 bytes. Los chillidos del bebé (PlayBabyMetroidCry1/2/3 $8B:A25B/A263/A26B) hacen
+# QueueSfx3_Max6($23/$26/$27).
+M7_INSTR_ARGS = {0x956B: None, 0x9572: 2, 0x957D: 0, 0x9586: "goto", 0x958D: "dec", 0x9597: 2,
+                 0xA25B: 0, 0xA263: 0, 0xA26B: 0, 0xA273: 0, 0xA284: 0, 0xA295: 0, 0xA2A6: 0}
+M7_CRY = {0xA25B: 0x23, 0xA263: 0x26, 0xA26B: 0x27}
+M7OBJ_BABY_TITLE = 0x8BA355          # addr_kMode7ObjBabyMetroidInTitle (SpawnMode7Object en $8B:9B68)
+
+
+def m7_cries(rom, a, b):
+    """Los chillidos que ejecuta un objeto de modo 7 cuando su puntero de instrucciones pasa de a a b: se recorre la
+    lista desde a (con los dos caminos de DecTimerAndGoto) hasta la entrada de espera que deja el puntero en b."""
+    def w(p):
+        return struct.unpack_from("<H", rom, lorom(0x8B0000 | p))[0]
+
+    def walk(p, cries, depth):
+        if depth > 64:
+            return None
+        v = w(p)
+        if not v & 0x8000:
+            return cries if p + 4 == b else None
+        if v not in M7_INSTR_ARGS:
+            sys.exit(f"title.rec: instrucción de modo 7 ${v:04X} desconocida en $8B:{p:04X}")
+        k = M7_INSTR_ARGS[v]
+        if k is None:
+            return None
+        if k == "goto":
+            return walk(w(p + 2), cries, depth + 1)
+        if k == "dec":
+            r = walk(p + 4, cries, depth + 1)
+            return r if r is not None else walk(w(p + 2), cries, depth + 1)
+        return walk(p + 2 + k, cries + [M7_CRY[v]] if v in M7_CRY else cries, depth + 1)
+
+    if not a:                                          # recién creado: desde el principio de su lista
+        a = struct.unpack_from("<H", rom, lorom(M7OBJ_BABY_TITLE + 4))[0]
+    r = walk(a, [], 0)
+    if r is None:
+        sys.exit(f"title.rec: no se encuentra el camino de ${a:04X} a ${b:04X} en la lista del objeto de modo 7")
+    return r
+
+
+def cry_frames(rec, rom):
+    """Cuadros de la grabación (original, antes de remap) en que el SNES escribe un chillido del bebé en el puerto del
+    SPC: PlayBabyMetroidCry pone el efecto en la cola y HandleSoundEffects ($82:89EF), en el mismo cuadro del bucle
+    principal, lo escribe (la cola de la biblioteca 3 está vacía: los chillidos están a más de 100 cuadros)."""
+    out = []
+    prev = [None, None]                                # (la RAM antes de que el juego la borre: no se mira)
+    for i in range(rec.n):
+        ptrs = struct.unpack("<2H", rec.f(i, "m7obj"))
+        for s in range(2):
+            if prev[s] is not None and ptrs[s] and ptrs[s] != prev[s]:
+                out += [(i, c) for c in m7_cries(rom, prev[s], ptrs[s])]
+            if prev[s] is not None or not ptrs[s]:
+                prev[s] = ptrs[s]
+    return out
 
 
 # ------------------------------------------------------------------ fondo: imagen -> tiles Genesis
@@ -347,6 +407,7 @@ def main():
     for old in bins.glob("ttl_*.bin"):
         old.unlink()
     rec = Rec(a.rec)
+    cries0 = cry_frames(rec, rom)                  # en cuadros de la grabación original
     logo = hold_boot_logo(rec, LOGO_HOLD_EXTRA)
     zcut = speed_up_zoom(rec, ZOOM_SPEED)          # cuadros quitados: lo que sigue al alejamiento se adelanta
     title_frame = TITLE_FRAME - zcut
@@ -664,10 +725,21 @@ def main():
     c.append(f"const u16 g_title_frames = {N};")
     c.append(f"const u16 g_title_skip_frame = {title_frame};")
     c.append(f"const u16 g_title_music_frame = {mus_frame};")
+    # chillidos: cada cuadro de la grabación original pasa al primer lugar de la línea de tiempo que lo muestra
+    # (hold_boot_logo repite cuadros, speed_up_zoom los salta)
+    cries = []
+    for k, sfx in cries0:
+        i = next((i for i in range(N) if rec.src[i] >= k), None)
+        if i is not None:
+            cries.append((i, sfx))
+    c.append(f"const u16 g_title_cry_n = {len(cries)};")
+    c.append("const u16 g_title_cry_frame[] = {" + ", ".join(str(i) for i, _ in cries) + "};")
+    c.append("const u8 g_title_cry_sfx[] = {" + ", ".join(f"0x{x:02X}" for _, x in cries) + "};")
     (out / "title_data.c").write_text("\n".join(decl + [""] + c) + "\n", encoding="utf-8")
     (out / "title_data.s").write_text("\n".join(asm) + "\n", encoding="utf-8")
     tot = sum((bins / f).stat().st_size for f in os.listdir(bins) if f.startswith("ttl_"))
     info.append(f"música del título: desde el cuadro {mus_frame}")
+    info.append("chillidos del bebé: " + " ".join(f"{i}:{x:02X}" for i, x in cries))
     info.append(f"logo de arranque: encendido desde {logo[0]}, funde en {logo[2]}, negro desde {logo[3]}, sigue en {logo[4]}")
     print("\n".join(info))
     print(f"título: {N} cuadros, {tot} bytes")

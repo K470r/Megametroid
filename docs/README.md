@@ -35,6 +35,7 @@ Empezar por [46 — Estado y cómo continuar](46_ESTADO_Y_CONTINUACION.md).
 | 55 | Música y efectos del cartucho con XGM2 (N-SPC del decomp → FM/PSG/PCM): de la intro a la llegada a Zebes |
 | 56 | Samus completa: salto espacial, speed booster, shinespark, trajes, rayos y SBA, bomba de poder, gancho |
 | 57 | Rayos en la Genesis: juego de claves común, tiles del rayo equipado en un lugar fijo de la VRAM |
+| 58 | Enemigos congelados (juego común), luz de la bomba de poder (tinte y sombra/luz), estelas de la onda |
 
 Los documentos 01-25 (análisis y prototipos anteriores al motor nativo) quedaron en la carpeta de trabajo, fuera del
 repositorio.

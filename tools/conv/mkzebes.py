@@ -26,6 +26,9 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 POOL_CHUNK = 1024          # tiles por trozo del depósito común (32 KB)
+PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "2048"))   # bytes libres al final de cada página: la cuenta
+# no incluye las alineaciones; medido en rom.map (docs/58), lo real queda hasta ~1 KB por encima de la cuenta. El
+# enlace falla si una página pasa de 512 KB (md_ssf2.ld)
 CINE_BLOBS = ("kM7Tiles", "kM7Maps", "kGetawayTiles", "kGetawayMaps")   # cinemáticas de Ceres en páginas (docs/48)
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent / "tools" / "genesis_convert"))
@@ -648,7 +651,8 @@ def main():
     # ---- objetos (enemigos) de cada estado: mkzobj.py
     logs = zlogs
     st_tiles = {k[1]: entries[v]["ntiles"] for k, v in gfx_keys.items() if k[0] == "st"}
-    objs = mkzobj.build(sys.argv[1], logs, [(st, ra, ts, st_tiles.get(st, 432)) for st, ra, ts in obj_states])
+    frozen = {"index": {}, "list": []}       # juego común de los enemigos congelados (mkzobj.frozen_entry, docs/58)
+    objs = mkzobj.build(sys.argv[1], logs, [(st, ra, ts, st_tiles.get(st, 432)) for st, ra, ts in obj_states], frozen)
     obj_list, obj_of = [], {}
     for st, d in objs.items():
         if id(d) not in obj_of:
@@ -673,7 +677,11 @@ def main():
          '/* objetos: tiles desde ZOBJ_BASE; src: 30 índices de palette_buffer, colores 1-15 de la línea 3 debajo del HUD (9-13 el rayo)',
          '   y 1-15 de la línea 1 (solo con un jefe de colores propios, la sala en una línea: mkzobj.BOSS_LINE), 0xFFFF sin uso;',
          '   keys: (spritemap, paleta, tiles, desplazamiento en recs) ordenadas; recs: como los de md_data */',
-         '#define ZOBJ_BASE %d' % __import__('mkzobj').ZOBJ_BASE]
+         '#define ZOBJ_BASE %d' % __import__('mkzobj').ZOBJ_BASE,
+         '/* congelados (docs/58): las claves de objetos con desplazamiento 0x8000 | n son el congelado n del juego común:',
+         '   kZebesFrz[n] = (primer tramo en kZebesFrzRuns, tramos, tiles, desplazamiento en kZebesFrzRecs); los tramos',
+         '   (índice en el depósito, cantidad) dan sus tiles en orden; los registros llevan el tile desde 0. Todo en la',
+         '   página ZEBES_FRZ_PAGE */']
     C = ['/* Generado por tools/conv/mkzebes.py desde la ROM del SNES: no editar. */', '#include "zebes.h"',
          '#include "tables.h"']
     # páginas de la intro (mkintro.py: INTRO_PAGE y las de la nave, secciones .bankN de md_intro_data.c): se saltan
@@ -714,7 +722,7 @@ def main():
 
     def place(need):
         for pg in sorted(fill):
-            if fill[pg] + need <= 0x80000 - 4096:   # margen: la cuenta no incluye alineaciones
+            if fill[pg] + need <= 0x80000 - PAGE_MARGIN:   # margen: la cuenta no incluye alineaciones
                 fill[pg] += need
                 return pg
         pg = page0
@@ -744,6 +752,13 @@ def main():
         e["runs"] = to_runs(bytes(e["tiles"]))
     for d in obj_list:
         d["runs"] = to_runs(bytes(d["tiles"]))
+    frz_idx, frz_runs, frz_recs = [], [], []
+    for tb, rw in frozen["list"]:
+        rr = to_runs(tb)
+        frz_idx += [len(frz_runs) // 2, len(rr) // 2, len(tb) // 32, len(frz_recs)]
+        frz_runs += rr
+        frz_recs += rw
+    assert len(frz_runs) < 0x10000 and len(frz_recs) < 0x10000, "zebes: el juego de los congelados pasa de 64 K palabras"
     for e in entries + obj_list:                   # comprobación: los tramos rehacen los tiles de siempre
         rr = e["runs"]
         assert b"".join(pool[j + k] for j, n in zip(rr[0::2], rr[1::2]) for k in range(n)) == bytes(e["tiles"])
@@ -757,17 +772,19 @@ def main():
               2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries]
     o_need = [2 * len(d["runs"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(d["recs"]) for d in obj_list]
     p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
+    f_need = [2 * (len(frz_idx) + len(frz_runs) + len(frz_recs)) + 64]
     # cinemáticas de Ceres (mkm7.py, mkgetaway.py: corren antes): se usan una vez por partida, van en páginas y no en
     # la parte fija (docs/48). La Genesis pone la página de cada bloque antes de leerlo (md_cine.h)
     cine_dir = HERE.parent.parent / "res" / "gen" / "md"
     cine = [s_ for s_ in CINE_BLOBS if (cine_dir / "bins" / f"{s_}.bin").exists()]
     assert len(cine) == len(CINE_BLOBS), "zebes: faltan los bloques de las cinemáticas (correr mkm7.py y mkgetaway.py antes)"
     c_need = [(cine_dir / "bins" / f"{s_}.bin").stat().st_size + 16 for s_ in cine]
-    pages, obj_pages, pool_pages, cine_pages = [0] * len(entries), [0] * len(obj_list), [0] * nchunks, [0] * len(cine)
+    pages, obj_pages, pool_pages, cine_pages, frz_pages = [0] * len(entries), [0] * len(obj_list), [0] * nchunks, [0] * len(cine), [0]
     for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(g_need)] + [(n, 1, i) for i, n in enumerate(o_need)] +
-                              [(n, 2, i) for i, n in enumerate(p_need)] + [(n, 3, i) for i, n in enumerate(c_need)],
-                              reverse=True):
-        (pages, obj_pages, pool_pages, cine_pages)[kind][i] = place(n_)
+                              [(n, 2, i) for i, n in enumerate(p_need)] + [(n, 3, i) for i, n in enumerate(c_need)] +
+                              [(f_need[0], 4, 0)], reverse=True):
+        (pages, obj_pages, pool_pages, cine_pages, frz_pages)[kind][i] = place(n_)
+    frz_page = frz_pages[0]
     cs = ["/* Generado por tools/conv/mkzebes.py: bloques de las cinemáticas de Ceres en páginas del SSF2 (md_cine.h) */"]
     ch = ["/* Generado por tools/conv/mkzebes.py: página del SSF2 de cada bloque de las cinemáticas */",
           "#ifndef MD_CINE_H", "#define MD_CINE_H"]
@@ -781,6 +798,13 @@ def main():
         C.append(f'NT_BANK({pool_pages[c]}) static const uint8 kZP{c}[{len(tb)}] __attribute__((aligned(2))) = {{' +
                  ','.join(str(x) for x in tb) + '};')
     H.append(f'#define ZEBES_POOL_CHUNK {POOL_CHUNK}')
+    H.append(f'#define ZEBES_FRZ_PAGE {frz_page}')
+    H.append(f'#define ZEBES_FRZ_N {len(frozen["list"])}')
+    H.append(f'extern const uint16 kZebesFrz[{max(4, len(frz_idx))}], kZebesFrzRuns[{max(2, len(frz_runs))}], '
+             f'kZebesFrzRecs[{max(1, len(frz_recs))}];')
+    for nm, v in (("kZebesFrz", frz_idx or [0] * 4), ("kZebesFrzRuns", frz_runs or [0, 0]), ("kZebesFrzRecs", frz_recs or [0])):
+        C.append(f'NT_BANK({frz_page}) const uint16 {nm}[{len(v)}] = {{' + ','.join('0x%X' % x for x in v) + '};')
+    print(f"zebes: congelados {len(frozen['list'])}, {len(frz_runs) // 2} tramos, página {frz_page}", file=sys.stderr)
     H.append(f'extern const ZebesPool kZebesPool[{nchunks}];')
     C.append(f'const ZebesPool kZebesPool[{nchunks}] = {{')
     C += [f'  {{ kZP{c}, {pool_pages[c]} }},' for c in range(nchunks)]
@@ -845,6 +869,8 @@ def main():
     (out / "zebes.c").write_text('\n'.join(C) + '\n')
     tot = sum(len(e["tiles"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) +
               2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries)
+    if os.environ.get("MM_PAGES"):
+        print("zebes: páginas " + " ".join(f"{pg}:{v // 1024}" for pg, v in sorted(fill.items())), file=sys.stderr)
     print(f"zebes: {len(entries)} gráficos de sala, {tot // 1024} KB, páginas {page0}-{max(fill)}, libre {sum(0x80000 - v for v in fill.values()) // 1024} KB", file=sys.stderr)
 
 

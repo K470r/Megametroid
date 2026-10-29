@@ -32,6 +32,7 @@
 #include "enemies.h"
 #include "md.h"
 #include "md_vdp.h"
+#include "md_pbomb_data.h"
 
 typedef struct { int16 y; uint16 size_link; uint16 attr; int16 x; } GenSpr;
 extern GenSpr *sp_ptr, *spr;
@@ -799,6 +800,305 @@ static uint8 job_step(uint8 small) {
   return 0;
 }
 
+/* ---------------------------------------------------------------- luz de la bomba de poder (docs/58) */
+/* El SNES suma COLDATA dentro de una ventana por línea (HdmaobjPreInstr_PowerBombExplode_*, banco $88: tablas
+   power_bomb_explosion_left_hdma / _right_hdma por distancia al centro; LayerBlendPowerBombFunc_0 $88:8219: CGADSUB
+   0x37). La Genesis, en cada cuadro de la explosión:
+   - si la forma cubre toda el área de juego (casi siempre: la etapa blanca crece hasta 508 x 382 y el resplandor
+     queda así), el tinte de los colores con COLDATA (md_engine.c, tint_cram): el color y la bajada son los del SNES;
+   - si no (mientras crece), sprites "aclarar" del modo sombra/luz con la forma que armó el SNES (nt_pb_shape,
+     hdmaobj.c): un cuarto del óvalo preparado en el PC (tools/conv/mkpbomb.py: kPbShape, kPbBox, kPbTiles) y los
+     otros tres con los giros. Los tiles de las cajas que se ven se suben en el vblank (una DMA por caja, a 0xF000,
+     donde también va el haz del ojo) al cambiar la forma o lo que se ve; los llenos, una vez. Si no entran los
+     sprites o los tiles (PB_UP_MAX por vblank), el tinte.
+   Desde que se pone la bomba (power_bomb_flag, HudSelectionHandler_MorphBall $90:BF9D) hasta que termina la
+   explosión, las celdas del plano A van con prioridad alta (zebes_force_prio: se reescriben de a unas columnas por
+   cuadro mientras la bomba espera, cuando sobra tiempo; en la explosión el 68000 ya no da abasto) y los sprites
+   también, con los dos que tapan el HUD (eye_room_sprites), como en las salas del ojo. Los colores 14 y 15 de la
+   línea 3, que usan los enemigos, son "aclarar" y "oscurecer" en los cuadros con luz. */
+extern uint16 nt_pb_shape;                    /* hdmaobj.c */
+void md_cone_room(void);
+void zebes_force_prio(uint8 on);              /* md_zebes.c */
+uint8 zebes_prio_busy(void);
+#define PB_FULL CONE_TILE0                    /* 16 tiles llenos (cajas de hasta 4 x 4) */
+#define PB_AREA (CONE_TILE0 + 16)             /* tiles de las cajas del borde (hasta el 2041; después, el gancho) */
+#ifndef PB_UP_MAX
+#define PB_UP_MAX 53                          /* tiles que sube como mucho un vblank (~10 líneas de DMA en H32) */
+#endif
+#define PB_QMAX 16
+static uint8 pb_was, pb_prio, pb_cells;      /* explosión en curso; sprites con prioridad alta; celdas con
+                                                 prioridad alta (pedida) */
+static uint8 pb_light, pb_light_shown;        /* luz con sprites en este cuadro / en el que se muestra */
+static uint8 pb_tint;                         /* tinte en este cuadro (md_engine.c) */
+static int16 pb_res_shape = -1;               /* forma y cajas visibles cuyos tiles están en la VRAM */
+static uint16 pb_res_sig;
+static uint16 pb_q[PB_QMAX][3];               /* DMA del vblank: (tile en kPbTiles, tile de la VRAM, cantidad) */
+static volatile uint8 pb_nq;
+static volatile uint8 pb_full_ok;             /* los 16 llenos ya están en la VRAM */
+static const uint16 kPbFullTiles[16 * 16] = { [0 ... 16 * 16 - 1] = 0xEEEE };   /* el color 14: aclarar */
+void map_page_ext(uint8 p);                   /* md_zebes.c */
+extern uint8 md_cur_page;
+uint8 md_cone_pb_prio(void) { return pb_prio; }      /* md_engine.c: los dos primeros sprites, reservados */
+/* md_engine.c (tinte): el color fijo del SNES (COLDATA, 5 bits por canal) si este cuadro va con el tinte */
+/* (el color cambia casi en cada cuadro y rehacer los 64 colores cuesta ~25 líneas: se toma uno de cada
+   PB_TINT_EVERY cuadros, salvo el primero; el resplandor del SNES baja de a 1 cada 3 cuadros) */
+#ifndef PB_TINT_EVERY
+#define PB_TINT_EVERY 3
+#endif
+uint8 md_cone_pb_tint(int16 *r, int16 *g, int16 *b) {
+  static uint8 cd[3], was, k;
+  if (!pb_tint) { was = 0; return 0; }
+  if (!was || ++k >= PB_TINT_EVERY) { k = 0; cd[0] = reg_COLDATA[0] & 31; cd[1] = reg_COLDATA[1] & 31; cd[2] = reg_COLDATA[2] & 31; }
+  was = 1;
+  *r += cd[0]; *g += cd[1]; *b += cd[2];
+  return 1;
+}
+static int16 pb_find(uint16 key) {
+  int16 lo = 0, hi = PB_SHAPES - 1;
+  while (lo <= hi) {
+    int16 m = (lo + hi) >> 1;
+    if (kPbKey[m] == key) return m;
+    if (kPbKey[m] < key) lo = m + 1; else hi = m - 1;
+  }
+  return -1;
+}
+/* antes de los sprites del juego: si hay explosión y qué va (luz o tinte); -1: no hay */
+static uint8 pb_full_line(int16 g, int16 cy) {   /* la línea g de la Genesis está toda dentro */
+  int16 sl = g - 2, d = sl < cy ? cy - 1 - sl : sl - cy;   /* (línea del SNES; la tabla va por distancia al centro:
+                                                              arriba cy - 1 - s, abajo s - cy) */
+  return d < 192 && !power_bomb_explosion_left_hdma[d] && power_bomb_explosion_right_hdma[d] == 255;
+}
+static int8 pb_decide(void) {
+  uint8 on = (power_bomb_explosion_status & 0x8000) && (fx_layer_blending_config_c & 0x8000) &&
+             power_bomb_explosion_y_pos_rsub_0x1ff && nt_pb_shape;
+  pb_tint = 0; pb_light = 0;
+  /* celdas con prioridad alta desde que se pone la bomba hasta que termina la explosión */
+  uint8 cells = (power_bomb_flag & 0x8000) || on;
+  if (cells != pb_cells) { zebes_force_prio(cells); pb_cells = cells; }
+  uint8 busy = zebes_prio_busy();
+  pb_prio = pb_cells || busy;                  /* (los sprites, hasta que las celdas vuelven a la suya) */
+  if (!on) {
+    if (pb_was) {                              /* terminó: el haz del ojo vuelve a cargar 0xF000 */
+      pb_was = 0;
+      pb_res_shape = -1; pb_full_ok = 0;
+      md_cone_room();
+    }
+    return -1;
+  }
+  pb_was = 1;
+  /* ¿toda el área de juego dentro? Las formas se angostan hacia arriba y hacia abajo: basta con la primera y la
+     última línea */
+  int16 cy = (int16)(power_bomb_explosion_y_pos - layer1_y_pos);
+  uint8 full = pb_full_line(CONE_TOP, cy) && pb_full_line(223, cy);
+  /* la luz, cuando todas las celdas ya tienen prioridad alta (si la bomba explotó antes: el tinte) */
+  if (!full && pb_cells && !busy && pb_find(nt_pb_shape) >= 0) pb_light = 1;
+  else pb_tint = 1;
+#ifdef MD_PB_NOLIGHT                          /* pruebas de velocidad: sin la luz / sin el tinte */
+  pb_light = 0;
+#endif
+#ifdef MD_PB_NOTINT
+  pb_tint = 0;
+#endif
+  return 0;
+}
+/* pb_emit(&args): las cajas de la forma (kPbBox: columna << 8 | fila, tamaño, tile o 0xFFFF) y sus cuatro giros
+   alrededor del centro: x a la derecha / izquierda, y abajo / arriba. Por caja que se ve (x en (-w, 256), y en
+   (CONE_TOP - h, 224)), su lugar en la VRAM (si tiene tiles: los anota en q para el vblank, hasta up_max tiles y qmax
+   cajas) y un sprite por cada giro que se ve. Devuelve 1 si no entran los sprites o los tiles. En ensamblador: en C
+   eran ~450 ciclos por sprite (unas 30 líneas por cuadro con la forma grande). */
+typedef struct { const uint16 *bx; GenSpr *o, *oend; uint16 *q; uint16 n, cx, cy, used, nq, sig, up_max, qmax; } PbArgs;
+uint8 pb_emit(PbArgs *a);
+#define PB_S_(x) #x
+#define PB_S(x) PB_S_(x)
+__asm__(
+  "    .text\n"
+  "    .global pb_emit\n"
+  "pb_emit:\n"
+  "    movem.l %d2-%d7/%a2-%a6,-(%sp)\n"
+  "    movea.l 48(%sp),%a6\n"
+  "    movea.l (%a6),%a0\n"                   /* cajas */
+  "    movea.l 4(%a6),%a1\n"                  /* sprites */
+  "    movea.l 8(%a6),%a2\n"                  /* fin de los sprites */
+  "    movea.l 12(%a6),%a3\n"                 /* cola del vblank */
+  "    move.w 16(%a6),%d7\n"
+  "    move.w 18(%a6),%d6\n"                  /* cx */
+  "    move.w 20(%a6),%d5\n"                  /* cy */
+  "    lea -8(%sp),%sp\n"                     /* xr, xl, yb, yt */
+  "    subq.w #1,%d7\n"
+  "    bmi 90f\n"
+  "10: move.w (%a0)+,%d0\n"
+  "    move.w (%a0)+,%d1\n"
+  "    movea.w %d1,%a4\n"                     /* tamaño */
+  "    move.w (%a0)+,%d4\n"                   /* tile o 0xFFFF */
+  "    move.w %d0,%d2\n"
+  "    lsr.w #5,%d2\n"
+  "    and.w #0x7F8,%d2\n"                    /* dx */
+  "    and.w #0xFF,%d0\n"
+  "    lsl.w #3,%d0\n"                        /* dy */
+  "    move.w %d1,%d3\n"
+  "    lsr.w #7,%d3\n"
+  "    and.w #0x18,%d3\n"
+  "    addq.w #8,%d3\n"                       /* w */
+  "    lsr.w #5,%d1\n"
+  "    and.w #0x18,%d1\n"
+  "    addq.w #8,%d1\n"
+  "    movea.w %d1,%a5\n"                     /* h */
+  "    move.w %d6,%d1\n"
+  "    add.w %d2,%d1\n"
+  "    move.w %d1,(%sp)\n"                    /* xr = cx + dx */
+  "    move.w %d6,%d1\n"
+  "    sub.w %d2,%d1\n"
+  "    sub.w %d3,%d1\n"
+  "    addq.w #1,%d1\n"
+  "    move.w %d1,2(%sp)\n"                   /* xl = cx - dx - w + 1 */
+  "    move.w %d5,%d1\n"
+  "    add.w %d0,%d1\n"
+  "    move.w %d1,4(%sp)\n"                   /* yb = cy + dy */
+  "    move.w %d5,%d1\n"
+  "    sub.w %d0,%d1\n"
+  "    sub.w %a5,%d1\n"
+  "    move.w %d1,6(%sp)\n"                   /* yt = cy - dy - h */
+  "    moveq #0,%d0\n"                        /* bits: 0 xr, 1 xl, 2 yb, 3 yt se ven */
+  "    move.w %d3,%d2\n"
+  "    add.w #255,%d2\n"
+  "    move.w (%sp),%d1\n"
+  "    add.w %d3,%d1\n"
+  "    subq.w #1,%d1\n"
+  "    cmp.w %d2,%d1\n"
+  "    bcc.s 1f\n"
+  "    bset #0,%d0\n"
+  "1:  move.w 2(%sp),%d1\n"
+  "    add.w %d3,%d1\n"
+  "    subq.w #1,%d1\n"
+  "    cmp.w %d2,%d1\n"
+  "    bcc.s 2f\n"
+  "    bset #1,%d0\n"
+  "2:  move.w %a5,%d2\n"
+  "    add.w #(223 - " PB_S(CONE_TOP) "),%d2\n"
+  "    move.w 4(%sp),%d1\n"
+  "    add.w %a5,%d1\n"
+  "    sub.w #(1 + " PB_S(CONE_TOP) "),%d1\n"
+  "    cmp.w %d2,%d1\n"
+  "    bcc.s 3f\n"
+  "    bset #2,%d0\n"
+  "3:  move.w 6(%sp),%d1\n"
+  "    add.w %a5,%d1\n"
+  "    sub.w #(1 + " PB_S(CONE_TOP) "),%d1\n"
+  "    cmp.w %d2,%d1\n"
+  "    bcc.s 4f\n"
+  "    bset #3,%d0\n"
+  "4:  move.w %d0,%d1\n"
+  "    and.w #3,%d1\n"
+  "    beq 80f\n"
+  "    move.w %d0,%d1\n"
+  "    and.w #12,%d1\n"
+  "    beq 80f\n"
+  "    cmp.w #-1,%d4\n"
+  "    bne.s 5f\n"
+  "    move.w #(0xE000 + " PB_S(PB_FULL) "),%d4\n"
+  "    bra.s 6f\n"
+  "5:  move.w %d3,%d1\n"                      /* tiles de la caja: (w / 8) * (h / 8) */
+  "    lsr.w #3,%d1\n"
+  "    move.w %a5,%d2\n"
+  "    lsr.w #3,%d2\n"
+  "    mulu.w %d2,%d1\n"
+  "    move.w 22(%a6),%d2\n"
+  "    add.w %d1,%d2\n"
+  "    cmp.w 28(%a6),%d2\n"
+  "    bhi 95f\n"                             /* más de up_max tiles */
+  "    move.w 24(%a6),%d3\n"
+  "    cmp.w 30(%a6),%d3\n"
+  "    bcc 95f\n"                             /* más de qmax cajas */
+  "    addq.w #1,24(%a6)\n"
+  "    move.w %d4,(%a3)+\n"                   /* cola: tile en kPbTiles, tile de la VRAM, cantidad */
+  "    move.w 22(%a6),%d3\n"
+  "    add.w #" PB_S(PB_AREA) ",%d3\n"
+  "    move.w %d3,(%a3)+\n"
+  "    move.w %d1,(%a3)+\n"
+  "    move.w %d2,22(%a6)\n"
+  "    move.w 26(%a6),%d2\n"                  /* firma de las cajas que se ven */
+  "    rol.w #3,%d2\n"
+  "    eor.w %d7,%d2\n"
+  "    move.w %d2,26(%a6)\n"
+  "    move.w %d3,%d4\n"
+  "    or.w #0xE000,%d4\n"                    /* prioridad alta, línea 3 */
+  "6:  btst #2,%d0\n"
+  "    beq.s 7f\n"
+  "    btst #0,%d0\n"
+  "    beq.s 61f\n"
+  "    move.w (%sp),%d2\n"
+  "    move.w 4(%sp),%d3\n"
+  "    move.w %d4,%d1\n"
+  "    bsr 50f\n"
+  "61: btst #1,%d0\n"
+  "    beq.s 7f\n"
+  "    move.w 2(%sp),%d2\n"
+  "    move.w 4(%sp),%d3\n"
+  "    move.w %d4,%d1\n"
+  "    or.w #0x0800,%d1\n"
+  "    bsr 50f\n"
+  "7:  btst #3,%d0\n"
+  "    beq.s 80f\n"
+  "    btst #0,%d0\n"
+  "    beq.s 71f\n"
+  "    move.w (%sp),%d2\n"
+  "    move.w 6(%sp),%d3\n"
+  "    move.w %d4,%d1\n"
+  "    or.w #0x1000,%d1\n"
+  "    bsr 50f\n"
+  "71: btst #1,%d0\n"
+  "    beq.s 80f\n"
+  "    move.w 2(%sp),%d2\n"
+  "    move.w 6(%sp),%d3\n"
+  "    move.w %d4,%d1\n"
+  "    or.w #0x1800,%d1\n"
+  "    bsr 50f\n"
+  "80: dbra %d7,10b\n"
+  "90: move.l %a1,4(%a6)\n"
+  "    moveq #0,%d0\n"
+  "    bra.s 99f\n"
+  "95: moveq #1,%d0\n"
+  "99: lea 8(%sp),%sp\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2-%a6\n"
+  "    rts\n"
+  "50: cmpa.l %a2,%a1\n"                      /* un sprite (x = d2, y = d3, atributo d1) */
+  "    bcc.s 51f\n"
+  "    add.w #128,%d3\n"
+  "    move.w %d3,(%a1)+\n"
+  "    move.w %a4,(%a1)+\n"
+  "    move.w %d1,(%a1)+\n"
+  "    add.w #128,%d2\n"
+  "    move.w %d2,(%a1)+\n"
+  "    rts\n"
+  "51: addq.l #4,%sp\n"                       /* no entran: fuera de la subrutina */
+  "    bra.s 95b\n");
+
+/* después de los sprites del juego: los de la luz en cone_sat[b] (al final de la tabla del VDP), o 0 */
+static uint16 pb_build(void) {
+  if (!pb_light) return 0;
+  if (pb_nq) { pb_light = 0; pb_tint = 1; return 0; }   /* (el vblank todavía no subió lo anterior) */
+  int16 i = pb_find(nt_pb_shape);
+  const uint16 *sh = kPbShape + 2 * i;
+  uint16 nfree = (uint16)(spr + MAX_SPR - sp_ptr);
+  if (nfree > CONE_SPR_MAX) nfree = CONE_SPR_MAX;
+  GenSpr *o0 = cone_sat[md_spr_bank(spr)];
+  PbArgs a;
+  a.bx = kPbBox + 3 * sh[0]; a.o = o0; a.oend = o0 + nfree; a.q = &pb_q[0][0];
+  a.n = sh[1];
+  a.cx = (uint16)((int16)power_bomb_explosion_x_pos_plus_0x100 - 256);
+  a.cy = (uint16)(power_bomb_explosion_y_pos - layer1_y_pos + 2);   /* línea de la Genesis */
+  a.used = 0; a.nq = 0; a.sig = (uint16)i; a.up_max = PB_UP_MAX; a.qmax = PB_QMAX;
+  if (pb_emit(&a)) { pb_light = 0; pb_tint = 1; return 0; }   /* no entran los sprites o los tiles: el tinte */
+  uint16 n = (uint16)(a.o - o0);
+  /* los tiles, si cambió la forma o lo que se ve (si no, ya están) */
+  if (i != pb_res_shape || a.sig != pb_res_sig) { pb_res_shape = i; pb_res_sig = a.sig; pb_nq = (uint8)a.nq; }
+  uint16 l = MAX_SPR - n + 1;
+  for (GenSpr *q = o0; q < a.o; q++, l++) q->size_link |= l;
+  if (n) a.o[-1].size_link &= 0x0F00;
+  bank_sig[0].serial = bank_sig[1].serial = 0;   /* (los del haz del ojo ya no están en cone_sat) */
+  return n;
+}
+
 /* el tiempo libre del cuadro (md_main.c y md_engine.c, mientras esperan al vblank) */
 static uint8 idle_ran;                  /* este cuadro hubo tiempo libre */
 static uint8 cone_live;                 /* md_cone_frame pidió el haz (la sala con el ojo, encendido)... */
@@ -812,9 +1112,14 @@ void md_cone_idle(void) {
 uint16 md_cone_frame(void) {
   cone_on = 0;
   uint8 eye = zebes_eye_room();
+  int8 pb = pb_decide();                      /* bomba de poder: luz, tinte o nada (-1) */
 #ifndef CONE_NOSPRFIX
-  if (eye) eye_room_sprites();
+  if (eye || pb_prio) eye_room_sprites();
 #endif
+  if (pb >= 0) {                              /* (el haz del ojo no se arma mientras tanto) */
+    cone_live = 0;
+    return pb_build();                        /* (cone_on no: los tiles fijos del haz no hacen falta) */
+  }
   cone_live = 0;
   if (!eye || fx_layer_blending_config_c != 16 || !zebes_cone_slot(CONE_COLOR)) return 0;
   uint16 k = reg_COLDATA[0] & 31;          /* la intensidad del SNES (R = G) */
@@ -927,7 +1232,18 @@ void md_cone_vblank(void) {
       up_n += n;
     }
   }
-  uint8 want = zebes_eye_room();          /* en las salas con el ojo, siempre (todo tiene prioridad alta) */
+  /* bomba de poder: los 16 llenos (una vez por explosión) y los tiles de la forma nueva */
+  if (pb_light && !pb_full_ok) { vdp_dma_vram(kPbFullTiles, PB_FULL * 32, 16 * 16); pb_full_ok = 1; }
+  if (pb_nq) {
+    uint8 lp = md_cur_page;
+    map_page_ext(PB_PAGE);
+    for (uint16 q = 0; q < pb_nq; q++) vdp_dma_vram(kPbTiles + (uint32)pb_q[q][0] * 32, pb_q[q][1] * 32, pb_q[q][2] * 16);
+    map_page_ext(lp);
+    pb_nq = 0;
+  }
+  pb_light_shown = pb_light;
+  /* en las salas con el ojo, siempre (todo tiene prioridad alta); con la luz de la bomba, en sus cuadros */
+  uint8 want = zebes_eye_room() || pb_light_shown;
   if (want != sh_on) { vdp_reg(0x0C, want ? 0x08 : 0x00); sh_on = want; }
   cone_on_shown = cone_on;
 }

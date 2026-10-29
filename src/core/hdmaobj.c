@@ -423,6 +423,10 @@ static void PowerBombShapeFromRom(void) {
   else CalculatePowerBombHdma_RightOfScreen(0, j);
 }
 
+/* capa de la Genesis (md_cone.c, docs/58): qué forma armó la explosión en este cuadro (etapa << 12 | radio o número
+   de la forma ya escalada; tools/conv/mkpbomb.py prepara cada una). No es RAM del SNES. */
+uint16 nt_pb_shape;
+
 static void SetColdata(uint16 table, uint16 t) {
   reg_COLDATA[0] = B88(table + t) | 0x20;
   reg_COLDATA[1] = B88(table + t + 1) | 0x40;
@@ -432,6 +436,7 @@ static void SetColdata(uint16 table, uint16 t) {
 static void HdmaobjPreInstr_PowerBombExplode_PreExplosionWhite(uint16 k) {  // 0x8890DF
   if (!(power_bomb_explosion_status & 0x8000)) return;
   PowerBombScreenPos(k, power_bomb_pre_explosion_flash_radius);
+  nt_pb_shape = 0x1000 | HI8(power_bomb_pre_explosion_flash_radius);
   PowerBombScaledCircle(HI8(power_bomb_pre_explosion_flash_radius));
   SetColdata(kPowerBombPreExplosionColors, 3 * ((HI8(power_bomb_pre_explosion_flash_radius) >> 3) & 0xF));
   power_bomb_pre_explosion_flash_radius += power_bomb_pre_explosion_radius_speed;
@@ -444,6 +449,7 @@ static void HdmaobjPreInstr_PowerBombExplode_PreExplosionWhite(uint16 k) {  // 0
 static void HdmaobjPreInstr_PowerBombExplode_PreExplosionYellow(uint16 k) {  // 0x8891A8
   if (!(power_bomb_explosion_status & 0x8000)) return;
   PowerBombScreenPos(k, power_bomb_pre_explosion_flash_radius);
+  nt_pb_shape = 0x2000 | (uint16)(pre_scaled_power_bomb_explosion_shape_def_ptr - 0x9F06) / 192;
   PowerBombShapeFromRom();
   SetColdata(kPowerBombPreExplosionColors, 3 * ((HI8(power_bomb_pre_explosion_flash_radius) >> 3) & 0xF));
   pre_scaled_power_bomb_explosion_shape_def_ptr += 192;
@@ -458,6 +464,7 @@ static void HdmaobjPreInstr_PowerBombExplode_PreExplosionYellow(uint16 k) {  // 
 static void HdmaobjPreInstr_PowerBombExplode_ExplosionYellow(uint16 k) {  // 0x888DE9
   if (!(power_bomb_explosion_status & 0x8000)) return;
   PowerBombScreenPos(k, power_bomb_explosion_radius);
+  nt_pb_shape = 0x3000 | HI8(power_bomb_explosion_radius);
   PowerBombScaledCircle(HI8(power_bomb_explosion_radius));
   SetColdata(kPowerBombExplosionColors, 3 * (HI8(power_bomb_explosion_radius) >> 3));
   power_bomb_explosion_radius += power_bomb_pre_explosion_radius_speed;
@@ -470,6 +477,7 @@ static void HdmaobjPreInstr_PowerBombExplode_ExplosionYellow(uint16 k) {  // 0x8
 static void HdmaobjPreInstr_PowerBombExplode_ExplosionWhite(uint16 k) {  // 0x888EB2
   if (!(power_bomb_explosion_status & 0x8000)) return;
   PowerBombScreenPos(k, power_bomb_explosion_radius);
+  nt_pb_shape = 0x4000 | (uint16)(pre_scaled_power_bomb_explosion_shape_def_ptr - addr_kPowerBombExplosionShapeDef0) / 192;
   PowerBombShapeFromRom();
   SetColdata(kPowerBombExplosionColors, 3 * (HI8(power_bomb_explosion_radius) >> 3));
   pre_scaled_power_bomb_explosion_shape_def_ptr += 192;

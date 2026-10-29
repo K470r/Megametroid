@@ -272,12 +272,21 @@ static uint8 zobj_hint;
    (LayerBlendFunc 0x2C: COLDATA medio de su degradado) y las restas de color fijo (LayerBlendFunc_28/2A) */
 static int8 tint_r, tint_g, tint_b;
 static uint8 tint_on;
-static inline uint16 tint15(uint16 c) {
-  int16 r = (int16)(c & 31) + tint_r, g = (int16)((c >> 5) & 31) + tint_g, b = (int16)((c >> 10) & 31) + tint_b;
-  r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
-  return (uint16)(r | g << 5 | b << 10);
+/* el color con el tinte, ya en la CRAM: kCram555 va canal por canal (comprobado en el PC para los 32768), así que al
+   cambiar el tinte se arman tres tablas de 32 (cada canal sumado, recortado y convertido) y cada color son tres
+   lecturas: la bomba de poder cambia el tinte casi en cada cuadro de su explosión (docs/58) */
+static uint8 tint_lr[32], tint_lg[32], tint_lb[32];   /* (bytes: la RAM es justa) */
+static void tint_tables(void) {
+  for (int16 v = 0; v < 32; v++) {
+    int16 r = v + tint_r, g = v + tint_g, b = v + tint_b;
+    r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
+    tint_lr[v] = (uint8)kCram555[r]; tint_lg[v] = (uint8)(kCram555[g << 5] >> 4); tint_lb[v] = (uint8)(kCram555[b << 10] >> 8);
+  }
 }
-uint16 md_tint_cram(uint16 c) { return kCram555[tint_on ? tint15(c & 0x7FFF) : (c & 0x7FFF)]; }   /* md_zebes.c */
+static inline uint16 tint_cram(uint16 c) {
+  return tint_lr[c & 31] | (uint16)tint_lg[(c >> 5) & 31] << 4 | (uint16)tint_lb[(c >> 10) & 31] << 8;
+}
+uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7FFF]; }   /* md_zebes.c */
 
 /* caja de mensaje (src/msgbox.c): sprites con los tiles de sus celdas (kMsgTiles, mkmd.py) en la línea 3; en las
    líneas de la caja la línea 3 vuelve a tener los colores del HUD (interrupciones: 31 los de los enemigos, 63 nada,
@@ -399,6 +408,7 @@ static void md_msgbox_post(void) {
     if (mb_shown) {
       mb_shown = 0;
       md_cone_room();                             /* los tiles de 0xF000 eran del haz: se vuelven a cargar */
+      if (md_zebes) zebes_frz_reset();            /* y los de los congelados (filas del Window) */
     }
     mb_prev_n = 0;
     mb_top = mb_bot = 0;
@@ -941,6 +951,9 @@ void DrawEnemySpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, u
     }
   }
   if (md_zebes && zebes_obj_draw(sm, pal, tiles, (int16)x, (int16)y)) return;   /* enemigos de Zebes */
+  /* congelado (WriteEnemyOams: paleta 0x0C00) sin lugar en la VRAM (md_zebes.c, docs/58): con su paleta */
+  if (md_zebes && pal == 0x0C00 &&
+      zebes_obj_draw(sm, gEnemyData(cur_enemy_index)->palette_index, tiles, (int16)x, (int16)y)) return;
   if (!drawkey(1, sm, pal, tiles, (int16)x, (int16)y)) missing(1, sm, pal, tiles);
 }
 
@@ -2185,9 +2198,10 @@ static void hud_prepare(void) {
 /* primera parte del cuadro: la lógica del motor (puede correr antes de que el vblank tome el cuadro anterior) */
 uint8 zebes_eye_room(void);
 uint8 md_spr_reserved;
+uint8 md_cone_pb_prio(void);
 void md_logic(uint16_t joy) {
   sp_ptr = spr;
-  md_spr_reserved = zebes_eye_room();
+  md_spr_reserved = zebes_eye_room() || md_cone_pb_prio();   /* (la luz de la bomba de poder: md_cone.c) */
   if (md_spr_reserved) sp_ptr = spr + 2;       /* salas con el ojo: dos sprites que tapan el HUD (md_cone.c) */
   door_seen = 0;
   flash_seen = 0;
@@ -2248,6 +2262,7 @@ static void cram_bright(void) {
 
 /* segunda parte: con el vblank libre (md_sync), se arma lo que va al VDP */
 uint16 md_cone_frame(void);
+uint8 md_cone_pb_tint(int16 *r, int16 *g, int16 *b);
 const void *md_cone_sat(uint8 bank);
 void md_cone_color(void);
 void md_cone_vblank(void);
@@ -2286,7 +2301,7 @@ void md_post(void) {
     if (game_state == 30) { intro_frame(); return; }
     intro_on = 0;
   }
-  /* el tinte de la matemática de color (ver tint15) */
+  /* el tinte de la matemática de color (ver tint_cram) */
   {
     int16 r = 0, g = 0, b = 0;
     if (md_zebes && !cine_stage && hz_state == HZ_OFF) {
@@ -2303,10 +2318,15 @@ void md_post(void) {
         }
         r += (int16)((sr + 32768) >> 16); g += (int16)((sg + 32768) >> 16); b += (int16)((sb + 32768) >> 16);
       }
+      /* bomba de poder cubriendo toda el área de juego (md_cone.c, docs/58): solo su color fijo, sumado (en el SNES
+         su matemática de color reemplaza la de la sala: HandleLayerBlendingPowerBomb, $88:81FE) */
+      int16 pr = 0, pg = 0, pbl = 0;
+      if (md_cone_pb_tint(&pr, &pg, &pbl)) { r = pr; g = pg; b = pbl; }
     }
     uint8 on = r || g || b;
     if (on != tint_on || r != tint_r || g != tint_g || b != tint_b) {
       tint_on = on; tint_r = (int8)r; tint_g = (int8)g; tint_b = (int8)b;
+      if (on) tint_tables();
       nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
     }
   }
@@ -2322,7 +2342,7 @@ void md_post(void) {
         if (slot == 0xFF) continue;
         do {
           uint16 v = *(const uint16 *)(lut + (uint16)(*(const uint16 *)(pb + i * 2) << 1));
-          if (tint_on && slot < 48) v = kCram555[tint15(palette_buffer[i] & 0x7FFF)];
+          if (tint_on && slot < 48) v = tint_cram(palette_buffer[i]);
           if (v != cram[slot]) { cram[slot] = v; cram_dirty = 1; }
           slot = cram_next[slot];
         } while (slot != 0xFF);
@@ -2334,7 +2354,7 @@ void md_post(void) {
         uint16 o = *off++;
         if (o == 0xFFFE) { c++; continue; }
         uint16 v = o == 0xFFFF ? 0 : *(const uint16 *)(lut + (uint16)(*(const uint16 *)(pb + o) << 1));
-        if (tint_on && c < cram + 48 && o != 0xFFFF) v = kCram555[tint15(*(const uint16 *)(pb + o) & 0x7FFF)];
+        if (tint_on && c < cram + 48 && o != 0xFFFF) v = tint_cram(*(const uint16 *)(pb + o));
         if (v != *c) { *c = v; cram_dirty = 1; }
         c++;
       }

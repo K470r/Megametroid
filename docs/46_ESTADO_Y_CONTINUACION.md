@@ -124,6 +124,10 @@ Reglas de Edwin (no negociables):
   minimapa del HUD muestra el mapa cargado. START ya abre la pausa en cualquier sala (también en el visor: START solo).
   Regresión: intro 0; Ceres/Zebes 97 (antes 19): las mismas clases de cuadros (pozo que gira, círculo de la
   explosión), sensibles al ciclo: la base con +40 ciclos por cuadro en `md_post` ya da 76. Falta aprobarla a ojo.
+- **hielo-pb-estelas** (2026-10-29, docs/58): enemigos congelados (juego común subido a la VRAM al congelarse, en
+  las filas ocultas del Window), luz de la explosión de la bomba de poder (tinte de los colores cuando cubre la
+  pantalla, sprites del modo sombra/luz con las formas del SNES preparadas en el PC mientras crece) y estelas de la
+  onda con los colores del rayo. Falta el rayo de luz de los trajes; la explosión pierde cuadros (ya en `main`).
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 

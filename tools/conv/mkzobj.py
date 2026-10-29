@@ -108,6 +108,64 @@ def plm_sprite_copies(rom, st):
     return out
 
 
+# Enemigos congelados (docs/58). WriteEnemyOams ($A0:944A) dibuja al enemigo congelado con palette_index = 0x0C00 (la
+# paleta 6 del SNES, la del rayo: con el hielo equipado, la de hielo) en vez de la suya: mientras frozen_timer >= 0x5A
+# y, después, un cuadro sí y otro no (frozen_timer & 2). Se congela si la vulnerabilidad al rayo con hielo
+# (EnemyDef.vulnerability_ptr, +0x3C; sin ella $B4:EC1C) es 0xFF o si el rayo lo mata y (power & 0xF0) != 0x80
+# (EnemyShot_* $A0:A6DE..A79A). Cada clave de un enemigo que se puede congelar lleva su par con la paleta 0x0C00: los
+# mismos tiles del SNES con los colores de la paleta de hielo (kBeamPalettePtrs[2], $90:C3C9; es la misma en las
+# combinaciones con hielo). Los colores 1-5 van a los lugares fijos 9-13 del rayo (siguen a palette_buffer[225-229]
+# como en el SNES) y los 6-15 al más parecido de los 1-5 (en la línea 3 no queda ningún lugar libre: docs/58).
+# No van en los tiles de la sala sino en un juego común (frozen_entry): cada congelado distinto una vez, con sus
+# tiles en el depósito de mkzebes.py; la clave de la sala guarda su número (0x8000 | número). La Genesis sube sus
+# tiles a la VRAM cuando se dibuja (md_zebes.c, frz_*).
+FROZEN_PAL = "0C00"
+FROZEN_REF = 0x8000
+ICE_COMBOS = (2, 3, 6, 7)            # wave/ice/spazer/plasma: índices de Vulnerability con hielo (sin plasma)
+
+
+# Estelas del rayo de onda (docs/58): SpawnProjectileTrail ($90:B657) toma la lista de $90:B5BB/B609 por
+# projectile_type & 0x3F; las de la onda sola (1) y la onda cargada (17) son los tiles 0x3C-0x3F con la paleta 5
+# (0x2A3C...): usan sus colores 5-7 (7C1D, 5814, 300A), los mismos que los 2-4 de la paleta de la onda (7C1F, 5816,
+# 300C, kBeamPalettePtrs[1]), que es la del rayo equipado cuando salen. Como los tiles del rayo (mkmd.beam_common),
+# cada color va al lugar fijo 8 + c del más parecido de los 1-5 de esa paleta (los 9-13 de la línea 3, que siguen a
+# palette_buffer[225-229]); antes iban con los colores de la sala (el magenta quedaba como el más parecido: en 9D19,
+# morado oscuro).
+WAVE_TRAIL_TILES = range(0x3C, 0x40)
+WAVE_TRAIL_PAL = 5
+
+
+def wave_trail_slots(rom):
+    """color c (1-15) de la paleta 5 del SNES -> lugar fijo 9-13 (el más parecido de los 1-5 de la paleta de onda)"""
+    a = 0x900000 | rom.w(0x90C3C9 + 2 * 1)
+    wave = [rom.w(a + 2 * c) for c in range(16)]
+    p5 = [rom.w(0x9A8000 + 2 * (208 + c)) for c in range(16)]
+    return {c: 8 + min(range(1, 6), key=lambda k: color_dist(mkmd.bgr_to_gen(p5[c]), mkmd.bgr_to_gen(wave[k])))
+            for c in range(1, 16)}
+
+
+def frozen_banks(rom, st):
+    """bancos de los enemigos de la población del estado que el rayo de hielo puede congelar"""
+    p = 0xA10000 | rom.w(0x8F0000 | (st + 8))
+    out = set()
+    while rom.w(p) != 0xFFFF:
+        e = 0xA00000 | rom.w(p)
+        vp = rom.w(e + 0x3C) or 0xEC1C
+        for c in ICE_COMBOS:
+            v = rom.b(0xB40000 | (vp + c))
+            if v == 0xFF or (v & 0xF0) != 0x80 and v & 0x7F:
+                out.add(rom.d[rom.off(e + 0x0C)])
+                break
+        p += 16
+    return out
+
+
+def ice_palette(rom):
+    """colores 0-15 de la paleta de hielo (kBeamPalettePtrs[2], $90:C3C9)"""
+    a = 0x900000 | rom.w(0x90C3C9 + 2 * 2)
+    return [rom.w(a + 2 * c) for c in range(16)]
+
+
 def has_eye(rom, st):
     p = 0xA10000 | rom.w(0x8F0000 | (st + 8))
     while rom.w(p) != 0xFFFF:
@@ -453,6 +511,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         kp = mkmd.key_pieces(rom, key)
         wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else 1
         is_boss = boss is not None and k[0] == "e" and int(k[1], 16) == boss[0]
+        wtrail = k[0] == "t" and (int(k[1], 16) & 0x1FF) in WAVE_TRAIL_TILES and (int(k[1], 16) >> 9) & 7 == WAVE_TRAIL_PAL
         out = []
         for (x, y, at) in kp:
             T, p, big = at & 0x1FF, (at >> 9) & 7, bool(x & 0x8000)
@@ -463,13 +522,13 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
                     px = mkmd.obj_tile_px(vram, T, dx, dy)
                     pxs.append(px)
                     for c in np.unique(px):
-                        if c and 128 + p * 16 + int(c) not in BEAM_IDX:      # el rayo: lugares fijos 9-13
+                        if c and 128 + p * 16 + int(c) not in BEAM_IDX and not wtrail:   # el rayo: lugares fijos 9-13
                             nn = int((px == c).sum()) * wgt
                             if is_boss:
                                 bcounts.setdefault(p, Counter())[128 + p * 16 + int(c)] += nn
                             else:
                                 counts[128 + p * 16 + int(c)] += nn
-            out.append((x, y, at, p, big, pxs, is_boss))
+            out.append((x, y, at, p, big, pxs, is_boss, wtrail))
         pieces[k] = out
     if not counts and not bcounts:
         return None
@@ -490,6 +549,9 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         # (con jefe, la fusión pesa con la raíz de los píxeles: un color chico y llamativo, como el ojo del Torizo,
         # no se pierde contra las superficies grandes)
         r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss))
+        if os.environ.get("MM_ZOBJ_STATS"):
+            c3e = Counter({i: n for i, n in c3.items() if n >= 1})       # sin los proyectiles de Samus (peso 1/64)
+            print("  colores de enemigos distintos:", len(merge_colors(c3e, vec, 99)[1]), "de", len(slots), file=sys.stderr)
         r1 = merge_colors(c1, vec, 15, sqrt_w=True) if c1 else ({}, {}, 0, 0.0)
         cost = r3[3] + r1[3]
         if best is None or cost < best[0]:
@@ -512,9 +574,13 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     def piece_line(pc):
         return BOSS_LINE if pc[6] and pc[3] in s1 else OBJ_LINE
 
+    wslot = wave_trail_slots(rom)
+
     def piece_map(pc):
-        x, y, at, p, big, pxs, ib = pc
-        if piece_line(pc) == BOSS_LINE:
+        x, y, at, p, big, pxs, ib, wt = pc
+        if wt:                                            # estela de la onda: lugares fijos del rayo
+            f = lambda c: wslot[c] if c else 0
+        elif piece_line(pc) == BOSS_LINE:
             f = lambda c: slot1[rep1[128 + p * 16 + c]] if c else 0
         else:
             f = lambda c: slot[rep[128 + p * 16 + c]] if c else 0
@@ -539,7 +605,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             continue
         nspr[1] += len(pieces[k])
         for pc, mp in zip(pieces[k], maps):
-            x, y, at, p, big, pxs, ib = pc
+            x, y, at, p, big, pxs, ib, wt = pc
             if not any(m.any() for m in mp):
                 continue
             tile = bank.add_exact(mp)
@@ -566,13 +632,71 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
                 boss_line=bool(boss))
 
 
-def build(rom_path, log_paths, states):
-    """states: [(estado, sala, tilesets_ptr)] -> {estado: datos o None}"""
+def state_vram(rom, tilesets_ptr, vcopies=()):
+    """VRAM de los sprites del SNES de un estado de sala (enemy_vram con las copias de sus PLMs)"""
+    vram, pal = enemy_vram(rom, tilesets_ptr)
+    if vcopies:
+        vram = bytearray(vram)
+        for a, data in vcopies:
+            vram[a:a + len(data)] = data[:0x10000 - a]
+        vram = bytes(vram)
+    return vram
+
+
+def ice_slots(rom):
+    """color c (1-15) de la paleta de hielo -> lugar de la línea 3: 1-5 a los fijos 9-13 del rayo, 6-15 al más
+    parecido de los 1-5"""
+    ice = ice_palette(rom)
+    g = [mkmd.bgr_to_gen(c) for c in ice]
+    return {c: 8 + (c if c <= 5 else min(range(1, 6), key=lambda k: color_dist(g[c], g[k]))) for c in range(1, 16)}
+
+
+def frozen_entry(rom, vram, k, islot, common):
+    """el congelado de la clave de enemigo k = ("e", banco, sm, paleta, tiles) en el juego común (common: {"index":
+    {contenido: número}, "list": [(tiles, registros)]}) -> su número, o None si no dibuja nada. Pieza por pieza
+    (como mkzobj sin juntar): los tiles del SNES con los colores de hielo (islot), los repetidos (con o sin giro) una
+    vez; los registros llevan el tile desde 0 (la Genesis le suma dónde los subió)"""
+    tiles, tidx, recs = [], {}, []
+    for (x, y, at) in mkmd.key_pieces(rom, ("enemy", k[1], k[2], FROZEN_PAL, k[4])):
+        T, big = at & 0x1FF, bool(x & 0x8000)
+        n = 2 if big else 1
+        blk = []
+        for dx in range(n):                               # orden de la Genesis: columna por columna
+            for dy in range(n):
+                px = mkmd.obj_tile_px(vram, T, dx, dy)
+                blk.append(genesis_tile_bytes(np.vectorize(lambda c: islot[c] if c else 0)(px).astype(np.int32)))
+        if all(not any(b) for b in blk):
+            continue
+        blk = tuple(blk)
+        if blk not in tidx:
+            tidx[blk] = len(tiles)
+            tiles += blk
+        prio = 1 if ((at >> 12) & 3) == 3 else 0
+        attr = (prio << 15) | (OBJ_LINE << 13) | (((at >> 15) & 1) << 12) | (((at >> 14) & 1) << 11) | tidx[blk]
+        dx = x & 0x1FF
+        if dx >= 0x100:
+            dx -= 0x200
+        recs.append((y, 0x0500 if big else 0, attr, dx))
+    if not recs:
+        return None
+    words = list(struct.unpack(">5h", mkmd.rec_header(recs))) + [v for r in recs for v in r]
+    content = (b"".join(tiles), tuple(words))
+    if content not in common["index"]:
+        common["index"][content] = len(common["list"])
+        common["list"].append((content[0], [v & 0xFFFF for v in words]))
+    return common["index"][content]
+
+
+def build(rom_path, log_paths, states, frozen=None):
+    """states: [(estado, sala, tilesets_ptr)] -> {estado: datos o None}. frozen: {"index": {}, "list": []} que se
+    llena con el juego común de los congelados (frozen_entry)"""
     rom = mkmd.Rom(rom_path)
     keys = read_logs(log_paths)
     psms, ptrail = mkmd.zebes_proj_keys(rom)
     pkeys = {("j", "%04X" % sm) for sm in psms} | {("t", "%04X" % t) for t in ptrail}
     out, cache = {}, {}
+    islot = ice_slots(rom)
+    frozen = frozen if frozen is not None else {"index": {}, "list": []}
     for st, room, ts, room_tiles in states:
         k = keys.get(room, set()) | pkeys
         # las claves son por sala: las de enemigos de otro estado (otro banco: p. ej. 9804 después del Torizo) no van
@@ -584,8 +708,9 @@ def build(rom_path, log_paths, states):
         bk = boss_line(rom, st, k)
         boss = (bk[0], boss_moments(rom, bk, rom.d[rom.off(0x8F0000 | (room + 1))])) if bk else None
         vc = plm_sprite_copies(rom, st)
-        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc))   # lo mismo: se comparte
-        if ck not in cache:
+        fb = frozen_banks(rom, st) - ({boss_of(rom, st)[0]} if boss_of(rom, st) else set())
+        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb))
+        if ck not in cache:                       # (lo mismo: se comparte)
             sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else OBJ_SLOT_LIST
             cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc)
             if cache[ck] is None and low < ZOBJ_BASE:   # más lugar: desde el final de los tiles de la sala
@@ -596,9 +721,29 @@ def build(rom_path, log_paths, states):
                     print(f"  ¡sala {room:04X} (tiles {ts:04X}): sus objetos no entran ni sin juntar piezas!", file=sys.stderr)
             d = cache[ck]
             if d:
-                print(f"objetos sala {room:04X}: {len(d['keys'])} spritemaps, {len(d['tiles']) // 32} tiles, "
+                # congelados (FROZEN_PAL): la misma clave con la paleta 0x0C00 y el número del juego común
+                have = {(x[0], x[1], x[2]) for x in d["keys"]}
+                vram, nf = None, 0
+                for x in sorted(k):
+                    if x[0] != "e" or int(x[1], 16) not in fb or x[3] == FROZEN_PAL:
+                        continue
+                    fk = (int(x[2], 16), int(FROZEN_PAL, 16), int(x[4], 16))
+                    if fk in have:
+                        continue
+                    vram = vram or state_vram(rom, ts, vc)
+                    j = frozen_entry(rom, vram, x, islot, frozen)
+                    if j is not None:
+                        assert j < 0x8000
+                        d["keys"].append(fk + (FROZEN_REF | j,))
+                        have.add(fk)
+                        nf += 1
+                d["keys"].sort()
+                assert len(d["recs"]) < FROZEN_REF, "objetos: los registros pasan de 0x8000 palabras"
+                print(f"objetos sala {room:04X}: {len(d['keys'])} spritemaps ({nf} congelados), {len(d['tiles']) // 32} tiles, "
                       f"sprites {d['nspr'][0]} -> {d['nspr'][1]}, "
                       f"{d['ncolors']} colores ({d['merged']} fusiones)", file=sys.stderr)
         if cache[ck]:
             out[st] = cache[ck]
+    print(f"congelados: {len(frozen['list'])} distintos, {sum(len(t) for t, r in frozen['list']) // 32} tiles, "
+          f"{sum(len(r) for t, r in frozen['list'])} palabras de registros", file=sys.stderr)
     return out

@@ -5,17 +5,48 @@
 #   tipo: xgm2 (FM y PSG con tools/snd/instrumentos.txt) o pcm (grabada tal cual: las voces).
 #   cuadros: cuánto se graba si la pista no tiene lazo ni termina sola.
 #
-# El título y el menú de partidas (src/front/title.c):
-0x03 5 xgm2    # el título (CinematicFunctionOpening, $8B:9B68)
-0x03 6 xgm2    # el menú de partidas (HandleCinematicsTransitions_1, $8B:9A83)
+# Todas las canciones del juego (la lista de tools/snd/mkfur.py, CANCIONES, con los nombres del decomp). Las pistas
+# 1-4 son del motor (el SPC las tiene siempre cargadas): van en la parte fija y suenan con cualquier conjunto; las
+# demás van en la página de su conjunto (docs/55).
+0x06 1 xgm2    # Fanfarria de Samus
+0x06 2 xgm2    # Pista 2 del motor
+0x06 3 xgm2    # Pista 3 del motor (después de un jefe)
+0x06 4 xgm2    # Pista 4 del motor (Game Over)
+0x03 5 xgm2    # Título
+0x03 6 xgm2    # Menú de partidas
+0x06 5 xgm2    # Crateria vacía, pista 5
+0x06 6 xgm2    # Crateria vacía, pista 6
+0x09 5 xgm2    # Crateria subterránea, pista 5
+0x09 6 xgm2    # Crateria subterránea, pista 6
+0x0C 5 xgm2    # Crateria superficie
+0x0F 5 xgm2    # Brinstar verde
+0x12 5 xgm2    # Brinstar rojo
+0x15 5 xgm2    # Norfair superior
+0x18 5 xgm2    # Norfair inferior
+0x1B 5 xgm2    # Maridia, pista 5
+0x1B 6 xgm2    # Maridia, pista 6
+0x1E 5 xgm2    # Tourian
+0x21 5 xgm2    # Mother Brain, segunda fase
+0x24 5 xgm2    # Jefe 1, pelea (Ridley)
+0x24 6 xgm2    # Jefe 1, pista 6
+0x24 7 xgm2    # Huida
+0x27 5 xgm2    # Jefe 2, pelea (Kraid, Phantoon, Crocomire)
+0x27 6 xgm2    # Jefe 2, pista 6
+0x2A 5 xgm2    # Minijefe (Torizo)
+0x2D 5 xgm2    # Vuelo a Ceres
+0x2D 6 xgm2    # Ceres
+0x2D 7 xgm2    # Ceres explota y viaje a Zebes
+0x2D 8 xgm2    # Ceres explota con Samus dentro
+0x30 5 xgm2    # Wrecked Ship, sin energía
+0x30 6 xgm2    # Wrecked Ship, con energía
+0x33 5 xgm2    # Zebes explota
+0x36 5 xgm2    # Intro (diario y recuerdos)
+0x39 5 xgm2    # Muerte de Samus
+0x3C 5 xgm2    # Créditos
+0x45 5 xgm2    # Conjunto 45, pista 5
+0x45 6 xgm2    # Conjunto 45, pista 6
+0x48 5 xgm2    # Tema de Samus (la larva metroide)
 #
-# Desde la intro hasta que la nave llega a Zebes (los pedidos del SNES: MM_SNDLOG en host/check, docs/55):
+# Las voces de la intro (PCM, tal cual):
 0x3F 5 pcm     # "The last Metroid is in captivity" (CinematicFunction_Intro_Initial, $8B:A395)
 0x42 5 pcm     # "The galaxy is at peace" ($8B:A613)
-0x36 5 xgm2    # la intro: el diario y los recuerdos (CinematicFunc_Intro_SetupTextPage2, $8B:A66F)
-0x2D 5 xgm2    # el vuelo a Ceres (CinematicFunction_Intro_Func54, $8B:BCA0)
-0x2D 6 xgm2    # Ceres (la sala, LoadNewMusicTrackIfChanged)
-0x24 5 xgm2    # la pelea con Ridley (CeresRidley, $A6:A0F5)
-0x24 7 xgm2    # la huida de Ceres ($A6:A4E8)
-0x2D 7 xgm2    # Ceres explota y el viaje a Zebes ($8B:C2B5 / cinematic.c)
-0x2D 8 xgm2    # Ceres explota con Samus dentro (CinematicFunctionBlackoutFromCeres $8B:C11B, kGameState_37)

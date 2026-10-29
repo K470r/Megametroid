@@ -6,9 +6,14 @@
  *   - música: las pistas convertidas en el PC (tools/snd/mksnd.py: N-SPC del decomp -> FM y PSG -> XGM2); las voces
  *     de la intro son pistas PCM en el canal 1;
  *   - efectos: PCM grabado del N-SPC, un canal por biblioteca (1, 2 y 3 del XGM2), con las reglas de prioridad del
- *     SPC (Sfx1/2/3_HandleCmdFromSnes, sm/src/spc_player.c) y su lazo si no terminan;
- *   - donde no hay música convertida (desde la llegada a Zebes) suenan solo los efectos de Samus y de las puertas.
- * Todo está en la parte fija de la ROM (debajo de 0x380000): el Z80 no ve qué página del SSF2 está puesta.
+ *     SPC (Sfx1/2/3_HandleCmdFromSnes, sm/src/spc_player.c) y su lazo si no terminan.
+ * Dónde está (docs/55, docs/48): el Z80 lee la ROM sin saber qué página del SSF2 está puesta, así que el sonido va
+ * donde no cambia mientras suena:
+ *   - en lo fijo (debajo de 0x300000): los efectos que suenan en todas partes (Samus, rayos, HUD, puertas...), las
+ *     pistas 1-4 del motor y kSndSetPage (la página de cada conjunto);
+ *   - en la ventana 6 (0x300000-0x37FFFF): la página del conjunto cargado, con su música y los efectos que se piden
+ *     mientras está cargado. Se cambia solo en music_upload (como el SNES sube un conjunto: APU_UploadBank $80:8F0C),
+ *     con lo que suena de la página callado y el Z80 parado (snd_map_page). Cada página empieza con sus tablas.
  *
  * Mega CD (docs/48): si hay música en CD, music_play se la pasa a snd_cd_play (todavía no: devuelve 0). */
 #include <genesis.h>
@@ -26,16 +31,26 @@ typedef struct {                                   /* kSndSfx (md_snd_data.s) */
   u16 frames;                                      /* cuadros de la parte sin lazo */
   u8 lib, id, song, flags, pad0, pad1;             /* song: grabado con ese conjunto (0: los instrumentos de base) */
 } SndSfx;
-enum { SF_PRIO = 1, SF_SV2 = 2, SF_SV0 = 4, SF_ZEBES = 8, SF_HALF = 16 };
+enum { SF_PRIO = 1, SF_SV2 = 2, SF_SV0 = 4, SF_ZEBES = 8, SF_HALF = 16 };   /* SF_ZEBES: los de Samus y puertas */
 
-extern const SndMusic kSndMusic[];
-extern const SndSfx kSndSfx[];
+typedef struct {                                   /* al principio de cada página de sonido (0x300000) */
+  const SndMusic *music;
+  const SndSfx *sfx;
+} SndPage;
+#define SND_PAGE ((const SndPage *)0x300000)
+#define SND_ANY 0xFF                               /* SndSfx.song: suena igual con cualquier conjunto */
+#define IN_PAGE(p) ((u32)(p) >= 0x300000 && (u32)(p) < 0x380000)
+
+extern const SndMusic kSndMusic[];                 /* lo fijo: las pistas 1-4 del motor */
+extern const SndSfx kSndSfx[];                     /* lo fijo: los efectos globales */
+extern const u8 kSndSetPage[256];                  /* la página de sonido de cada conjunto (0: ninguna) */
 
 extern u16 music_data_index;                       /* el conjunto cargado en el SPC (variable del juego, 7E:07F3): una
                                                       partida que empieza de un estado guardado ya lo trae puesto */
 static u8 snd_set = 0xFF;                          /* el conjunto que se vio (music_upload o music_data_index) */
 static u8 snd_track;                               /* la pista que suena (port_to_snes[0]) */
-static u8 snd_full;                                /* el conjunto tiene música convertida: suenan todos los efectos */
+static u8 snd_page = 6;                            /* la página que muestra la ventana 6 ($A130FD; 6 al encender) */
+static u8 snd_page_ok;                             /* la página puesta es la del conjunto */
 
 volatile u16 md_snd_frames;                        /* 1: el XGM2 está cargado (el vblank protege sus DMA) */
 u8 md_snd_pending;                                 /* hay un lazo de efecto por empezar (md_snd_frame) */
@@ -71,24 +86,52 @@ void md_snd_protect(u8 on) {
   *bus = 0x0000;
 }
 
-static const SndMusic *find_music(u8 song, u8 track) {
-  for (const SndMusic *m = kSndMusic; m->kind; m++)
+static const SndMusic *find_in(const SndMusic *m, u8 song, u8 track) {
+  for (; m->kind; m++)
     if (m->song == song && (m->track == track || !track)) return m;
   return 0;
+}
+
+static const SndMusic *find_music(u8 song, u8 track) {
+  if (track && track < 5) return find_in(kSndMusic, 0, track);   /* las del motor: con cualquier conjunto */
+  return snd_page_ok ? find_in(SND_PAGE->music, song, track) : 0;
+}
+
+static void lib_stop(u16 j);
+
+/* la ventana 6 con la página del conjunto: primero se calla lo que suena desde la página (la música, las voces y los
+   efectos de la página; los fijos siguen) y se espera a que el Z80 lo haya dejado (el pedido de parar lo toma en su
+   próxima vuelta); después se cambia la página con el bus del Z80 tomado. El vblank no lee la ventana 6. */
+static void snd_map_page(u8 pg) {
+  snd_page_ok = pg != 0;
+  if (!pg || pg == snd_page) return;
+  u16 mask = 0;
+  XGM2_stop();
+  for (u16 j = 0; j < 3; j++)
+    if (libs[j].cur && IN_PAGE(libs[j].cur)) { lib_stop(j); mask |= 1 << j; }
+  lib_stop(0);                                     /* el canal 1: el de las voces (siempre en la página) y la biblioteca 1 */
+  mask |= 1;
+  for (u16 n = 0; n < 2000 && (XGM2_isPlaying() || XGM2_isPlayingPCM(mask)); n++);
+  SYS_disableInts();
+  Z80_requestBus(TRUE);
+  *(volatile u8 *)0xA130FD = pg;
+  snd_page = pg;
+  Z80_releaseBus();
+  SYS_enableInts();
 }
 
 static void sync_set(void) {                       /* el conjunto del juego, si no pasó por music_upload */
   if ((u8)music_data_index == snd_set) return;
   snd_set = (u8)music_data_index;
-  snd_full = find_music(snd_set, 0) != 0;
+  snd_map_page(kSndSetPage[snd_set]);
 }
 
 void music_upload(u16 i) {                         /* $80:8F0C: APU_UploadBank (el SPC calla) */
   snd_set = (u8)i;
   snd_track = 0;
-  snd_full = find_music(snd_set, 0) != 0;
   XGM2_stop();
   XGM2_stopPCM(SOUND_PCM_CH1);
+  snd_map_page(kSndSetPage[snd_set]);
 }
 
 void music_play(u8 t) {                            /* Music_HandleCmdFromSnes: la misma pista sigue sonando */
@@ -108,13 +151,27 @@ void music_play(u8 t) {                            /* Music_HandleCmdFromSnes: l
 }
 
 static const SndSfx *find_sfx(u8 lib, u8 id) {
-  const SndSfx *any = 0;
-  for (const SndSfx *s = kSndSfx; s->lib; s++)
-    if (s->lib == lib && s->id == id) {
-      if (s->song == snd_set) return s;
-      if (!any || !s->song) any = s;
-    }
-  return any;
+  if (snd_page_ok) {                               /* la página del conjunto: la grabada con él, o la de cualquiera */
+    const SndSfx *any = 0;
+    for (const SndSfx *s = SND_PAGE->sfx; s->lib; s++)
+      if (s->lib == lib && s->id == id) {
+        if (s->song == snd_set) return s;
+        if (s->song == SND_ANY) any = s;
+      }
+    if (any) return any;
+  }
+  for (const SndSfx *s = kSndSfx; s->lib; s++)     /* los globales */
+    if (s->lib == lib && s->id == id) return s;
+  return 0;
+}
+
+static void lib_stop(u16 j) {
+  SfxLib *L = &libs[j];
+  L->cur = 0;
+  L->prio = 0;
+  L->looping = 0;
+  L->loop_wait = 0;
+  XGM2_stopPCM((SoundPCMChannel)j);
 }
 
 static void lib_play(u16 j, const u8 *p, u32 len, u8 half, u8 loop) {
@@ -134,7 +191,6 @@ void sfx_play(u16 j, u8 id) {                      /* Sfx1/2/3_HandleCmdFromSnes
   if (lib == 2 && id != 0x71 && id != 0x7E && active && L->prio) return;
   if (lib == 3 && id != 1 && (sv2 || (id != 2 && active && L->prio))) return;
   const SndSfx *s = find_sfx(lib, id);
-  if (s && !snd_full && !(s->flags & SF_ZEBES)) return;   /* en Zebes: solo Samus y puertas */
   if (lib == 3 && s) {
     if (s->flags & SF_SV2) sv2 = 1;
     if (s->flags & SF_SV0) sv2 = 0;
@@ -143,9 +199,7 @@ void sfx_play(u16 j, u8 id) {                      /* Sfx1/2/3_HandleCmdFromSnes
   L->looping = 0;
   L->loop_wait = 0;
   if (!s || (!s->len && !s->loop_len)) {           /* los de silencio (1/2, 0x71...): calla la biblioteca */
-    L->cur = 0;
-    L->prio = 0;
-    XGM2_stopPCM((SoundPCMChannel)j);
+    lib_stop(j);
     return;
   }
   L->prio = s->flags & SF_PRIO;

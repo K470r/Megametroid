@@ -244,6 +244,23 @@ Comprobado (2026-10-28), sin Furnace en el contenedor (compilarlo no se permiti�
 - `mksnd.py` con la traza: la música de la ROM sale igual byte a byte.
 - Oído en Furnace por Edwin: suena como en la ROM.
 
+## La percusión (2026-10-29)
+
+Las muestras que van al ruido del PSG (platillos, golpes) son grabaciones que se apagan solas y no tienen lazo: el
+DSP corta la voz cuando la muestra termina. Antes la Genesis tomaba solo la envolvente ADSR de la voz (que se queda
+arriba mientras la tecla sigue apretada) y el ruido sonaba parejo ("lluvia"). Ahora (`convert_track`, `amp`):
+- cada voz lleva su posición en la muestra (`vpos`: `pitch` × 32000 / 4096 por segundo, desde la nota) y el volumen
+  se multiplica por el de la grabación en ese punto (RMS cada 64 muestras, `Instr.senv`); al terminar la muestra
+  (sin lazo) la voz se suelta, como en el DSP;
+- la velocidad del ruido (`noise_rate`) es la de las 3 del PSG cuyo brillo (centroide del espectro de |sinc| hasta
+  16 kHz) se parece más al de la muestra tocada a esa altura. `ruido=0..2` en la tabla la fija (antes `ruido=0` no
+  se podía pedir).
+- En el proyecto de Furnace cada golpe es una nota nueva (las notas del PSG y del ruido no llevaban la marca de nota
+  nueva y los golpes seguidos se juntaban en uno).
+
+Cambian las pistas con percusión: título y menú ($03), la intro ($36), Ridley y la huida ($24), el vuelo a Ceres y el
+viaje a Zebes ($2D). El `03_24` del título no era percusión: es un teclado grave de 100 Hz (`instrumentos.txt`).
+
 ## Lo que falta
 
 - Escuchar y ajustar la tabla de instrumentos a oído (la FM aditiva es un punto de partida medido, no un arreglo).

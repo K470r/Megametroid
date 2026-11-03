@@ -95,11 +95,11 @@ SECTIONS
     *(.late_text .late_text.*)
     *(.late_rodata .late_rodata.*)
     . = ALIGN(0x4);
-    __mm_title_start = .;
-    KEEP(*(.rodata_title))
-    __mm_title_end = .;
+    __mm_common_end = .;
   } > rom
-  ASSERT(__mm_title_start <= 0x380000, "MegaMetroid: codigo o datos comunes por encima de 0x380000 (ventana 7 del SSF2)")
+  /* MegaMetroid: lo común (código y datos que se leen siempre) debajo de 0x300000: la ventana 6 (0x300000-0x37FFFF)
+     muestra la página de sonido del conjunto de música cargado (docs/55, docs/48) */
+  ASSERT(__mm_common_end <= 0x300000, "MegaMetroid: codigo o datos comunes por encima de 0x300000 (ventana 6 del SSF2: sonido)")
   _stext = SIZEOF (.text);
 
   .data 0xE0FF0000 :
@@ -118,7 +118,17 @@ SECTIONS
   _sdata = SIZEOF (.data);
   _game_data_rom = LOADADDR (.data) + (_game_data_start - ADDR (.data));   /* copia en la ROM (md_main.c) */
 
-  ASSERT(ADDR (.text) + SIZEOF (.text) + SIZEOF (.data) <= 0x400000, "MegaMetroid: la parte fija de la ROM pasa de 4 MB")
+  ASSERT(ADDR (.text) + SIZEOF (.text) + SIZEOF (.data) <= 0x300000, "MegaMetroid: la copia de las variables pasa de 0x300000")
+
+  /* Página 7 (0x380000-0x3FFFFF, la de siempre de la ventana 7): lo que se lee con la ventana 7 en 7, fuera del juego
+     en Zebes: las salas de Ceres (niveles, tiles y planos; docs/48) */
+  .page7 0x380000 : AT (0x380000) { KEEP(*(.bank7)) KEEP(*(.rodata_page7)) }
+  ASSERT(SIZEOF (.page7) <= 0x80000, "MegaMetroid: la pagina 7 pasa de 512 KB")
+
+  /* Páginas de sonido (docs/55): se ven en la ventana 6 (0x300000-0x37FFFF) después de escribir el número de página en
+     $A130FD (md_snd.c, music_upload). La 6 es la de siempre de esa ventana. */
+  .snd6 0x300000 : AT (0x300000) { KEEP(*(.snd_page6)) }
+  ASSERT(SIZEOF (.snd6) <= 0x80000, "MegaMetroid: la pagina de sonido 6 pasa de 512 KB")
 
   /* Páginas del mapeador SSF2 más allá de los 4 MB: se ven en la ventana 7 (0x380000-0x3FFFFF)
      después de escribir el número de página en $A130FF (mm_ssf2.h). */
@@ -150,10 +160,27 @@ SECTIONS
   ASSERT(SIZEOF (.bank20) <= 0x80000, "MegaMetroid: la pagina 20 pasa de 512 KB")
   .bank21 0x380000 : AT (0xA80000) { KEEP(*(.bank21)) }
   ASSERT(SIZEOF (.bank21) <= 0x80000, "MegaMetroid: la pagina 21 pasa de 512 KB")
-  .bank22 0x380000 : AT (0xB00000) { KEEP(*(.bank22)) }
+  /* el título (src/front/title.c) va al final de la página 22: se ve con la ventana 7 en MD_TITLE_PAGE (md.h) */
+  .bank22 0x380000 : AT (0xB00000) { KEEP(*(.bank22)) . = ALIGN(0x4); __mm_title_start = .; KEEP(*(.rodata_title)) __mm_title_end = .; }
   ASSERT(SIZEOF (.bank22) <= 0x80000, "MegaMetroid: la pagina 22 pasa de 512 KB")
   .bank23 0x380000 : AT (0xB80000) { KEEP(*(.bank23)) }
   ASSERT(SIZEOF (.bank23) <= 0x80000, "MegaMetroid: la pagina 23 pasa de 512 KB")
+  .snd24 0x300000 : AT (0xC00000) { KEEP(*(.snd_page24)) }
+  ASSERT(SIZEOF (.snd24) <= 0x80000, "MegaMetroid: la pagina de sonido 24 pasa de 512 KB")
+  .snd25 0x300000 : AT (0xC80000) { KEEP(*(.snd_page25)) }
+  ASSERT(SIZEOF (.snd25) <= 0x80000, "MegaMetroid: la pagina de sonido 25 pasa de 512 KB")
+  .snd26 0x300000 : AT (0xD00000) { KEEP(*(.snd_page26)) }
+  ASSERT(SIZEOF (.snd26) <= 0x80000, "MegaMetroid: la pagina de sonido 26 pasa de 512 KB")
+  .snd27 0x300000 : AT (0xD80000) { KEEP(*(.snd_page27)) }
+  ASSERT(SIZEOF (.snd27) <= 0x80000, "MegaMetroid: la pagina de sonido 27 pasa de 512 KB")
+  .snd28 0x300000 : AT (0xE00000) { KEEP(*(.snd_page28)) }
+  ASSERT(SIZEOF (.snd28) <= 0x80000, "MegaMetroid: la pagina de sonido 28 pasa de 512 KB")
+  .snd29 0x300000 : AT (0xE80000) { KEEP(*(.snd_page29)) }
+  ASSERT(SIZEOF (.snd29) <= 0x80000, "MegaMetroid: la pagina de sonido 29 pasa de 512 KB")
+  .snd30 0x300000 : AT (0xF00000) { KEEP(*(.snd_page30)) }
+  ASSERT(SIZEOF (.snd30) <= 0x80000, "MegaMetroid: la pagina de sonido 30 pasa de 512 KB")
+  .snd31 0x300000 : AT (0xF80000) { KEEP(*(.snd_page31)) }
+  ASSERT(SIZEOF (.snd31) <= 0x80000, "MegaMetroid: la pagina de sonido 31 pasa de 512 KB (tope: 16 MB)")
 
   .bss 0xE0FF0000 + SIZEOF (.data) :
   {

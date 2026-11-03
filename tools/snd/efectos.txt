@@ -1,10 +1,12 @@
-# MegaMetroid — efectos de sonido que se graban como PCM (docs/55). Solo números: el sonido sale de tu ROM.
+# MegaMetroid — efectos de sonido que se agregan a mano (docs/55). Solo números: el sonido sale de tu ROM.
+#
+# Los efectos de todo el juego los sacan solos tools/snd/sfxscan.py (cada pedido del decomp) y tools/snd/sndmap.py (con
+# qué conjunto de música se pueden pedir): esta lista solo agrega.
 #
 # biblioteca efecto [conjunto]
 #   biblioteca: 1-3 (QueueSfx1/2/3); efecto: el número que se escribe en el puerto del SPC.
-#   conjunto: con qué conjunto de música cargado se graba (los efectos que usan instrumentos del conjunto: el de
-#   Ridley, el chillido de la larva). Sin conjunto: con los instrumentos de base ($CF:8000).
-# Además de estos, tools/snd/sfxlist.py agrega los de Samus y las puertas (los que suenan en Zebes).
+#   conjunto: va en la página de ese conjunto y se graba con él cargado (los que usan instrumentos del conjunto: el de
+#   Ridley, el chillido de la larva). Sin conjunto: en lo fijo, grabado con los instrumentos de base ($CF:8000).
 #
 # Intro y Ceres hasta la llegada a Zebes: los que pide el SNES en las grabaciones de tools/inputs/make_inputs.sh
 # (MM_SNDLOG=... host/check work/inputs/ref_intro.bin / ref_full.bin; conjunto: el cargado en ese momento).

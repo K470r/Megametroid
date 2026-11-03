@@ -86,14 +86,35 @@ termina en 0x30A216, debajo de 0x380000. Comprobación: los 3000 primeros cuadro
 alejamiento y pantalla de título: 827 imágenes distintas) son iguales cuadro a cuadro a la ROM anterior (`hashseq` de
 retrorun). `make full` desde cero da el mismo md5.
 
-## Límite de los destinos (Edwin, 2026-10-29)
+## Límite de tamaño (Edwin, 2026-10-29 y 2026-11-03)
 
-- **Tamaño máximo de ROM: 56 Mbit (7 MB)** en la Mega EverDrive X3 y en la placa de Edwin. Hoy la ROM mide ~11,1 MB.
-- **Sin RAM en el cartucho** (ni en la placa ni en la X3): lo que se lee al jugar no se puede descomprimir en otra RAM.
-- Decisión: seguir con las tareas en el orden acordado (sonido, enemigos, efectos de salas, jefes, juego completo) y
-  ver el tamaño al final. Para llegar a 7 MB con todo el juego hay que bajar unos 5 MB de lo que hay hoy; las ideas
-  medidas o por medir están en "Lo que sigue" (tiles comprimidos hacia la VRAM al entrar a la sala, gráficos y mapas
-  por juego de tiles en vez de por estado de sala, copias de bancos recortadas).
+- La Mega EverDrive X3 carga hasta **56 Mbit (7 MB)** y no tiene RAM en el cartucho (lo que se lee al jugar no se
+  puede descomprimir en otra RAM). La placa propia todavía no está diseñada.
+- Decisión (2026-11-03): **terminar el juego primero, ocupando lo menos posible, con un tope de 16 MB** (lo que el
+  enlace SSF2 permite, páginas hasta la 31). Al final se baja el tamaño todo lo que se pueda. Para llegar a 7 MB con
+  todo el juego habría que bajar más de la mitad; las ideas medidas o por medir están en "Lo que sigue" (tiles
+  comprimidos hacia la VRAM al entrar a la sala, gráficos y mapas por juego de tiles en vez de por estado de sala,
+  copias de bancos recortadas).
+
+## Hecho: el sonido en la ventana 6 (2026-11-03, rama `musica-juego`)
+
+Lo que proponía la sección del Mega CD (abajo), aprobado por Edwin con tope de 16 MB (docs/55, "Todo el juego"):
+- **La ventana 6 (0x300000-0x37FFFF) muestra la página de sonido del conjunto de música cargado**, cambiada solo en
+  `music_upload` (`$A130FD`), como el SNES sube un conjunto (`APU_UploadBank` $80:8F0C). Páginas 6 y 24-28 (en
+  `md_ssf2.ld` hay lugar hasta la 31: 16 MB).
+- Lo común tiene que quedar **debajo de 0x300000** (`ASSERT` en `md_ssf2.ld`). Para eso salieron de lo común:
+  - el título → al final de la página 22 (se ve con la ventana 7 en 22, `front_screens`);
+  - Ceres → la página 7 (niveles, tiles y planos de sus salas, estado inicial: 340 KB);
+  - la música y los efectos de las páginas (los globales siguen en lo fijo: 502 KB).
+
+| | antes | ahora |
+|---|---|---|
+| fin de lo común | 0x34C020 | 0x2F6640 (38 KB libres debajo de 0x300000) |
+| `_bend` | 0xE0FFE2FC | 0xE0FFE2C0 |
+| ROM | 11 392 KB | 14 592 KB (páginas hasta la 28) |
+
+**Lo común casi no tiene lugar**: lo que falta del código (≈ 300 KB) necesita liberar antes. Lo que más da es
+recortar las copias de bancos (abajo): de los 782 KB, ≈ 430 KB son rangos de funciones del decomp (código del SNES).
 
 ## Lo que sigue (en este orden)
 
@@ -121,13 +142,12 @@ emuladores y núcleos que ya lo soportan. La X3 no tiene CD: siempre la del cart
 (MiSTer, EverDrive con CD) el modo 1 con SSF2 y el tamaño máximo de ROM.
 
 Condiciones:
-- Hace falta primero la música del cartucho (hoy solo las voces, docs/40). Propuesta acorde a las reglas: convertir
+- Hace falta primero la música del cartucho: hecha (docs/55; antes solo las voces, docs/40). Propuesta acorde a las reglas: convertir
   las secuencias N-SPC de la ROM con una tabla de instrumentos FM/PSG/PCM nuestra (la tabla va en el repositorio; las
   secuencias salen de la ROM de cada quien).
 - El Z80 no sabe qué página del SSF2 está puesta: la música del cartucho tiene que estar en una ventana que no cambie
-  mientras suena. Propuesta: la ventana 6 (0x300000-0x37FFFF) con la página del conjunto de música, cambiada solo en
-  `music_upload` (como el SNES sube un conjunto por área). Para eso hay que liberar esa parte de la parte fija (pasos
-  de arriba).
+  mientras suena: la ventana 6 con la página del conjunto de música, cambiada solo en `music_upload`. Hecho (arriba).
+  La ROM con el sonido llega a 14 592 KB: con el modo 1 del Mega CD el cartucho sigue viendo sus 4 MB y las páginas.
 - Los covers de terceros (`res/*.mp3` en la carpeta de trabajo) necesitan permiso de sus autores para ir en un disco.
 
 ## Traducción al español: estado

@@ -310,11 +310,13 @@ static bool run_options(void)
     for (;;)
     {
         u16 p = read_pad(&prev);
-        if (p & BUTTON_UP) sel = (sel + 4) % 5;
-        if (p & BUTTON_DOWN) sel = (sel + 1) % 5;
+        /* GameOptionsMenu_3_OptionsScreen ($82): arriba/abajo 1/$37, A o START 1/$38 */
+        if (p & BUTTON_UP) { sel = (sel + 4) % 5; snd_request(0x106, 0x37); }
+        else if (p & BUTTON_DOWN) { sel = (sel + 1) % 5; snd_request(0x106, 0x37); }
         if (p & BUTTON_B) return FALSE;
         if (p & (BUTTON_A | BUTTON_C | BUTTON_START))
         {
+            snd_request(0x106, 0x38);
             if (sel == 0) return TRUE;
             if (sel == 1 || sel == 2)
             {
@@ -335,7 +337,10 @@ static bool run_options(void)
                 for (;;)
                 {
                     u16 q = read_pad(&pv);
-                    if (q & (BUTTON_UP | BUTTON_DOWN)) s2 ^= 1;
+                    /* GameOptionsMenu_8_SpecialSettings ($82): arriba/abajo 1/$37; cambiar o salir 1/$38 */
+                    if (q & (BUTTON_UP | BUTTON_DOWN)) { s2 ^= 1; snd_request(0x106, 0x37); }
+                    if (q & (BUTTON_LEFT | BUTTON_RIGHT | BUTTON_A | BUTTON_C | BUTTON_B | BUTTON_START))
+                        snd_request(0x106, 0x38);
                     if (q & (BUTTON_LEFT | BUTTON_RIGHT | BUTTON_A | BUTTON_C))
                     {
                         if (s2 == 0) g_opt_icon_cancel ^= 1; else g_opt_moonwalk ^= 1;

@@ -53,7 +53,7 @@ static u8 snd_page = 6;                            /* la página que muestra la 
 static u8 snd_page_ok;                             /* la página puesta es la del conjunto */
 
 volatile u16 md_snd_frames;                        /* 1: el XGM2 está cargado (el vblank protege sus DMA) */
-u8 md_snd_pending;                                 /* hay un lazo de efecto por empezar (md_snd_frame) */
+u8 md_snd_pending;                                 /* hay una página o un lazo de efecto pendientes (md_snd_frame) */
 
 typedef struct {
   const SndSfx *cur;                               /* el que suena (cur_sound) */
@@ -99,25 +99,53 @@ static const SndMusic *find_music(u8 song, u8 track) {
 
 static void lib_stop(u16 j);
 
-/* la ventana 6 con la página del conjunto: primero se calla lo que suena desde la página (la música, las voces y los
-   efectos de la página; los fijos siguen) y se espera a que el Z80 lo haya dejado (el pedido de parar lo toma en su
-   próxima vuelta); después se cambia la página con el bus del Z80 tomado. El vblank no lee la ventana 6. */
-static void snd_map_page(u8 pg) {
-  snd_page_ok = pg != 0;
-  if (!pg || pg == snd_page) return;
-  u16 mask = 0;
+/* La música calla como en el SNES (pista 0, o el SPC subiendo un conjunto): XGM2_stop. El controlador, al tomar el
+   pedido, suelta las voces FM (SL y RR al máximo, key off) y calla el PSG: en Genesis Plus GX, 2 cuadros (el SNES, 4). */
+static void music_silence(void) {
   XGM2_stop();
-  for (u16 j = 0; j < 3; j++)
-    if (libs[j].cur && IN_PAGE(libs[j].cur)) { lib_stop(j); mask |= 1 << j; }
-  lib_stop(0);                                     /* el canal 1: el de las voces (siempre en la página) y la biblioteca 1 */
-  mask |= 1;
-  for (u16 n = 0; n < 2000 && (XGM2_isPlaying() || XGM2_isPlayingPCM(mask)); n++);
+}
+
+/* La ventana 6 con la página del conjunto. Primero se calla lo que suena desde la página (la música, las voces y los
+   efectos de la página; los efectos fijos siguen) y la página se cambia 2 cuadros después (md_snd_frame), cuando el Z80
+   ya tomó esos pedidos (los toma en su vuelta de cada cuadro) y no lee la página vieja. Si antes llega un pedido que
+   la necesita, se cambia ahí (snd_page_now). El vblank no lee la ventana 6. */
+static u8 pend_page;                               /* la página que hay que poner (0: ninguna) */
+static u32 pend_at;                                /* vtimer desde el que se puede poner */
+
+#ifdef MD_TEST_INPUT                                /* ROM de prueba: el último pedido, para medir (tools/snd/salas.sh) */
+volatile u16 md_snd_ev[2];                         /* [0] cuántos van, [1] tipo << 8 | número (1 subir, 2 pista, 3-5 efecto) */
+#define SND_EV(k, v) (md_snd_ev[1] = (k) << 8 | (v), md_snd_ev[0]++)
+#else
+#define SND_EV(k, v) ((void)0)
+#endif
+
+static void snd_page_now(void) {
+  if (!pend_page) return;
+  while ((s32)(vtimer - pend_at) < 0);             /* (lo que falte de los 2 cuadros: el vblank cuenta vtimer) */
   SYS_disableInts();
   Z80_requestBus(TRUE);
-  *(volatile u8 *)0xA130FD = pg;
-  snd_page = pg;
+  *(volatile u8 *)0xA130FD = pend_page;
   Z80_releaseBus();
   SYS_enableInts();
+  snd_page = pend_page;
+  pend_page = 0;
+  snd_page_ok = 1;
+}
+
+static void snd_map_page(u8 pg) {
+  if (!pg || pg == snd_page) {                     /* (la misma página: no hace falta callar nada) */
+    pend_page = 0;
+    snd_page_ok = pg != 0;
+    return;
+  }
+  music_silence();
+  for (u16 j = 0; j < 3; j++)
+    if (libs[j].cur && IN_PAGE(libs[j].cur)) lib_stop(j);
+  lib_stop(0);                                     /* el canal 1: el de las voces (siempre en la página) y la biblioteca 1 */
+  snd_page_ok = 0;
+  pend_page = pg;
+  pend_at = vtimer + 2;
+  md_snd_pending = 1;
 }
 
 static void sync_set(void) {                       /* el conjunto del juego, si no pasó por music_upload */
@@ -127,9 +155,10 @@ static void sync_set(void) {                       /* el conjunto del juego, si 
 }
 
 void music_upload(u16 i) {                         /* $80:8F0C: APU_UploadBank (el SPC calla) */
+  SND_EV(1, (u8)i);
   snd_set = (u8)i;
   snd_track = 0;
-  XGM2_stop();
+  music_silence();
   XGM2_stopPCM(SOUND_PCM_CH1);
   snd_map_page(kSndSetPage[snd_set]);
 }
@@ -138,13 +167,15 @@ void music_play(u8 t) {                            /* Music_HandleCmdFromSnes: l
 #ifdef MD_SND_MUTE
   return;
 #endif
+  SND_EV(2, t);
   sync_set();
   if (t == snd_track) return;
   snd_track = t;
   if (snd_cd_play(snd_set, t)) return;
+  snd_page_now();
   const SndMusic *m = t ? find_music(snd_set, t) : 0;
-  XGM2_stop();
   if (!m || m->kind == 2) XGM2_stopPCM(SOUND_PCM_CH1);
+  if (!m || m->kind == 2) music_silence();
   if (!m) return;
   if (m->kind == 1) XGM2_play(m->data);
   else XGM2_playPCMEx(m->data, m->len, SOUND_PCM_CH1, 15, FALSE, FALSE);
@@ -179,11 +210,13 @@ static void lib_play(u16 j, const u8 *p, u32 len, u8 half, u8 loop) {
 }
 
 void sfx_play(u16 j, u8 id) {                      /* Sfx1/2/3_HandleCmdFromSnes */
-#ifdef MD_SND_MUTE
+#if defined(MD_SND_MUTE) || defined(MD_SND_NOSFX)   /* (MD_SND_NOSFX: solo la música, para medir: tools/snd/salas.sh) */
   return;
 #endif
   if (!id || id == 0xFF || j > 2) return;
+  SND_EV(3 + j, id);
   sync_set();
+  snd_page_now();
   SfxLib *L = &libs[j];
   u8 lib = j + 1;
   u8 active = L->cur && (L->looping || (s32)(vtimer - L->end) < 0);
@@ -212,9 +245,14 @@ void sfx_play(u16 j, u8 id) {                      /* Sfx1/2/3_HandleCmdFromSnes
   }
 }
 
-/* una vez por cuadro de la lógica, solo si hay un lazo por empezar: la parte sin lazo terminó, sigue el lazo */
+/* una vez por cuadro de la lógica, solo si hay algo pendiente: la página de sonido por poner, o un lazo por empezar
+   (la parte sin lazo terminó, sigue el lazo) */
 void md_snd_frame(void) {
   md_snd_pending = 0;
+  if (pend_page) {
+    if ((s32)(vtimer - pend_at) >= 0) snd_page_now();
+    else md_snd_pending = 1;
+  }
   for (u16 j = 0; j < 3; j++) {
     SfxLib *L = &libs[j];
     if (!L->loop_wait) continue;

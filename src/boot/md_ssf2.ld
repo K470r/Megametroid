@@ -1,5 +1,6 @@
 /* MegaMetroid: md.ld de SGDK (2.12) con las páginas del mapeador SSF2 (docs/29, docs/36).
-   Las variables del juego (todo lo que no es de SGDK ni de las pantallas de antes del juego) van juntas en la RAM,
+   Las variables del juego (todo lo que no es de SGDK, de las pantallas de antes del juego ni del sonido, md_snd.c: su
+   estado es el del Z80 y del registro de la ventana 6, que no vuelven a empezar con la partida) van juntas en la RAM,
    entre _game_data_start/_end y _game_bss_start/_end: para volver a empezar una partida se ponen como al
    encender (md_main.c) sin reiniciar la consola. */
 OUTPUT_ARCH(m68k)
@@ -108,7 +109,7 @@ SECTIONS
     *(.got.plt) *(.got)
     *(.shdata)
     _game_data_start = .;
-    *(EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o) .data EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o) .data.*)
+    *(EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o *md_snd.o) .data EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o *md_snd.o) .data.*)
     . = ALIGN(2);
     _game_data_end = .;
     *(.data .data.*)
@@ -188,7 +189,7 @@ SECTIONS
     *(.shbss)
     . = ALIGN(2);
     _game_bss_start = .;
-    *(EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o) .bss EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o) .bss.* EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o) COMMON)
+    *(EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o *md_snd.o) .bss EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o *md_snd.o) .bss.* EXCLUDE_FILE (*libmd.a:* *libgcc.a:* *front_*.o *md_snd.o) COMMON)
     . = ALIGN(2);
     _game_bss_end = .;
     *(.bss .bss.*)

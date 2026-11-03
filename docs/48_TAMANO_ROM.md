@@ -86,14 +86,15 @@ termina en 0x30A216, debajo de 0x380000. Comprobación: los 3000 primeros cuadro
 alejamiento y pantalla de título: 827 imágenes distintas) son iguales cuadro a cuadro a la ROM anterior (`hashseq` de
 retrorun). `make full` desde cero da el mismo md5.
 
-## Límite de los destinos (Edwin, 2026-10-29)
+## Límite de tamaño (Edwin, 2026-10-29 y 2026-11-03)
 
-- **Tamaño máximo de ROM: 56 Mbit (7 MB)** en la Mega EverDrive X3 y en la placa de Edwin. Hoy la ROM mide ~11,1 MB.
-- **Sin RAM en el cartucho** (ni en la placa ni en la X3): lo que se lee al jugar no se puede descomprimir en otra RAM.
-- Decisión: seguir con las tareas en el orden acordado (sonido, enemigos, efectos de salas, jefes, juego completo) y
-  ver el tamaño al final. Para llegar a 7 MB con todo el juego hay que bajar unos 5 MB de lo que hay hoy; las ideas
-  medidas o por medir están en "Lo que sigue" (tiles comprimidos hacia la VRAM al entrar a la sala, gráficos y mapas
-  por juego de tiles en vez de por estado de sala, copias de bancos recortadas).
+- La Mega EverDrive X3 carga hasta **56 Mbit (7 MB)** y no tiene RAM en el cartucho (lo que se lee al jugar no se
+  puede descomprimir en otra RAM). La placa propia todavía no está diseñada.
+- Decisión (2026-11-03): **terminar el juego primero, ocupando lo menos posible, con un tope de 16 MB** (lo que el
+  enlace SSF2 permite, páginas hasta la 31). Al final se baja el tamaño todo lo que se pueda. Para llegar a 7 MB con
+  todo el juego habría que bajar más de la mitad; las ideas medidas o por medir están en "Lo que sigue" (tiles
+  comprimidos hacia la VRAM al entrar a la sala, gráficos y mapas por juego de tiles en vez de por estado de sala,
+  copias de bancos recortadas).
 
 ## Hecho: el sonido en la ventana 6 (2026-11-03, rama `musica-juego`)
 

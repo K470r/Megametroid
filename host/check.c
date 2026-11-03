@@ -200,6 +200,7 @@ int main(int argc, char **argv) {
   }
   for (long f = from + 1; f <= to; f++) {
     cur_frame = f;
+    { extern long mm_rec_frame; mm_rec_frame = f; }
     if (!read_frame(f)) break;
     while (isxy < nsxy && sxy_n[isxy] <= from) isxy++;
     if (isxy < nsxy && f >= sxy_n[isxy] && game_state == 8) {

@@ -15,15 +15,16 @@ static unsigned rid(void) {
   switch (roomdefroomstate_ptr) { case 0xE097: case 0xE04D: case 0xE003: case 0xDFB9: case 0xDF71: return roomdefroomstate_ptr; }
   return room_ptr;
 }
-/* MM_SNDLOG: los pedidos al SPC con el cuadro del SNES (nmi_frame_counter_word, sin vueltas) y el estado del juego
-   (tools/snd/mksnd.py arma con esto la línea de tiempo del sonido, docs/55) */
+/* MM_SNDLOG: los pedidos al SPC con el cuadro del SNES (nmi_frame_counter_word, sin vueltas), el estado del juego y el
+   cuadro de la grabación (tools/snd/snesref.py y sndcmp.py: la línea de tiempo del sonido, docs/55) */
+long mm_rec_frame;                         /* host/check: el cuadro de la grabación (la última columna del registro) */
 static void sndlog(const char *k, unsigned a, unsigned b) {
   static FILE *f; static int init; static unsigned long hi; static uint16 last;
   if (!init) { init = 1; if (getenv("MM_SNDLOG")) f = fopen(getenv("MM_SNDLOG"), "w"); }
   if (!f) return;
   if (nmi_frame_counter_word < last) hi += 0x10000;
   last = nmi_frame_counter_word;
-  fprintf(f, "%lu %u %s %u %u\n", hi + nmi_frame_counter_word, game_state, k, a, b);
+  fprintf(f, "%lu %u %s %u %u %ld\n", hi + nmi_frame_counter_word, game_state, k, a, b, mm_rec_frame);
   fflush(f);
 }
 #define room_ptr rid()

@@ -1,12 +1,13 @@
-# 55 — Música y efectos del cartucho (XGM2): de la intro a la llegada a Zebes
+# 55 — Música y efectos del cartucho (XGM2)
 
-Fecha: 2026-10-28. Rama `intro-audio`. Opción elegida por Edwin: **XGM2 de SGDK** (la A de la propuesta).
+Fecha: 2026-10-28 (de la intro a Zebes, rama `intro-audio`); 2026-11-03 (todo el juego, rama `musica-juego`: ver
+"Todo el juego" abajo). Opción elegida por Edwin: **XGM2 de SGDK** (la A de la propuesta).
 
 Qué suena:
-- **Desde la intro hasta que la nave llega a la órbita de Zebes**: la música y todos los efectos, en los mismos
-  momentos que el SNES (los pide la misma cola del motor).
-- **Desde la llegada a Zebes**: sin música; solo los efectos de Samus y de las puertas.
-- Las voces de la intro siguen sonando (ahora son pistas PCM del XGM2).
+- **Las 37 canciones del juego** (`musica.txt`) y las voces de la intro, en los mismos cuadros que el SNES (los pide la
+  misma cola del motor): hoy suenan las que pide el código ya portado (intro, Ceres, las salas de Zebes por su
+  cabecera, el título, el menú, el fin de juego); las de los jefes y del final, cuando se porte su código.
+- **Todos los efectos que pide el decomp** (202): están convertidos y repartidos; suenan los que pide el código portado.
 
 ## Qué pide el SNES (decomp y grabaciones)
 
@@ -87,10 +88,9 @@ efectos 71 (51 distintos) 285 KB.
 - **Bus del Z80**: el vblank ya no le pide el bus al Z80; le avisa con la bandera del XGM2 (`XGM2_IN_DMA`, como
   `Z80_setBusProtection` de SGDK, sin tocar las interrupciones: `md_snd_protect`) antes y después de sus DMA. El Z80
   sigue tocando desde su búfer y no lee la ROM durante las DMA.
-- **Dónde está**: todo en la parte fija, debajo de 0x380000 (el Z80 no ve la página del SSF2). Las muestras ocupan
-  primero el lugar que tenían las voces de antes (`md_voice.s`, `.rodata`, el mismo tamaño: 37 632 + 28 160 bytes)
-  para no correr las direcciones de lo que sigue; lo demás va en `.late_rodata` (después de la pausa, antes del
-  título). Lo común termina en 0x318AAC (antes 0x2BED50); el título sigue terminando debajo de 4 MB.
+- **Dónde está** (desde la rama `musica-juego`; antes todo iba en la parte fija): lo que suena en todas partes en lo
+  fijo (debajo de 0x300000) y cada conjunto de música, con sus efectos, en una página que se ve en la ventana 6. Ver
+  "Todo el juego".
 - **Mega CD** (docs/48): `music_play` le pasa primero la pista a `snd_cd_play(conjunto, pista)`; hoy devuelve 0.
   Cuando esté el programa del Mega CD, si devuelve 1 la pista sale del CD y el XGM2 no toca música (los efectos
   siguen en el cartucho).
@@ -276,10 +276,7 @@ viaje a Zebes ($2D). El `03_24` del título no era percusión: es un teclado gra
 
 - Escuchar y ajustar la tabla de instrumentos a oído (la FM aditiva es un punto de partida medido, no un arreglo).
 - El eco del SNES (la música lo usa mucho) no está: la Genesis no tiene eco.
-- La música del resto del juego: agregar líneas en `musica.txt`. Con todo el juego no entra en la parte fija: pasar
-  la música a la ventana 6 (página cambiada solo en `music_upload`, docs/48), para lo que hay que bajar lo común
-  debajo de 0x300000 (o el título a una página).
-- Los efectos de los enemigos en Zebes (hoy, solo Samus y puertas).
+- Que suene lo que pide el código que todavía no está portado (ver "Todo el juego", "Lo que todavía no pide nadie").
 - El programa del Mega CD (`snd_cd_play`).
 
 ## El título y el menú de partidas (2026-10-28)
@@ -352,3 +349,162 @@ muestra PCM):
   secuencia: los 13 en cada vuelta, en los mismos cuadros.
 - La música de la ROM no cambia (md5 de `res/gen/md/snd/*.xgc` iguales); lo común termina en 0x347414 (antes
   0x341FCC); `_bend` 0xE0FFE210 (igual); `regress.sh` 0 distintos.
+
+
+## Todo el juego (2026-11-03, rama `musica-juego`)
+
+Tarea 1 de Edwin: la música y los efectos de todo el juego. El plan (aprobado por Edwin, con tope de 16 MB de ROM):
+
+### Dónde va cada cosa
+
+El Z80 lee la música y las muestras por el bus del 68000 y no sabe qué página del SSF2 está puesta. Lo medido:
+37 pistas FM ≈ 400 KB, las voces 65 KB y los 202 efectos que pide el decomp ≈ 1,4 MB. No entran en lo fijo.
+
+| | dónde | qué |
+|---|---|---|
+| lo fijo (debajo de 0x300000) | `.late_rodata` y el lugar de las voces de antes (`md_voice.s`) | los efectos globales (104, 502 KB con lo de abajo), las pistas 1-4 del motor (la fanfarria, las del jefe y el fin de juego: el SPC las tiene siempre), `kSndSetPage` |
+| ventana 6 (0x300000-0x37FFFF) | páginas 6, 24-28 (`md_ssf2.ld`: `.snd6`, `.snd24`...) | la música de uno o más conjuntos y los efectos que se piden con ellos; las tablas de la página al principio (0x300000) |
+| ventana 7, página 7 | `.page7` | Ceres: sus niveles (`mkdata.py`), los tiles y planos de sus salas (`mkmd.py`) y el estado inicial (`make_data.sh`): 340 KB que salieron de lo común |
+| ventana 7, página 22 | `.bank22` | el título (`.rodata_title`, 380 KB): `front_screens` pone la ventana 7 en 22 |
+
+Para hacer lugar, lo que estaba debajo de 0x380000 y no es de siempre se fue a páginas de la ventana 7, con el mismo
+mecanismo que ya usaban Zebes y las cinemáticas: Ceres corre con la ventana 7 en 7 (sus salas tienen página 0 →
+`nt_map_level_page` pone 7) y `md_init` lee el estado inicial después de `reset_game_vars`, que también pone 7.
+
+Resultado: lo común termina en 0x2F6640 (antes 0x34C020: quedan **38 KB** debajo de 0x300000); `_bend` 0xE0FFE2C0; la
+ROM pasa de 11 392 KB a 14 592 KB (páginas hasta la 28).
+
+**Ojo para la tarea 2:** con 38 KB libres no entra el código de los enemigos de las otras áreas, los jefes y el final
+(≈ 300 KB, docs/48). Hay que liberar lo común antes: recortar las copias de bancos (`kBankXXB`, 782 KB, de los que
+≈ 430 KB son código del SNES que el port no lee como dato) es lo que más da (docs/48, "Lo que sigue").
+
+### Quién pide cada efecto (`tools/snd/sfxscan.py`, `tools/snd/sndmap.py`)
+
+`sfxscan.py` recorre el decomp entero (`sm/src/sm_*.c`) y la ROM y saca cada pedido de efecto con la función que lo
+pide: con número fijo, con `(NextRandom() & 1) ? a : b`, con tablas (`kXxx[]` del decomp, `g_word_BBAAAA` de la ROM:
+`ROM_TABLES` dice cuántas entradas lee cada una), con variables de la función (`v2 = 0x24`, `v1 = tabla[...]`), con
+`EnemyDef.hurt_sfx` de cada enemigo, y las instrucciones que llevan el número detrás en la lista (`PlmInstr_QueueSfx*`,
+`EprojInstr_QueueSfx*`, `AnimtilesInstr_QueueSfx*`, `PalInstr_QueueSfx*`, `MotherBrain_Instr_QueueSfx2/3`, las de
+Draygon, Kago, la cucaracha, los piratas...: se busca la dirección de la instrucción en su banco y se lee el número que
+sigue, de 1 o 2 bytes según el decomp). 204 pedidos distintos; los que pasan del último efecto de su biblioteca se
+descartan (son palabras de datos iguales a la dirección).
+
+`sndmap.py` decide qué efectos se pueden pedir con cada conjunto cargado:
+- **globales**: los que pide el código de Samus, los proyectiles, el HUD, la pausa, los menús, el código común de los
+  enemigos ($A0: golpes, muerte), las cajas de mensaje, los objetos que sueltan los enemigos y las puertas
+  (`sfxlist.py`). Van en lo fijo.
+- **los de cada sala**: desde cada estado de sala (`RoomDefRoomstate`), lo que alcanzan sus enemigos (los punteros de IA
+  de su `EnemyDef`), sus PLM (inicio y listas, con las instrucciones de `src/core/plm.c`), su código (`main_code_ptr`,
+  `room_setup_code`) y su capa 3 (lava y ácido): las funciones que llaman o nombran, los datos que nombran (`addr_...`,
+  `RomPtr`), las listas de instrucciones (de un dato que el decomp nombra al siguiente), los enemigos que crea el
+  código (`SpawnEnemy`: el bebé del Mother Brain, los tubos). No se sigue por los despachadores ni por los bancos
+  globales ni el de las cinemáticas ($8B: los cambios de estado del juego llevan a todo).
+- **qué conjuntos se escuchan en cada estado**: el de su cabecera y los que carga su código (los jefes:
+  `QueueMusic_Delayed8(0xFFxx)`); si la cabecera dice 0 (sin cambio), los de los estados de las salas vecinas con la
+  misma condición (el mismo evento o jefe muerto) o el de siempre. Las cinemáticas y menús: sus efectos van con los
+  conjuntos que cargan ellas.
+
+Puede dar de más (ocupa lugar); de menos solo si el decomp no nombra algo. `efectos.txt` sigue sirviendo para agregar a
+mano (con conjunto: a la página de ese conjunto; sin: a lo fijo).
+
+### Las páginas (`tools/snd/mksnd.py`)
+
+- Cada efecto de una página se graba con su conjunto cargado (50 de los 240 suenan distinto según el conjunto: usan
+  instrumentos del conjunto); si con todos los conjuntos de la página suena igual, va una vez (`song` 0xFF). Los
+  globales se graban sin conjunto: los únicos globales que cambian con el conjunto son los chillidos del bebé (3/$23,
+  $26, $27), y con los conjuntos en que se piden (título y fin de juego $03, intro $36/$42) suenan igual que sin conjunto.
+- Los conjuntos se reparten en páginas uno por uno, cada uno en la que menos suma (lo que ya está no se repite).
+  Hoy: página 6 (24 2A 30 33 39), 24 (18 27 3C), 25 (03 09 0F 15), 26 (1E 42 48), 27 (06 0C 12 1B 21), 28 (2D 36 3F 45).
+- Las grabaciones van en paralelo y quedan en `work/snd/sfxcache/<clave>` (la clave cambia si cambian la ROM,
+  `spcrun.c` o el código de grabación): la primera vez ~2 min, después segundos.
+- Arreglo: `lowpass_resample` con menos muestras que el filtro (129) devolvía el largo del filtro.
+
+### En la Genesis (`md_snd.c`)
+
+- `music_upload(conjunto)`: calla la música (`XGM2_stop`: el controlador suelta las voces FM y calla el PSG; en Genesis
+  Plus GX 2 cuadros, el SNES 4), los efectos de la página y el canal 1 (voces y biblioteca 1) y cambia `$A130FD` 2
+  cuadros después (`md_snd_frame`), cuando el Z80 ya tomó esos pedidos (los toma una vez por cuadro) y no lee la página
+  vieja; con el bus del Z80 tomado. Si antes llega un pedido que necesita la página, se cambia ahí (`snd_page_now`).
+  Como en el SNES, la página no cambia mientras suena algo de ella. El vblank no lee la ventana 6.
+- `music_play` y `sfx_play` buscan primero en la página (el efecto grabado con el conjunto cargado, o el de cualquiera)
+  y después en lo fijo. Las pistas 1-4 siempre en lo fijo.
+- Al empezar una partida, `reset_game_vars` vuelve las variables de `md_snd.c` a las de encender, pero el Z80 y el
+  registro de la ventana 6 siguen como los dejó el menú: `md_snd_reset` calla todo y deja la página como "no sé", así
+  el primer conjunto la pone. (Sacar `md_snd.o` de las variables del juego en `md_ssf2.ld` también lo arreglaba, pero
+  corre las direcciones de la RAM y un cuadro de la escena zebes de `regress.sh` salía tarde: el 8058.)
+- ROM de prueba (`TEST=1`): `md_snd_ev` guarda el último pedido (para medir). `EXPFL=-DMD_SND_NOSFX`: solo la música.
+
+### El menú de partidas y las opciones
+
+`snd_request` (`src/front/sound.c`) no llegaba a ningún lado (`play_sfx` vacío): el menú de partidas no sonaba. Ahora va
+a `sfx_play`. Las opciones piden 1/$37 al moverse y 1/$38 al elegir, como `GameOptionsMenu_3_OptionsScreen` y
+`GameOptionsMenu_8_SpecialSettings` ($82).
+
+### Notas que se tomaban como ruido
+
+Revisadas todas las muestras que salían "ruido" en las 37 canciones: altura con YIN (diferencia normalizada) en tres
+tramos, picos del espectro y cuántas alturas distintas les pide el SNES. Son notas (`instrumentos.txt`): 39_38 (un pico
+de 1216 Hz, melodía en 6 alturas), 33_24 (campana, 1437 Hz), la muestra 8 de base (236 Hz, 10 alturas en la explosión de
+Ceres), 1E_26 (823 Hz), 0F_24 (golpe con altura, 540 Hz) y dos ruidos de banda angosta que el SNES toca a una sola
+altura y se oyen como un zumbido o un silbido: 30_25 (Wrecked Ship, ~1067 Hz) y 09_31 (~5100 Hz). La percusión de
+verdad (18_24, 24_30, 06_26...) sigue en el ruido del PSG. Cambian 8 pistas (09/6, 0F/5, 1E/5, 2D/7, 2D/8, 30/6, 33/5,
+39/5); las demás salen iguales byte a byte.
+
+Además 1E_24 (el zumbido de Tourian): la autocorrelación da 43 ciclos en su lazo de 1424 muestras (966 Hz) y el
+espectro 44 (988,8 Hz); estaba 0,4 semitonos abajo. Se probó corregir el detector (elegir n-1, n o n+1 ciclos por la
+energía de las armónicas) pero cambia muchas muestras de base que están bien: va en la tabla. `instrcheck.py` compara el
+croma de cada muestra con el de su FM (sirve de guía; con las inarmónicas, campanas y golpes, no dice mucho).
+Sin tocar (para mirar con Furnace): la muestra 14 de base (704 muestras, energía en 2,2-3,1 kHz, más golpe que nota).
+
+### Comprobado
+
+- `regress.sh`: intro 0 distintos, ceres 0, zebes 0. `make full` desde cero: 9,5 min.
+- Contra el SNES en el PC: `beams.sh`, `sba.sh`, `powerbomb.sh`, `chargebeam.sh`: 0 diferencias.
+- Arranque normal (`out/rom.bin` sin `TEST=1`): el título corre desde la página 22 con su música, el menú suena.
+- `make fur`: los 37 proyectos.
+- Que cada pedido tenga qué tocar (`sndcheck.py` con las tablas de `md_snd_data.s`): intro 151 de 151, Ceres-Zebes 392
+  de 392, y una sala de cada área (abajo).
+- El audio contra el SNES (`tools/snd/salas.sh`, `tools/snd/escenas.sh`; Genesis con `MD_SND_NOSFX`, SNES con
+  `snesref.py`; desde el cuadro del pedido de cada pista en cada uno):
+
+| | pedidos con sonido | desfase de la Genesis | envolvente | croma 20 s |
+|---|---|---|---|---|
+| intro: las dos voces y el diario | 151 / 151 | −2, −2, +2 cuadros | 0,97-0,98 | 0,91-0,94 |
+| Ceres: Ridley / viaje a Zebes | 392 / 392 | +2 / +3 | 0,82 / 0,94 | 0,41 / 0,84 |
+| Crateria (sala 93FE, conjunto $0C) | 120 / 120 | +2 | 0,98 | 0,97 |
+| Brinstar (9D19, $0F) | 149 / 149 | +2 | 0,74 | 0,49 |
+| Norfair (A7DE, $15) | 81 / 81 | +2 | 0,80 | 0,98 |
+| Wrecked Ship (CA08, $30) | 105 / 105 | +2 | 0,96 | 0,71 |
+| Maridia (CFC9, $1B pista 6) | 156 / 156 | 0 | 0,72 | 0,89 |
+| Tourian (DAAE, $1E) | 77 / 77 | +1 | 0,93 | 0,53 |
+
+  Cuidado al medir: Genesis Plus GX genera el audio a 59,92 cuadros por segundo (NTSC), no a 60; con 60 la Genesis
+  parece 17 cuadros corrida a los 13 000 cuadros. Y el croma necesita ventanas del mismo largo en segundos: el SNES graba
+  a 32 040 Hz y la Genesis a 44 100. La huida de Ceres (24/7) tiene la envolvente pareja y la correlación no marca un
+  desfase claro (croma 0,71); el ambiente de Ceres (2D/6) es un retumbo de 20-40 Hz y el croma no dice nada.
+
+### Herramientas nuevas
+
+| | |
+|---|---|
+| `tools/snd/sfxscan.py sm.smc` | cada pedido de efecto del decomp y quién lo pide |
+| `tools/snd/sndmap.py sm.smc [--salas]` | los globales, los efectos de cada conjunto, los conjuntos de cada estado de sala |
+| `tools/snd/sndcheck.py md_snd_data.s registro.txt [conjunto]` | los pedidos de una corrida (`MM_SNDLOG`) que no tendrían sonido |
+| `tools/snd/salas.sh [nombre:puerta ...]` | una sala de cada área contra el SNES (hlref + check + ROM de prueba con `MD_TEST_WARP_AT`) |
+| `tools/snd/escenas.sh [intro] [ceres]` | la intro y Ceres-Zebes contra el SNES (las entradas de `regress.sh`) |
+| `tools/snd/sndcmp.py`, `sndtrans.py` | la comparación (desfase, envolvente, croma; ¿corrida de altura?) |
+| `tools/snd/instrcheck.py sm.smc` | el croma de cada muestra contra el de su FM |
+| `tools/snd/mkinput.py` | una entrada del bot a `test_input.s` |
+| `MM_SNDLOG` | ahora con una columna más: el cuadro de la grabación |
+
+### Lo que todavía no pide nadie
+
+Todo está convertido y repartido; suena cuando el código que lo pide esté portado. Revisado contra el decomp (cada
+función con `QueueMusic_*`/`QueueSfx*` contra la del port con el mismo nombre):
+- **Música**: los jefes (Kraid, Phantoon, Crocomire, Draygon, Ridley en Zebes, Botwoon, Torizo), Mother Brain ($21,
+  $24 de la huida, $48 del bebé) y el final ($33, $3C): tareas 2-5. La muerte de Samus (estados 19-24, conjunto $39) no
+  está portada (el motor dice `game_frame (estado de juego sin portar)`).
+- **Efectos**: los de los enemigos y jefes de las otras áreas (tarea 2), y los de las listas de los objetos de modo 7 y
+  cinemáticas del final.
+- Lo que corre fuera del motor ya pide lo suyo: el título (música y chillidos), el menú de partidas y las opciones
+  (arreglado aquí), el fin de juego (`gameover.c`: conjunto $03 y pista 4).

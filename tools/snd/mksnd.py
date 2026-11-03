@@ -35,12 +35,12 @@ def log(*a):
 class Spc:
     """spcrun: compila el N-SPC del decomp y lo corre con un guion"""
 
-    def __init__(self, rom, work):
+    def __init__(self, rom, work, exe=None):
         self.rom, self.work = rom, Path(work)
         self.work.mkdir(parents=True, exist_ok=True)
-        self.exe = self.work / "spcrun"
+        self.exe = Path(exe) if exe else self.work / "spcrun"
         src = HERE / "spcrun.c"
-        if not self.exe.exists() or self.exe.stat().st_mtime < src.stat().st_mtime:
+        if not exe and (not self.exe.exists() or self.exe.stat().st_mtime < src.stat().st_mtime):
             subprocess.run(["gcc", "-O2", "-w", "-iquote", str(SMSRC), "-iquote", str(SMSRC / "snes"), "-o",
                             str(self.exe), str(src), str(SMSRC / "snes" / "dsp.c"), "-lm"], check=True)
         self.n = 0
@@ -71,9 +71,11 @@ def lowpass_resample(x, rin, rout, n_out=None):
     t = np.arange(taps) - (taps - 1) / 2
     h = 2 * fc * np.sinc(2 * fc * t) * np.kaiser(taps, 8.0)
     h /= h.sum()
-    y = np.convolve(x, h, mode="same")
+    # (el tramo centrado de la convolución entera: lo mismo que mode="same", que con menos muestras que el filtro
+    # devuelve el largo del filtro)
+    y = np.convolve(x, h, mode="full")[(taps - 1) // 2:(taps - 1) // 2 + len(x)]
     if n_out is None:
-        n_out = int(round(len(x) * rout / rin))
+        n_out = max(1, int(round(len(x) * rout / rin)))
     pos = np.arange(n_out) * (len(x) / n_out)
     return np.interp(pos, np.arange(len(x)), y)
 
@@ -666,6 +668,68 @@ def pcm_track(a, gain):
     return y.tobytes()
 
 
+# ---------------------------------------------------------------- páginas (docs/55)
+PAGES = [6, 24, 25, 26, 27, 28, 29, 30, 31]           # páginas de sonido del SSF2 (md_ssf2.ld: .snd6, .snd24...)
+PAGE_SIZE = 0x80000
+ANY_SET = 0xFF                                        # en las tablas: el efecto suena igual con cualquier conjunto
+
+
+def sfx_cache_key(rom_bytes):
+    """lo que cambia una grabación: la ROM, el N-SPC y el código de grabación de este archivo"""
+    import hashlib
+    import inspect
+    h = hashlib.sha1(rom_bytes)
+    h.update((HERE / "spcrun.c").read_bytes())
+    for f in (render_sfx, lowpass_resample, to_s8, is_dull, pad64):
+        h.update(inspect.getsource(f).encode())
+    h.update(str((SFX_GAIN, RATE_OUT, RATE_IN)).encode())
+    return h.hexdigest()[:12]
+
+
+def _render_job(args):
+    rom, work, exe, lib, i, song, cache = args
+    import pickle
+    f = Path(cache) / f"{lib}_{i:02X}_{song:02X}.pkl"
+    if f.exists():
+        return (lib, i, song), pickle.loads(f.read_bytes())
+    spc = Spc(rom, Path(work) / f"spc{os.getpid()}", exe)   # (una carpeta por proceso)
+    r = render_sfx(spc, lib, i, song, SFX_GAIN)
+    f.write_bytes(pickle.dumps(r))
+    return (lib, i, song), r
+
+
+def render_many(rom, work, jobs):
+    """graba los efectos (biblioteca, efecto, conjunto) en paralelo, con caché en work/sfxcache/<clave>"""
+    from multiprocessing import Pool
+    romb = open(rom, "rb").read()
+    cache = Path(work) / "sfxcache" / sfx_cache_key(romb)
+    cache.mkdir(parents=True, exist_ok=True)
+    n = max(1, os.cpu_count() or 1)
+    exe = str(Spc(rom, work).exe)
+    args = [(rom, str(work), exe, lib, i, song, str(cache)) for lib, i, song in jobs]
+    out = {}
+    with Pool(n) as pool:
+        for k, r in pool.imap_unordered(_render_job, args):
+            out[k] = r
+    return out
+
+
+def pack_pages(sets, size_of):
+    """reparte los conjuntos en páginas: cada uno va a la página donde suma menos (lo que ya está no se repite)"""
+    pages = []                                        # [conjuntos, claves de lo que lleva]
+    for st in sorted(sets, key=lambda x: -size_of({x}, set())):
+        best = None
+        for pg in pages:
+            add = size_of(pg[0] | {st}, pg[1]) - size_of(pg[0], pg[1])
+            if size_of(pg[0] | {st}, pg[1]) <= PAGE_SIZE and (best is None or add < best[0]):
+                best = (add, pg)
+        if best is None:
+            pages.append([{st}, set()])
+        else:
+            best[1][0].add(st)
+    return [pg[0] for pg in pages]
+
+
 def main():
     rom, gen = sys.argv[1], Path(sys.argv[2])
     work = Path(sys.argv[3] if len(sys.argv) > 3 else ROOT / "work" / "snd")
@@ -673,14 +737,14 @@ def main():
     spc = Spc(rom, work)
     snd = gen / "snd"
     snd.mkdir(parents=True, exist_ok=True)
+    for f in snd.glob("*"):
+        f.unlink()
     table = read_instr_table(HERE / "instrumentos.txt")
     romb = open(rom, "rb").read()
     romb = romb[len(romb) & 0x7FFF:]
 
-    asm = ["/* MegaMetroid — sonido del cartucho, generado por tools/snd/mksnd.py desde tu ROM (docs/55) */",
-           "    .section .late_rodata", "    .balign 256"]
-    music_rows, voices = [], {}
-    total = 0
+    # ---- música: cada pista convertida (las 1-4 son del motor: van en lo fijo y suenan con cualquier conjunto)
+    tracks = {}                                        # (conjunto, pista) -> (tipo 1 XGM2 / 2 PCM, bytes)
     for song, track, tipo, frames in read_music(HERE / "musica.txt"):
         a, st = run_track(spc, song, track, frames, work / f"ram{song:02X}.bin")
         loop = find_loop(st) if tipo == "xgm2" else None
@@ -689,7 +753,8 @@ def main():
         name = f"kSndMus{song:02X}_{track}"
         if tipo == "pcm":
             b = pcm_track(a[:end * 534], SFX_GAIN)
-            voices[song] = b
+            b += bytes((-len(b)) % 64)
+            tracks[(song, track)] = (2, b)
             log(f"música {song:#04x}/{track}: PCM {len(b)} bytes ({len(b) / RATE_OUT:.2f} s)")
             continue
         ram = (work / f"ram{song:02X}.bin").read_bytes()
@@ -703,7 +768,8 @@ def main():
                 x, l = brr.decode(ram, s)
                 h = brr.harmonics(x, l, ins.f0, 8) if ins.f0 else []
                 print(f"# {song:#04x} {s:2d}: {ins.kind:5s} f0={ins.f0 and round(ins.f0, 1)} notas={int(m.sum())} "
-                      f"voces={sorted(set(np.nonzero(m)[1].tolist()))} armónicas={np.round(h, 2).tolist()}")
+                      f"voces={sorted(set(np.nonzero(m)[1].tolist()))} armónicas={np.round(h, 2).tolist()} "
+                      f"pista={track}")
                 write_sample(work / "muestras" / f"{song:02X}_{s}.wav", x, l)
         vg = convert_track(st, instrs, loop, end, MIX)
         vgm = snd / f"{name}.vgm"
@@ -713,41 +779,130 @@ def main():
                            capture_output=True, text=True)
         if r.returncode or not xgc.exists():
             raise SystemExit(f"xgm2tool: {r.stdout}\n{r.stderr}")
-        n = xgc.stat().st_size
-        total += n
-        log(f"música {song:#04x}/{track}: {end} cuadros, lazo {loop}, {len(used)} instrumentos, VGM "
-            f"{len(vg.d)} -> XGM2 {n} bytes")
-        asm += ["    .balign 256", f"    .global {name}", f"{name}:", f'    .incbin "snd/{name}.xgc"']
-        music_rows.append((song, track, name, n))
+        tracks[(song, track)] = (1, xgc.read_bytes())
+        log(f"música {song:#04x}/{track}: {end} cuadros, lazo {loop}, {len(used)} instrumentos, XGM2 "
+            f"{len(tracks[(song, track)][1])} bytes")
 
-    # efectos
-    conf = sfx_conf()
-    want = {}
+    # ---- efectos: quién los pide (tools/snd/sndmap.py) y los que agrega efectos.txt
+    import sndmap
+    mp = sndmap.build(rom)
+    glob = set(mp["global"])
+    per_set = {k: set(v) for k, v in mp["per_set"].items()}
     for lib, i, song in read_list(HERE / "efectos.txt"):
-        want.setdefault((lib, i), set()).add(song)
+        if song:
+            per_set.setdefault(song, set()).add((lib, i))
+        else:
+            glob.add((lib, i))
+    conf = sfx_conf()
+    nmax = {lib: len(conf[lib]) for lib in conf}
+    glob = {k for k in glob if k[1] <= nmax[k[0]]}
+    for k in list(per_set):
+        per_set[k] = {x for x in per_set[k] if x[1] <= nmax[x[0]]} - glob
     zeb = sfxlist.zebes_sfx(romb)
-    for k in zeb:
-        want.setdefault(k, set()).add(0)
-    sfx_rows, blobs = [], {}
-    for (lib, i) in sorted(want):
-        for song in sorted(want[(lib, i)]):
-            b, lp, frames, half = render_sfx(spc, lib, i, song, SFX_GAIN)
-            flags = sfx_flags(lib, i, conf) | (8 if (lib, i) in zeb else 0) | (16 if half else 0)
-            key = b + b"|" + lp
-            if key not in blobs:
-                blobs[key] = len(blobs)
-            sfx_rows.append((lib, i, song, blobs[key], len(b), len(lp), frames, flags))
-    # muestras: primero en el lugar que tenían las voces de antes (docs/40: .rodata, mismo tamaño, para no correr las
-    # direcciones de lo que sigue), el resto al final de lo común (.late_rodata)
-    pcms = []
-    for key, idx in sorted(blobs.items(), key=lambda t: t[1]):
-        sep = key.rindex(b"|")
-        pcms += [(f"kSndSfxPcm{idx}", key[:sep]), (f"kSndSfxLoop{idx}", key[sep + 1:])]
-    for song, b in voices.items():
-        pcms.append((f"kSndVoice{song:02X}", b + bytes((-len(b)) % 64)))
+    music_sets = {s for s, _ in tracks}
+    sets = sorted((set(per_set) | music_sets) - {0})
+    jobs = [(lib, i, 0) for lib, i in sorted(glob)] + \
+        [(lib, i, s) for s in sets for lib, i in sorted(per_set.get(s, ()))]
+    rend = render_many(rom, work, jobs)
+
+    def blob(r):
+        return r[0] + b"|" + r[1]
+
+    def item_size(b):
+        n = len(b) - 1
+        return n + (-n) % 256 + 512                    # (alineado a 256 y las dos alineaciones de 256 del lazo)
+
+    def mus_size(st):
+        return sum(len(b) + 256 for (s, t), (k, b) in tracks.items() if s == st and t >= 5)
+
+    def size_of(sts, _):
+        bl = {blob(rend[(lib, i, s)]) for s in sts for lib, i in per_set.get(s, ())}
+        return 4096 + sum(mus_size(s) for s in sts) + sum(item_size(b) for b in bl if len(b) > 1)
+    page_sets = pack_pages(sets, size_of)
+    if len(page_sets) > len(PAGES):
+        raise SystemExit(f"mksnd: hacen falta {len(page_sets)} páginas de sonido; hay {len(PAGES)}")
+
+    # ---- archivos: muestras (una vez cada una), tablas en lo fijo y en cada página
+    files = {}                                        # (dónde: 0 lo fijo o la página, muestra) -> nombre
+    scope = [0]                                       # dónde se está armando: lo de una página solo ve lo fijo y lo suyo
+
+    def pcm_file(b):
+        for k in ((0, b), (scope[0], b)):
+            if k in files:
+                return files[k]
+        name = files[(scope[0], b)] = f"kSndPcm{len(files)}"
+        (snd / f"{name}.pcm").write_bytes(b)
+        return name
+
+    def sfx_rows(keys, set_of):
+        rows = []
+        for lib, i in sorted(keys):
+            variants = {}
+            for s in set_of(lib, i):
+                r = rend[(lib, i, s)]
+                variants.setdefault(blob(r), (r, []))[1].append(s)
+            for b, (r, ss) in variants.items():
+                flags = sfx_flags(lib, i, conf) | (8 if (lib, i) in zeb else 0) | (16 if r[3] else 0)
+                for s in (ss if len(variants) > 1 else [ANY_SET]):
+                    rows.append((lib, i, s, r, flags))
+        return rows
+
+    def emit_sfx_table(name, rows, out):
+        out += ["    .balign 4", f"    .global {name}", f"{name}:"]
+        for lib, i, s, r, flags in rows:
+            a = pcm_file(r[0]) if r[0] else "0"
+            l = pcm_file(r[1]) if r[1] else "0"
+            out.append(f"    .long {a}, {len(r[0])}, {l}, {len(r[1])}\n    .short {r[2]}\n"
+                       f"    .byte {lib}, {i}, {s}, {flags}, 0, 0")
+        out.append("    .long 0, 0, 0, 0\n    .short 0\n    .byte 0, 0, 0, 0, 0, 0")
+
+    def emit_music_table(name, keys, out):
+        out += ["    .balign 4", f"    .global {name}", f"{name}:"]
+        for (s, t) in keys:
+            k, b = tracks[(s, t)]
+            out.append(f"    .byte {s if t >= 5 else 0}, {t}, {k}, 0\n    .long {pcm_file(b)}, {len(b)}")
+        out.append("    .byte 0, 0, 0, 0\n    .long 0, 0")
+
+    def emit_files(names, section, out):
+        for b, name in names:
+            out += [f"    .section {section}", "    .balign 256", f"    .global {name}", f"{name}:",
+                    f'    .incbin "snd/{name}.pcm"']
+
+    # lo fijo: los efectos globales, las pistas del motor (1-4) y qué página tiene cada conjunto
+    fixed_rows = sfx_rows(glob, lambda lib, i: [0])
+    engine = sorted(k for k in tracks if k[1] < 5)
+    asm = ["/* MegaMetroid — sonido del cartucho, generado por tools/snd/mksnd.py desde tu ROM (docs/55) */",
+           "    .section .late_rodata"]
+    emit_sfx_table("kSndSfx", fixed_rows, asm)
+    emit_music_table("kSndMusic", engine, asm)
+    set_page = [0] * 256
+    for pg, sts in zip(PAGES, page_sets):
+        for s in sts:
+            set_page[s] = pg
+    asm += ["    .global kSndSetPage", "kSndSetPage:", "    .byte " + ", ".join(map(str, set_page))]
+    fixed_files = [(b, n) for (w, b), n in files.items() if w == 0]
+    # cada página: su tabla al principio (0x300000) y sus muestras
+    page_asm, page_report = [], []
+    for pg, sts in zip(PAGES, page_sets):
+        scope[0] = pg
+        rows = sfx_rows(set().union(*(per_set.get(s, set()) for s in sts)),
+                        lambda lib, i: [s for s in sorted(sts) if (lib, i) in per_set.get(s, ())])
+        sec = f".snd_page{pg}"
+        out = [f"    .section {sec},\"a\"", "    .balign 4", f"    .global kSndPage{pg}", f"kSndPage{pg}:",
+               f"    .long kSndPage{pg}Music, kSndPage{pg}Sfx"]
+        emit_music_table(f"kSndPage{pg}Music", sorted(k for k in tracks if k[0] in sts and k[1] >= 5), out)
+        emit_sfx_table(f"kSndPage{pg}Sfx", rows, out)
+        new = [(b, n) for (w, b), n in files.items() if w == pg]
+        emit_files(new, f"{sec},\"a\"", out)
+        page_asm += out
+        nbytes = sum(len(b) for b, _ in new)
+        page_report.append(f"página {pg}: conjuntos {' '.join(f'{s:02X}' for s in sorted(sts))}: "
+                           f"{len(rows)} efectos, {nbytes // 1024} KB de muestras")
+    # las muestras de lo fijo: primero en el lugar que tenían las voces de antes (.rodata, mismo tamaño, para no
+    # correr las direcciones de lo que sigue: docs/40), lo demás al final de lo común (.late_rodata)
     holds = [[VOICE_RESERVE[k], []] for k in ("kVoiceCaptivity", "kVoicePeace")]
     late = []
-    for name, b in sorted(pcms, key=lambda t: -len(t[1])):
+    for b, name in sorted(fixed_files, key=lambda t: -len(t[0])):
         n = len(b) + (-len(b)) % 256
         for h in holds:
             if n <= h[0]:
@@ -755,32 +910,13 @@ def main():
                 h[1].append((name, b))
                 break
         else:
-            late.append((name, b))
-    sfx_bytes = sum(len(b) for _, b in pcms)
-
-    def emit(lst, out):
-        for name, b in lst:
-            (snd / f"{name}.pcm").write_bytes(b)
-            out += ["    .balign 256", f"    .global {name}", f"{name}:"]
-            if b:
-                out.append(f'    .incbin "snd/{name}.pcm"')
-    emit(late, asm)
-    log(f"efectos: {len(sfx_rows)} ({len(blobs)} distintos); muestras {sfx_bytes} bytes "
-        f"({sum(len(b) for _, b in late)} al final de lo común); música XGM2: {total} bytes")
-
-    # tablas (las lee src/platform/md_snd.c: inc/platform/md_snd.h)
-    asm += ["    .balign 4", "    .global kSndMusic", "kSndMusic:"]
-    for song, track, name, n in music_rows:
-        asm.append(f"    .byte {song}, {track}, 1, 0\n    .long {name}, {n}")
-    for song, b in voices.items():
-        asm.append(f"    .byte {song}, 5, 2, 0\n    .long kSndVoice{song:02X}, {len(b) + (-len(b)) % 64}")
-    asm.append("    .byte 0, 0, 0, 0\n    .long 0, 0")
-    asm += ["    .balign 4", "    .global kSndSfx", "kSndSfx:"]
-    for lib, i, song, idx, n, nl, frames, flags in sfx_rows:
-        asm.append(f"    .long kSndSfxPcm{idx}, {n}, kSndSfxLoop{idx}, {nl}\n"
-                   f"    .short {frames}\n    .byte {lib}, {i}, {song}, {flags}, 0, 0")
-    asm.append("    .long 0, 0, 0, 0\n    .short 0\n    .byte 0, 0, 0, 0, 0, 0")
-    (gen / "md_snd_data.s").write_text("\n".join(asm) + "\n")
+            late.append((b, name))
+    emit_files(late, ".late_rodata", asm)
+    (gen / "md_snd_data.s").write_text("\n".join(asm + page_asm) + "\n")
+    log(f"sonido: fijo {sum(len(b) for b, _ in fixed_files) // 1024} KB ({len(fixed_rows)} efectos globales, "
+        f"{len(engine)} pistas del motor); {len(page_sets)} páginas")
+    for r in page_report:
+        log("  " + r)
 
     # el lugar de las voces de antes: el mismo tamaño y los mismos símbolos (docs/40), con muestras adentro
     out = ["/* MegaMetroid — el lugar que tenían las voces de la intro (docs/40), con el mismo tamaño para no correr las",
@@ -790,16 +926,14 @@ def main():
         out += ["    .balign 256", f"    .global {name}", f"{name}:"]
         used = 0
         for pname, b in h[1]:
-            (snd / f"{pname}.pcm").write_bytes(b)
-            out += [f"    .global {pname}", f"{pname}:"]
-            if b:
-                out.append(f'    .incbin "snd/{pname}.pcm"')
+            out += [f"    .global {pname}", f"{pname}:", f'    .incbin "snd/{pname}.pcm"']
             pad = (-len(b)) % 256
             if pad:
                 out.append(f"    .space {pad}")
             used += len(b) + pad
         out += [f"    .space {size - used}", f"    .global {name}Len", "    .balign 2", f"{name}Len:", "    .long 0"]
     (gen / "md_voice.s").write_text("\n".join(out) + "\n")
+
 
 if __name__ == "__main__":
     main()

@@ -148,6 +148,16 @@ static void snd_map_page(u8 pg) {
   md_snd_pending = 1;
 }
 
+/* Al empezar una partida (md_main.c, después de reset_game_vars): las variables de aquí volvieron a ser las de
+   encender (snd_page 6), pero el registro de la ventana 6 y el Z80 siguen como estaban (el título y el menú). Se calla
+   todo y la página queda "no sé" (0): el primer conjunto la pone. */
+void md_snd_reset(void) {
+  music_silence();
+  for (u16 j = 0; j < 3; j++) lib_stop(j);
+  snd_page = 0;
+  snd_page_ok = 0;
+}
+
 static void sync_set(void) {                       /* el conjunto del juego, si no pasó por music_upload */
   if ((u8)music_data_index == snd_set) return;
   snd_set = (u8)music_data_index;

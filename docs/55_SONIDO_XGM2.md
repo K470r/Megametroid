@@ -371,7 +371,7 @@ Para hacer lugar, lo que estaba debajo de 0x380000 y no es de siempre se fue a p
 mecanismo que ya usaban Zebes y las cinemáticas: Ceres corre con la ventana 7 en 7 (sus salas tienen página 0 →
 `nt_map_level_page` pone 7) y `md_init` lee el estado inicial después de `reset_game_vars`, que también pone 7.
 
-Resultado: lo común termina en 0x2F6940 (antes 0x34C020: quedan **38 KB** debajo de 0x300000); `_bend` 0xE0FFE2BC; la
+Resultado: lo común termina en 0x2F6640 (antes 0x34C020: quedan **38 KB** debajo de 0x300000); `_bend` 0xE0FFE2C0; la
 ROM pasa de 11 392 KB a 14 592 KB (páginas hasta la 28).
 
 **Ojo para la tarea 2:** con 38 KB libres no entra el código de los enemigos de las otras áreas, los jefes y el final
@@ -428,6 +428,10 @@ mano (con conjunto: a la página de ese conjunto; sin: a lo fijo).
   Como en el SNES, la página no cambia mientras suena algo de ella. El vblank no lee la ventana 6.
 - `music_play` y `sfx_play` buscan primero en la página (el efecto grabado con el conjunto cargado, o el de cualquiera)
   y después en lo fijo. Las pistas 1-4 siempre en lo fijo.
+- Al empezar una partida, `reset_game_vars` vuelve las variables de `md_snd.c` a las de encender, pero el Z80 y el
+  registro de la ventana 6 siguen como los dejó el menú: `md_snd_reset` calla todo y deja la página como "no sé", así
+  el primer conjunto la pone. (Sacar `md_snd.o` de las variables del juego en `md_ssf2.ld` también lo arreglaba, pero
+  corre las direcciones de la RAM y un cuadro de la escena zebes de `regress.sh` salía tarde: el 8058.)
 - ROM de prueba (`TEST=1`): `md_snd_ev` guarda el último pedido (para medir). `EXPFL=-DMD_SND_NOSFX`: solo la música.
 
 ### El menú de partidas y las opciones
@@ -454,7 +458,7 @@ Sin tocar (para mirar con Furnace): la muestra 14 de base (704 muestras, energí
 
 ### Comprobado
 
-- `regress.sh`: intro 0 distintos, ceres 0, zebes 0.
+- `regress.sh`: intro 0 distintos, ceres 0, zebes 0. `make full` desde cero: 9,5 min.
 - Contra el SNES en el PC: `beams.sh`, `sba.sh`, `powerbomb.sh`, `chargebeam.sh`: 0 diferencias.
 - Arranque normal (`out/rom.bin` sin `TEST=1`): el título corre desde la página 22 con su música, el menú suena.
 - `make fur`: los 37 proyectos.

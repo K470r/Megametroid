@@ -185,6 +185,7 @@ static void reset_game_vars(void) {
   map_normal_page();
   memcpy(_game_data_start, _game_data_rom, _game_data_end - _game_data_start);
   memset(_game_bss_start, 0, _game_bss_end - _game_bss_start);
+  { extern void md_snd_reset(void); md_snd_reset(); }   /* el sonido: el Z80 y la ventana 6 no volvieron a empezar */
 }
 
 /* Una partida: desde la intro (intro = 1) o desde Ceres hasta que el juego termina. Devuelve 1 para seguir en Ceres

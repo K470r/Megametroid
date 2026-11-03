@@ -99,8 +99,8 @@ Lo que proponía la sección del Mega CD (abajo), aprobado por Edwin con tope de
 
 | | antes | ahora |
 |---|---|---|
-| fin de lo común | 0x34C020 | 0x2F6940 (38 KB libres debajo de 0x300000) |
-| `_bend` | 0xE0FFE2FC | 0xE0FFE2BC |
+| fin de lo común | 0x34C020 | 0x2F6640 (38 KB libres debajo de 0x300000) |
+| `_bend` | 0xE0FFE2FC | 0xE0FFE2C0 |
 | ROM | 11 392 KB | 14 592 KB (páginas hasta la 28) |
 
 **Lo común casi no tiene lugar**: lo que falta del código (≈ 300 KB) necesita liberar antes. Lo que más da es

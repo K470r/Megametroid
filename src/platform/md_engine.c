@@ -408,6 +408,7 @@ static void md_msgbox_post(void) {
     if (mb_shown) {
       mb_shown = 0;
       md_cone_room();                             /* los tiles de 0xF000 eran del haz: se vuelven a cargar */
+      { void zebes_boss_tiles_again(void); zebes_boss_tiles_again(); }   /* (o del cuerpo del jefe, docs/59) */
       if (md_zebes) zebes_frz_reset();            /* y los de los congelados (filas del Window) */
     }
     mb_prev_n = 0;

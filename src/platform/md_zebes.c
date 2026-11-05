@@ -37,6 +37,15 @@ static uint16 bb_n;                               /* palabras convertidas que es
 static uint8 bb_ever;                             /* el jefe ya subió algo en esta sala */
 static void bb_convert(uint16 n);
 static void bb_vblank(void);
+static uint8 bt_pending;                          /* volver a subir los tiles del cuerpo (0xF000) en el vblank */
+static void bt_dma(void) {                        /* los tiles que solo usa el cuerpo (mkzebes.py: BOSS_HI_TILE) */
+  uint8 lp = md_cur_page;
+  map_page(ZEBES_BOSS_PAGE);
+  vdp_dma_vram(zbb->tiles, ZEBES_BOSS_HI_TILE * 32, zbb->ntiles * 16);
+  map_page(lp);
+}
+/* md_cone.c, md_engine.c: la bomba de poder o la caja de mensaje usaron 0xF000 */
+void zebes_boss_tiles_again(void) { if (md_zebes && zbb && zbb->ntiles) bt_pending = 1; }
 uint16 zobj_col[16];                      /* colores 1-15 de la línea 3 debajo del HUD (los escribe md_hint_obj):
                                              los de los enemigos de la sala y, en 9-13, el rayo (mkzobj.py) */
 static MdRoom zroom;                      /* la sala base de Ceres con la paleta y los planos de la de Zebes */
@@ -212,7 +221,7 @@ const MdRoom *zebes_use(void) {
   if (f < 0) { md_zebes = 0; return 0; }
   zg = &kZebesGfx[kZebesStates[f].gfx];
   zo = kZebesStates[f].obj != 0xFFFF ? &kZebesObj[kZebesStates[f].obj] : 0;
-  zbb = 0; bb_n = 0; bb_ever = 0;
+  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0;
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
   frz_reset();
@@ -300,6 +309,7 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   zebes_dma_runs(zg->page, zg->runs, zg->nruns, ZT_BASE);
   if (zo) zebes_dma_runs(zo->page, zo->runs, zo->nruns, zo->base);
   map_page(lp);
+  if (zbb && zbb->ntiles) bt_dma();
   vdp_fill_vram(MD_VRAM_PLANE_A, 0, 0x1000);
   vdp_fill_vram(MD_VRAM_PLANE_B, 0, 0x1000);
   /* capa 1: la ventana alrededor de la cámara */
@@ -502,6 +512,7 @@ static void anim_vblank(void) {
 }
 
 void zebes_vblank(void) {
+  if (bt_pending) { bt_pending = 0; bt_dma(); }
   if (bb_n) bb_vblank();
   if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();

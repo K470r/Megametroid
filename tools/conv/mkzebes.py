@@ -420,6 +420,14 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     if c:
                         g = gc(p, int(c))
                         cw[g] = cw.get(g, 0) + u * int((a == c).sum())
+        if bg2 and nbg2 is not None:                      # y los del cuerpo del jefe (cada tile, como un bloque visto)
+            for e in bg2[nbg2:]:
+                t, p = e & 0x3FF, (e >> 10) & 7
+                a = px(t)
+                for c in np.unique(a):
+                    if c:
+                        g = gc(p, int(c))
+                        cw[g] = cw.get(g, 0) + 4 * int((a == c).sum())
     while bins is None:
         level = "tile+fusión"
         allc = sorted(set().union(*[{merges.get(c, c) for c in cs} for cs in combos.values()]))
@@ -710,7 +718,7 @@ def main():
                 bb = BOSS_BG2.get(ra) if (l2x & 1) and bg_copies_2000(bg_ptr) else None
                 nbg2 = len(bg2) if bg2 else 0
                 res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items,
-                              max_pals=1 if boss else None, usage=usage if boss else None,
+                              max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
                               pal_over=bb[1] if bb else None, nbg2=nbg2 if bb else None)
                 res["boss"] = None
                 if bb:                            # celdas del cuerpo: tabla por (línea del SNES, tile)

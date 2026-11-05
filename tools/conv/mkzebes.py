@@ -352,7 +352,7 @@ def put_items(table, vram, items):
     return bytes(table), bytes(vram)
 
 
-def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None):
+def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
     para la sala (sin dar: MAX_PALS; 1 en las salas de jefes que usan la línea 1, mkzobj.BOSS_LINE); usage: veces que
@@ -361,6 +361,10 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     max_pals = max_pals or MAX_PALS
     ts = tileset(gs)
     table, pal = ts["table"], ts["pal"]
+    if pal_over:                                  # colores que el jefe pone después de cargar la sala (zbg2.log)
+        pal = list(pal)
+        for i_, c_ in pal_over.items():
+            pal[i_] = c_
     vram = vram or ts["vram"]
     if items:
         table, vram = put_items(table, vram, items)
@@ -568,8 +572,35 @@ def library_bg(gs, bg_ptr):
     return bytes(vram), words
 
 
+# ------------------------------------------------------------------ cuerpos de los jefes en el BG2 (docs/59)
+BOSS_BG2_LOG = Path(__file__).resolve().parents[2] / "res" / "snes_ref" / "zbg2.log"
+
+
+def boss_bg2_logs():
+    """{sala: (palabras del BG2 sin flips ni prioridad, {índice de palette_buffer: color})} del registro del motor
+    en el PC (host/pc_stubs.c, MM_DRAWLOG: lo que cada jefe sube de tilemap_stuff y el color más brillante de cada
+    índice del BG mientras tanto)"""
+    out = {}
+    if not BOSS_BG2_LOG.exists():
+        return out
+    for l in BOSS_BG2_LOG.read_text().splitlines():
+        f = l.split()
+        if len(f) >= 3 and f[1] == "bg2":
+            out.setdefault(int(f[0], 16), (set(), {}))[0].add(int(f[2], 16) & 0x1FFF)
+        elif len(f) >= 4 and f[1] == "bg2pal":
+            out.setdefault(int(f[0], 16), (set(), {}))[1][int(f[2])] = int(f[3], 16)
+    return {ra: (sorted(ws), {i: c for i, c in pal.items() if (i >> 4) in {(w >> 10) & 7 for w in ws}})
+            for ra, (ws, pal) in out.items() if ws and ra in BOSS_BG2_ROOMS}
+
+
+# salas con el cuerpo dibujado: las demás no entran todavía en la VRAM (Draygon +148 tiles, Crocomire +317: docs/59)
+BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13").split(",") if x}
+
+
 # ------------------------------------------------------------------ todo
 def main():
+    global BOSS_BG2
+    BOSS_BG2 = boss_bg2_logs()
     rooms = all_rooms()
     doors_in = room_doors_in(rooms)
     th = (out / "tables.h").read_text()
@@ -635,8 +666,22 @@ def main():
                 usage = {}
                 for w_ in list(l1) + list(l2 or []):
                     usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1
-                res = convert(gs, blocks, bg2, vram, anim, items, max_pals=1 if boss else None,
-                              usage=usage if boss else None)
+                bb = BOSS_BG2.get(ra)
+                nbg2 = len(bg2) if bg2 else 0
+                res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items,
+                              max_pals=1 if boss else None, usage=usage if boss else None,
+                              pal_over=bb[1] if bb else None)
+                res["boss"] = None
+                if bb:                            # celdas del cuerpo: tabla por (línea del SNES, tile)
+                    cells_b = res["bg2"][nbg2:]
+                    res["bg2"] = res["bg2"][:nbg2] or None
+                    pals = sorted({(w >> 10) & 7 for w in bb[0]})
+                    assert len(pals) <= 2, "jefe con más de dos líneas en el BG2"
+                    slot_of = [pals.index(p_) if p_ in pals else 0 for p_ in range(8)]
+                    tab = [0] * 2048
+                    for w_, c_ in zip(bb[0], cells_b):
+                        tab[slot_of[(w_ >> 10) & 7] << 10 | (w_ & 0x3FF)] = c_
+                    res["boss"] = (slot_of, tab)
                 if eye:
                     res["cells"] = [c | 0x8000 for c in res["cells"]]
                     if res["bg2"]:
@@ -733,7 +778,7 @@ def main():
     fill[22] = fill.get(22, 0) + title_sz
     # la página de los jefes (port.py, BOSS_PAGE: su código, los niveles de sus salas y sus bancos, ~240 KB) también
     # sirve para Zebes en lo que sobra: se le reservan BOSS_RESERVE bytes (el enlazador avisa si la página se pasa)
-    fill[BOSS_PAGE] = BOSS_RESERVE
+    fill[BOSS_PAGE] = BOSS_RESERVE + 4096 * sum(1 for e in entries if e.get("boss"))   # (y las tablas de los cuerpos)
 
     def place(need):
         for pg in sorted(fill):
@@ -850,6 +895,21 @@ def main():
         if e["bg2"]:
             C.append(f'NT_BANK({page}) static const uint16 kZG{i}_bg2[{len(e["bg2"])}] = {{' +
                      ','.join('0x%X' % x for x in e["bg2"]) + '};')
+    # cuerpos de los jefes en el BG2 (docs/59): tablas en la página de los jefes (la ventana 7 la muestra en sus salas)
+    bosses = [(i, e["boss"]) for i, e in enumerate(entries) if e.get("boss")]
+    for i, (slot_of, tab) in bosses:
+        C.append(f'NT_BANK({BOSS_PAGE}) static const uint16 kZG{i}_boss[2048] = {{' + ','.join('0x%X' % x for x in tab) + '};')
+    H.append('/* cuerpo de un jefe en el BG2: celda de la Genesis por (línea del SNES -> slot[línea], tile del SNES): tab[slot<<10|tile] */')
+    H.append('typedef struct { uint16 gfx; uint8 slot[8]; const uint16 *tab; } ZebesBossBg2;')
+    H.append(f'#define NT_ZEBES_NBOSSBG2 {len(bosses)}')
+    H.append(f'#define ZEBES_BOSS_PAGE {BOSS_PAGE}')
+    H.append(f'extern const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}];')
+    C.append(f'const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}] = {{')
+    for i, (slot_of, tab) in bosses:
+        C.append(f'  {{ {i}, {{ {", ".join(str(x) for x in slot_of)} }}, kZG{i}_boss }},')
+    if not bosses:
+        C.append('  { 0xFFFF },')
+    C.append('};')
     for i, d in enumerate(obj_list):
         page = obj_pages[i]
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_runs[{len(d["runs"])}] = {{' +

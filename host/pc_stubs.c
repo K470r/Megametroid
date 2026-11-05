@@ -1,6 +1,7 @@
 /* Lo que en la Genesis hace md/ (dibujo, sonido): en el PC no hace nada, o registra (MM_DRAWLOG). */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "samus.h"
 #include "cinematic.h"
 static FILE *dl(void) { static FILE *f; static int init; if (!init) { init = 1; if (getenv("MM_DRAWLOG")) f = fopen(getenv("MM_DRAWLOG"), "w"); } return f; }
@@ -68,6 +69,33 @@ void nt_map_level_page(uint8 page) { (void)page; }
 
 void nt_block_changed(uint16_t i) { (void)i; }
 void nt_animtiles_transfer(uint16_t src, uint16_t size, uint16_t vram) { (void)src; (void)size; (void)vram; }
-void nt_vram_queue_flush(const uint8_t *q, uint16_t n) { (void)q; (void)n; }
+/* MM_DRAWLOG: las palabras distintas del BG2 de los jefes (tilemap_stuff al subirse) y las entradas de la cola de VRAM
+   (tamaño, origen, destino), por sala: mkzebes.py arma con ellas los tiles y el plano B de los cuerpos (docs/59) */
+static unsigned char bg2_seen[0x10000 / 8]; static unsigned bg2_room;
+static void bg2_reset(void) { if (bg2_room != room_ptr) { bg2_room = room_ptr; memset(bg2_seen, 0, sizeof bg2_seen); } }
+void nt_enemy_bg2_transfer(void) {
+  if (!dl()) return;
+  bg2_reset();
+  { static unsigned hash_last; unsigned h = 0;
+    for (unsigned i = 0; i < enemy_bg2_tilemap_size / 2u && i < 0x800; i++) h = h * 31 + tilemap_stuff[i];
+    LOG("%04X bg2t %u %s\n", room_ptr, enemy_bg2_tilemap_size, h != hash_last ? "nuevo" : "igual"); hash_last = h; }
+  /* colores del BG (0-127): el más brillante visto de cada índice (los jefes llenan sus líneas después de cargar) */
+  { static uint16 best[128]; static unsigned broom;
+    if (broom != room_ptr) { broom = room_ptr; memset(best, 0, sizeof best); }
+    for (unsigned i = 0; i < 128; i++) {
+      uint16 c = palette_buffer[i], b = best[i];
+      unsigned lc = (c & 31) + (c >> 5 & 31) + (c >> 10 & 31), lb = (b & 31) + (b >> 5 & 31) + (b >> 10 & 31);
+      if (lc > lb) { best[i] = c; LOG("%04X bg2pal %u %04X\n", room_ptr, i, c); }
+    } }
+  for (unsigned i = 0; i < enemy_bg2_tilemap_size / 2u && i < 0x800; i++) {
+    uint16_t w = tilemap_stuff[i];
+    if (!(bg2_seen[w >> 3] & (1 << (w & 7)))) { bg2_seen[w >> 3] |= 1 << (w & 7); LOG("%04X bg2 %04X\n", room_ptr, w); }
+  }
+}
+void nt_vram_queue_flush(const uint8_t *q, uint16_t n) {
+  if (!dl()) return;
+  for (unsigned i = 0; i + 7 <= n; i += 7)
+    LOG("%04X vwq %04X %02X%04X %04X\n", room_ptr, q[i] | q[i + 1] << 8, q[i + 4], q[i + 2] | q[i + 3] << 8, q[i + 5] | q[i + 6] << 8);
+}
 void DrawAtmosphericGfx(uint16_t type, uint16_t frame, int16_t x, int16_t y) { (void)type; (void)frame; (void)x; (void)y; }
 void DrawArmCannon(int16 x, int16 y, uint16 attr, uint16 src) { LOG("%04X armcannon %04X\n", room_ptr, src); (void)x; (void)y; (void)attr; }

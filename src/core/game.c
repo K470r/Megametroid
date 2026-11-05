@@ -160,8 +160,8 @@ void DrawSamusEnemiesAndProjectiles(void) {  // 0xA0884D
 }
 
 void QueueEnemyBG2TilemapTransfers(void) {  // 0xA09726 (la transferencia a la VRAM la hace la Genesis)
-  if (nmi_flag_bg2_enemy_vram_transfer && !(debug_time_frozen_for_enemies | time_is_frozen_flag) && g_hooks.enemy_bg2_transfer)
-    g_hooks.enemy_bg2_transfer();
+  if (nmi_flag_bg2_enemy_vram_transfer && !(debug_time_frozen_for_enemies | time_is_frozen_flag))
+    nt_enemy_bg2_transfer();
   nmi_flag_bg2_enemy_vram_transfer = 0;
 }
 

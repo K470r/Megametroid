@@ -24,6 +24,7 @@ void nt_vwq_w8(uint16 o, uint8 v);
 void nt_vwq_w16(uint16 o, uint16 v);
 uint16 nt_vwq_r16(uint16 o);
 void nt_vram_queue_flush(const uint8 *q, uint16 n);   /* la plataforma: las entradas de la cola (n bytes) en la NMI */
+void nt_enemy_bg2_transfer(void);   /* la plataforma: tilemap_stuff (enemy_bg2_tilemap_size bytes) al BG2 ($A0:9726) */
 
 /* ---- samus_move.c (banco $90: movimiento) */
 void Samus_Animate(void);

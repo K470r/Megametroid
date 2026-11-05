@@ -203,6 +203,9 @@ const MdRoom *zebes_use(void) {
   if (f < 0) { md_zebes = 0; return 0; }
   zg = &kZebesGfx[kZebesStates[f].gfx];
   zo = kZebesStates[f].obj != 0xFFFF ? &kZebesObj[kZebesStates[f].obj] : 0;
+  zbb = 0; bb_n = 0; bb_ever = 0;
+  for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
+    if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
   frz_reset();
   frz_nq = 0;
   zprio = 0; psweep = ZW;
@@ -309,6 +312,13 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
       for (uint16 i = 0; i < 64 * 32; i++) VDP_DATA = tile_fix_b(*c++);
     }
     map_page(lp);
+    if (zbb && bb_ever) {                     /* (vuelta de la pausa) el cuerpo del jefe, desde tilemap_stuff */
+      uint16 n = enemy_bg2_tilemap_size >> 1;
+      if (n > BB_MAX) n = BB_MAX;
+      bb_convert(n);
+      bb_n = n & ~31;
+      bb_vblank();
+    }
   }
 }
 
@@ -400,6 +410,53 @@ static void block_changed(uint16 i) {
 /* la cola de escrituras a la VRAM del SNES (game.c, NMI): tiles de los jefes que suben por la cola (Crocomire,
    Phantoon, Mother Brain); falta convertirlos para la Genesis (docs/46) */
 void nt_vram_queue_flush(const uint8 *q, uint16 n) { (void)q; (void)n; }
+/* ---------------------------------------------------------------- cuerpos de los jefes en el BG2 (docs/59)
+   El SNES sube tilemap_stuff (enemy_bg2_tilemap_size bytes) al BG2 en $4800 ($A0:9726): la pantalla izquierda del
+   fondo, filas de 32 celdas. Aquí cada palabra pasa a una celda de la Genesis por la tabla de la sala (mkzebes.py,
+   kZebesBossBg2: tiles ya convertidos con la sala) en el bucle principal, a un buffer de RAM que el vblank sube al
+   plano B (las filas y las mismas 32 filas más abajo: el fondo de 256 píxeles da la vuelta como en el SNES).
+   Buffer: los primeros 1 KB de cinematic_text_tilemap (en estas salas solo los usan la pausa y los mensajes; al
+   volver de la pausa el plano B se rehace desde tilemap_stuff, zebes_load_vram). */
+extern uint16 cinematic_text_tilemap[];
+#define bb_buf cinematic_text_tilemap
+#define BB_MAX 512                                /* palabras (16 filas): lo más que suben los jefes es 1024 bytes */
+static const ZebesBossBg2 *zbb;
+static uint16 bb_n;                               /* palabras convertidas que esperan al vblank */
+static uint8 bb_ever;                             /* el jefe ya subió algo en esta sala */
+
+static void bb_convert(uint16 n) {
+  uint8 lp = md_cur_page;
+  map_page(ZEBES_BOSS_PAGE);
+  const uint16 *tab = zbb->tab;
+  const uint8 *slot = zbb->slot;
+  for (uint16 i = 0; i < n; i++) {
+    uint16 w = tilemap_stuff[i];
+    uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
+    if (c & 0x7FF) c += ZT_BASE;
+    c ^= (w >> 3) & 0x1800;                       /* flips: SNES 15 (vertical), 14 (horizontal) -> Genesis 12, 11 */
+    c |= (w & 0x2000) << 2;                       /* prioridad: SNES 13 -> Genesis 15 */
+    bb_buf[i] = c;
+  }
+  map_page(lp);
+}
+
+void nt_enemy_bg2_transfer(void) {
+  if (!md_zebes || !zbb) return;
+  uint16 n = enemy_bg2_tilemap_size >> 1;
+  if (n > BB_MAX) n = BB_MAX;
+  bb_n = 0;                                       /* (el vblank no sube un buffer a medias) */
+  bb_convert(n);
+  bb_n = n & ~31;
+  bb_ever = 1;
+}
+
+static void bb_vblank(void) {
+  for (uint16 r = 0; r < bb_n >> 5; r++) {
+    vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + r * 128, 32);
+    vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + (r + 32) * 128, 32);
+  }
+  bb_n = 0;
+}
 
 void nt_animtiles_transfer(uint16 src, uint16 size, uint16 vram) {
   (void)size;
@@ -442,6 +499,7 @@ static void anim_vblank(void) {
 }
 
 void zebes_vblank(void) {
+  if (bb_n) bb_vblank();
   if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();
   if (full_redraw) {                          /* salto grande: toda la ventana (rara vez: puertas, temblores) */

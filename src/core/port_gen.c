@@ -46,6 +46,8 @@ typedef struct MotherBrainInstrExecState {
 typedef void Func_CalcHdma(uint16 r22, uint16 r24);
 
 NT_BOSS void sub_A6DC13(uint16 j, uint16 r18, uint16 r20, uint16 r22);
+void sub_88E487(uint16 v0, uint16 r22);
+void sub_88DF34(void);
 uint8 sub_82DAF7(uint16 a);
 uint16 SuitDamageDivision(uint16 a);
 void SpawnPalfxObject(uint16 j);
@@ -96,6 +98,7 @@ uint16 MoveEprojWithVelocityX(uint16 k);
 uint16 MoveEprojWithVelocity(uint16 k);
 uint16 Math_MultBySin(uint16 a, uint16 ang);
 uint16 Math_MultByCos(uint16 a, uint16 ang);
+PairU16 MakePairU16(uint16 k, uint16 j);
 NT_BOSS uint16 HandleMotherBrainInstructionList(uint16 a);
 void GrappleBeam_Func2(void);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
@@ -186,18 +189,18 @@ static NT_BOSS void EprojInit_967A(uint16 j);
 NT_BOSS void EprojPreInstr_966C(uint16 k);
 NT_BOSS uint16 EprojInstr_95BA(uint16 k, uint16 epjp);
 NT_BOSS uint16 EprojInstr_9620(uint16 k, uint16 epjp);
-static NT_BOSS void EprojInit_PhantoonDestroyableFireballs(uint16 j);
+static void EprojInit_PhantoonDestroyableFireballs(uint16 j);
 static NT_BOSS void EprojInit_PhantoonStartingFireballs(uint16 j);
-NT_BOSS void EprojPreInstr_PhantoonStartingFireballs(uint16 k);
-NT_BOSS void EprojPreInstr_PhantoonStartingFireballs2(uint16 k);
-NT_BOSS void EprojPreInstr_PhantoonStartingFireballs3(uint16 k);
-NT_BOSS void EprojPreInstr_PhantoonDestroyableFireballs(uint16 k);
-NT_BOSS void EprojPreInstr_PhantoonDestroyableFireballs_2(uint16 k);
-NT_BOSS void EprojPreInstr_PhantoonDestroyableFireballs_3(uint16 k);
+void EprojPreInstr_PhantoonStartingFireballs(uint16 k);
+void EprojPreInstr_PhantoonStartingFireballs2(uint16 k);
+void EprojPreInstr_PhantoonStartingFireballs3(uint16 k);
+void EprojPreInstr_PhantoonDestroyableFireballs(uint16 k);
+void EprojPreInstr_PhantoonDestroyableFireballs_2(uint16 k);
+void EprojPreInstr_PhantoonDestroyableFireballs_3(uint16 k);
 NT_BOSS void EprojPreInstr_PhantoonStartingFireballsB(uint16 k);
 NT_BOSS void EprojPreInstr_PhantoonStartingFireballsB_2(uint16 k);
-NT_BOSS Point16U Eproj_PhantomFireballs_Func1(uint16 j, uint16 a);
-NT_BOSS uint16 Eproj_PhantomFireballs_Func2(uint16 k, uint16 r24);
+Point16U Eproj_PhantomFireballs_Func1(uint16 j, uint16 a);
+uint16 Eproj_PhantomFireballs_Func2(uint16 k, uint16 r24);
 static void EprojInit_MiniKraidSpit(uint16 j);
 void EprojPreInit_MiniKraidSpit(uint16 k);
 static void EprojInit_MiniKraidSpikes(uint16 j, uint16 a);
@@ -413,6 +416,12 @@ uint16 RandomDropRoutine(uint16 k);
 void RespawnEnemy(uint16 v0);
 static void EprojInit_Sparks(uint16 j);
 void EprojPreInstr_Sparks(uint16 k);
+void Enemy_NormalTouchAI_A0(void);
+void Enemy_NormalTouchAI_SkipDeathAnim_A0(void);
+void Enemy_NormalShotAI_A0(void);
+void Enemy_NormalShotAI_SkipSomeParts_A0(void);
+void Enemy_NormalPowerBombAI_A0(void);
+void Enemy_NormalPowerBombAI_SkipDeathAnim_A0(void);
 void CreateADudShot(void);
 uint16 EnemyInstr_SetAiPreInstr(uint16 k, uint16 jp);
 uint16 EnemyInstr_ClearAiPreInstr(uint16 k, uint16 jp);
@@ -465,7 +474,7 @@ void Enemy_ItemDrop_LowerNorfairSpacePirate(uint16 k);
 void Enemy_ItemDrop_Metroid(uint16 k);
 NT_BOSS void Enemy_ItemDrop_Ridley(uint16 k);
 NT_BOSS void Enemy_ItemDrop_Crocomire(uint16 k);
-NT_BOSS void Enemy_ItemDrop_Phantoon(uint16 k);
+void Enemy_ItemDrop_Phantoon(uint16 k);
 NT_BOSS void Enemy_ItemDrop_Botwoon(uint16 k);
 void Enemy_ItemDrop_BombTorizo(uint16 k);
 void Enemy_ItemDrop_GoldenTorizo(uint16 k);
@@ -955,6 +964,8 @@ void MaridiaRefillCandy_Func_3(uint16 k);
 void MaridiaRefillCandy_Func_4(void);
 void MaridiaRefillCandy_Func_5(void);
 void MaridiaRefillCandy_Func_6(void);
+void NorfairSlowFireball_Init(void);
+void NorfairSlowFireball_Func_1(void);
 uint16 Skree_Instr_1(uint16 k, uint16 jp);
 void Skree_Init(void);
 void CallSkreeFunc(uint32 ea);
@@ -1035,6 +1046,9 @@ void Metroid_Touch(void);
 void Metroid_Func_5(uint16 k);
 void Metroid_Shot(void);
 void Metroid_Powerbomb(uint16 k);
+void Enemy_NormalTouchAI_A4(void);
+void Enemy_NormalShotAI_A4(void);
+void Enemy_NormalFrozenAI_A4(void);
 NT_BOSS void Crocomire_Hurt(void);
 NT_BOSS uint16 Crocomire_Instr_1(uint16 k, uint16 jp);
 NT_BOSS uint16 Crocomire_Func_2(uint16 k, uint16 jp);
@@ -1148,6 +1162,9 @@ NT_BOSS void Crocomire_Func_95(void);
 NT_BOSS void Crocomire_Func_1(void);
 NT_BOSS void CrocomireTongue_Init(void);
 NT_BOSS void CrocomireTongue_Main(void);
+void Enemy_NormalTouchAI_A5(void);
+void Enemy_NormalShotAI_A5(void);
+void Enemy_NormalFrozenAI_A5(void);
 NT_BOSS void Draygon_Init(void);
 NT_BOSS void CallDraygonFunc(uint32 ea, uint16 k);
 NT_BOSS void Draygon_Main(void);
@@ -1256,6 +1273,9 @@ void SporeSpawn_Shot(void);
 void SporeSpawn_Touch(void);
 void SporeSpawn_Func_6(void);
 void SporeSpawn_Func_7(uint16 a);
+void Enemy_NormalTouchAI_A6(void);
+void Enemy_NormalShotAI_A6(void);
+void Enemy_NormalFrozenAI_A6(void);
 void Boulder_Init(void);
 void CallBoulderFunc(uint32 ea);
 void Boulder_Main(void);
@@ -1554,66 +1574,70 @@ void Zebetites_Func_5(void);
 void Zebetites_Func_4(void);
 void Zebetites_Touch(void);
 void Zebetites_Shot(void);
+void CallEnemyInstrExtFunc(uint32 ea, uint16 k);
+uint16 EnemyInstr_Call_A7(uint16 k, uint16 jp);
+void Enemy_NormalShotAI_A7(void);
 void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void);
+void Enemy_NormalFrozenAI_A7(void);
 NT_BOSS void Phantoon_Init(void);
 NT_BOSS void Phantoon2_Init(void);
 NT_BOSS void Phantoon_Main(void);
-NT_BOSS void Phantoon_Func_1(void);
-NT_BOSS uint8 Phantoon_Func_3(int32 amt);
-NT_BOSS void Phantoon_Func_4(uint16 k);
-NT_BOSS void Phantoon_Func_5(uint16 k);
-NT_BOSS void Phantoon_Func_6(uint16 k, uint16 a);
-NT_BOSS void Phantoon_Func_7(uint16 k);
-NT_BOSS void Phantoon_StartTrackingSamusAndInitEyeTimer(void);
-NT_BOSS void Phantoon_PickPatternForRound2(void);
-NT_BOSS void Phantoon_AdjustSpeedAndMoveInFigure8(void);
-NT_BOSS void Phantoon_AdjustSpeedLeftSideClockwise(void);
-NT_BOSS void Phantoon_AdjustSpeedRightSideClockwise(void);
-NT_BOSS void Phantoon_MoveInFigure8_LeftSideClockwise(uint16 j, uint16 r20);
-NT_BOSS void Phantoon_MoveInFigure8_RightSideClockwise(uint16 j, uint16 r20);
-NT_BOSS void Phantoon_MoveInSwoopingPattern(uint16 k);
-NT_BOSS void Phantoon_BeginSwoopingPattern(uint16 k);
-NT_BOSS void Phantoon_ChangeEyeSpriteBasedOnSamusDist(void);
+void Phantoon_Func_1(void);
+uint8 Phantoon_Func_3(int32 amt);
+void Phantoon_Func_4(uint16 k);
+void Phantoon_Func_5(uint16 k);
+void Phantoon_Func_6(uint16 k, uint16 a);
+void Phantoon_Func_7(uint16 k);
+void Phantoon_StartTrackingSamusAndInitEyeTimer(void);
+void Phantoon_PickPatternForRound2(void);
+void Phantoon_AdjustSpeedAndMoveInFigure8(void);
+void Phantoon_AdjustSpeedLeftSideClockwise(void);
+void Phantoon_AdjustSpeedRightSideClockwise(void);
+void Phantoon_MoveInFigure8_LeftSideClockwise(uint16 j, uint16 r20);
+void Phantoon_MoveInFigure8_RightSideClockwise(uint16 j, uint16 r20);
+void Phantoon_MoveInSwoopingPattern(uint16 k);
+void Phantoon_BeginSwoopingPattern(uint16 k);
+void Phantoon_ChangeEyeSpriteBasedOnSamusDist(void);
 NT_BOSS void Phantoon_StartDeathSequence(uint16 k);
-NT_BOSS void Phantoon_FadeOut(uint16 a);
-NT_BOSS void Phantoon_FadeIn(uint16 a);
+void Phantoon_FadeOut(uint16 a);
+void Phantoon_FadeIn(uint16 a);
 NT_BOSS void Phantoon_Spawn8FireballsInCircleAtStart(uint16 k);
 NT_BOSS void Phantoon_WaitBetweenSpawningAndSpinningFireballs(uint16 k);
 NT_BOSS void Phantoon_SpawnFireballsBeforeFight(uint16 k);
 NT_BOSS void Phantoon_WavyFadeIn(uint16 k);
 NT_BOSS void Phantoon_PickPatternForRound1(uint16 k);
-NT_BOSS void Phantoon_MovePhantoonInFigure8ThenOpenEye(uint16 k);
-NT_BOSS void Phantoon_EyeFollowsSamusUntilTimerRunsOut(uint16 k);
-NT_BOSS void Phantoon_BecomesSolidAndBodyVuln(uint16 v0);
-NT_BOSS void Phantoon_IsSwooping(uint16 k);
-NT_BOSS void Phantoon_FadeoutWithSwoop(uint16 k);
-NT_BOSS void Phantoon_WaitAfterFadeOut(uint16 k);
-NT_BOSS void Phantoon_MoveLeftOrRightAndPickEyeOpenPatt(uint16 k);
-NT_BOSS void Phantoon_FadeInBeforeFigure8(uint16 k);
-NT_BOSS void Phantoon_BecomeSolidAfterRainingFireballs(uint16 k);
-NT_BOSS void Phantoon_FadeInDuringFireballRain(uint16 k);
-NT_BOSS void Phantoon_FollowSamusWithEyeDuringFireballRain(uint16 k);
-NT_BOSS void Phantoon_FadeOutDuringFireballRain(uint16 k);
-NT_BOSS void Phantoon_SpawnRainingFireballs(uint16 k);
-NT_BOSS void Phantoon_FadeOutBeforeFirstFireballRain(uint16 k);
+void Phantoon_MovePhantoonInFigure8ThenOpenEye(uint16 k);
+void Phantoon_EyeFollowsSamusUntilTimerRunsOut(uint16 k);
+void Phantoon_BecomesSolidAndBodyVuln(uint16 v0);
+void Phantoon_IsSwooping(uint16 k);
+void Phantoon_FadeoutWithSwoop(uint16 k);
+void Phantoon_WaitAfterFadeOut(uint16 k);
+void Phantoon_MoveLeftOrRightAndPickEyeOpenPatt(uint16 k);
+void Phantoon_FadeInBeforeFigure8(uint16 k);
+void Phantoon_BecomeSolidAfterRainingFireballs(uint16 k);
+void Phantoon_FadeInDuringFireballRain(uint16 k);
+void Phantoon_FollowSamusWithEyeDuringFireballRain(uint16 k);
+void Phantoon_FadeOutDuringFireballRain(uint16 k);
+void Phantoon_SpawnRainingFireballs(uint16 k);
+void Phantoon_FadeOutBeforeFirstFireballRain(uint16 k);
 NT_BOSS void Phantoon_FadeOutBeforeEnrage(uint16 k);
 NT_BOSS void Phantoon_MoveEnragedPhantoonToTopCenter(uint16 k);
 NT_BOSS void Phantoon_FadeInEnragedPhantoon(uint16 k);
 NT_BOSS void Phantoon_Enraged(uint16 k);
 NT_BOSS void Phantoon_FadeoutAfterEnrage(uint16 k);
-NT_BOSS void Phantoon_CompleteSwoopAfterFatalShot(uint16 k);
-NT_BOSS void Phantoon_DyingPhantoonFadeInOut(uint16 k);
-NT_BOSS void Phantoon_DyingPhantoonExplosions(uint16 k);
-NT_BOSS void Phantoon_WavyDyingPhantoonAndCry(uint16 k);
-NT_BOSS void Phantoon_DyingFadeOut(uint16 k);
-NT_BOSS void Phantoon_AlmostDead(uint16 k);
-NT_BOSS void Phantoon_Dead(uint16 k);
-NT_BOSS uint8 Phantoon_Func_8(void);
-NT_BOSS uint8 Phantoon_SetColorBasedOnHp(void);
-NT_BOSS PairU16 Phantoon_SetColorBasedOnHp_FindEntry(uint16 k);
-NT_BOSS uint8 Phantoon_Func_9(void);
-NT_BOSS uint16 Phantoon_Func_10_CalculateNthTransitionColorFromXtoY(uint16 a, uint16 k, uint16 j);
-NT_BOSS uint16 Phantoon_CalculateNthTransitionColorComponentFromXtoY(uint16 a, uint16 k, uint16 j);
+void Phantoon_CompleteSwoopAfterFatalShot(uint16 k);
+void Phantoon_DyingPhantoonFadeInOut(uint16 k);
+void Phantoon_DyingPhantoonExplosions(uint16 k);
+void Phantoon_WavyDyingPhantoonAndCry(uint16 k);
+void Phantoon_DyingFadeOut(uint16 k);
+void Phantoon_AlmostDead(uint16 k);
+void Phantoon_Dead(uint16 k);
+uint8 Phantoon_Func_8(void);
+uint8 Phantoon_SetColorBasedOnHp(void);
+PairU16 Phantoon_SetColorBasedOnHp_FindEntry(uint16 k);
+uint8 Phantoon_Func_9(void);
+uint16 Phantoon_Func_10_CalculateNthTransitionColorFromXtoY(uint16 a, uint16 k, uint16 j);
+uint16 Phantoon_CalculateNthTransitionColorComponentFromXtoY(uint16 a, uint16 k, uint16 j);
 NT_BOSS void Phantoon_Hurt(void);
 NT_BOSS void Phantoon_Touch(void);
 NT_BOSS void Phantoon_Shot(void);
@@ -1979,6 +2003,7 @@ void KiHunter_Func_15(uint16 k);
 void KiHunter_Func_16(uint16 k);
 void KiHunter_Func_17(void);
 NT_BOSS void CallMotherBrainFunc(uint32 ea);
+void Enemy_NormalFrozenAI_A9(void);
 NT_BOSS void MotherBrainsBody_Init(void);
 NT_BOSS void MotherBrainsBrain_Init(void);
 NT_BOSS void MotherBrainsBody_Hurt(void);
@@ -2335,6 +2360,56 @@ NT_BOSS void MotherBrain_SetupBrainPalForLaser(void);
 NT_BOSS void MotherBrain_HandleBrainPal(void);
 void WriteColorsToPalette(uint16 k, uint8 db, uint16 j, uint16 a);
 NT_BOSS void WriteColorsToTargetPalette(uint8 db, uint16 k, uint16 j, uint16 a);
+NT_BOSS void DeadTorizo_Init(void);
+NT_BOSS void CallDeadTorizoFuncA(uint32 ea);
+NT_BOSS void DeadTorizo_Main(void);
+NT_BOSS void DeadTorizo_MainGfxHook(void);
+NT_BOSS void DeadTorizo_WaitForSamusColl(uint16 k);
+NT_BOSS void DeadTorizo_PreRotDelay(void);
+NT_BOSS void DeadTorizo_Rotting(void);
+NT_BOSS void DeadTorizo_Powerbomb(void);
+NT_BOSS void DeadTorizo_Shot(void);
+NT_BOSS uint8 DeadTorizo_Func_0(void);
+NT_BOSS void DeadSidehopper_Init(void);
+NT_BOSS void DeadSidehopper_Init_0(void);
+NT_BOSS void DeadSidehopper_Init_1(void);
+NT_BOSS void DeadZoomer_Init(void);
+NT_BOSS void DeadRipper_Init(void);
+NT_BOSS void DeadSkree_Init(void);
+NT_BOSS void DeadSidehopper_Powerbomb(void);
+NT_BOSS void CallDeadSidehopperFunc(uint32 ea, uint16 k);
+NT_BOSS void DeadSidehopper_Main(void);
+NT_BOSS void DeadSidehopper_Alive_WaitForActivate(uint16 k);
+NT_BOSS void DeadSidehopper_Activated(uint16 k);
+NT_BOSS void DeadMonsters_Func_1(uint16 k);
+NT_BOSS void DeadMonsters_Func_2(uint16 k);
+NT_BOSS uint8 DeadMonsters_Func_3(uint16 k);
+NT_BOSS void DeadMonsters_Func_4(uint16 k, uint16 a);
+NT_BOSS void DeadMonsters_Func_5(uint16 k);
+NT_BOSS void DeadSidehopper_WaitForSamusColl(uint16 k);
+NT_BOSS void DeadZoomer_WaitForSamusColl(uint16 k);
+NT_BOSS void DeadSkree_WaitForSamusColl(uint16 k);
+NT_BOSS void DeadRipper_WaitForSamusColl(uint16 k);
+NT_BOSS void DeadMonsters_WaitForSamusColl(uint16 k, uint16 j);
+NT_BOSS void DeadSidehopper_PreRotDelay(uint16 k);
+NT_BOSS void DeadZoomer_PreRotDelay(uint16 k);
+NT_BOSS void DeadRipper_PreRotDelay(uint16 k);
+NT_BOSS void DeadSkree_PreRotDelay(uint16 k);
+NT_BOSS void DeadMonsters_PreRotDelay_Common(uint16 k, uint16 j);
+NT_BOSS void DeadSidehopper_Rotting(uint16 k);
+NT_BOSS void DeadZoomer_Rotting(uint16 k);
+NT_BOSS void DeadRipper_Rotting(uint16 k);
+NT_BOSS void DeadSkree_Rotting(uint16 k);
+NT_BOSS void DeadZoomer_Powerbomb(void);
+NT_BOSS void DeadZoomer_Shot(void);
+NT_BOSS void DeadRipper_Powerbomb(void);
+NT_BOSS void DeadRipper_Shot(void);
+NT_BOSS void DeadSkree_Powerbomb(void);
+NT_BOSS void DeadSkree_Shot(void);
+NT_BOSS void DeadSidehopper_Shot(void);
+NT_BOSS void DeadSidehopper_DD31(void);
+NT_BOSS void DeadSidehopper_DD34(uint16 a);
+NT_BOSS void DeadSidehopper_Touch(void);
 NT_BOSS uint8 Shitroid_Func_1(uint16 k, uint16 j);
 uint8 Shitroid_Func_2(uint16 k, Rect16U rect);
 NT_BOSS void Shitroid_Init(void);
@@ -2616,9 +2691,9 @@ void WalkingSpacePirates_FD44(void);
 void WalkingSpacePirates_FDCE(void);
 void WalkingSpacePirates_FE4B(void);
 void Enemy_NormalTouchAI_B3(void);
-NT_BOSS void Enemy_NormalTouchAI_SkipDeathAnim_B3(void);
+void Enemy_NormalTouchAI_SkipDeathAnim_B3(void);
 void Enemy_NormalShotAI_B3(void);
-NT_BOSS void Enemy_NormalShotAI_SkipSomeParts_B3(void);
+void Enemy_NormalShotAI_SkipSomeParts_B3(void);
 void Enemy_NormalPowerBombAI_SkipDeathAnim_B3(void);
 void Enemy_NormalFrozenAI_B3(void);
 uint16 Enemy_SetAiPreInstr_B3(uint16 k, uint16 jp);
@@ -2755,7 +2830,6 @@ void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r2
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
 void InitializeEnemyCorpseRotting(uint16 k, uint16 j);
 void LoadFxEntry(uint16 v0);
-PairU16 MakePairU16(uint16 k, uint16 j);
 uint16 MotherBrainRisingHdmaObject(void);
 void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22);
 uint8 ProcessCorpseRotting(uint16 k);
@@ -2771,8 +2845,6 @@ void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k);
 void Torizo_CorpseRottingInitFunc(void);
 void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
 void WriteReg(uint16 reg, uint8 value);
-void sub_88DF34(void);
-void sub_88E487(uint16 v0, uint16 r22);
 
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) { nt_unimpl("DeadTorizo_CopyLineOfSandHeapTileData"); }
 void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
@@ -2780,7 +2852,6 @@ void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r2
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
 void InitializeEnemyCorpseRotting(uint16 k, uint16 j) { nt_unimpl("InitializeEnemyCorpseRotting"); }
 void LoadFxEntry(uint16 v0) { nt_unimpl("LoadFxEntry"); }
-PairU16 MakePairU16(uint16 k, uint16 j) { nt_unimpl("MakePairU16"); return (PairU16){0}; }
 uint16 MotherBrainRisingHdmaObject(void) { nt_unimpl("MotherBrainRisingHdmaObject"); return 0; }
 void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22) { nt_unimpl("MotherBrain_AddSpritemapToOam"); }
 uint8 ProcessCorpseRotting(uint16 k) { nt_unimpl("ProcessCorpseRotting"); return 0; }
@@ -2796,8 +2867,6 @@ void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_Corpse
 void Torizo_CorpseRottingInitFunc(void) { nt_unimpl("Torizo_CorpseRottingInitFunc"); }
 void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_CorpseRottingMoveFunc"); }
 void WriteReg(uint16 reg, uint8 value) { nt_unimpl("WriteReg"); }
-void sub_88DF34(void) { nt_unimpl("sub_88DF34"); }
-void sub_88E487(uint16 v0, uint16 r22) { nt_unimpl("sub_88E487"); }
 
 static Func_Y_V *const funcs_A2A79[3] = { Etecoon_Func_13, Etecoon_Func_14, Etecoon_Func_15 };
 static Func_V *const funcs_BE56D[16] = {
@@ -3444,7 +3513,7 @@ NT_BOSS uint16 EprojInstr_9620(uint16 k, uint16 epjp) {  // 0x869620
     SpawnEprojWithRoomGfx(eproj_F[k >> 1], k);
   return epjp;
 }
-static NT_BOSS void EprojInit_PhantoonDestroyableFireballs(uint16 j) {  // 0x869824
+static void EprojInit_PhantoonDestroyableFireballs(uint16 j) {  // 0x869824
   int8 v1;
 
   v1 = (uint16)(eproj_init_param_1 & 0xFF00) >> 8;
@@ -3516,7 +3585,7 @@ static NT_BOSS void EprojInit_PhantoonStartingFireballs(uint16 j) {  // 0x86993A
   eproj_x_pos[v1] = pt.x + enemy_data[0].x_pos;
   eproj_y_pos[v1] = pt.y + enemy_data[0].y_pos + 16;
 }
-NT_BOSS void EprojPreInstr_PhantoonStartingFireballs(uint16 k) {  // 0x869981
+void EprojPreInstr_PhantoonStartingFireballs(uint16 k) {  // 0x869981
   int v1 = k >> 1;
   eproj_y_vel[v1] += 16;
   if (EprojBlockCollisition_Vertical(k) & 1) {
@@ -3528,7 +3597,7 @@ NT_BOSS void EprojPreInstr_PhantoonStartingFireballs(uint16 k) {  // 0x869981
     eproj_y_pos[v1] += 8;
   }
 }
-NT_BOSS void EprojPreInstr_PhantoonStartingFireballs2(uint16 k) {  // 0x8699BF
+void EprojPreInstr_PhantoonStartingFireballs2(uint16 k) {  // 0x8699BF
   int v1 = k >> 1;
   bool v2 = eproj_E[v1] == 1;
   bool v3 = (--eproj_E[v1] & 0x8000) != 0;
@@ -3545,7 +3614,7 @@ NT_BOSS void EprojPreInstr_PhantoonStartingFireballs2(uint16 k) {  // 0x8699BF
       eproj_x_vel[v1] = 128;
   }
 }
-NT_BOSS void EprojPreInstr_PhantoonStartingFireballs3(uint16 k) {  // 0x869A01
+void EprojPreInstr_PhantoonStartingFireballs3(uint16 k) {  // 0x869A01
   int v1 = k >> 1;
   eproj_y_vel[v1] += 16;
   if (EprojBlockCollisition_Vertical(k) & 1) {
@@ -3564,7 +3633,7 @@ LABEL_6:
     eproj_pre_instr[v1] = 0x9A44 /* nullsub_86 */;
   }
 }
-NT_BOSS void EprojPreInstr_PhantoonDestroyableFireballs(uint16 k) {  // 0x869A45
+void EprojPreInstr_PhantoonDestroyableFireballs(uint16 k) {  // 0x869A45
   int16 v4;
   uint16 v5;
   int v1 = k >> 1;
@@ -3586,7 +3655,7 @@ NT_BOSS void EprojPreInstr_PhantoonDestroyableFireballs(uint16 k) {  // 0x869A45
     eproj_instr_timers[v1] = 1;
   }
 }
-NT_BOSS void EprojPreInstr_PhantoonDestroyableFireballs_2(uint16 k) {  // 0x869A94
+void EprojPreInstr_PhantoonDestroyableFireballs_2(uint16 k) {  // 0x869A94
   int v1 = k >> 1;
   if (!eproj_x_vel[v1])
     goto LABEL_5;
@@ -3606,7 +3675,7 @@ LABEL_5:
     }
   }
 }
-NT_BOSS void EprojPreInstr_PhantoonDestroyableFireballs_3(uint16 k) {  // 0x869ADA
+void EprojPreInstr_PhantoonDestroyableFireballs_3(uint16 k) {  // 0x869ADA
   int16 v4;
   uint16 v5;
   int v1 = k >> 1;
@@ -3660,7 +3729,7 @@ LABEL_5:;
   eproj_instr_timers[v1] = 1;
   eproj_instr_list_ptr[v1] = addr_off_8697F8;
 }
-NT_BOSS Point16U Eproj_PhantomFireballs_Func1(uint16 j, uint16 a) {  // 0x869BA2
+Point16U Eproj_PhantomFireballs_Func1(uint16 j, uint16 a) {  // 0x869BA2
   int16 v3;
   uint16 v2, v4;
 
@@ -3679,7 +3748,7 @@ NT_BOSS Point16U Eproj_PhantomFireballs_Func1(uint16 j, uint16 a) {  // 0x869BA2
   uint16 r22 = v4;
   return (Point16U) { r20, r22 };
 }
-NT_BOSS uint16 Eproj_PhantomFireballs_Func2(uint16 k, uint16 r24) {  // 0x869BF3
+uint16 Eproj_PhantomFireballs_Func2(uint16 k, uint16 r24) {  // 0x869BF3
   uint16 r18 = Mult8x8(*((uint8 *)&kSinCosTable8bit_Sext[64] + k), r24) >> 8;
   return r18 + Mult8x8(*((uint8 *)&kSinCosTable8bit_Sext[64] + k + 1), r24);
 }
@@ -5881,6 +5950,24 @@ void EprojPreInstr_Sparks(uint16 k) {  // 0x86F3F0
   if ((nmi_frame_counter_byte & 3) == 0)
     CreateSpriteAtPos(eproj_x_pos[v1], eproj_y_pos[v1], 48, eproj_gfx_idx[v1]);
 }
+void Enemy_NormalTouchAI_A0(void) {  // 0xA08023
+  NormalEnemyTouchAi();
+}
+void Enemy_NormalTouchAI_SkipDeathAnim_A0(void) {  // 0xA08028
+  NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
+}
+void Enemy_NormalShotAI_A0(void) {  // 0xA0802D
+  NormalEnemyShotAi();
+}
+void Enemy_NormalShotAI_SkipSomeParts_A0(void) {  // 0xA08032
+  NormalEnemyShotAiSkipDeathAnim_CurEnemy();
+}
+void Enemy_NormalPowerBombAI_A0(void) {  // 0xA08037
+  NormalEnemyPowerBombAi();
+}
+void Enemy_NormalPowerBombAI_SkipDeathAnim_A0(void) {  // 0xA0803C
+  NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
+}
 void CreateADudShot(void) {  // 0xA08046
   CreateDudShot();
 }
@@ -6366,7 +6453,7 @@ NT_BOSS void Enemy_ItemDrop_Crocomire(uint16 k) {  // 0xA0B9D8
     SpawnEnemyDrops(addr_kEnemyDef_DDBF, k, 0);
   } while (--n);
 }
-NT_BOSS void Enemy_ItemDrop_Phantoon(uint16 k) {  // 0xA0BA0B
+void Enemy_ItemDrop_Phantoon(uint16 k) {  // 0xA0BA0B
   int n = 16;
   do {
     eproj_spawn_x = (NextRandom() & 0x7F) + 64;
@@ -11209,6 +11296,17 @@ void MaridiaRefillCandy_Func_5(void) {  // 0xA3B557
 void MaridiaRefillCandy_Func_6(void) {  // 0xA3B55B
   ;
 }
+void NorfairSlowFireball_Init(void) {  // 0xA3B66F
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->parameter_2 = 6;
+  v1->current_instruction = ((uint16)BW_A3(0xB667 + 2 * (v1->properties & 3)));
+  StoneZoomer_E67A(cur_enemy_index);
+}
+void NorfairSlowFireball_Func_1(void) {  // 0xA3B6F9
+  uint16 current_instruction = gEnemyData(cur_enemy_index)->current_instruction;
+  if (current_instruction)
+    nt_unimpl("Unreachable");
+}
 uint16 Skree_Instr_1(uint16 k, uint16 jp) {  // 0xA3C6A4
   gEnemyData(cur_enemy_index)->ai_var_E = 1;
   return jp;
@@ -12331,6 +12429,15 @@ void Metroid_Powerbomb(uint16 k) {  // 0xA3F042
     sprite_instr_list_ptrs[ERAM(0x7800 + (cur_enemy_index)) >> 1] = 0;
     sprite_instr_list_ptrs[ERAM(0x7802 + (cur_enemy_index)) >> 1] = 0;
   }
+}
+void Enemy_NormalTouchAI_A4(void) {  // 0xA48023
+  NormalEnemyTouchAi();
+}
+void Enemy_NormalShotAI_A4(void) {  // 0xA4802D
+  NormalEnemyShotAi();
+}
+void Enemy_NormalFrozenAI_A4(void) {  // 0xA48041
+  NormalEnemyFrozenAI();
 }
 NT_BOSS void Crocomire_Hurt(void) {  // 0xA48687
   Crocomire_Func_27(cur_enemy_index);
@@ -13737,6 +13844,15 @@ NT_BOSS void CrocomireTongue_Init(void) {  // 0xA4F67A
 }
 NT_BOSS void CrocomireTongue_Main(void) {  // 0xA4F6BB
   ;
+}
+void Enemy_NormalTouchAI_A5(void) {  // 0xA58023
+  NormalEnemyTouchAi();
+}
+void Enemy_NormalShotAI_A5(void) {  // 0xA5802D
+  NormalEnemyShotAi();
+}
+void Enemy_NormalFrozenAI_A5(void) {  // 0xA58041
+  NormalEnemyFrozenAI();
 }
 NT_BOSS void Draygon_Init(void) {  // 0xA58687
   uint16 j;
@@ -15185,6 +15301,15 @@ void SporeSpawn_Func_7(uint16 a) {  // 0xA5EE4A
     { palette_buffer[(i >> 1) + 144] = ((uint16)BW_A5(0xE379 + 2 * (v1 >> 1))); nt_pal_dirty((uint8)((i >> 1) + 144), (uint8)((i >> 1) + 144)); }
     v1 += 2;
   }
+}
+void Enemy_NormalTouchAI_A6(void) {  // 0xA68023
+  NormalEnemyTouchAi();
+}
+void Enemy_NormalShotAI_A6(void) {  // 0xA6802D
+  NormalEnemyShotAi();
+}
+void Enemy_NormalFrozenAI_A6(void) {  // 0xA68041
+  NormalEnemyFrozenAI();
 }
 void Boulder_Init(void) {  // 0xA686F5
   int16 boulder_parameter_2_high;
@@ -19111,8 +19236,27 @@ void Zebetites_Shot(void) {  // 0xA6FDAC
   G->health = E->health;
   G->flash_timer = E->flash_timer;
 }
+void CallEnemyInstrExtFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA7CEED: Phantoon_Func_1(); return;
+  case 0xA7CF5E: Phantoon_Func_4(k); return;
+  case 0xA7D03F: Phantoon_StartTrackingSamusAndInitEyeTimer(); return;
+  case 0xA7D076: Phantoon_PickPatternForRound2(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+uint16 EnemyInstr_Call_A7(uint16 k, uint16 jp) {  // 0xA7808A
+  CallEnemyInstrExtFunc(IW_EN((uint16)(jp + 0)) | 0xA70000, k);
+  return (uint16)(jp + 2);
+}
+void Enemy_NormalShotAI_A7(void) {  // 0xA7802D
+  NormalEnemyShotAi();
+}
 void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void) {  // 0xA7803C
   NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
+}
+void Enemy_NormalFrozenAI_A7(void) {  // 0xA78041
+  NormalEnemyFrozenAI();
 }
 NT_BOSS void Phantoon_Init(void) {  // 0xA7CDF3
   int16 j;
@@ -19178,14 +19322,14 @@ NT_BOSS void Phantoon_Main(void) {  // 0xA7CEA6
 
 
 }
-NT_BOSS void Phantoon_Func_1(void) {  // 0xA7CEED
+void Phantoon_Func_1(void) {  // 0xA7CEED
   QueueSfx2_Max6(((uint16)BW_A7(0xCDED + 2 * (ERAM(0x9032)))));
   uint16 v0 = ERAM(0x9032) + 1;
   if (!sign16(ERAM(0x9032) - 2))
     v0 = 0;
   ERAM(0x9032) = v0;
 }
-NT_BOSS uint8 Phantoon_Func_3(int32 amt) {  // 0xA7CF27
+uint8 Phantoon_Func_3(int32 amt) {  // 0xA7CF27
   EnemyData *E = gEnemyData(0xC0); uint16 E_k = (0xC0);
   uint16 r18 = amt, r20 = amt >> 16;
   if (E->ai_var_E) {
@@ -19206,16 +19350,16 @@ NT_BOSS uint8 Phantoon_Func_3(int32 amt) {  // 0xA7CF27
   }
   return 0;
 }
-NT_BOSS void Phantoon_Func_4(uint16 k) {  // 0xA7CF5E
+void Phantoon_Func_4(uint16 k) {  // 0xA7CF5E
   SpawnEprojWithGfx(0, k, addr_kEproj_DestroyableFireballs);
   QueueSfx3_Max6(0x1D);
 }
-NT_BOSS void Phantoon_Func_5(uint16 k) {  // 0xA7CF70
+void Phantoon_Func_5(uint16 k) {  // 0xA7CF70
   for (int i = 7; i >= 0; --i)
     SpawnEprojWithGfx(i | 0x600, k, addr_kEproj_DestroyableFireballs);
   QueueSfx3_Max6(0x28);
 }
-NT_BOSS void Phantoon_Func_6(uint16 k, uint16 a) {  // 0xA7CF8B
+void Phantoon_Func_6(uint16 k, uint16 a) {  // 0xA7CF8B
   int16 v2;
   int16 v3;
 
@@ -19230,7 +19374,7 @@ NT_BOSS void Phantoon_Func_6(uint16 k, uint16 a) {  // 0xA7CF8B
     r20 += 16;
   } while (--n >= 0);
 }
-NT_BOSS void Phantoon_Func_7(uint16 k) {  // 0xA7CFCA
+void Phantoon_Func_7(uint16 k) {  // 0xA7CFCA
   EnemyData *E = gEnemyData(k + 192); uint16 E_k = (k + 192);
   bool v3 = E->ai_var_B == 1;
   bool v4 = (--E->ai_var_B & 0x8000) != 0;
@@ -19256,7 +19400,7 @@ NT_BOSS void Phantoon_Func_7(uint16 k) {  // 0xA7CFCA
     }
   }
 }
-NT_BOSS void Phantoon_StartTrackingSamusAndInitEyeTimer(void) {  // 0xA7D03F
+void Phantoon_StartTrackingSamusAndInitEyeTimer(void) {  // 0xA7D03F
   gEnemyData(0x80)->ai_var_A = 0;
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   E->instruction_timer = 1;
@@ -19269,7 +19413,7 @@ NT_BOSS void Phantoon_StartTrackingSamusAndInitEyeTimer(void) {  // 0xA7D03F
   E1->instruction_timer = 1;
   E1->current_instruction = addr_kKraid_Ilist_CC9D;
 }
-NT_BOSS void Phantoon_PickPatternForRound2(void) {  // 0xA7D076
+void Phantoon_PickPatternForRound2(void) {  // 0xA7D076
   int16 v4;
 
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
@@ -19307,7 +19451,7 @@ NT_BOSS void Phantoon_PickPatternForRound2(void) {  // 0xA7D076
     E->ai_preinstr = 0xD5E7 /* Phantoon_MovePhantoonInFigure8ThenOpenEye */;
   }
 }
-NT_BOSS void Phantoon_AdjustSpeedAndMoveInFigure8(void) {  // 0xA7D0F1
+void Phantoon_AdjustSpeedAndMoveInFigure8(void) {  // 0xA7D0F1
   if (gEnemyData(0x40)->ai_var_C) {
     Phantoon_AdjustSpeedRightSideClockwise();
     Phantoon_MoveInFigure8_RightSideClockwise(addr_kPhantoonMoveData, 533);
@@ -19316,7 +19460,7 @@ NT_BOSS void Phantoon_AdjustSpeedAndMoveInFigure8(void) {  // 0xA7D0F1
     Phantoon_MoveInFigure8_LeftSideClockwise(addr_kPhantoonMoveData, 534);
   }
 }
-NT_BOSS void Phantoon_AdjustSpeedLeftSideClockwise(void) {  // 0xA7D114
+void Phantoon_AdjustSpeedLeftSideClockwise(void) {  // 0xA7D114
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   uint16 phant_var_D = E->ai_var_D;
   if (phant_var_D) {
@@ -19344,7 +19488,7 @@ NT_BOSS void Phantoon_AdjustSpeedLeftSideClockwise(void) {  // 0xA7D114
     }
   }
 }
-NT_BOSS void Phantoon_AdjustSpeedRightSideClockwise(void) {  // 0xA7D193
+void Phantoon_AdjustSpeedRightSideClockwise(void) {  // 0xA7D193
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   uint16 phant_var_D = E->ai_var_D;
   if (phant_var_D) {
@@ -19372,7 +19516,7 @@ NT_BOSS void Phantoon_AdjustSpeedRightSideClockwise(void) {  // 0xA7D193
     }
   }
 }
-NT_BOSS void Phantoon_MoveInFigure8_LeftSideClockwise(uint16 j, uint16 r20) {  // 0xA7D215
+void Phantoon_MoveInFigure8_LeftSideClockwise(uint16 j, uint16 r20) {  // 0xA7D215
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   for (int n = E->ai_var_C; n; --n) {
     uint16 v2 = (2 * E->ai_var_A + j);
@@ -19382,7 +19526,7 @@ NT_BOSS void Phantoon_MoveInFigure8_LeftSideClockwise(uint16 j, uint16 r20) {  /
       E->ai_var_A = 0;
   }
 }
-NT_BOSS void Phantoon_MoveInFigure8_RightSideClockwise(uint16 j, uint16 r20) {  // 0xA7D271
+void Phantoon_MoveInFigure8_RightSideClockwise(uint16 j, uint16 r20) {  // 0xA7D271
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   for(int n = (uint16)-E->ai_var_C; n; n--) {
     uint16 v4 = (2 * E->ai_var_A + j);
@@ -19392,7 +19536,7 @@ NT_BOSS void Phantoon_MoveInFigure8_RightSideClockwise(uint16 j, uint16 r20) {  
       E->ai_var_A = r20;
   }
 }
-NT_BOSS void Phantoon_MoveInSwoopingPattern(uint16 k) {  // 0xA7D2D1
+void Phantoon_MoveInSwoopingPattern(uint16 k) {  // 0xA7D2D1
   int16 phant_var_E;
   uint16 v4;
   uint16 v5;
@@ -19448,7 +19592,7 @@ NT_BOSS void Phantoon_MoveInSwoopingPattern(uint16 k) {  // 0xA7D2D1
     E0->y_pos = 216;
   }
 }
-NT_BOSS void Phantoon_BeginSwoopingPattern(uint16 k) {  // 0xA7D3E1
+void Phantoon_BeginSwoopingPattern(uint16 k) {  // 0xA7D3E1
   EnemyData *E2 = gEnemyData(0x80); uint16 E2_k = (0x80);
   E2->ai_var_C = 1024;
   E2->ai_var_D = 1024;
@@ -19457,7 +19601,7 @@ NT_BOSS void Phantoon_BeginSwoopingPattern(uint16 k) {  // 0xA7D3E1
   E->ai_preinstr = 0xD678 /* Phantoon_IsSwooping */;
   E->ai_var_E = 360;
 }
-NT_BOSS void Phantoon_ChangeEyeSpriteBasedOnSamusDist(void) {  // 0xA7D3FA
+void Phantoon_ChangeEyeSpriteBasedOnSamusDist(void) {  // 0xA7D3FA
   uint16 v0 = 2 * DetermineDirectionOfSamusFromEnemy();
   EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
   E->instruction_timer = 1;
@@ -19486,7 +19630,7 @@ NT_BOSS void Phantoon_StartDeathSequence(uint16 k) {  // 0xA7D421
   phantom_related_layer_flag |= 0x4000;
   gEnemyData(0xC0)->parameter_2 = 1;
 }
-NT_BOSS void Phantoon_FadeOut(uint16 a) {  // 0xA7D464
+void Phantoon_FadeOut(uint16 a) {  // 0xA7D464
   if ((nmi_frame_counter_word & 1) == 0) {
     EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
     if (!E->ai_preinstr) {
@@ -19496,7 +19640,7 @@ NT_BOSS void Phantoon_FadeOut(uint16 a) {  // 0xA7D464
     }
   }
 }
-NT_BOSS void Phantoon_FadeIn(uint16 a) {  // 0xA7D486
+void Phantoon_FadeIn(uint16 a) {  // 0xA7D486
   if ((nmi_frame_counter_word & 1) == 0) {
     EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
     if (!E->ai_preinstr) {
@@ -19594,7 +19738,7 @@ NT_BOSS void Phantoon_PickPatternForRound1(uint16 k) {  // 0xA7D596
     }
   }
 }
-NT_BOSS void Phantoon_MovePhantoonInFigure8ThenOpenEye(uint16 k) {  // 0xA7D5E7
+void Phantoon_MovePhantoonInFigure8ThenOpenEye(uint16 k) {  // 0xA7D5E7
   Phantoon_AdjustSpeedAndMoveInFigure8();
   Phantoon_Func_7(k);
   EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
@@ -19608,7 +19752,7 @@ NT_BOSS void Phantoon_MovePhantoonInFigure8ThenOpenEye(uint16 k) {  // 0xA7D5E7
     Phantoon_Func_5(k);
   }
 }
-NT_BOSS void Phantoon_EyeFollowsSamusUntilTimerRunsOut(uint16 k) {  // 0xA7D60D
+void Phantoon_EyeFollowsSamusUntilTimerRunsOut(uint16 k) {  // 0xA7D60D
   EnemyData *EK = gEnemyData(k); uint16 EK_k = (k);
   bool v2 = EK->ai_var_E == 1;
   bool v3 = (--EK->ai_var_E & 0x8000) != 0;
@@ -19633,7 +19777,7 @@ NT_BOSS void Phantoon_EyeFollowsSamusUntilTimerRunsOut(uint16 k) {  // 0xA7D60D
   }
   Phantoon_ChangeEyeSpriteBasedOnSamusDist();
 }
-NT_BOSS void Phantoon_BecomesSolidAndBodyVuln(uint16 v0) {  // 0xA7D65C
+void Phantoon_BecomesSolidAndBodyVuln(uint16 v0) {  // 0xA7D65C
   Phantoon_ChangeEyeSpriteBasedOnSamusDist();
   phantom_related_layer_flag &= ~0x4000;
   Phantoon_BeginSwoopingPattern(v0);
@@ -19641,7 +19785,7 @@ NT_BOSS void Phantoon_BecomesSolidAndBodyVuln(uint16 v0) {  // 0xA7D65C
   E->instruction_timer = 1;
   E->current_instruction = addr_kKraid_Ilist_CC47;
 }
-NT_BOSS void Phantoon_IsSwooping(uint16 k) {  // 0xA7D678
+void Phantoon_IsSwooping(uint16 k) {  // 0xA7D678
   Phantoon_ChangeEyeSpriteBasedOnSamusDist();
   Phantoon_MoveInSwoopingPattern(k);
   EnemyData *EK = gEnemyData(k); uint16 EK_k = (k);
@@ -19661,7 +19805,7 @@ NT_BOSS void Phantoon_IsSwooping(uint16 k) {  // 0xA7D678
     gEnemyData(k + 128)->ai_var_B = 0;
   }
 }
-NT_BOSS void Phantoon_FadeoutWithSwoop(uint16 k) {  // 0xA7D6B9
+void Phantoon_FadeoutWithSwoop(uint16 k) {  // 0xA7D6B9
   Phantoon_MoveInSwoopingPattern(k);
   Phantoon_FadeOut(0xC);
   if (gEnemyData(0x40)->ai_preinstr) {
@@ -19670,14 +19814,14 @@ NT_BOSS void Phantoon_FadeoutWithSwoop(uint16 k) {  // 0xA7D6B9
     E->ai_var_E = 120;
   }
 }
-NT_BOSS void Phantoon_WaitAfterFadeOut(uint16 k) {  // 0xA7D6D4
+void Phantoon_WaitAfterFadeOut(uint16 k) {  // 0xA7D6D4
   EnemyData *E = gEnemyData(k); uint16 E_k = (k);
   bool v2 = E->ai_var_E == 1;
   bool v3 = (--E->ai_var_E & 0x8000) != 0;
   if (v2 || v3)
     E->ai_preinstr = 0xD6E2 /* Phantoon_MoveLeftOrRightAndPickEyeOpenPatt */;
 }
-NT_BOSS void Phantoon_MoveLeftOrRightAndPickEyeOpenPatt(uint16 k) {  // 0xA7D6E2
+void Phantoon_MoveLeftOrRightAndPickEyeOpenPatt(uint16 k) {  // 0xA7D6E2
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   if ((NextRandom() & 1) != 0) {
     E->ai_var_A = 136;
@@ -19696,12 +19840,12 @@ NT_BOSS void Phantoon_MoveLeftOrRightAndPickEyeOpenPatt(uint16 k) {  // 0xA7D6E2
   gEnemyData(k)->ai_preinstr = 0xD72D /* Phantoon_FadeInBeforeFigure8 */;
   E1->ai_preinstr = 0;
 }
-NT_BOSS void Phantoon_FadeInBeforeFigure8(uint16 k) {  // 0xA7D72D
+void Phantoon_FadeInBeforeFigure8(uint16 k) {  // 0xA7D72D
   Phantoon_FadeIn(0xC);
   if (gEnemyData(0x40)->ai_preinstr)
     gEnemyData(0)->ai_preinstr = 0xD5E7 /* Phantoon_MovePhantoonInFigure8ThenOpenEye */;
 }
-NT_BOSS void Phantoon_BecomeSolidAfterRainingFireballs(uint16 k) {  // 0xA7D73F
+void Phantoon_BecomeSolidAfterRainingFireballs(uint16 k) {  // 0xA7D73F
   EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
   E1->ai_preinstr = 0;
   phantom_related_layer_flag &= ~0x4000;
@@ -19712,7 +19856,7 @@ NT_BOSS void Phantoon_BecomeSolidAfterRainingFireballs(uint16 k) {  // 0xA7D73F
   E1->current_instruction = addr_kKraid_Ilist_CC9D;
   gEnemyData(k)->ai_preinstr = 0xD767 /* Phantoon_FadeInDuringFireballRain */;
 }
-NT_BOSS void Phantoon_FadeInDuringFireballRain(uint16 k) {  // 0xA7D767
+void Phantoon_FadeInDuringFireballRain(uint16 k) {  // 0xA7D767
   Phantoon_FadeIn(1);
   if (gEnemyData(0x40)->ai_preinstr) {
     EnemyData *E = gEnemyData(0); uint16 E_k = (0);
@@ -19721,7 +19865,7 @@ NT_BOSS void Phantoon_FadeInDuringFireballRain(uint16 k) {  // 0xA7D767
     E->ai_var_E = 90;
   }
 }
-NT_BOSS void Phantoon_FollowSamusWithEyeDuringFireballRain(uint16 k) {  // 0xA7D788
+void Phantoon_FollowSamusWithEyeDuringFireballRain(uint16 k) {  // 0xA7D788
   EnemyData *EK = gEnemyData(k); uint16 EK_k = (k);
   bool v2 = EK->ai_var_E == 1;
   bool v3 = (--EK->ai_var_E & 0x8000) != 0;
@@ -19746,7 +19890,7 @@ NT_BOSS void Phantoon_FollowSamusWithEyeDuringFireballRain(uint16 k) {  // 0xA7D
     }
   }
 }
-NT_BOSS void Phantoon_FadeOutDuringFireballRain(uint16 k) {  // 0xA7D7D5
+void Phantoon_FadeOutDuringFireballRain(uint16 k) {  // 0xA7D7D5
   Phantoon_FadeOut(0xC);
   if (gEnemyData(0x40)->ai_preinstr) {
     EnemyData *E = gEnemyData(k); uint16 E_k = (k);
@@ -19754,7 +19898,7 @@ NT_BOSS void Phantoon_FadeOutDuringFireballRain(uint16 k) {  // 0xA7D7D5
     E->ai_var_E = ((uint16)BW_A7(0xCD63 + 2 * (NextRandom() & 7)));
   }
 }
-NT_BOSS void Phantoon_SpawnRainingFireballs(uint16 k) {  // 0xA7D7F7
+void Phantoon_SpawnRainingFireballs(uint16 k) {  // 0xA7D7F7
   EnemyData *EK = gEnemyData(k); uint16 EK_k = (k);
   bool v2 = EK->ai_var_E == 1;
   bool v3 = (--EK->ai_var_E & 0x8000) != 0;
@@ -19770,7 +19914,7 @@ NT_BOSS void Phantoon_SpawnRainingFireballs(uint16 k) {  // 0xA7D7F7
     Phantoon_Func_6(k, a);
   }
 }
-NT_BOSS void Phantoon_FadeOutBeforeFirstFireballRain(uint16 k) {  // 0xA7D82A
+void Phantoon_FadeOutBeforeFirstFireballRain(uint16 k) {  // 0xA7D82A
   Phantoon_FadeOut(0xC);
   Phantoon_AdjustSpeedAndMoveInFigure8();
   Phantoon_Func_7(k);
@@ -19855,7 +19999,7 @@ NT_BOSS void Phantoon_FadeoutAfterEnrage(uint16 k) {  // 0xA7D916
     E->ai_var_E = 120;
   }
 }
-NT_BOSS void Phantoon_CompleteSwoopAfterFatalShot(uint16 k) {  // 0xA7D92E
+void Phantoon_CompleteSwoopAfterFatalShot(uint16 k) {  // 0xA7D92E
   Phantoon_ChangeEyeSpriteBasedOnSamusDist();
   Phantoon_MoveInSwoopingPattern(k);
   uint16 x_pos = gEnemyData(0)->x_pos;
@@ -19864,7 +20008,7 @@ NT_BOSS void Phantoon_CompleteSwoopAfterFatalShot(uint16 k) {  // 0xA7D92E
       gEnemyData(k)->ai_preinstr = 0xD948 /* Phantoon_DyingPhantoonFadeInOut */;
   }
 }
-NT_BOSS void Phantoon_DyingPhantoonFadeInOut(uint16 k) {  // 0xA7D948
+void Phantoon_DyingPhantoonFadeInOut(uint16 k) {  // 0xA7D948
   EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
   if ((E1->ai_var_C & 1) != 0) {
     Phantoon_FadeIn(0xC);
@@ -19886,7 +20030,7 @@ NT_BOSS void Phantoon_DyingPhantoonFadeInOut(uint16 k) {  // 0xA7D948
     gEnemyData(0)->ai_var_A = 0;
   }
 }
-NT_BOSS void Phantoon_DyingPhantoonExplosions(uint16 k) {  // 0xA7D98B
+void Phantoon_DyingPhantoonExplosions(uint16 k) {  // 0xA7D98B
   EnemyData *EK = gEnemyData(k); uint16 EK_k = (k);
   bool v2 = EK->ai_var_E == 1;
   bool v3 = (--EK->ai_var_E & 0x8000) != 0;
@@ -19913,7 +20057,7 @@ NT_BOSS void Phantoon_DyingPhantoonExplosions(uint16 k) {  // 0xA7D98B
     }
   }
 }
-NT_BOSS void Phantoon_WavyDyingPhantoonAndCry(uint16 k) {  // 0xA7DA51
+void Phantoon_WavyDyingPhantoonAndCry(uint16 k) {  // 0xA7DA51
   EnemyData *Phantoon; uint16 Phantoon_k; // r10
 
   sub_88E487(1, ((uint16)BW_A7(0xCDA3 + 2 * (0))));
@@ -19927,7 +20071,7 @@ NT_BOSS void Phantoon_WavyDyingPhantoonAndCry(uint16 k) {  // 0xA7DA51
   gEnemyData(0xC0)->properties = v2;
   QueueSfx2_Max6(0x7E);
 }
-NT_BOSS void Phantoon_DyingFadeOut(uint16 k) {  // 0xA7DA86
+void Phantoon_DyingFadeOut(uint16 k) {  // 0xA7DA86
   Phantoon_Func_3(__PAIR32__(((uint16)BW_A7(0xCDA1 + 2 * (0))), ((uint16)BW_A7(0xCD9F + 2 * (0)))));
   EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
   if (E->ai_var_C == 0xFFFF) {
@@ -19945,7 +20089,7 @@ NT_BOSS void Phantoon_DyingFadeOut(uint16 k) {  // 0xA7DA86
     }
   }
 }
-NT_BOSS void Phantoon_AlmostDead(uint16 k) {  // 0xA7DAD7
+void Phantoon_AlmostDead(uint16 k) {  // 0xA7DAD7
   reg_MOSAIC = 0;
   EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
   E1->parameter_1 = 0;
@@ -19969,7 +20113,7 @@ NT_BOSS void Phantoon_AlmostDead(uint16 k) {  // 0xA7DAD7
   nt_vwq_w16((uint16)((v5) + 0), 18432);
   vram_write_queue_tail = v5 + 2;
 }
-NT_BOSS void Phantoon_Dead(uint16 k) {  // 0xA7DB3D
+void Phantoon_Dead(uint16 k) {  // 0xA7DB3D
   EnemyData *EK = gEnemyData(k); uint16 EK_k = (k);
   if (EK->ai_var_E) {
     --EK->ai_var_E;
@@ -19991,7 +20135,7 @@ NT_BOSS void Phantoon_Dead(uint16 k) {  // 0xA7DB3D
     }
   }
 }
-NT_BOSS uint8 Phantoon_Func_8(void) {  // 0xA7DB9A
+uint8 Phantoon_Func_8(void) {  // 0xA7DB9A
   EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
   if ((uint16)(E->ai_var_D + 1) >= E->ai_var_E) {
     for (int i = 0; i < 0x20; i += 2) {
@@ -20007,7 +20151,7 @@ NT_BOSS uint8 Phantoon_Func_8(void) {  // 0xA7DB9A
     return 1;
   }
 }
-NT_BOSS uint8 Phantoon_SetColorBasedOnHp(void) {  // 0xA7DBD5
+uint8 Phantoon_SetColorBasedOnHp(void) {  // 0xA7DBD5
   PairU16 Entry;
 
   EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
@@ -20028,7 +20172,7 @@ NT_BOSS uint8 Phantoon_SetColorBasedOnHp(void) {  // 0xA7DBD5
     return 1;
   }
 }
-NT_BOSS PairU16 Phantoon_SetColorBasedOnHp_FindEntry(uint16 k) {  // 0xA7DC0F
+PairU16 Phantoon_SetColorBasedOnHp_FindEntry(uint16 k) {  // 0xA7DC0F
   uint16 r24 = k;
   uint16 r18 = 312, r20 = 312;
   uint16 r22 = 0;
@@ -20041,7 +20185,7 @@ NT_BOSS PairU16 Phantoon_SetColorBasedOnHp_FindEntry(uint16 k) {  // 0xA7DC0F
   const uint16 v1 = (r24 + ((uint16)BW_A7(0xDC4A + 2 * (r22))));
   return MakePairU16(r24, BW_A7(v1));
 }
-NT_BOSS uint8 Phantoon_Func_9(void) {  // 0xA7DC5A
+uint8 Phantoon_Func_9(void) {  // 0xA7DC5A
   EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
   if ((uint16)(E->ai_var_D + 1) >= E->ai_var_E) {
     for (int i = 0; i < 0xE0; i += 2) {
@@ -20057,12 +20201,12 @@ NT_BOSS uint8 Phantoon_Func_9(void) {  // 0xA7DC5A
     return 1;
   }
 }
-NT_BOSS uint16 Phantoon_Func_10_CalculateNthTransitionColorFromXtoY(uint16 a, uint16 k, uint16 j) {  // 0xA7DC95
+uint16 Phantoon_Func_10_CalculateNthTransitionColorFromXtoY(uint16 a, uint16 k, uint16 j) {  // 0xA7DC95
   return Phantoon_CalculateNthTransitionColorComponentFromXtoY(a, k & 0x1F, j & 0x1F) + 
          (Phantoon_CalculateNthTransitionColorComponentFromXtoY(a, (k >> 5) & 0x1F, (j >> 5) & 0x1F) << 5) +
          (Phantoon_CalculateNthTransitionColorComponentFromXtoY(a, (k >> 10) & 0x1F, (j >> 10) & 0x1F) << 10);
 }
-NT_BOSS uint16 Phantoon_CalculateNthTransitionColorComponentFromXtoY(uint16 a, uint16 k, uint16 j) {  // 0xA7DCF1
+uint16 Phantoon_CalculateNthTransitionColorComponentFromXtoY(uint16 a, uint16 k, uint16 j) {  // 0xA7DCF1
   if (!a)
     return k;
   uint16 v4 = a - 1;
@@ -24577,6 +24721,9 @@ NT_BOSS void CallMotherBrainFunc(uint32 ea) {
   default: nt_unimpl("Unreachable");
   }
 }
+void Enemy_NormalFrozenAI_A9(void) {  // 0xA98041
+  NormalEnemyFrozenAI();
+}
 NT_BOSS void MotherBrainsBody_Init(void) {  // 0xA98687
   for (int i = 4094; i >= 0; i -= 2)
     tilemap_stuff[i >> 1] = 824;
@@ -28098,6 +28245,417 @@ NT_BOSS void WriteColorsToTargetPalette(uint8 db, uint16 k, uint16 j, uint16 a) 
     j += 2;
   } while (--n);
 }
+NT_BOSS void DeadTorizo_Init(void) {  // 0xA9D308
+  for (int i = 4094; i >= 0; i -= 2)
+    tilemap_stuff[i >> 1] = 0;
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->ai_var_A = 0xD3AD /* DeadTorizo_WaitForSamusColl */;
+  E->properties |= 0xA000;
+  E->current_instruction = addr_kDeadTorizo_Ilist_D6DC;
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->palette_index = 512;
+  E->ai_var_B = 0;
+  E->ai_var_C = 8;
+  ERAM(0x7808 + E_k) = 0;
+  ERAM(0x7804 + E_k) = 15;
+  ERAM(0x7806 + E_k) = 0;
+  InitializeEnemyCorpseRotting(0, addr_stru_A9DD58);
+}
+NT_BOSS void CallDeadTorizoFuncA(uint32 ea) {
+  switch (ea) {
+  case 0xA9D3AD: DeadTorizo_WaitForSamusColl(cur_enemy_index); return;
+  case 0xA9D3E6: DeadTorizo_Rotting(); return;
+  case 0xA9D3C8: DeadTorizo_PreRotDelay(); return;
+  case 0xA9D3C7: return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+NT_BOSS void DeadTorizo_Main(void) {  // 0xA9D368
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if ((E->properties & kEnemyProps_Tangible) == 0 && DeadTorizo_Func_0() & 1) {
+    E->properties |= kEnemyProps_Tangible;
+    E->ai_var_A = 0xD3E6 /* DeadTorizo_Rotting */;
+  }
+  nt_gfx_hook_bank = 0xA9; nt_gfx_hook_addr = 0xD39A;
+  CallDeadTorizoFuncA(E->ai_var_A | 0xA90000);
+  DeadTorizo_Func_1();
+}
+NT_BOSS void DeadTorizo_MainGfxHook(void) {  // 0xA9D39A
+  MotherBrain_AddSpritemapToOam(addr_kDeadTorizo_Sprmap_D761, 296, 187, 0);
+}
+NT_BOSS void DeadTorizo_WaitForSamusColl(uint16 k) {  // 0xA9D3AD
+  if (k == enemy_index_colliding_dirs[0]
+      || k == enemy_index_colliding_dirs[1]
+      || k == enemy_index_colliding_dirs[2]
+      || k == enemy_index_colliding_dirs[3]) {
+    gEnemyData(0)->ai_var_A = 0xD3C8 /* DeadTorizo_PreRotDelay */;
+  }
+}
+NT_BOSS void DeadTorizo_PreRotDelay(void) {  // 0xA9D3C8
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 v1 = ERAM(0x7808 + E_k) + 1;
+  ERAM(0x7808 + E_k) = v1;
+  if (v1 >= 0x10) {
+    E->properties |= kEnemyProps_Tangible;
+    E->ai_var_A = 0xD3E6 /* DeadTorizo_Rotting */;
+    DeadTorizo_Rotting();
+  }
+}
+NT_BOSS void DeadTorizo_Rotting(void) {  // 0xA9D3E6
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 v1 = ERAM(0x7806 + E_k) + 1;
+  ERAM(0x7806 + E_k) = v1;
+  if (v1 >= 0xF) {
+    ERAM(0x7806 + E_k) = 0;
+    uint16 dto_var_02 = ERAM(0x7804 + E_k);
+    if (dto_var_02) {
+      DeadTorizo_CopyLineOfSandHeapTileData(dto_var_02);
+      --ERAM(0x7804 + E_k);
+    }
+  }
+  ++E->ai_var_C;
+  MoveEnemyWithVelocity();
+  if (!(ProcessCorpseRotting(0) & 1))
+    E->ai_var_A = 0xD3C7 /* nullsub_361 */;
+}
+NT_BOSS void DeadTorizo_Powerbomb(void) {  // 0xA9D42A
+  if ((gEnemyData(0)->properties & kEnemyProps_Tangible) == 0)
+    DeadTorizo_Shot();
+}
+NT_BOSS void DeadTorizo_Shot(void) {  // 0xA9D433
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->properties |= kEnemyProps_Tangible;
+  E->ai_var_A = 0xD3E6 /* DeadTorizo_Rotting */;
+}
+NT_BOSS uint8 DeadTorizo_Func_0(void) {  // 0xA9D443
+  int16 v5;
+  uint16 v3, v4;
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 r18 = E->x_pos, r20 = E->y_pos;
+  uint16 p = (addr_kDeadTorizo_Hitbox_D77C);
+  int R22 = BW_A9(p);
+  uint16 R24;
+  for (p += 2; R22; p += 8, R22--) {
+    if ((int16)(samus_y_pos - r20) >= 0) {
+      R24 = samus_y_pos - r20;
+      v3 = BW_A9(p + 6);
+    } else {
+      R24 = r20 - samus_y_pos;
+      v3 = BW_A9(p + 2);
+    }
+    if ((int16)(samus_y_radius + abs16(v3) - R24) >= 0) {
+      if ((int16)(samus_x_pos - r18) >= 0) {
+        R24 = samus_x_pos - r18;
+        v4 = BW_A9(p + 4);
+      } else {
+        R24 = r18 - samus_x_pos;
+        v4 = BW_A9(p);
+      }
+      v5 = samus_x_radius + abs16(v4) - R24;
+      if (v5 >= 0) {
+        if (sign16(v5 - 4))
+          v5 = 4;
+        extra_samus_x_displacement = v5;
+        extra_samus_y_displacement = 4;
+        extra_samus_x_subdisplacement = 0;
+        extra_samus_y_subdisplacement = 0;
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+NT_BOSS void DeadSidehopper_Init(void) {  // 0xA9D7B6
+  uint16 dsr_parameter_1 = gEnemyData(cur_enemy_index)->parameter_1;
+  if (dsr_parameter_1) {
+    if (dsr_parameter_1 != 2) {
+      nt_unimpl("Unreachable");
+    }
+    DeadSidehopper_Init_1();
+  } else {
+    DeadSidehopper_Init_0();
+  }
+}
+NT_BOSS void DeadSidehopper_Init_0(void) {  // 0xA9D7C4
+  EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+  E->properties = E->properties & 0x77FF | kEnemyProps_ProcessedOffscreen;
+  if ((gEnemyData(0)->properties & kEnemyProps_Invisible) != 0)
+    E->properties |= kEnemyProps_Deleted;
+  ERAM(0x7810 + E_k) = 0;
+  ERAM(0x7814 + E_k) = 96;
+  ERAM(0x7816 + E_k) = 256;
+  E->x_pos = 488;
+  E->y_pos = 184;
+  E->ai_var_A = 0xD8E2 /* DeadSidehopper_Alive_WaitForActivate */;
+  E->palette_index = 512;
+  E->y_height = 21;
+  Enemy_SetInstrList(cur_enemy_index, addr_kDeadMonsters_Ilist_ECE3);
+  InitializeEnemyCorpseRotting(cur_enemy_index, addr_stru_A9DD68);
+}
+NT_BOSS void DeadSidehopper_Init_1(void) {  // 0xA9D825
+  EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+  ERAM(0x7810 + E_k) = -1;
+  E->ai_var_A = 0xDA64 /* DeadSidehopper_WaitForSamusColl */;
+  E->palette_index = 3584;
+  Enemy_SetInstrList(cur_enemy_index, addr_kDeadMonsters_Ilist_ECEF);
+  InitializeEnemyCorpseRotting(cur_enemy_index, addr_stru_A9DD78);
+}
+NT_BOSS void DeadZoomer_Init(void) {  // 0xA9D849
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->palette_index = 3584;
+  v1->ai_var_A = 0xDA69 /* DeadZoomer_WaitForSamusColl */;
+  int v2 = v1->parameter_1 >> 1;
+  Enemy_SetInstrList(cur_enemy_index, ((uint16)BW_A9(0xD86A + 2 * (v2))));
+  InitializeEnemyCorpseRotting(cur_enemy_index, ((uint16)BW_A9(0xD870 + 2 * (v2))));
+}
+NT_BOSS void DeadRipper_Init(void) {  // 0xA9D876
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->palette_index = 3584;
+  v1->ai_var_A = 0xDA73 /* DeadRipper_WaitForSamusColl */;
+  int v2 = v1->parameter_1 >> 1;
+  Enemy_SetInstrList(cur_enemy_index, ((uint16)BW_A9(0xD897 + 2 * (v2))));
+  InitializeEnemyCorpseRotting(cur_enemy_index, ((uint16)BW_A9(0xD89B + 2 * (v2))));
+}
+NT_BOSS void DeadSkree_Init(void) {  // 0xA9D89F
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->palette_index = 3584;
+  v1->ai_var_A = 0xDA6E /* DeadSkree_WaitForSamusColl */;
+  int v2 = v1->parameter_1 >> 1;
+  Enemy_SetInstrList(cur_enemy_index, ((uint16)BW_A9(0xD8C0 + 2 * (v2))));
+  InitializeEnemyCorpseRotting(cur_enemy_index, ((uint16)BW_A9(0xD8C6 + 2 * (v2))));
+}
+NT_BOSS void DeadSidehopper_Powerbomb(void) {  // 0xA9D8CC
+  if (ERAM(0x7810 + (cur_enemy_index)) >= 8)
+    DeadSidehopper_Shot();
+  else
+    DeadSidehopper_Main();
+}
+NT_BOSS void CallDeadSidehopperFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA9D8F1: DeadSidehopper_Activated(k); return;
+  case 0xA9D8E2: DeadSidehopper_Alive_WaitForActivate(k); return;
+
+  case 0xA9DA64: DeadSidehopper_WaitForSamusColl(k); return;
+  case 0xA9DA69: DeadZoomer_WaitForSamusColl(k); return;
+  case 0xA9DA6E: DeadSkree_WaitForSamusColl(k); return;
+  case 0xA9DA73: DeadRipper_WaitForSamusColl(k); return;
+
+  case 0xA9DA8F: DeadSidehopper_PreRotDelay(k); return;
+  case 0xA9DA94: DeadZoomer_PreRotDelay(k); return;
+  case 0xA9DA9E: DeadSkree_PreRotDelay(k); return;
+  case 0xA9DA99: DeadRipper_PreRotDelay(k); return;
+
+  case 0xA9DABA: DeadSidehopper_Rotting(k); return;
+  case 0xA9DAD0: DeadZoomer_Rotting(k); return;
+  case 0xA9DAFC: DeadSkree_Rotting(k); return;
+  case 0xA9DAE6: DeadRipper_Rotting(k); return;
+
+  case 0xA9D910: DeadMonsters_Func_1(k); return;
+  case 0xA9D91D: DeadMonsters_Func_2(k); return;
+  case 0xA9DA08: DeadMonsters_Func_5(k); return;
+
+  case 0xA9D90F: return;
+  case 0xA9DA63: return;
+
+  default: nt_unimpl("Unreachable");
+  }
+}
+NT_BOSS void DeadSidehopper_Main(void) {  // 0xA9D8DB
+  EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+  CallDeadSidehopperFunc(E->ai_var_A | 0xA90000, cur_enemy_index);
+}
+NT_BOSS void DeadSidehopper_Alive_WaitForActivate(uint16 k) {  // 0xA9D8E2
+  if (sign16(layer1_x_pos - 513)) {
+    gEnemyData(k)->ai_var_A = 0xD8F1 /* DeadSidehopper_Activated */;
+    DeadSidehopper_Activated(k);
+  }
+}
+NT_BOSS void DeadSidehopper_Activated(uint16 k) {  // 0xA9D8F1
+  if (DeadMonsters_Func_3(k) & 1) {
+    EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+    ERAM(0x780C + E_k) = (ERAM(0x780C + E_k) + 1) & 3;
+    Enemy_SetInstrList(k, addr_kDeadMonsters_Ilist_ECAC);
+    E->ai_var_A = 0xD90F /* nullsub_362 */;
+  }
+}
+NT_BOSS void DeadMonsters_Func_1(uint16 k) {  // 0xA9D910
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  E->ai_var_A = 0xD91D /* DeadMonsters_Func_2 */;
+  E->ai_preinstr = 64;
+}
+NT_BOSS void DeadMonsters_Func_2(uint16 k) {  // 0xA9D91D
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  if ((--E->ai_preinstr & 0x8000) != 0) {
+    if (ERAM(0x7810 + E_k)) {
+      E->ai_var_A = 0xDA08 /* DeadMonsters_Func_5 */;
+    } else {
+      E->ai_var_A = 0xD8F1 /* DeadSidehopper_Activated */;
+      Enemy_SetInstrList(k, addr_kDeadMonsters_Ilist_ECE3);
+      int v3 = ERAM(0x780C + E_k);
+      ERAM(0x7816 + E_k) = ((uint16)BW_A9(0xD951 + 2 * (v3)));
+      ERAM(0x7814 + E_k) = ((uint16)BW_A9(0xD959 + 2 * (v3)));
+    }
+  }
+}
+NT_BOSS uint8 DeadMonsters_Func_3(uint16 k) {  // 0xA9D961
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  DeadMonsters_Func_4(k, ERAM(0x7814 + E_k));
+  uint16 v2 = 32;
+  if ((ERAM(0x7816 + E_k) & 0x8000) == 0)
+    v2 = 128;
+  uint16 v3 = ERAM(0x7816 + E_k) + v2;
+  ERAM(0x7816 + E_k) = v3;
+  if (sign16(E->x_pos - 544)) {
+    int full = HIBYTE(E->y_subpos) + LOBYTE(v3);
+    HIBYTE(E->y_subpos) = full;
+    uint16 v12 = E->y_pos + (int8)(v3 >> 8) + (full >> 8);
+    E->y_pos = v12;
+    return sign16(v12 - 184) == 0;
+  } else {
+    return Enemy_MoveDown(k, INT16_SHL8(v3));
+  }
+}
+NT_BOSS void DeadMonsters_Func_4(uint16 k, uint16 a) {  // 0xA9D9C7
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  if (sign16(E->x_pos - 544)) {
+    int full = HIBYTE(E->x_subpos) + LOBYTE(a);
+    HIBYTE(E->x_subpos) = full;
+    E->x_pos += (int8)(a >> 8) + (full >> 8);
+  } else {
+    Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL8(a));
+  }
+}
+NT_BOSS void DeadMonsters_Func_5(uint16 k) {  // 0xA9DA08
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  uint16 v2 = ERAM(0x780E + E_k) + 1;
+  ERAM(0x780E + E_k) = v2;
+  if (v2 >= 8) {
+    ERAM(0x780E + E_k) = 0;
+    WriteColorsToPalette(
+      0x122,
+      0xa9, 32 * (ERAM(0x7810 + E_k) - 1) - 0x1434,
+      0xF);
+    uint16 v3 = cur_enemy_index;
+    uint16 v5 = ERAM(0x7810 + E_k) + 1;
+    ERAM(0x7810 + E_k) = v5;
+    if (v5 >= 8) {
+      Enemy_SetInstrList(v3, addr_kDeadMonsters_Ilist_ECE9);
+      E->ai_var_A = 0xDA64 /* DeadSidehopper_WaitForSamusColl */;
+      E->properties |= 0x8000;
+      E->y_height = 12;
+    }
+  }
+}
+NT_BOSS void DeadSidehopper_WaitForSamusColl(uint16 k) {  // 0xA9DA64
+  DeadMonsters_WaitForSamusColl(k, 0xDA8F /* DeadSidehopper_PreRotDelay */);
+}
+NT_BOSS void DeadZoomer_WaitForSamusColl(uint16 k) {  // 0xA9DA69
+  DeadMonsters_WaitForSamusColl(k, 0xDA94 /* DeadZoomer_PreRotDelay */);
+}
+NT_BOSS void DeadSkree_WaitForSamusColl(uint16 k) {  // 0xA9DA6E
+  DeadMonsters_WaitForSamusColl(k, 0xDA9E /* DeadSkree_PreRotDelay */);
+}
+NT_BOSS void DeadRipper_WaitForSamusColl(uint16 k) {  // 0xA9DA73
+  DeadMonsters_WaitForSamusColl(k, 0xDA99 /* DeadRipper_PreRotDelay */);
+}
+NT_BOSS void DeadMonsters_WaitForSamusColl(uint16 k, uint16 j) {  // 0xA9DA76
+  if (k == enemy_index_colliding_dirs[0]
+      || k == enemy_index_colliding_dirs[1]
+      || k == enemy_index_colliding_dirs[2]
+      || k == enemy_index_colliding_dirs[3]) {
+    gEnemyData(k)->ai_var_A = j;
+  }
+}
+NT_BOSS void DeadSidehopper_PreRotDelay(uint16 k) {  // 0xA9DA8F
+  DeadMonsters_PreRotDelay_Common(k, 0xDABA /* DeadSidehopper_Rotting */);
+}
+NT_BOSS void DeadZoomer_PreRotDelay(uint16 k) {  // 0xA9DA94
+  DeadMonsters_PreRotDelay_Common(k, 0xDAD0 /* DeadZoomer_Rotting */);
+}
+NT_BOSS void DeadRipper_PreRotDelay(uint16 k) {  // 0xA9DA99
+  DeadMonsters_PreRotDelay_Common(k, 0xDAE6 /* DeadRipper_Rotting */);
+}
+NT_BOSS void DeadSkree_PreRotDelay(uint16 k) {  // 0xA9DA9E
+  DeadMonsters_PreRotDelay_Common(k, 0xDAFC /* DeadSkree_Rotting */);
+}
+NT_BOSS void DeadMonsters_PreRotDelay_Common(uint16 k, uint16 j) {  // 0xA9DAA1
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  if (++E->ai_var_B >= 0x10) {
+    E->ai_var_A = j;
+    E->properties |= kEnemyProps_Tangible;
+  }
+}
+NT_BOSS void DeadSidehopper_Rotting(uint16 k) {  // 0xA9DABA
+  uint8 v1 = ProcessCorpseRotting(k);
+  if (!(v1 & 1))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0xDA64 /* DeadSidehopper_WaitForSamusColl */;
+  uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
+  ProcessCorpseRottingVramTransfers(dms_var_53);
+}
+NT_BOSS void DeadZoomer_Rotting(uint16 k) {  // 0xA9DAD0
+  uint8 v1 = ProcessCorpseRotting(k);
+  if (!(v1 & 1))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0xDA63 /* nullsub_268 */;
+  uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
+  ProcessCorpseRottingVramTransfers(dms_var_53);
+}
+NT_BOSS void DeadRipper_Rotting(uint16 k) {  // 0xA9DAE6
+  uint8 v1 = ProcessCorpseRotting(k);
+  if (!(v1 & 1))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0xDA63 /* nullsub_268 */;
+  uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
+  ProcessCorpseRottingVramTransfers(dms_var_53);
+}
+NT_BOSS void DeadSkree_Rotting(uint16 k) {  // 0xA9DAFC
+  uint8 v1 = ProcessCorpseRotting(k);
+  if (!(v1 & 1))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0xDA63 /* nullsub_268 */;
+  uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
+  ProcessCorpseRottingVramTransfers(dms_var_53);
+}
+NT_BOSS void DeadZoomer_Powerbomb(void) {  // 0xA9DCED
+  if ((gEnemyData(cur_enemy_index)->properties & kEnemyProps_Tangible) == 0)
+    DeadZoomer_Shot();
+}
+NT_BOSS void DeadZoomer_Shot(void) {  // 0xA9DCF8
+  DeadSidehopper_DD34(0xDAD0 /* DeadZoomer_Rotting */);
+}
+NT_BOSS void DeadRipper_Powerbomb(void) {  // 0xA9DCFD
+  if ((gEnemyData(cur_enemy_index)->properties & kEnemyProps_Tangible) == 0)
+    DeadRipper_Shot();
+}
+NT_BOSS void DeadRipper_Shot(void) {  // 0xA9DD08
+  DeadSidehopper_DD34(0xDAE6 /* DeadRipper_Rotting */);
+}
+NT_BOSS void DeadSkree_Powerbomb(void) {  // 0xA9DD0D
+  if ((gEnemyData(cur_enemy_index)->properties & kEnemyProps_Tangible) == 0)
+    DeadSkree_Shot();
+}
+NT_BOSS void DeadSkree_Shot(void) {  // 0xA9DD18
+  DeadSidehopper_DD34(0xDAFC /* DeadSkree_Rotting */);
+}
+NT_BOSS void DeadSidehopper_Shot(void) {  // 0xA9DD1D
+  EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+  if ((E->properties & kEnemyProps_Tangible) != 0 || ERAM(0x7810 + E_k) < 8)
+    ;
+  else
+    DeadSidehopper_DD31();
+}
+NT_BOSS void DeadSidehopper_DD31(void) {  // 0xA9DD31
+  DeadSidehopper_DD34(0xDABA /* DeadSidehopper_Rotting */);
+}
+NT_BOSS void DeadSidehopper_DD34(uint16 a) {  // 0xA9DD34
+  EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = a;
+  E->properties |= kEnemyProps_ProcessedOffscreen | kEnemyProps_Tangible;
+}
+NT_BOSS void DeadSidehopper_Touch(void) {  // 0xA9DD44
+  if (ERAM(0x7810 + (cur_enemy_index)) < 8)
+    NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
+  else
+    DeadSidehopper_DD31();
+}
 NT_BOSS uint8 Shitroid_Func_1(uint16 k, uint16 j) {  // 0xA9EED1
   EnemyData *E = gEnemyData(j); uint16 E_k = (j);
   EnemyData *G = gEnemyData(k); uint16 G_k = (k);
@@ -31128,13 +31686,13 @@ void WalkingSpacePirates_FE4B(void) {  // 0xB2FE4B
 void Enemy_NormalTouchAI_B3(void) {  // 0xB38023
   NormalEnemyTouchAi();
 }
-NT_BOSS void Enemy_NormalTouchAI_SkipDeathAnim_B3(void) {  // 0xB38028
+void Enemy_NormalTouchAI_SkipDeathAnim_B3(void) {  // 0xB38028
   NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
 }
 void Enemy_NormalShotAI_B3(void) {  // 0xB3802D
   NormalEnemyShotAi();
 }
-NT_BOSS void Enemy_NormalShotAI_SkipSomeParts_B3(void) {  // 0xB38032
+void Enemy_NormalShotAI_SkipSomeParts_B3(void) {  // 0xB38032
   NormalEnemyShotAiSkipDeathAnim_CurEnemy();
 }
 void Enemy_NormalPowerBombAI_SkipDeathAnim_B3(void) {  // 0xB3803C
@@ -32374,7 +32932,9 @@ static void port_w_Rinka_Powerbomb(void) { Rinka_Powerbomb(cur_enemy_index); }
 static void port_w_Fireflea_Touch(void) { Fireflea_Touch(cur_enemy_index); }
 static void port_w_Metroid_Powerbomb(void) { Metroid_Powerbomb(cur_enemy_index); }
 static void port_w_MotherBrainsTubesFalling_Main(void) { MotherBrainsTubesFalling_Main(cur_enemy_index); }
-static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[361] = {
+static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[397] = {
+  {0xA08023, Enemy_NormalTouchAI_A0},
+  {0xA0802D, Enemy_NormalShotAI_A0},
   {0xA28023, Enemy_NormalTouchAI_A2},
   {0xA2802D, Enemy_NormalShotAI_A2},
   {0xA28041, Enemy_NormalFrozenAI_A2},
@@ -32481,6 +33041,7 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[361] = {
   {0xA3ABCF, Sidehopper_Main},
   {0xA3B44A, MaridiaRefillCandy_Init},
   {0xA3B47C, MaridiaRefillCandy_Main},
+  {0xA3B66F, NorfairSlowFireball_Init},
   {0xA3C6AE, Skree_Init},
   {0xA3C6C7, Skree_Main},
   {0xA3C7F5, Skree_Shot},
@@ -32502,6 +33063,11 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[361] = {
   {0xA3EDEB, Metroid_Touch},
   {0xA3EF07, Metroid_Shot},
   {0xA3F042, port_w_Metroid_Powerbomb},
+  {0xA48023, Enemy_NormalTouchAI_A4},
+  {0xA48023, Enemy_NormalTouchAI_A4},
+  {0xA4802D, Enemy_NormalShotAI_A4},
+  {0xA4802D, Enemy_NormalShotAI_A4},
+  {0xA48041, Enemy_NormalFrozenAI_A4},
   {0xA4804C, port_nop_v},
   {0xA48687, Crocomire_Hurt},
   {0xA48A5A, Crocomire_Init},
@@ -32516,6 +33082,10 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[361] = {
   {0xA4BAB4, Crocomire_Func_1},
   {0xA4F67A, CrocomireTongue_Init},
   {0xA4F6BB, CrocomireTongue_Main},
+  {0xA58023, Enemy_NormalTouchAI_A5},
+  {0xA5802D, Enemy_NormalShotAI_A5},
+  {0xA5802D, Enemy_NormalShotAI_A5},
+  {0xA58041, Enemy_NormalFrozenAI_A5},
   {0xA58046, CreateADudShot},
   {0xA5804C, port_nop_v},
   {0xA5804C, port_nop_v},
@@ -32541,6 +33111,9 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[361] = {
   {0xA5EDEC, SporeSpawn_Touch},
   {0xA5EDEC, SporeSpawn_Touch},
   {0xA5EDF2, port_nop_v},
+  {0xA68023, Enemy_NormalTouchAI_A6},
+  {0xA6802D, Enemy_NormalShotAI_A6},
+  {0xA68041, Enemy_NormalFrozenAI_A6},
   {0xA6804C, port_nop_v},
   {0xA6804C, port_nop_v},
   {0xA686F5, Boulder_Init},
@@ -32567,7 +33140,9 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[361] = {
   {0xA6FC33, Zebetites_Main},
   {0xA6FDA7, Zebetites_Touch},
   {0xA6FDAC, Zebetites_Shot},
+  {0xA7802D, Enemy_NormalShotAI_A7},
   {0xA7803C, Enemy_NormalPowerBombAI_SkipDeathAnim_A7},
+  {0xA78041, Enemy_NormalFrozenAI_A7},
   {0xA7804C, port_nop_v},
   {0xA7804C, port_nop_v},
   {0xA7804C, port_nop_v},
@@ -32652,6 +33227,7 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[361] = {
   {0xA8F25C, KiHunter_Main},
   {0xA8F262, KiHunterWings_Main},
   {0xA8F701, KiHunter_Shot},
+  {0xA98041, Enemy_NormalFrozenAI_A9},
   {0xA9804C, port_nop_v},
   {0xA98687, MotherBrainsBody_Init},
   {0xA98705, MotherBrainsBrain_Init},
@@ -32671,6 +33247,24 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[361] = {
   {0xA9C710, ShitroidInCutscene_Init},
   {0xA9C779, ShitroidInCutscene_Main},
   {0xA9CF03, ShitroidInCutscene_Touch},
+  {0xA9D308, DeadTorizo_Init},
+  {0xA9D368, DeadTorizo_Main},
+  {0xA9D42A, DeadTorizo_Powerbomb},
+  {0xA9D433, DeadTorizo_Shot},
+  {0xA9D7B6, DeadSidehopper_Init},
+  {0xA9D849, DeadZoomer_Init},
+  {0xA9D876, DeadRipper_Init},
+  {0xA9D89F, DeadSkree_Init},
+  {0xA9D8CC, DeadSidehopper_Powerbomb},
+  {0xA9D8DB, DeadSidehopper_Main},
+  {0xA9DCED, DeadZoomer_Powerbomb},
+  {0xA9DCF8, DeadZoomer_Shot},
+  {0xA9DCFD, DeadRipper_Powerbomb},
+  {0xA9DD08, DeadRipper_Shot},
+  {0xA9DD0D, DeadSkree_Powerbomb},
+  {0xA9DD18, DeadSkree_Shot},
+  {0xA9DD1D, DeadSidehopper_Shot},
+  {0xA9DD44, DeadSidehopper_Touch},
   {0xA9EF37, Shitroid_Init},
   {0xA9EFBA, Shitroid_Powerbomb},
   {0xA9EFC5, Shitroid_Main},
@@ -32746,7 +33340,7 @@ PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las última
   if (cea[h] == ea) return cf[h];
 #endif
   PortFnV f = 0;
-  int lo = 0, hi = 360;
+  int lo = 0, hi = 396;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEnemyAi[m].ea;
@@ -32949,6 +33543,7 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xA6E909: return Ridley_Instr_13(k, jp);
   case 0xA6E969: return Ridley_Instr_15(k, jp);
   case 0xA6E976: return Ridley_Instr_16(k, jp);
+  case 0xA7808A: return EnemyInstr_Call_A7(k, jp);
   case 0xA780ED: return EnemyInstr_Goto(k, jp);
   case 0xA78110: return EnemyInstr_DecTimerAndGoto(k, jp);
   case 0xA78123: return EnemyInstr_SetTimer(k, jp);
@@ -33734,6 +34329,12 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0x86F0D9: Eproj_Pickup_PowerBombs(); return 1;
   case 0x86F0E8: Eproj_Pickup_Missiles(); return 1;
   case 0x86F0F7: Eproj_Pickup_SuperMissiles(); return 1;
+  case 0xA08023: Enemy_NormalTouchAI_A0(); return 1;
+  case 0xA08028: Enemy_NormalTouchAI_SkipDeathAnim_A0(); return 1;
+  case 0xA0802D: Enemy_NormalShotAI_A0(); return 1;
+  case 0xA08032: Enemy_NormalShotAI_SkipSomeParts_A0(); return 1;
+  case 0xA08037: Enemy_NormalPowerBombAI_A0(); return 1;
+  case 0xA0803C: Enemy_NormalPowerBombAI_SkipDeathAnim_A0(); return 1;
   case 0xA08046: CreateADudShot(); return 1;
   case 0xA0922B: DeleteEnemyAndConnectedEnemies(); return 1;
   case 0xA0957E: NormalEnemyFrozenAI(); return 1;
@@ -33995,6 +34596,8 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA3B537: MaridiaRefillCandy_Func_4(); return 1;
   case 0xA3B557: MaridiaRefillCandy_Func_5(); return 1;
   case 0xA3B55B: MaridiaRefillCandy_Func_6(); return 1;
+  case 0xA3B66F: NorfairSlowFireball_Init(); return 1;
+  case 0xA3B6F9: NorfairSlowFireball_Func_1(); return 1;
   case 0xA3C6AE: Skree_Init(); return 1;
   case 0xA3C6C7: Skree_Main(); return 1;
   case 0xA3C6D5: Skree_Func_1(); return 1;
@@ -34018,6 +34621,9 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA3EB98: Metroid_Main(); return 1;
   case 0xA3EDEB: Metroid_Touch(); return 1;
   case 0xA3EF07: Metroid_Shot(); return 1;
+  case 0xA48023: Enemy_NormalTouchAI_A4(); return 1;
+  case 0xA4802D: Enemy_NormalShotAI_A4(); return 1;
+  case 0xA48041: Enemy_NormalFrozenAI_A4(); return 1;
   case 0xA48687: Crocomire_Hurt(); return 1;
   case 0xA48A5A: Crocomire_Init(); return 1;
   case 0xA48BA4: Crocomire_8BA4(); return 1;
@@ -34075,6 +34681,9 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA4BAB4: Crocomire_Func_1(); return 1;
   case 0xA4F67A: CrocomireTongue_Init(); return 1;
   case 0xA4F6BB: CrocomireTongue_Main(); return 1;
+  case 0xA58023: Enemy_NormalTouchAI_A5(); return 1;
+  case 0xA5802D: Enemy_NormalShotAI_A5(); return 1;
+  case 0xA58041: Enemy_NormalFrozenAI_A5(); return 1;
   case 0xA58687: Draygon_Init(); return 1;
   case 0xA586FC: Draygon_Main(); return 1;
   case 0xA5871B: Draygon_Func_1(); return 1;
@@ -34133,6 +34742,9 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA5ED5A: SporeSpawn_Shot(); return 1;
   case 0xA5EDEC: SporeSpawn_Touch(); return 1;
   case 0xA5EDF3: SporeSpawn_Func_6(); return 1;
+  case 0xA68023: Enemy_NormalTouchAI_A6(); return 1;
+  case 0xA6802D: Enemy_NormalShotAI_A6(); return 1;
+  case 0xA68041: Enemy_NormalFrozenAI_A6(); return 1;
   case 0xA686F5: Boulder_Init(); return 1;
   case 0xA68793: Boulder_Main(); return 1;
   case 0xA6879A: Boulder_Func_1(); return 1;
@@ -34314,7 +34926,9 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA6FD5E: Zebetites_Func_4(); return 1;
   case 0xA6FDA7: Zebetites_Touch(); return 1;
   case 0xA6FDAC: Zebetites_Shot(); return 1;
+  case 0xA7802D: Enemy_NormalShotAI_A7(); return 1;
   case 0xA7803C: Enemy_NormalPowerBombAI_SkipDeathAnim_A7(); return 1;
+  case 0xA78041: Enemy_NormalFrozenAI_A7(); return 1;
   case 0xA7CDF3: Phantoon_Init(); return 1;
   case 0xA7CE55: Phantoon2_Init(); return 1;
   case 0xA7CEA6: Phantoon_Main(); return 1;
@@ -34484,6 +35098,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA8F87F: KiHunter_Func_13(); return 1;
   case 0xA8F8AD: KiHunter_Func_14(); return 1;
   case 0xA8F98D: KiHunter_Func_17(); return 1;
+  case 0xA98041: Enemy_NormalFrozenAI_A9(); return 1;
   case 0xA98687: MotherBrainsBody_Init(); return 1;
   case 0xA98705: MotherBrainsBrain_Init(); return 1;
   case 0xA9873E: MotherBrainsBody_Hurt(); return 1;
@@ -34700,6 +35315,30 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA9D1F8: MotherBrain_SetupBrainNormalPal(); return 1;
   case 0xA9D1FF: MotherBrain_SetupBrainPalForLaser(); return 1;
   case 0xA9D206: MotherBrain_HandleBrainPal(); return 1;
+  case 0xA9D308: DeadTorizo_Init(); return 1;
+  case 0xA9D368: DeadTorizo_Main(); return 1;
+  case 0xA9D39A: DeadTorizo_MainGfxHook(); return 1;
+  case 0xA9D3C8: DeadTorizo_PreRotDelay(); return 1;
+  case 0xA9D3E6: DeadTorizo_Rotting(); return 1;
+  case 0xA9D42A: DeadTorizo_Powerbomb(); return 1;
+  case 0xA9D433: DeadTorizo_Shot(); return 1;
+  case 0xA9D7B6: DeadSidehopper_Init(); return 1;
+  case 0xA9D7C4: DeadSidehopper_Init_0(); return 1;
+  case 0xA9D825: DeadSidehopper_Init_1(); return 1;
+  case 0xA9D849: DeadZoomer_Init(); return 1;
+  case 0xA9D876: DeadRipper_Init(); return 1;
+  case 0xA9D89F: DeadSkree_Init(); return 1;
+  case 0xA9D8CC: DeadSidehopper_Powerbomb(); return 1;
+  case 0xA9D8DB: DeadSidehopper_Main(); return 1;
+  case 0xA9DCED: DeadZoomer_Powerbomb(); return 1;
+  case 0xA9DCF8: DeadZoomer_Shot(); return 1;
+  case 0xA9DCFD: DeadRipper_Powerbomb(); return 1;
+  case 0xA9DD08: DeadRipper_Shot(); return 1;
+  case 0xA9DD0D: DeadSkree_Powerbomb(); return 1;
+  case 0xA9DD18: DeadSkree_Shot(); return 1;
+  case 0xA9DD1D: DeadSidehopper_Shot(); return 1;
+  case 0xA9DD31: DeadSidehopper_DD31(); return 1;
+  case 0xA9DD44: DeadSidehopper_Touch(); return 1;
   case 0xA9EF37: Shitroid_Init(); return 1;
   case 0xA9EFBA: Shitroid_Powerbomb(); return 1;
   case 0xA9EFC5: Shitroid_Main(); return 1;

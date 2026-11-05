@@ -67,7 +67,7 @@ def roots_from(path, g, section=None):
         if line.endswith('*'):                      # familia: Roach_* (solo las de los bancos de enemigos)
             pre = line[:-1]
             roots += [n for n in g.funcs if n.startswith(pre) and not n.startswith('off_') and 'CorpseRotting' not in n
-                      and (pre != 'EprojInstr_' or g.funcs[n][3] and g.funcs[n][3] < 0x868300) and fbank(g, n) in ({0xA0} if pre.startswith('EnemyInstr') else {0x86} if pre.startswith('Eproj') else ENEMY_BANKS)]
+                      and (pre != 'EprojInstr_' or g.funcs[n][3] and g.funcs[n][3] < 0x868300) and fbank(g, n) in ({0xA0} if pre == 'EnemyInstr_' else {0x86} if pre.startswith('Eproj') else ENEMY_BANKS | {0xA0})]
         else:
             roots.append(line)
     return roots

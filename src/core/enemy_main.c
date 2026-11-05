@@ -97,6 +97,28 @@ void CallEnemyAi(uint8 bank, uint16 f) {
   }
 }
 
+/* tilemap de un spritemap extendido (0xFFFE): bloques (destino en la RAM, palabras, datos) hasta 0xFFFF, casi siempre
+   en tilemap_stuff (7E:2000, el BG2 de los jefes grandes: Phantoon, Draygon, Crocomire); la NMI lo sube a la VRAM
+   (QueueEnemyBG2TilemapTransfers; en la Genesis, la plataforma) */
+void ProcessExtendedTilemap(uint8 db, uint16 r22) {  // 0xA096CA
+  uint16 p = r22 + 2;
+  for (;;) {
+    uint16 dst = BankW(db, p);
+    if (dst == 0xFFFF)
+      break;
+    uint16 n = BankW(db, p + 2);
+    p += 4;
+    for (uint16 i = 0; i < n; i++, p += 2, dst += 2) {
+      uint16 w = BankW(db, p);
+      if ((uint16)(dst - 0x2000) < 0x1000)
+        tilemap_stuff[(dst - 0x2000) >> 1] = w;
+      else
+        nt_ram_set_w(dst, w);
+    }
+  }
+  ++nmi_flag_bg2_enemy_vram_transfer;
+}
+
 /* ------------------------------------------------------------------ carga ($A0:8A1E) */
 static void ClearSpriteObjects(void) {  // 0xB4BD97 (el original borra 511 palabras: los 8 arreglos menos la primera)
   for (int i = 1; i < 64; i++) sprite_instr_list_ptrs[i] = 0;
@@ -802,7 +824,7 @@ static void WriteEnemyOams(void) {  // 0xA0944A
       uint16 x = x2 + BankW(E->bank, ep), y = y2 + BankW(E->bank, ep + 2);
       if (BankW(E->bank, sm) == 0xFFFE) {
         if (E->extra_properties & 0x8000)
-          nt_unimpl("WriteEnemyOams (tilemap extendido)");   /* ProcessExtendedTilemap */
+          ProcessExtendedTilemap(E->bank, sm);
       } else if (!((x + 128) & 0xFE00) && !((y + 128) & 0xFE00)) {
         DrawEnemySpritemap(E->bank, sm, x, y, palette_index, E->vram_tiles_index);
       }

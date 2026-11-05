@@ -1048,6 +1048,140 @@ static void LayerBlendingHandler(void) {  // 0x888000
 }
 
 /* ------------------------------------------------------------------ manejador ($88:84B9) */
+/* ------------------------------------------------------------------ jefes: Phantoon y Draygon ($88:DF34-E5xx)
+   Las tablas del HDMA de Phantoon (la onda del fondo) van en 7E:9000-91FF: la RAM extra de los enemigos (ERAM), con
+   palabras que empiezan en direcciones impares: se escriben de a bytes (como el SNES, little-endian) */
+static void eram_w8(uint16 a, uint8 x) {
+  uint16 *w = &ERAM(a & ~1);
+  *w = (a & 1) ? (uint16)((*w & 0x00FF) | x << 8) : (uint16)((*w & 0xFF00) | x);
+}
+static void eram_w16(uint16 a, uint16 x) { eram_w8(a, (uint8)x); eram_w8((uint16)(a + 1), x >> 8); }
+
+void sub_88DF34(void) {  // 0x88DF34: el agua de Draygon
+  SpawnHdmaObject(0x88, 0xDF4F);
+}
+
+static void HdmaobjPreInstr_DF94(uint16 v0) {  // 0x88DF94
+  int16 v1;
+  int v2 = v0 >> 1;
+  if ((enemy_data[0].properties & 0x200) == 0
+      && (int16)(enemy_data[0].x_pos - layer1_x_pos + 64) >= 0
+      && sign16(enemy_data[0].x_pos - layer1_x_pos - 320)
+      && (int16)(enemy_data[0].y_pos - layer1_y_pos + 16) >= 0
+      && (v1 = enemy_data[0].y_pos - layer1_y_pos, sign16(enemy_data[0].y_pos - layer1_y_pos - 304))) {
+    hdma_object_instruction_timers[v2] = 1;
+    if (sign16(v1 - 40))
+      hdma_object_instruction_list_pointers[v2] = 0xDF6B;                 // addr_word_88DF6B
+    else if (sign16(v1 - 192))
+      hdma_object_instruction_list_pointers[v2] = 0xDF5F;
+    else
+      hdma_object_instruction_list_pointers[v2] = 0xDF65;
+  } else {
+    hdma_object_instruction_timers[v2] = 1;
+    hdma_object_instruction_list_pointers[v2] = 0xDF71;
+  }
+}
+
+static void HdmaobjPreInstr_E449(uint16 k) {  // 0x88E449: Phantoon
+  (void)k;
+  if ((phantom_related_layer_flag & 0x4000) != 0) {
+    fx_layer_blending_config_c = 26;
+  } else if (LOBYTE(enemy_data[3].parameter_1)) {
+    if (LOBYTE(enemy_data[3].parameter_1) == 0xFF) {
+      fx_layer_blending_config_c = 4;
+      int v0 = hdma_object_index >> 1;
+      hdma_object_instruction_list_pointers[v0] += 2;
+      hdma_object_instruction_timers[v0] = 1;
+    }
+  } else {
+    fx_layer_blending_config_c = 4;
+  }
+}
+
+void sub_88E487(uint16 v0, uint16 r22) {  // 0x88E487: la onda de Phantoon
+  enemy_data[2].parameter_1 = v0;
+  enemy_data[3].ai_var_D = 0;
+  enemy_data[3].ai_var_E = 0;
+  enemy_data[3].ai_preinstr = r22;
+  SpawnHdmaObject(0x88, 0xE4A8);
+}
+
+static void HdmaobjInstr_E4BD(uint16 k) {  // 0x88E4BD: las tablas indirectas del HDMA de la onda (7E:9000)
+  enemy_data[1].parameter_1 = enemy_data[2].parameter_1;
+  if ((enemy_data[2].parameter_1 & 1) != 0) {
+    eram_w16(0x9000, 192);
+    eram_w16(0x9006, 192);
+    eram_w16(0x9003, 0x00C0);                       // la palabra en 7E:9003 = HIWORD(0xC09100)
+    eram_w16(0x9001, 0x9100);
+    eram_w16(0x9004, 0x9180);
+    eram_w16(0x9009, 0x00C0);
+    eram_w16(0x9007, 0x9100);
+    eram_w16(0x900A, 0x9180);                       // addr_loc_889180
+    eram_w16(0x900C, 0);
+  } else {
+    eram_w16(0x9000, 160);
+    eram_w16(0x9006, 160);
+    eram_w16(0x900C, 160);
+    eram_w16(0x900F, 160);
+    eram_w16(0x9012, 160);
+    eram_w16(0x9015, 160);
+    eram_w16(0x9003, 0x00A0);                       // HIWORD(0xA09100)
+    eram_w16(0x9001, 0x9100);
+    eram_w16(0x9009, 0x00A0);
+    eram_w16(0x9007, 0x9100);
+    eram_w16(0x900D, 0x9100);
+    eram_w16(0x9013, 0x9100);
+    eram_w16(0x9004, 0x9140);
+    eram_w16(0x900A, 0x9140);
+    eram_w16(0x9010, 0x9140);
+    eram_w16(0x9016, 0x9140);
+    eram_w16(0x9018, 0);
+  }
+  int v6 = k >> 1;
+  hdma_object_A[v6] = -2;
+  hdma_object_B[v6] = 1;
+  hdma_object_C[v6] = 0;
+  hdma_object_D[v6] = 0;
+}
+
+static void HdmaobjPreInstr_E567(uint16 v0) {  // 0x88E567: desplazamiento del BG2 por línea (seno)
+  if (!enemy_data[1].parameter_1) {
+    int v1 = hdma_object_index >> 1;
+    hdma_object_instruction_list_pointers[v1] += 2;
+    hdma_object_instruction_timers[v1] = 1;
+    return;
+  }
+  uint16 r28, r30;
+  if ((enemy_data[1].parameter_1 & 1) != 0) { r28 = 4; r30 = 128; } else { r28 = 8; r30 = 64; }
+  int v2 = v0 >> 1;
+  if (hdma_object_B[v2]-- == 1) {
+    hdma_object_B[v2] = 1;
+    hdma_object_A[v2] = (2 * enemy_data[3].ai_preinstr + hdma_object_A[v2]) & 0x1FF;
+  }
+  uint16 r20 = hdma_object_A[v2];
+  uint16 d = enemy_data[3].ai_var_D;
+  for (uint16 v4 = 0; (int16)(v4 - r30) < 0; v4 += 2) {
+    uint16 v5 = r20;
+    int16 v7 = kSinCosTable8bit_Sext[(r20 >> 1) + 64];
+    uint16 r18 = v7 < 0 ? (uint16)-v7 : (uint16)v7;
+    uint16 r22 = Mult8x8((uint8)r18, d) >> 8;
+    r22 += Mult8x8(HIBYTE(r18), d);
+    uint16 r24 = Mult8x8((uint8)r18, HIBYTE(d));
+    uint8 mult = Mult8x8(HIBYTE(r18), HIBYTE(d));
+    r22 += r24;
+    r18 = ((r22 + (mult << 8)) & 0xFF00) >> 8;
+    r20 = (r28 + v5) & 0x1FF;
+    ERAM(0x9100 + v4) = v7 < 0 ? reg_BG2HOFS - r18 : r18 + reg_BG2HOFS;
+  }
+  if ((enemy_data[1].parameter_1 & 1) != 0) {
+    for (int i = 126; i >= 0; i -= 2)
+      ERAM(0x9180 + i) = reg_BG2HOFS + reg_BG2HOFS - ERAM(0x9100 + i);
+  } else {
+    for (int j = 62; j >= 0; j -= 2)
+      ERAM(0x9140 + j) = reg_BG2HOFS + reg_BG2HOFS - ERAM(0x9100 + j);
+  }
+}
+
 static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   switch (f) {
   case FUNC16(nullsub_293): case addr_locret_88858A: case FUNC16(nullsub_56): break;
@@ -1090,6 +1224,9 @@ static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   case FUNC16(HdmaobjPreInstr_BombTorizoHazeColorMathBgColor): fx_layer_blending_config_c = 44; break;   // 0x88DD43
   case FUNC16(HdmaobjPreInstr_VariaSuitPickup): HdmaobjPreInstr_SuitPickup(k, false); break;   // 0x88E026
   case FUNC16(HdmaobjPreInstr_GravitySuitPickup): HdmaobjPreInstr_SuitPickup(k, true); break;  // 0x88E05C
+  case FUNC16(HdmaobjPreInstr_DF94): HdmaobjPreInstr_DF94(k); break;
+  case FUNC16(HdmaobjPreInstr_E449): HdmaobjPreInstr_E449(k); break;
+  case FUNC16(HdmaobjPreInstr_E567): HdmaobjPreInstr_E567(k); break;
   default: nt_unimpl_v("HdmaobjPreInstr (pre-instrucción sin portar)", f); break;
   }
 }
@@ -1102,6 +1239,7 @@ static void CallHdmaobjFarFunc(uint32 ea, uint16 k) {   /* HdmaobjInstr_CallFarF
   case fnHdmaobj_ExplodeWhite: Hdmaobj_ExplodeWhite(); break;
   case fnHdmaobj_CleanUpTryCrystalFlash: Hdmaobj_CleanUpTryCrystalFlash(k); break;
   case fnInitializeSuitPickupHdma: InitializeSuitPickupHdma(); break;
+  case fnnullsub_113: break;                     // $88:DF91 (el agua de Draygon)
   default: nt_unimpl_v("HdmaobjInstr_CallFarFunc (función sin portar)", ea); break;
   }
 }
@@ -1116,7 +1254,10 @@ static uint16 ListW(uint8 bank, uint16 a) {
     __asm__("" : "+d"(lo));
     return lo | q[1] << 8;
   }
-  default: nt_unimpl("objeto de HDMA (banco sin preparar)"); return FUNC16(HdmaobjInstr_Delete);
+  default: {                                     /* listas en los bancos de los jefes (Phantoon: $A7:CE96) */
+    extern uint16 nt_bank_w(uint8 bank, uint16 a);
+    return nt_bank_w(bank, a);
+  }
   }
 }
 
@@ -1160,6 +1301,7 @@ static uint16 HdmaobjInstr(uint16 f, uint16 k, uint16 p, uint8 bank) {
     scrolls[1] = 0;
     return p + 2;
   case FUNC16(HdmaobjInstr_B3A9): hdma_object_C[v] = 112; return p;                                          // $88:B3A9
+  case FUNC16(HdmaobjInstr_E4BD): HdmaobjInstr_E4BD(k); return p;                                          // $88:E4BD (Phantoon)
   case FUNC16(HdmaobjInstr_SetFlagB_Copy): case FUNC16(HdmaobjInstr_SetFlagB_Copy2):
   case FUNC16(HdmaobjInstr_SetFlagB_Copy3): case FUNC16(HdmaobjInstr_SetFlagB):
     hdma_object_B[v] = 1;

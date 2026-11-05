@@ -53,7 +53,7 @@ En el PC, cada sala sola contra el SNES (`tools/rooms/lote.sh`, Samus invencible
 |---|---|---|---|
 | A98D | Crocomire | 0 diferencias | corre; sus objetos no entran (mkzobj); cuerpo en BG2 sin dibujar |
 | B283 | Golden Torizo | 0 | corre; sin ver todavía al jefe |
-| B32E | Ridley | 0 | corre; falta su dibujo en Norfair (en Ceres usa uno propio) |
+| B32E | Ridley | 0 | corre; sus claves de dibujo ya están (`mkzkeys.py`: `mkmd.ridley_keys`, sin las del destello) y `DrawA6Spritemap` pasa por `zebes_obj_draw`; falta que sus objetos entren en la VRAM (893 tiles sin juntar piezas, hay 632) |
 | CD13 | Phantoon | 0 | corre; cuerpo en BG2 sin dibujar |
 | D95E | Botwoon | 0 | se ve |
 | DA60 | Draygon | igual hasta que Samus muere (secuencia de muerte sin portar) | corre; partes en BG2 sin dibujar |

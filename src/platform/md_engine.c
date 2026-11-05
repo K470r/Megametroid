@@ -961,6 +961,7 @@ void DrawEnemySpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, u
    ya juntadas en sprites grandes), se dibuja de una vez; si no, el motor dibuja cada spritemap */
 uint8 DrawEnemyExtSpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, uint16 tiles) {
   (void)bank;
+  if (md_zebes) return 0;                       /* (las claves de tipo 7 son las de Ceres; en Zebes, pieza por pieza) */
   return drawkey(7, sm, pal, tiles, (int16)x, (int16)y);
 }
 
@@ -1176,6 +1177,8 @@ void md_draw_eprojs(uint16 prio, uint16 bx, uint16 by) {
 }
 
 void DrawA6Spritemap(uint16 sm, uint16 x, uint16 y, uint16 a) {  // 0xA6DC13: posición en la sala
+  /* Zebes (Ridley de Norfair): las claves de los objetos de la sala (mkzkeys.py: enemy A6 sm paleta 0000) */
+  if (md_zebes && zebes_obj_draw(sm, a, 0, (int16)(x - layer1_x_pos), (int16)(y - layer1_y_pos))) return;
   if (!drawkey(3, sm, a, 0, (int16)(x - layer1_x_pos), (int16)(y - layer1_y_pos))) missing(3, sm, a, 0);
 }
 

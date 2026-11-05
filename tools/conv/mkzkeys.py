@@ -428,6 +428,21 @@ for ra in rooms:
                     for sm in eproj_sms(PLM_EPROJ[v]):
                         lines.add('%04X eproj %04X 0000' % (ra, sm))
             q += 6
+        # Ridley de Norfair (E17F): lo que su código dibuja aparte (cola, alas: DrawA6Spritemap $A6:DC13) y sus bolas
+        # de fuego, las mismas claves que Ceres (mkmd.ridley_keys) en el formato de Zebes
+        q_ = 0xA10000 | w(0x8F0000 | st + 8)
+        while w(q_) != 0xFFFF:
+            if w(q_) == 0xE17F and ra != 0xE0B5:
+                for k_ in mkmd.ridley_keys(rom):
+                    if len(k_) > 2 and k_[0] in ('a6', 'enemy') and '0000' in k_[2:4]:
+                        continue                  # (sin el destello: en la VRAM de objetos no entran dos juegos)
+                    if k_[0] == 'a6':
+                        lines.add('%04X enemy A6 %s %s 0000' % (ra, k_[1], k_[2]))
+                    elif k_[0] == 'enemy':
+                        lines.add('%04X enemy %s %s %s %s' % ((ra,) + tuple(k_[1:])))
+                    elif k_[0] == 'eproj':
+                        lines.add('%04X eproj %s %s' % (ra, k_[1], k_[2]))
+            q_ += 16
         ets = w(0x8F0000 | st + 10)
         # tilesets: paleta y tiles de cada enemigo (LoadEnemyGfxIndexes, $A0:8BF3)
         gfx = {}

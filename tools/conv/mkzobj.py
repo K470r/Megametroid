@@ -211,6 +211,12 @@ BOSS_PALETTES = {
         0: [["Torizo_Init", "Torizo_C250"], ["Torizo_C268"]],     # Bomb Torizo: estatua, despierto (Torizo_Instr_5)
         None: [["Torizo_Init", "Torizo_C280"], ["Torizo_C298"]],  # Golden Torizo: Torizo_Init y Torizo_Instr_41
     },
+    # Ridley de Norfair (CeresRidley_Init $A6:A0F5, área 2): su línea 7 de sprites es la paleta de su cabecera ($A6:E14F,
+    # colores 1-14) y al perder vida Ridley_D495 ($A6:D495) escribe 14 colores de $A6:E46A + 28 * n (n = 0..2) en
+    # 7E:C1E2. (dirección en la ROM, primer índice de palette_buffer, cuántos) en vez del nombre de una función.
+    (0xA6, 0xA0F5): {
+        None: [[(0xA6E150, 241, 14)], [(0xA6E46A, 241, 14)], [(0xA6E486, 241, 14)], [(0xA6E4A2, 241, 14)]],
+    },
 }
 BOSS_LINE = 1
 _fn_bodies = {}
@@ -309,7 +315,11 @@ def boss_moments(rom, boss, area):
     cur, moments = {}, []
     for group in tab.get(area, tab[None]):
         for name in group:
-            cur.update(fn_palettes(rom, boss[0], name))
+            if isinstance(name, tuple):
+                a, first, n = name
+                cur.update({first + c: rom.w(a + 2 * c) for c in range(n)})
+            else:
+                cur.update(fn_palettes(rom, boss[0], name))
         moments.append(dict(cur))
     return moments
 

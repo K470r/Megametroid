@@ -92,20 +92,34 @@ static void bt_dma(void) {                        /* los tiles que solo usa el c
 /* caché de los tiles del cuerpo (zbb->cache: Crocomire, 312 tiles, ~155 a la vez): BC_N lugares de la VRAM (los 123
    de 0xF000 y las 54 filas de la ventana que no usa el HUD, como la caja de mensaje: md_engine.c); en la RAM, después
    del buffer de las filas (cinematic_text_tilemap + 1024..1743: antes de crocomire_bg2_scroll_hdma_data, +0x6E0) */
-#define BC_N 177
+#define BC_N_MAX 281                              /* 177 + las filas 36-61 del plano A (104 tiles) en salas de una pantalla */
 #define BC_K 320                                  /* tiles del cuerpo como mucho (mkzebes.py lo comprueba) */
+#define BC_B ((BC_N_MAX + 7) / 8)
 #define bc_k2s ((uint8 *)cinematic_text_tilemap + 1024)              /* tile del cuerpo -> 1 + lugar (0: no está) */
-#define bc_s2k ((uint16 *)((uint8 *)cinematic_text_tilemap + 1344))  /* lugar -> 1 + tile del cuerpo (0: libre) */
-#define bc_used ((uint8 *)cinematic_text_tilemap + 1698)              /* lugares que usa la subida en curso (bits) */
-#define bc_pend ((uint8 *)cinematic_text_tilemap + 1721)              /* lugares por subir en el vblank (bits) */
+/* (lo que sigue, después de crocomire_bg2_scroll_hdma_data, +0x6E0..0x90F: en estas salas el resto de
+   cinematic_text_tilemap está libre) */
+#define bc_used ((uint8 *)cinematic_text_tilemap + 2400)              /* lugares que usa la subida en curso (bits) */
+/* lugares que usa el mapa que se ve y los del que espera al vblank: no se reemplazan mientras haya otros (si no, las
+   filas que se ven mostraban tiles nuevos: la boca de Crocomire rota al cambiar) */
+#define bc_shown ((uint8 *)cinematic_text_tilemap + 2440)
+#define bc_next ((uint8 *)cinematic_text_tilemap + 2480)
+#define bc_pend ((uint8 *)cinematic_text_tilemap + 2520)              /* lugares por subir en el vblank (bits) */
+#define bc_s2k ((uint16 *)((uint8 *)cinematic_text_tilemap + 2560))  /* lugar -> 1 + tile del cuerpo (0: libre) */
+static uint16 BC_N;                               /* lugares de la sala (177 o 281) */
 static uint16 bc_rr, bc_npend;
+static uint8 bc_atomic;                           /* se reemplazaron lugares que se ven: tiles y filas en un vblank */
 static uint8 bb_redo;                             /* volver a convertir (la caché se vació) */
-static inline uint16 bc_tile(uint16 s) { return s < 123 ? ZEBES_BOSS_HI_TILE + s : 1802 + (s - 123); }
+static inline uint16 bc_tile(uint16 s) {
+  return s < 123 ? ZEBES_BOSS_HI_TILE + s : s < 177 ? 1802 + (s - 123) : (MD_VRAM_PLANE_A + 36 * 128) / 32 + (s - 177);
+}
 static void bc_reset(void) {
+  BC_N = zbb && zbb->cache == 3 ? BC_N_MAX : 177;
   memset(bc_k2s, 0, BC_K);
-  memset(bc_s2k, 0, BC_N * 2);
-  memset(bc_pend, 0, (BC_N + 7) / 8);
-  bc_npend = 0; bc_rr = 0;
+  memset(bc_s2k, 0, BC_N_MAX * 2);
+  memset(bc_pend, 0, BC_B);
+  memset(bc_shown, 0, BC_B);
+  memset(bc_next, 0, BC_B);
+  bc_npend = 0; bc_rr = 0; bc_atomic = 0;
 }
 static void bc_vblank(uint16 max) {               /* tiles pendientes de la caché (desde la ROM, página de los jefes) */
   uint8 lp = md_cur_page;
@@ -482,7 +496,7 @@ static void bb_convert(uint16 n) {
   const uint16 *tab = zbb->tab;
   const uint8 *slot = zbb->slot;
   if (zbb->cache) {                               /* primero: los lugares que ya tienen tiles de esta subida */
-    memset(bc_used, 0, (BC_N + 7) / 8);
+    memset(bc_used, 0, BC_B);
     for (uint16 i = 0; i < n; i++) {
       uint16 w = tilemap_stuff[i];
       uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
@@ -498,9 +512,15 @@ static void bb_convert(uint16 n) {
     if (c & 0x8000) {                             /* tile de la caché */
       uint16 k = c & 0x7FF, s = bc_k2s[k];
       if (!s) {                                   /* lugar libre o de un tile que esta subida no usa */
-        uint16 t = BC_N;
-        while (t-- && (bc_used[bc_rr >> 3] & (1 << (bc_rr & 7))))
+        uint16 t = BC_N;                          /* primero: uno que tampoco use el mapa que se ve */
+        while (t-- && ((bc_used[bc_rr >> 3] | bc_shown[bc_rr >> 3]) & (1 << (bc_rr & 7))))
           if (++bc_rr >= BC_N) bc_rr = 0;
+        if (t == 0xFFFF) {                        /* no hay: uno que esta subida no use (y todo en un vblank) */
+          bc_atomic = 1;
+          t = BC_N;
+          while (t-- && (bc_used[bc_rr >> 3] & (1 << (bc_rr & 7))))
+            if (++bc_rr >= BC_N) bc_rr = 0;
+        }
         if (t == 0xFFFF) { bb_buf[i] = 0; continue; }   /* (no debería pasar: ~155 a la vez) */
         uint16 r = bc_rr;
         if (++bc_rr >= BC_N) bc_rr = 0;
@@ -517,6 +537,7 @@ static void bb_convert(uint16 n) {
     c |= (w & 0x2000) << 2;                       /* prioridad: SNES 13 -> Genesis 15 */
     bb_buf[i] = c;
   }
+  if (zbb->cache) memcpy(bc_next, bc_used, BC_B);
   map_page(lp);
 }
 
@@ -535,6 +556,7 @@ static void bb_vblank(void) {
     vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + r * 128, 32);
     vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + (r + 32) * 128, 32);
   }
+  if (zbb && zbb->cache) memcpy(bc_shown, bc_next, BC_B);   /* ahora se ve este mapa */
   bb_n = 0;
 }
 
@@ -580,7 +602,10 @@ static void anim_vblank(void) {
 
 void zebes_vblank(void) {
   if (bt_pending) { bt_pending = 0; bt_dma(); }
-  if (bc_npend && zbb) bc_vblank(48);             /* (las filas esperan a que estén sus tiles) */
+  if (bc_npend && zbb) {                         /* (las filas esperan a que estén sus tiles) */
+    if (bc_atomic && bb_n) { bc_atomic = 0; bc_vblank(BC_N); }   /* el mapa que se ve ya perdió tiles: todo junto */
+    else bc_vblank(48);
+  }
   if (bb_n && !bc_npend) bb_vblank();
   if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();

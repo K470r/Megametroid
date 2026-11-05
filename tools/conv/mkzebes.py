@@ -745,6 +745,8 @@ def main():
                     tab = [0] * 2048
                     for w_, c_ in zip(bb[0], cells_b):
                         tab[slot_of[(w_ >> 10) & 7] << 10 | (w_ & 0x3FF)] = c_
+                    if cache and r(0x8F0000 | (ra + 5), 1)[0] == 1:
+                        cache = 3                 # sala de una pantalla de alto: también las filas 36-61 del plano A
                     res["boss"] = (slot_of, tab, hi_tiles, cache)
                     if cache:
                         assert len(hi_tiles) // 32 <= 320, "caché del cuerpo: más de 320 tiles (md_zebes.c, BC_K)"
@@ -969,7 +971,7 @@ def main():
                  (','.join('0x%X' % x for x in struct.unpack('>%dH' % (len(ht) // 2), ht)) if ht else '0') + '};')
     H.append('/* cuerpo de un jefe en el BG2: celda de la Genesis por (línea del SNES -> slot[línea], tile del SNES): tab[slot<<10|tile];')
     H.append('   tiles: los que solo usa el cuerpo, a la VRAM desde ZEBES_BOSS_HI_TILE (0xF000); cache: van a la VRAM según los')
-    H.append('   use el mapa (en la tabla: bit 15 + número de tile) */')
+    H.append('   use el mapa (en la tabla: bit 15 + número de tile); cache 3: la sala es de una pantalla de alto (más lugares) */')
     H.append(f'#define ZEBES_BOSS_HI_TILE {BOSS_HI_TILE}')
     H.append('typedef struct { uint16 gfx; uint8 slot[8]; const uint16 *tab; const uint16 *tiles; uint16 ntiles, cache; } ZebesBossBg2;')
     H.append(f'#define NT_ZEBES_NBOSSBG2 {len(bosses)}')
@@ -977,7 +979,7 @@ def main():
     H.append(f'extern const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}];')
     C.append(f'const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}] = {{')
     for i, (slot_of, tab, ht, cache) in bosses:
-        C.append(f'  {{ {i}, {{ {", ".join(str(x) for x in slot_of)} }}, kZG{i}_boss, kZG{i}_bosst, {len(ht) // 32}, {1 if cache else 0} }},')
+        C.append(f'  {{ {i}, {{ {", ".join(str(x) for x in slot_of)} }}, kZG{i}_boss, kZG{i}_bosst, {len(ht) // 32}, {int(cache)} }},')
     if not bosses:
         C.append('  { 0xFFFF },')
     C.append('};')

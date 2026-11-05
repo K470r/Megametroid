@@ -363,7 +363,7 @@ El Z80 lee la música y las muestras por el bus del 68000 y no sabe qué página
 | | dónde | qué |
 |---|---|---|
 | lo fijo (debajo de 0x300000) | `.late_rodata` y el lugar de las voces de antes (`md_voice.s`) | los efectos globales (104, 502 KB con lo de abajo), las pistas 1-4 del motor (la fanfarria, las del jefe y el fin de juego: el SPC las tiene siempre), `kSndSetPage` |
-| ventana 6 (0x300000-0x37FFFF) | páginas 6, 24-28 (`md_ssf2.ld`: `.snd6`, `.snd24`...) | la música de uno o más conjuntos y los efectos que se piden con ellos; las tablas de la página al principio (0x300000) |
+| ventana 6 (0x300000-0x37FFFF) | páginas 6, 26-31 (`md_ssf2.ld`: `.snd6`, `.snd26`...; hasta 2026-11-05 eran 6 y 24-28) | la música de uno o más conjuntos y los efectos que se piden con ellos; las tablas de la página al principio (0x300000) |
 | ventana 7, página 7 | `.page7` | Ceres: sus niveles (`mkdata.py`), los tiles y planos de sus salas (`mkmd.py`) y el estado inicial (`make_data.sh`): 340 KB que salieron de lo común |
 | ventana 7, página 22 | `.bank22` | el título (`.rodata_title`, 380 KB): `front_screens` pone la ventana 7 en 22 |
 
@@ -414,7 +414,8 @@ mano (con conjunto: a la página de ese conjunto; sin: a lo fijo).
   globales se graban sin conjunto: los únicos globales que cambian con el conjunto son los chillidos del bebé (3/$23,
   $26, $27), y con los conjuntos en que se piden (título y fin de juego $03, intro $36/$42) suenan igual que sin conjunto.
 - Los conjuntos se reparten en páginas uno por uno, cada uno en la que menos suma (lo que ya está no se repite).
-  Hoy: página 6 (24 2A 30 33 39), 24 (18 27 3C), 25 (03 09 0F 15), 26 (1E 42 48), 27 (06 0C 12 1B 21), 28 (2D 36 3F 45).
+  Hasta 2026-11-05: página 6 (24 2A 30 33 39), 24 (18 27 3C), 25 (03 09 0F 15), 26 (1E 42 48), 27 (06 0C 12 1B 21), 28 (2D 36 3F 45).
+  Ahora las mismas 6 páginas van en 6 y 26-31 (`mksnd.py`, PAGES).
 - Las grabaciones van en paralelo y quedan en `work/snd/sfxcache/<clave>` (la clave cambia si cambian la ROM,
   `spcrun.c` o el código de grabación): la primera vez ~2 min, después segundos.
 - Arreglo: `lowpass_resample` con menos muestras que el filtro (129) devolvía el largo del filtro.

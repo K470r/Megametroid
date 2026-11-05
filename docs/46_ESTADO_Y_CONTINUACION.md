@@ -140,6 +140,23 @@ Reglas de Edwin (no negociables):
   0xB6) que su lista dibuja con `PlmInstr_DrawPlmBlock`; `plmscan.py` solo miraba las instrucciones de dibujo y esos
   tiles no se convertían (el bloque estaba pero no se veía). Ahora `setup_table` los lee de `plm.c`; hasta 6 bloques
   más por sala (el estado más grande: 417 tiles de 432).
+- **Enemigos de todas las áreas** (2026-11-05, rama `claude/trusting-galileo-ct4zjp`): IA traducida de 42 familias más
+  de Norfair, Wrecked Ship, Maridia y Tourian (`tools/port/roots.txt`; 1014 -> 1611 funciones; reglas nuevas en
+  `xlate.py`: tablas de estructuras de la ROM, `const uint8 *` a la ROM, RAM extra 7E:8000, `nt_ram_w` para lecturas de
+  la RAM del SNES por dirección, `nt_spawn_p` para `gEnemySpawnData(k)[N]` y otros), claves de dibujo de las 194 salas
+  con enemigos (`zdraw.log`: 5119 -> 14408) y el visor con enemigos en todas las áreas. Pruebas: `tools/rooms/salas.py`
+  (salas con enemigos y su puerta) y `tools/rooms/lote.sh` (lote contra el SNES con las rutas del proyecto): las 194
+  salas en 0 diferencias salvo las de jefes y dos en que el SNES muere (secuencia de muerte). Lado a lado en la
+  Genesis: Cacatac (A923), metroides (DAE1), géiseres (B5D5).
+  ROM: 15,25 MB; Zebes en las páginas 11-24 y el sonido en la 6 y de la 26 a la 31 (docs/48). Para que entre la parte
+  común: lo traducido, `gameover.c` y `msgbox.c` con `Os`; fuera el banco $B7 (la arena del Torizo muerto).
+  Falta: **los jefes** (Kraid, Phantoon, Draygon, Botwoon, Crocomire, Ridley de Norfair, Golden Torizo, Mother Brain,
+  el bebé metroide): ~850 funciones más los bancos $A4/$AD que no entran en la parte común (~38 KB libres): hay que
+  decidir dónde va su código (¿páginas del SSF2?), y Kraid, Phantoon, Crocomire y Mother Brain se dibujan en BG2.
+  Los cadáveres de Tourian (`*_CorpseRotting`, `DeadTorizo_Func_1`, `MotherBrain_AddSpritemapToOam`) avisan: escriben en
+  la VRAM y la OAM del SNES. En los objetos de algunas salas se juntan colores (10 por sala; p. ej. la punta verde
+  de los Cacatac). En la ROM de prueba con `MD_TEST_SETXY` la cámara de la Genesis se separa de la del SNES (en el
+  PC, `check` da 0 diferencias con la misma prueba: es de la ROM de prueba, ya pasaba antes).
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 

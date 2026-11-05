@@ -349,7 +349,7 @@ ceres_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if hb[1] == 6 for 
 # los niveles de las salas de los jefes van en la página de su código (tools/port/port.py, BOSS_PAGE: en esas salas la
 # ventana 7 muestra el nivel, así que el código del jefe está siempre a mano; docs/46)
 BOSS_PAGE = 25
-BOSS_ROOMS = {0xA98D, 0xB283, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDC65, 0xDCB1, 0xDD58}   # (DC65: cadáveres de Tourian)
+BOSS_ROOMS = {0x9DC7, 0xA98D, 0xB283, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDC65, 0xDCB1, 0xDD58}   # (DC65: cadáveres de Tourian)
 boss_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if ra in BOSS_ROOMS for _, _, st in sels}
 page, used, lvl_page = LEVEL_PAGE0, 0, {}
 for i, lvl in enumerate(sorted(levels)):
@@ -629,7 +629,7 @@ _bk = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', '..', 't
 _bl = open(_bk).read().split() if _os.path.exists(_bk) else []
 if '86' not in _bl:
     _bl.append('86')                       # proyectiles de enemigos: también el motor escrito a mano (nmath.h)
-BOSS_BANKS = {0x91, 0xA4, 0xA9, 0xAD}      # solo los leen los jefes (Crocomire, Mother Brain; $91: su rayo; $A9: y los cadáveres): en su página
+BOSS_BANKS = {0x91, 0xA4, 0xA5, 0xA9, 0xAD}      # solo los leen los jefes (Crocomire, Mother Brain; $91: su rayo; $A9: y los cadáveres; $A5: Draygon y Spore Spawn, 9DC7 en BOSS_ROOMS): en su página
 for _b in _bl:
     _b = int(_b, 16)
     arr('uint8', 'kBank%02XB' % _b, list(r((_b << 16) | 0x8000, 0x8000) + r(((_b + 1) << 16) | 0x8000, 1)), per=32,

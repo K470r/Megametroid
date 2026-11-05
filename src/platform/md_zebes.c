@@ -28,6 +28,15 @@ volatile uint8 md_hw_page = 7;            /* lo que tiene el registro (también 
 uint8 md_level_page = 7;                  /* la del nivel de la sala (nt_map_level_page) */
 static const ZebesGfx *zg;
 static const ZebesObj *zo;                /* enemigos de la sala (mkzobj.py) o NULL */
+/* cuerpo del jefe en el BG2 (más abajo: nt_enemy_bg2_transfer) */
+extern uint16 cinematic_text_tilemap[];
+#define bb_buf cinematic_text_tilemap
+#define BB_MAX 512                                /* palabras (16 filas): lo más que suben los jefes es 1024 bytes */
+static const ZebesBossBg2 *zbb;
+static uint16 bb_n;                               /* palabras convertidas que esperan al vblank */
+static uint8 bb_ever;                             /* el jefe ya subió algo en esta sala */
+static void bb_convert(uint16 n);
+static void bb_vblank(void);
 uint16 zobj_col[16];                      /* colores 1-15 de la línea 3 debajo del HUD (los escribe md_hint_obj):
                                              los de los enemigos de la sala y, en 9-13, el rayo (mkzobj.py) */
 static MdRoom zroom;                      /* la sala base de Ceres con la paleta y los planos de la de Zebes */
@@ -417,12 +426,6 @@ void nt_vram_queue_flush(const uint8 *q, uint16 n) { (void)q; (void)n; }
    plano B (las filas y las mismas 32 filas más abajo: el fondo de 256 píxeles da la vuelta como en el SNES).
    Buffer: los primeros 1 KB de cinematic_text_tilemap (en estas salas solo los usan la pausa y los mensajes; al
    volver de la pausa el plano B se rehace desde tilemap_stuff, zebes_load_vram). */
-extern uint16 cinematic_text_tilemap[];
-#define bb_buf cinematic_text_tilemap
-#define BB_MAX 512                                /* palabras (16 filas): lo más que suben los jefes es 1024 bytes */
-static const ZebesBossBg2 *zbb;
-static uint16 bb_n;                               /* palabras convertidas que esperan al vblank */
-static uint8 bb_ever;                             /* el jefe ya subió algo en esta sala */
 
 static void bb_convert(uint16 n) {
   uint8 lp = md_cur_page;

@@ -523,6 +523,29 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
 
 
 # ------------------------------------------------------------------ fondo de biblioteca (LoadLibraryBackground $82:E97C)
+def bg_copies_2000(bg_ptr):
+    """el fondo de biblioteca copia 7E:2000 (tilemap_stuff) al BG2: el de las salas de los jefes del BG2"""
+    j = bg_ptr
+    if not j & 0x8000:
+        return False
+    for _ in range(64):
+        cmd = w16(0x8F0000 | j)
+        j += 2
+        if cmd == 0:
+            return False
+        if cmd in (2, 8):
+            if ptr24(0x8F0000 | j) == 0x7E2000:
+                return True
+            j += 7
+        elif cmd == 4:
+            j += 5
+        elif cmd == 0xE:
+            j += 9
+        elif cmd not in (6, 0xA, 0xC):
+            return False
+    return False
+
+
 def library_bg(gs, bg_ptr, ram_2000=None):
     """VRAM (con los tiles que cargue el fondo) y las 64x32 palabras del tilemap del BG2 (VRAM $4800, BG2SC 0x49).
     ram_2000: la palabra con que el inicio del jefe llenó 7E:2000 (tilemap_stuff) antes de que el fondo la copie
@@ -641,7 +664,10 @@ def main():
             # estados con un jefe de colores propios (mkzobj.BOSS_PALETTES, docs/51): la sala en una sola línea, la
             # línea 1 es de los objetos
             boss = mkzobj.boss_line(mrom, st, zkeys.get(ra, set())) is not None
-            key = (lvl, gs, plm_ptr, ra, eye, boss)
+            bg_ptr_ = struct.unpack_from('<H', b, 22)[0]
+            # (el fondo va en la clave: la sala de Draygon tiene el mismo nivel en la pelea, con el fondo copiado de
+            # 7E:2000, y vencido, con una pared)
+            key = (lvl, gs, plm_ptr, ra, eye, boss, bg_ptr_ if (l2x & 1) else None)
             if key not in gfx_keys:
                 d = decompress(lvl)
                 size = d[0] | d[1] << 8
@@ -654,7 +680,7 @@ def main():
                     l2 = struct.unpack_from('<%dH' % n, d, 2 + size + n)
                     blocks |= {w & 0x3FF for w in l2}
                 elif l2x & 1:
-                    vram, bg2 = library_bg(gs, bg_ptr, 0x338 if ra in BOSS_BG2 else None)
+                    vram, bg2 = library_bg(gs, bg_ptr, 0x338 if ra in BOSS_BG2 and bg_copies_2000(bg_ptr) else None)
                 setup = struct.unpack_from('<H', b, 24)[0]
                 sky_tab = {0x91C9: 0x88AD9C, 0x91BD: 0x88AD9C, 0x91CE: 0x88ADA6}.get(setup)
                 if sky_tab:                       # cielo de la superficie: el BG2 sale de los mapas de $8A por filas
@@ -675,7 +701,7 @@ def main():
                 usage = {}
                 for w_ in list(l1) + list(l2 or []):
                     usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1
-                bb = BOSS_BG2.get(ra)
+                bb = BOSS_BG2.get(ra) if (l2x & 1) and bg_copies_2000(bg_ptr) else None
                 nbg2 = len(bg2) if bg2 else 0
                 res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items,
                               max_pals=1 if boss else None, usage=usage if boss else None,

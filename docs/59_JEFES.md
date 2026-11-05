@@ -24,7 +24,9 @@ y reponía la página (`md_cur_page`, `vb_enter`/`vb_exit`).
 - `src/core/bosses.c`: lo escrito a mano de los jefes, también con `NT_BOSS`.
 - Seguridad (solo Genesis): `port_Find*` no llama a una función de la página de los jefes si la ventana 7 está en otra
   página (`NT_BOSS_AWAY`, avisa con `nt_unimpl`).
-- Páginas: Zebes usa de la 11 a la 24; los jefes la 25 (~210 KB de 512); el sonido la 6 y de la 26 a la 31. La ROM
+- Páginas: Zebes usa de la 11 a la 25; en la 25, lo que dejan los jefes (`BOSS_RESERVE` en `mkzebes.py`: 320 KB, hoy
+  usan ~240 KB; el enlazador avisa si la página pasa de 512 KB); el sonido la 6 y de la 26 a la 31. Los trozos del
+  depósito de tiles de Zebes son de 16 KB (`POOL_CHUNK` 512). La ROM
   sigue en 15,25 MB (sin pasar de 16 MB: no hace falta un mapeador extendido).
 
 Con esto la parte común tiene ~47 KB libres y la RAM ~116 bytes (`crocomire_bg2_scroll_hdma_data`, 560 bytes, comparte
@@ -53,7 +55,7 @@ En el PC, cada sala sola contra el SNES (`tools/rooms/lote.sh`, Samus invencible
 |---|---|---|---|
 | A98D | Crocomire | 0 diferencias | corre; sus objetos no entran (mkzobj); cuerpo en BG2 sin dibujar |
 | B283 | Golden Torizo | 0 | corre; sin ver todavía al jefe |
-| B32E | Ridley | 0 | corre; sus claves de dibujo ya están (`mkzkeys.py`: `mkmd.ridley_keys`, sin las del destello) y `DrawA6Spritemap` pasa por `zebes_obj_draw`; falta que sus objetos entren en la VRAM (893 tiles sin juntar piezas, hay 632) |
+| B32E | Ridley | 0 | se ve, con sus colores (claves de `mkmd.ridley_keys` sin las del destello: 624 tiles de 632; `BOSS_PALETTES`: su línea 7 de sprites se llena después de cargar la sala); falta la lava de fondo (efecto de la sala) |
 | CD13 | Phantoon | 0 | corre; cuerpo en BG2 sin dibujar |
 | D95E | Botwoon | 0 | se ve |
 | DA60 | Draygon | igual hasta que Samus muere (secuencia de muerte sin portar) | corre; partes en BG2 sin dibujar |
@@ -65,8 +67,7 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
 ## Lo que falta
 
 - El dibujo: los cuerpos en BG2 (`tilemap_stuff`: Phantoon, Crocomire, Draygon, Mother Brain) necesitan en la Genesis
-  tiles, plano B y el desplazamiento por línea (la onda de Phantoon y de Crocomire); Ridley de Norfair (sprites con
-  su paleta); los colores propios de cada jefe (`mkzobj.BOSS_PALETTES`, como el Bomb Torizo); los objetos de
+  tiles, plano B y el desplazamiento por línea (la onda de Phantoon y de Crocomire); los colores propios de cada jefe (`mkzobj.BOSS_PALETTES`, como el Bomb Torizo); los objetos de
   Crocomire no entran en la VRAM de objetos.
 - `LoadFxEntry` (Mother Brain), el pudrirse de los cadáveres (`InitializeEnemyCorpseRotting`, `ProcessCorpseRotting`:
   escriben tiles del SNES), `DeadTorizo_Func_1` y `MotherBrain_AddSpritemapToOam` (dibujo en la cola de VRAM y la OAM

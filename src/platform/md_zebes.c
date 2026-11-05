@@ -95,7 +95,8 @@ static void bt_dma(void) {                        /* los tiles que solo usa el c
 #define BC_N_MAX 281                              /* 177 + las filas 36-61 del plano A (104 tiles) en salas de una pantalla */
 #define BC_K 320                                  /* tiles del cuerpo como mucho (mkzebes.py lo comprueba) */
 #define BC_B ((BC_N_MAX + 7) / 8)
-#define bc_k2s ((uint8 *)cinematic_text_tilemap + 1024)              /* tile del cuerpo -> 1 + lugar (0: no está) */
+#define bc_k2s ((uint16 *)((uint8 *)cinematic_text_tilemap + 1024))  /* tile del cuerpo -> 1 + lugar (0: no está; 16 bits:
+                                                                        hay más de 255 lugares) */
 /* (lo que sigue, después de crocomire_bg2_scroll_hdma_data, +0x6E0..0x90F: en estas salas el resto de
    cinematic_text_tilemap está libre) */
 #define bc_used ((uint8 *)cinematic_text_tilemap + 2400)              /* lugares que usa la subida en curso (bits) */
@@ -114,7 +115,7 @@ static inline uint16 bc_tile(uint16 s) {
 }
 static void bc_reset(void) {
   BC_N = zbb && zbb->cache == 3 ? BC_N_MAX : 177;
-  memset(bc_k2s, 0, BC_K);
+  memset(bc_k2s, 0, BC_K * 2);
   memset(bc_s2k, 0, BC_N_MAX * 2);
   memset(bc_pend, 0, BC_B);
   memset(bc_shown, 0, BC_B);
@@ -537,7 +538,22 @@ static void bb_convert(uint16 n) {
     c |= (w & 0x2000) << 2;                       /* prioridad: SNES 13 -> Genesis 15 */
     bb_buf[i] = c;
   }
-  if (zbb->cache) memcpy(bc_next, bc_used, BC_B);
+  if (zbb->cache) {
+    memcpy(bc_next, bc_used, BC_B);
+    /* los pendientes que este mapa ya no usa (de un mapa que no llegó a verse): no se suben y el lugar queda libre
+       (si no, con el mapa cambiando en cada cuadro la caché se llenaba de tiles que nunca se veían) */
+    for (uint16 j = 0; j < BC_B; j++) {
+      uint8 x = bc_pend[j] & ~bc_used[j];
+      if (!x) continue;
+      for (uint16 q = 0; q < 8; q++)
+        if (x & (1 << q)) {
+          uint16 r = j * 8 + q;
+          if (bc_s2k[r]) { bc_k2s[bc_s2k[r] - 1] = 0; bc_s2k[r] = 0; }
+          bc_npend--;
+        }
+      bc_pend[j] &= ~x;
+    }
+  }
   map_page(lp);
 }
 
@@ -604,7 +620,7 @@ void zebes_vblank(void) {
   if (bt_pending) { bt_pending = 0; bt_dma(); }
   if (bc_npend && zbb) {                         /* (las filas esperan a que estén sus tiles) */
     if (bc_atomic && bb_n) { bc_atomic = 0; bc_vblank(BC_N); }   /* el mapa que se ve ya perdió tiles: todo junto */
-    else bc_vblank(48);
+    else bc_vblank(96);
   }
   if (bb_n && !bc_npend) bb_vblank();
   if (frz_nq) frz_vblank();

@@ -73,7 +73,10 @@ $A0:9726). En la Genesis:
   ROM (página de los jefes) y la tabla los marca (bit 15 + número). En cada subida del mapa `bb_convert` marca los
   lugares que ya tienen tiles de esa subida y da a los que faltan otros (177 lugares: los 123 de 0xF000 y las 54
   filas de la ventana que no usa el HUD); el vblank sube los tiles pendientes antes que las filas. La RAM de la
-  caché va en `cinematic_text_tilemap` + 1024..1743.
+  caché va en `cinematic_text_tilemap` (1024: tile -> lugar, 16 bits; desde 2400: los bits de lugares y lugar ->
+  tile). Para que la boca no se rompa al cambiar: no reemplaza lugares del mapa que se ve (`bc_shown`) mientras haya
+  otros; los pendientes de un mapa que no llegó a verse se descartan; en salas de una pantalla de alto (`cache` 3,
+  la de Crocomire) usa también las filas 36-61 del plano A (281 lugares).
 - 7E:2000 lleno de 0x338 en las tres salas (`BOSS_2000_FILL`: en el SNES el inicio del jefe corre antes que la copia
   del fondo, door.c). Los colores de la sala y del cuerpo se juntan pesando sus píxeles (en la de Crocomire el oscuro
   del fondo se juntaba con un rojo).

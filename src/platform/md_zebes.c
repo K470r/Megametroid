@@ -89,8 +89,42 @@ static void bt_dma(void) {                        /* los tiles que solo usa el c
   vdp_dma_vram(zbb->tiles, ZEBES_BOSS_HI_TILE * 32, zbb->ntiles * 16);
   map_page(lp);
 }
+/* caché de los tiles del cuerpo (zbb->cache: Crocomire, 312 tiles, ~155 a la vez): BC_N lugares de la VRAM (los 123
+   de 0xF000 y las 54 filas de la ventana que no usa el HUD, como la caja de mensaje: md_engine.c); en la RAM, después
+   del buffer de las filas (cinematic_text_tilemap + 1024..1743: antes de crocomire_bg2_scroll_hdma_data, +0x6E0) */
+#define BC_N 177
+#define BC_K 320                                  /* tiles del cuerpo como mucho (mkzebes.py lo comprueba) */
+#define bc_k2s ((uint8 *)cinematic_text_tilemap + 1024)              /* tile del cuerpo -> 1 + lugar (0: no está) */
+#define bc_s2k ((uint16 *)((uint8 *)cinematic_text_tilemap + 1344))  /* lugar -> 1 + tile del cuerpo (0: libre) */
+#define bc_used ((uint8 *)cinematic_text_tilemap + 1698)              /* lugares que usa la subida en curso (bits) */
+#define bc_pend ((uint8 *)cinematic_text_tilemap + 1721)              /* lugares por subir en el vblank (bits) */
+static uint16 bc_rr, bc_npend;
+static uint8 bb_redo;                             /* volver a convertir (la caché se vació) */
+static inline uint16 bc_tile(uint16 s) { return s < 123 ? ZEBES_BOSS_HI_TILE + s : 1802 + (s - 123); }
+static void bc_reset(void) {
+  memset(bc_k2s, 0, BC_K);
+  memset(bc_s2k, 0, BC_N * 2);
+  memset(bc_pend, 0, (BC_N + 7) / 8);
+  bc_npend = 0; bc_rr = 0;
+}
+static void bc_vblank(uint16 max) {               /* tiles pendientes de la caché (desde la ROM, página de los jefes) */
+  uint8 lp = md_cur_page;
+  map_page(ZEBES_BOSS_PAGE);
+  for (uint16 s = 0; s < BC_N && bc_npend && max; s++)
+    if (bc_pend[s >> 3] & (1 << (s & 7))) {
+      bc_pend[s >> 3] &= ~(1 << (s & 7));
+      bc_npend--;
+      uint16 k = bc_s2k[s];
+      if (k) { vdp_dma_vram(zbb->tiles + (k - 1) * 16, bc_tile(s) * 32, 16); max--; }
+    }
+  map_page(lp);
+}
 /* md_cone.c, md_engine.c: la bomba de poder o la caja de mensaje usaron 0xF000 */
-void zebes_boss_tiles_again(void) { if (md_zebes && zbb && zbb->ntiles) bt_pending = 1; }
+void zebes_boss_tiles_again(void) {
+  if (!md_zebes || !zbb) return;
+  if (zbb->cache) { bc_reset(); bb_redo = 1; }
+  else if (zbb->ntiles) bt_pending = 1;
+}
 
 static inline uint8 in_room(int16 bx, int16 by) {
   return bx >= 0 && by >= 0 && bx < (int16)room_width_in_blocks && by < (int16)room_height_in_blocks;
@@ -223,7 +257,7 @@ const MdRoom *zebes_use(void) {
   if (f < 0) { md_zebes = 0; return 0; }
   zg = &kZebesGfx[kZebesStates[f].gfx];
   zo = kZebesStates[f].obj != 0xFFFF ? &kZebesObj[kZebesStates[f].obj] : 0;
-  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0;
+  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0;
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
   frz_reset();
@@ -311,7 +345,8 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   zebes_dma_runs(zg->page, zg->runs, zg->nruns, ZT_BASE);
   if (zo) zebes_dma_runs(zo->page, zo->runs, zo->nruns, zo->base);
   map_page(lp);
-  if (zbb && zbb->ntiles) bt_dma();
+  if (zbb && zbb->cache) bc_reset();
+  else if (zbb && zbb->ntiles) bt_dma();
   vdp_fill_vram(MD_VRAM_PLANE_A, 0, 0x1000);
   vdp_fill_vram(MD_VRAM_PLANE_B, 0, 0x1000);
   /* capa 1: la ventana alrededor de la cámara */
@@ -337,6 +372,7 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
       uint16 n = enemy_bg2_tilemap_size >> 1;
       if (n > BB_MAX) n = BB_MAX;
       bb_convert(n);
+      if (zbb->cache) bc_vblank(BC_N);
       bb_n = n & ~31;
       bb_vblank();
     }
@@ -398,6 +434,7 @@ static void prio_sweep(void) {
   }
 }
 void zebes_frame(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
+  if (bb_redo && zbb && bb_ever) { bb_redo = 0; nt_enemy_bg2_transfer(); }   /* la caché se vació: el cuerpo otra vez */
   if (drawn[0]) { follow(0, ax, ay); if (psweep < ZW) prio_sweep(); }
   if (drawn[1]) follow(1, bx, zg->sky ? ay : by);   /* el cielo baja con la capa 1 (BG2VOFS = layer1_y_pos) */
 }
@@ -444,10 +481,38 @@ static void bb_convert(uint16 n) {
   map_page(ZEBES_BOSS_PAGE);
   const uint16 *tab = zbb->tab;
   const uint8 *slot = zbb->slot;
+  if (zbb->cache) {                               /* primero: los lugares que ya tienen tiles de esta subida */
+    memset(bc_used, 0, (BC_N + 7) / 8);
+    for (uint16 i = 0; i < n; i++) {
+      uint16 w = tilemap_stuff[i];
+      uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
+      if (c & 0x8000) {
+        uint16 s = bc_k2s[c & 0x7FF];
+        if (s) { s--; bc_used[s >> 3] |= 1 << (s & 7); }
+      }
+    }
+  }
   for (uint16 i = 0; i < n; i++) {
     uint16 w = tilemap_stuff[i];
     uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
-    if (c & 0x7FF) c += ZT_BASE;
+    if (c & 0x8000) {                             /* tile de la caché */
+      uint16 k = c & 0x7FF, s = bc_k2s[k];
+      if (!s) {                                   /* lugar libre o de un tile que esta subida no usa */
+        uint16 t = BC_N;
+        while (t-- && (bc_used[bc_rr >> 3] & (1 << (bc_rr & 7))))
+          if (++bc_rr >= BC_N) bc_rr = 0;
+        if (t == 0xFFFF) { bb_buf[i] = 0; continue; }   /* (no debería pasar: ~155 a la vez) */
+        uint16 r = bc_rr;
+        if (++bc_rr >= BC_N) bc_rr = 0;
+        if (bc_s2k[r]) bc_k2s[bc_s2k[r] - 1] = 0;
+        bc_s2k[r] = k + 1;
+        bc_k2s[k] = r + 1;
+        bc_used[r >> 3] |= 1 << (r & 7);
+        if (!(bc_pend[r >> 3] & (1 << (r & 7)))) { bc_pend[r >> 3] |= 1 << (r & 7); bc_npend++; }
+        s = r + 1;
+      }
+      c = (c & 0x7800) | bc_tile(s - 1);
+    } else if (c & 0x7FF) c += ZT_BASE;
     c ^= (w >> 3) & 0x1800;                       /* flips: SNES 15 (vertical), 14 (horizontal) -> Genesis 12, 11 */
     c |= (w & 0x2000) << 2;                       /* prioridad: SNES 13 -> Genesis 15 */
     bb_buf[i] = c;
@@ -515,7 +580,8 @@ static void anim_vblank(void) {
 
 void zebes_vblank(void) {
   if (bt_pending) { bt_pending = 0; bt_dma(); }
-  if (bb_n) bb_vblank();
+  if (bc_npend && zbb) bc_vblank(48);             /* (las filas esperan a que estén sus tiles) */
+  if (bb_n && !bc_npend) bb_vblank();
   if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();
   if (full_redraw) {                          /* salto grande: toda la ventana (rara vez: puertas, temblores) */

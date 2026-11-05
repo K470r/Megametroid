@@ -78,7 +78,13 @@ void nt_enemy_bg2_transfer(void) {
   bg2_reset();
   { static unsigned hash_last; unsigned h = 0;
     for (unsigned i = 0; i < enemy_bg2_tilemap_size / 2u && i < 0x800; i++) h = h * 31 + tilemap_stuff[i];
-    LOG("%04X bg2t %u %s\n", room_ptr, enemy_bg2_tilemap_size, h != hash_last ? "nuevo" : "igual"); hash_last = h; }
+    LOG("%04X bg2t %u %s\n", room_ptr, enemy_bg2_tilemap_size, h != hash_last ? "nuevo" : "igual"); hash_last = h;
+    /* tiles distintos (tile y línea) del mapa en esta subida: el tamaño de la caché de la Genesis (docs/59) */
+    { static unsigned char u[8192 / 8]; unsigned nu = 0; memset(u, 0, sizeof u);
+      for (unsigned i = 0; i < enemy_bg2_tilemap_size / 2u && i < 0x800; i++) {
+        unsigned k = tilemap_stuff[i] & 0x1FFF;
+        if (!(u[k >> 3] & (1 << (k & 7)))) { u[k >> 3] |= 1 << (k & 7); nu++; } }
+      LOG("%04X bg2u %u\n", room_ptr, nu); } }
   /* colores del BG (0-127): el más brillante visto de cada índice (los jefes llenan sus líneas después de cargar) */
   { static uint16 best[128]; static unsigned broom;
     if (broom != room_ptr) { broom = room_ptr; memset(best, 0, sizeof best); }

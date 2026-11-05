@@ -625,8 +625,10 @@ def boss_bg2_logs():
 
 ZT_BASE = 448                                    # primer tile de la sala en la Genesis (md_zebes.c)
 BOSS_HI_TILE, BOSS_HI_N = 1920, 123              # VRAM 0xF000: hasta el tile 2042 (2043-2047: el gancho, md_engine.c)
-# salas con el cuerpo dibujado: Crocomire (+312 tiles) no entra todavía en la VRAM (docs/59)
-BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60").split(",") if x}
+# salas con el cuerpo en una caché (md_zebes.c): sus tiles no entran todos en la VRAM; se suben los que usa el mapa
+BOSS_BG2_CACHE = {0xA98D}                        # Crocomire: 312 tiles, ~155 a la vez
+# salas con el cuerpo dibujado
+BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60,A98D").split(",") if x}
 
 
 # ------------------------------------------------------------------ todo
@@ -712,13 +714,18 @@ def main():
                     # los tiles que solo usa el cuerpo (los últimos), hasta BOSS_HI_N, van a la VRAM de 0xF000
                     # (BOSS_HI_TILE: libre en estas salas, sin el ojo ni cajas de mensaje): no ocupan la de los objetos
                     nt_ = res["ntiles"]
-                    hi = min(nt_ - res["n_before_extra"], BOSS_HI_N)
+                    cache = ra in BOSS_BG2_CACHE
+                    hi = nt_ - res["n_before_extra"] if cache else min(nt_ - res["n_before_extra"], BOSS_HI_N)
                     keep = nt_ - hi
                     hi_tiles = res["tiles"][keep * 32:]
                     res["tiles"] = res["tiles"][:keep * 32]
                     res["ntiles"] = keep
-                    cells_b = [(c_ & ~0x7FF) | (BOSS_HI_TILE - ZT_BASE + (c_ & 0x7FF) - keep) if (c_ & 0x7FF) >= keep else c_
-                               for c_ in cells_b]
+                    if cache:                     # caché: bit 15 (sin uso: la prioridad viene de la palabra) + tile k
+                        cells_b = [(c_ & 0x7800) | 0x8000 | ((c_ & 0x7FF) - keep) if (c_ & 0x7FF) >= keep else c_
+                                   for c_ in cells_b]
+                    else:
+                        cells_b = [(c_ & ~0x7FF) | (BOSS_HI_TILE - ZT_BASE + (c_ & 0x7FF) - keep)
+                                   if (c_ & 0x7FF) >= keep else c_ for c_ in cells_b]
                     res["bg2"] = res["bg2"][:nbg2] or None
                     pals = sorted({(w >> 10) & 7 for w in bb[0]})
                     assert len(pals) <= 2, "jefe con más de dos líneas en el BG2"
@@ -726,7 +733,9 @@ def main():
                     tab = [0] * 2048
                     for w_, c_ in zip(bb[0], cells_b):
                         tab[slot_of[(w_ >> 10) & 7] << 10 | (w_ & 0x3FF)] = c_
-                    res["boss"] = (slot_of, tab, hi_tiles)
+                    res["boss"] = (slot_of, tab, hi_tiles, cache)
+                    if cache:
+                        assert len(hi_tiles) // 32 <= 320, "caché del cuerpo: más de 320 tiles (md_zebes.c, BC_K)"
                 if eye:
                     res["cells"] = [c | 0x8000 for c in res["cells"]]
                     if res["bg2"]:
@@ -942,20 +951,21 @@ def main():
                      ','.join('0x%X' % x for x in e["bg2"]) + '};')
     # cuerpos de los jefes en el BG2 (docs/59): tablas en la página de los jefes (la ventana 7 la muestra en sus salas)
     bosses = [(i, e["boss"]) for i, e in enumerate(entries) if e.get("boss")]
-    for i, (slot_of, tab, ht) in bosses:
+    for i, (slot_of, tab, ht, cache) in bosses:
         C.append(f'NT_BANK({BOSS_PAGE}) static const uint16 kZG{i}_boss[2048] = {{' + ','.join('0x%X' % x for x in tab) + '};')
         C.append(f'NT_BANK({BOSS_PAGE}) static const uint16 kZG{i}_bosst[{max(1, len(ht) // 2)}] = {{' +
                  (','.join('0x%X' % x for x in struct.unpack('>%dH' % (len(ht) // 2), ht)) if ht else '0') + '};')
     H.append('/* cuerpo de un jefe en el BG2: celda de la Genesis por (línea del SNES -> slot[línea], tile del SNES): tab[slot<<10|tile];')
-    H.append('   tiles: los que solo usa el cuerpo, a la VRAM desde ZEBES_BOSS_HI_TILE (0xF000) */')
+    H.append('   tiles: los que solo usa el cuerpo, a la VRAM desde ZEBES_BOSS_HI_TILE (0xF000); cache: van a la VRAM según los')
+    H.append('   use el mapa (en la tabla: bit 15 + número de tile) */')
     H.append(f'#define ZEBES_BOSS_HI_TILE {BOSS_HI_TILE}')
-    H.append('typedef struct { uint16 gfx; uint8 slot[8]; const uint16 *tab; const uint16 *tiles; uint16 ntiles; } ZebesBossBg2;')
+    H.append('typedef struct { uint16 gfx; uint8 slot[8]; const uint16 *tab; const uint16 *tiles; uint16 ntiles, cache; } ZebesBossBg2;')
     H.append(f'#define NT_ZEBES_NBOSSBG2 {len(bosses)}')
     H.append(f'#define ZEBES_BOSS_PAGE {BOSS_PAGE}')
     H.append(f'extern const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}];')
     C.append(f'const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}] = {{')
-    for i, (slot_of, tab, ht) in bosses:
-        C.append(f'  {{ {i}, {{ {", ".join(str(x) for x in slot_of)} }}, kZG{i}_boss, kZG{i}_bosst, {len(ht) // 32} }},')
+    for i, (slot_of, tab, ht, cache) in bosses:
+        C.append(f'  {{ {i}, {{ {", ".join(str(x) for x in slot_of)} }}, kZG{i}_boss, kZG{i}_bosst, {len(ht) // 32}, {1 if cache else 0} }},')
     if not bosses:
         C.append('  { 0xFFFF },')
     C.append('};')

@@ -34,6 +34,11 @@ lugar con `cinematic_text_tilemap`: `vars_extra.txt`; las cachés de los despach
 
 ## Lo que hizo falta en el traductor (xlate.py) y a mano
 
+Ojo con los tipos de las tablas de funciones: en el 68000 un puntero vuelve en a0 y un entero en d0. Las funciones de
+instrucción traducidas devuelven `uint16`, así que los `typedef` del decomp que devuelven `const uint16 *`
+(`CrocomireFunc`) se cambian a `uint16` (`port.py`); si no, la Genesis lee basura (en el PC no se nota). Fue lo que
+rompía a Crocomire en la Genesis (su lista de instrucciones saltaba a 0x0484).
+
 Traductor: cola de escrituras a la VRAM del SNES (`VramWriteEntry` → bytes en `nt_vwq`, la NMI la pasa a la
 plataforma: `nt_vram_queue_flush`), RAM extra por elemento (`enemy_ram7800[n].kraid`, `gRam7800_Default`,
 `extra_enemy_ram8000`), `SpawnHdmaObject_Args`, ganchos de pausa (`nt_pause_hook`/`nt_unpause_hook`, `pause.c`),
@@ -53,7 +58,7 @@ En el PC, cada sala sola contra el SNES (`tools/rooms/lote.sh`, Samus invencible
 
 | Sala | Jefe | Lógica | En la Genesis |
 |---|---|---|---|
-| A98D | Crocomire | 0 diferencias | corre; sus objetos no entran (mkzobj); cuerpo en BG2 sin dibujar |
+| A98D | Crocomire | 0 diferencias | corre sin avisos; sus objetos entran sin las copias del destello (`mkzobj.FLASH_DROP`: 592 tiles de 592; el destello blanco al recibir daño no se ve); cuerpo en BG2 sin dibujar; sin verlo todavía en pantalla (la prueba lado a lado no llega a la pelea) |
 | B283 | Golden Torizo | 0 | corre; sin ver todavía al jefe |
 | B32E | Ridley | 0 | se ve, con sus colores (claves de `mkmd.ridley_keys` sin las del destello: 624 tiles de 632; `BOSS_PALETTES`: su línea 7 de sprites se llena después de cargar la sala); falta la lava de fondo (efecto de la sala) |
 | CD13 | Phantoon | 0 | corre; cuerpo en BG2 sin dibujar |
@@ -67,8 +72,7 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
 ## Lo que falta
 
 - El dibujo: los cuerpos en BG2 (`tilemap_stuff`: Phantoon, Crocomire, Draygon, Mother Brain) necesitan en la Genesis
-  tiles, plano B y el desplazamiento por línea (la onda de Phantoon y de Crocomire); los colores propios de cada jefe (`mkzobj.BOSS_PALETTES`, como el Bomb Torizo); los objetos de
-  Crocomire no entran en la VRAM de objetos.
+  tiles, plano B y el desplazamiento por línea (la onda de Phantoon y de Crocomire); los colores propios de cada jefe (`mkzobj.BOSS_PALETTES`, como el Bomb Torizo); la lava/ácido de fondo de Crocomire y Ridley (efecto de la sala).
 - `LoadFxEntry` (Mother Brain), el pudrirse de los cadáveres (`InitializeEnemyCorpseRotting`, `ProcessCorpseRotting`:
   escriben tiles del SNES), `DeadTorizo_Func_1` y `MotherBrain_AddSpritemapToOam` (dibujo en la cola de VRAM y la OAM
   del SNES).

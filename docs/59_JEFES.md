@@ -52,19 +52,24 @@ píxeles del SNES, tiles de Mother Brain por la cola, la larva en la cara de Mot
 Norfair, `DisableMinimapAndMarkBossRoomAsExplored` (tabla `kBank90_BossMap`), `ProcessExtendedTilemap` (los cuerpos en
 BG2 a `tilemap_stuff`), los objetos de HDMA de Phantoon y del agua de Draygon (`hdmaobj.c`).
 
-## Los cuerpos en el BG2 (Phantoon; Draygon y Crocomire no entran todavía)
+## Los cuerpos en el BG2 (Phantoon y Draygon; Crocomire no entra todavía)
 
 El SNES sube `tilemap_stuff` (hasta 1024 bytes: 16 filas de 32 celdas) al BG2 en $4800 (`QueueEnemyBG2TilemapTransfers`
 $A0:9726). En la Genesis:
 
 - `host/pc_stubs.c` (con `MM_DRAWLOG`) registra las palabras distintas de cada subida y el color más brillante de cada
   índice del BG; `res/snes_ref/zbg2.log` tiene lo de Crocomire, Phantoon y Draygon (lote.sh de 3000 cuadros).
-- `mkzebes.py`: en las salas de `BOSS_BG2_ROOMS` (hoy CD13) esos tiles se convierten con los de la sala, con esos
-  colores, y una tabla (línea del SNES -> slot, tile) -> celda va en la página de los jefes (`kZebesBossBg2`).
+- `mkzebes.py`: en las salas de `BOSS_BG2_ROOMS` (CD13, DA60) esos tiles se convierten con los de la sala, con esos
+  colores, y una tabla (línea del SNES -> slot, tile) -> celda va en la página de los jefes (`kZebesBossBg2`). Los
+  tiles que solo usa el cuerpo (hasta 123) van a la VRAM de 0xF000 (tiles 1920-2042, libres en estas salas; la bomba
+  de poder y las cajas de mensaje también la usan: al terminar se vuelven a subir, `zebes_boss_tiles_again`).
+- El fondo de biblioteca de estas salas copia 7E:2000 al BG2, que el inicio del jefe llenó con 0x338 (tile vacío):
+  `library_bg(..., ram_2000)`. El fondo va en la clave de los gráficos de la sala (la de Draygon tiene el mismo nivel
+  en la pelea y vencido, con otro fondo) y el cuerpo solo donde el fondo copia 7E:2000 (`bg_copies_2000`).
 - `md_zebes.c` (`nt_enemy_bg2_transfer`): convierte en el bucle principal a un buffer de 1 KB (el principio de
   `cinematic_text_tilemap`, libre en estas salas) y el vblank lo sube al plano B (en las filas y 32 filas más abajo).
   El plano B se mueve con BG2HOFS/VOFS (b_mode 1, como los fondos de biblioteca). Al volver de la pausa se rehace.
-- VRAM: Draygon suma 148 tiles y Crocomire 317: con sus objetos no entran (falta liberar VRAM o repartir).
+- Crocomire suma 312 tiles: ni con 0xF000 entra con sus objetos. Idea: subir sus tiles según los use su mapa (caché).
 - Para la parte común: el banco $A5 (Draygon y Spore Spawn) pasó a la página 25 y la sala de Spore Spawn (9DC7)
   también (`BOSS_ROOMS`); probada en la Genesis sin avisos.
 
@@ -79,7 +84,7 @@ En el PC, cada sala sola contra el SNES (`tools/rooms/lote.sh`, Samus invencible
 | B32E | Ridley | 0 | se ve, con sus colores (claves de `mkmd.ridley_keys` sin las del destello: 624 tiles de 632; `BOSS_PALETTES`: su línea 7 de sprites se llena después de cargar la sala); falta la lava de fondo (efecto de la sala) |
 | CD13 | Phantoon | 0 | se ve, con el cuerpo en el plano B (sin la onda) |
 | D95E | Botwoon | 0 | se ve |
-| DA60 | Draygon | igual hasta que Samus muere (secuencia de muerte sin portar) | corre; partes en BG2 sin dibujar |
+| DA60 | Draygon | igual hasta que Samus muere (secuencia de muerte sin portar) | corre; el cuerpo en el plano B con su desplazamiento (la prueba lado a lado no llega a la pelea en el SNES) |
 | DC65, DCB1 | cadáveres, bebé | 0 | corren; el "pudrirse" (`*CorpseRotting`) avisa |
 | DD58 | Mother Brain | 0 (lo que alcanza el patrón de prueba) | corre; `LoadFxEntry` y el pudrirse avisan |
 

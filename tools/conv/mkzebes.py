@@ -523,10 +523,14 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
 
 
 # ------------------------------------------------------------------ fondo de biblioteca (LoadLibraryBackground $82:E97C)
-def library_bg(gs, bg_ptr):
-    """VRAM (con los tiles que cargue el fondo) y las 64x32 palabras del tilemap del BG2 (VRAM $4800, BG2SC 0x49)"""
+def library_bg(gs, bg_ptr, ram_2000=None):
+    """VRAM (con los tiles que cargue el fondo) y las 64x32 palabras del tilemap del BG2 (VRAM $4800, BG2SC 0x49).
+    ram_2000: la palabra con que el inicio del jefe llenó 7E:2000 (tilemap_stuff) antes de que el fondo la copie
+    (Phantoon, Draygon, Crocomire: 0x338, un tile vacío; sin ella la copia daba el tile 0)"""
     vram = bytearray(tileset(gs)["vram"])
     ram = {0x7E: bytearray(0x10000), 0x7F: bytearray(0x10000)}
+    if ram_2000 is not None:
+        ram[0x7E][0x2000:0x3000] = struct.pack('<H', ram_2000) * 0x800
     fill = r(0x80A29A, 1)[0]                         # ClearBG2Tilemap: los dos bytes de cada palabra
     for a in range(0x4800 * 2, 0x5000 * 2):
         vram[a] = fill
@@ -650,7 +654,7 @@ def main():
                     l2 = struct.unpack_from('<%dH' % n, d, 2 + size + n)
                     blocks |= {w & 0x3FF for w in l2}
                 elif l2x & 1:
-                    vram, bg2 = library_bg(gs, bg_ptr)
+                    vram, bg2 = library_bg(gs, bg_ptr, 0x338 if ra in BOSS_BG2 else None)
                 setup = struct.unpack_from('<H', b, 24)[0]
                 sky_tab = {0x91C9: 0x88AD9C, 0x91BD: 0x88AD9C, 0x91CE: 0x88ADA6}.get(setup)
                 if sky_tab:                       # cielo de la superficie: el BG2 sale de los mapas de $8A por filas

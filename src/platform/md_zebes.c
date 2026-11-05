@@ -38,14 +38,7 @@ static uint8 bb_ever;                             /* el jefe ya subió algo en e
 static void bb_convert(uint16 n);
 static void bb_vblank(void);
 static uint8 bt_pending;                          /* volver a subir los tiles del cuerpo (0xF000) en el vblank */
-static void bt_dma(void) {                        /* los tiles que solo usa el cuerpo (mkzebes.py: BOSS_HI_TILE) */
-  uint8 lp = md_cur_page;
-  map_page(ZEBES_BOSS_PAGE);
-  vdp_dma_vram(zbb->tiles, ZEBES_BOSS_HI_TILE * 32, zbb->ntiles * 16);
-  map_page(lp);
-}
-/* md_cone.c, md_engine.c: la bomba de poder o la caja de mensaje usaron 0xF000 */
-void zebes_boss_tiles_again(void) { if (md_zebes && zbb && zbb->ntiles) bt_pending = 1; }
+static void bt_dma(void);
 uint16 zobj_col[16];                      /* colores 1-15 de la línea 3 debajo del HUD (los escribe md_hint_obj):
                                              los de los enemigos de la sala y, en 9-13, el rayo (mkzobj.py) */
 static MdRoom zroom;                      /* la sala base de Ceres con la paleta y los planos de la de Zebes */
@@ -90,6 +83,15 @@ static uint8 nlanim;
 
 /* bloque de la capa 1 (nivel, con los cambios de los PLMs: página del nivel) o de la capa 2 propia de la sala
    (zg->l2: página de gráficos) */
+static void bt_dma(void) {                        /* los tiles que solo usa el cuerpo (mkzebes.py: BOSS_HI_TILE) */
+  uint8 lp = md_cur_page;
+  map_page(ZEBES_BOSS_PAGE);
+  vdp_dma_vram(zbb->tiles, ZEBES_BOSS_HI_TILE * 32, zbb->ntiles * 16);
+  map_page(lp);
+}
+/* md_cone.c, md_engine.c: la bomba de poder o la caja de mensaje usaron 0xF000 */
+void zebes_boss_tiles_again(void) { if (md_zebes && zbb && zbb->ntiles) bt_pending = 1; }
+
 static inline uint8 in_room(int16 bx, int16 by) {
   return bx >= 0 && by >= 0 && bx < (int16)room_width_in_blocks && by < (int16)room_height_in_blocks;
 }

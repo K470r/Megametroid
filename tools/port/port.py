@@ -265,7 +265,11 @@ def main():
     for f in files:
         t = open(os.path.join(SRC, f), encoding='utf-8', errors='replace').read()
         for m in re.finditer(r'^typedef struct \w+ \{.*?^\} \w+;|^typedef [^;{]*\(.*?\);', t, re.M | re.S):
-            out.append(m.group(0))
+            td = m.group(0)
+            # tipo de las funciones de instrucción (const uint16 *F(uint16 k, const uint16 *jp)): traducidas devuelven
+            # uint16 (xlate.py); con el tipo del decomp la Genesis leía el resultado en a0 (punteros) y no en d0
+            td = re.sub(r'^typedef const uint16 \*(\w+)\(uint16 k, const uint16 \*jp\);$', r'typedef uint16 \1(uint16 k, uint16 jp);', td)
+            out.append(td)
     out.append('')
     # funciones de otros bancos que no están escritas a mano: vacías, avisan
     stub_bodies = []

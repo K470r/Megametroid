@@ -34,7 +34,7 @@ typedef struct PositionAndWidth {
   uint16 height;
 } PositionAndWidth;
 typedef uint8 CalculateAngleFromXYFunc(uint16 j);
-typedef const uint16 *CrocomireFunc(uint16 k, const uint16 *jp);
+typedef uint16 CrocomireFunc(uint16 k, uint16 jp);
 typedef struct BabyMetroidExecState {
   uint16 ip;
   uint16 timer;

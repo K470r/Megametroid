@@ -219,6 +219,9 @@ BOSS_PALETTES = {
     },
 }
 BOSS_LINE = 1
+# salas de jefes cuyos objetos no entran en la VRAM con las copias del destello (el jefe dibujado con la paleta 0000,
+# la línea 0 de sprites, blanca, cuando recibe daño): sin ellas, el destello no se ve (Crocomire: 796 tiles -> 592)
+FLASH_DROP = {0xA98D}
 _fn_bodies = {}
 
 
@@ -776,6 +779,9 @@ def build(rom_path, log_paths, states, frozen=None):
     frozen = frozen if frozen is not None else {"index": {}, "list": []}
     for st, room, ts, room_tiles in states:
         k = keys.get(room, set()) | pkeys
+        if room in FLASH_DROP:                    # jefes: sin las copias del destello (paleta 0000) de lo que tiene otra
+            other = {(x[1], x[2], x[4]) for x in k if x[0] == "e" and x[3] != "0000"}
+            k = {x for x in k if not (x[0] == "e" and x[3] == "0000" and (x[1], x[2], x[4]) in other)}
         # las claves son por sala: las de enemigos de otro estado (otro banco: p. ej. 9804 después del Torizo) no van
         bks = pop_banks(rom, st)
         k = {x for x in k if x[0] != "e" or int(x[1], 16) in bks}

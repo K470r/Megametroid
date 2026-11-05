@@ -628,7 +628,7 @@ BOSS_HI_TILE, BOSS_HI_N = 1920, 123              # VRAM 0xF000: hasta el tile 20
 # 7E:2000 cuando el fondo de biblioteca lo copia al BG2, comprobado contra el SNES: Phantoon y Draygon ya lo llenaron
 # con 0x338 (tile vacío). En la de Crocomire, no (con 0x338 se veía el color de fondo de la Genesis, rojo; sin
 # llenar, el tile 0 de su tileset: negro como en el SNES)
-BOSS_2000_FILL = {0xCD13: 0x338, 0xDA60: 0x338}
+BOSS_2000_FILL = {0xCD13: 0x338, 0xDA60: 0x338, 0xA98D: 0x338}
 # salas con el cuerpo en una caché (md_zebes.c): sus tiles no entran todos en la VRAM; se suben los que usa el mapa
 BOSS_BG2_CACHE = {0xA98D}                        # Crocomire: 312 tiles, ~155 a la vez
 # salas con el cuerpo dibujado

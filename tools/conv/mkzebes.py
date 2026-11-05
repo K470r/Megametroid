@@ -25,6 +25,8 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+BOSS_PAGE = 25                                               # (port.py)
+BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(320 * 1024)))
 POOL_CHUNK = 512           # tiles por trozo del depósito común (16 KB: llenan mejor los huecos de las páginas)
 PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "2048"))   # bytes libres al final de cada página: la cuenta
 # no incluye las alineaciones; medido en rom.map (docs/58), lo real queda hasta ~1 KB por encima de la cuenta. El
@@ -709,7 +711,7 @@ def main():
 
     def next_page(pg):
         pg += 1
-        assert pg <= int(os.environ.get("MM_LAST_PAGE", "24")), "zebes: no entra en las páginas del SSF2 (la 25 es de los jefes: port.py, BOSS_PAGE)"
+        assert pg <= int(os.environ.get("MM_LAST_PAGE", "25")), "zebes: no entra en las páginas del SSF2 (en la 25 solo lo que dejan los jefes: BOSS_RESERVE)"
         return pg
     # primer hueco: cada bloque va a la primera página donde cabe (antes, una página tras otra: lo que sobraba al
     # final de cada página se perdía)
@@ -729,6 +731,9 @@ def main():
         if fs_ and all((tdat.parent.parent / f_).exists() for f_ in fs_):
             title_sz = sum((tdat.parent.parent / f_).stat().st_size for f_ in fs_) + 16384
     fill[22] = fill.get(22, 0) + title_sz
+    # la página de los jefes (port.py, BOSS_PAGE: su código, los niveles de sus salas y sus bancos, ~240 KB) también
+    # sirve para Zebes en lo que sobra: se le reservan BOSS_RESERVE bytes (el enlazador avisa si la página se pasa)
+    fill[BOSS_PAGE] = BOSS_RESERVE
 
     def place(need):
         for pg in sorted(fill):

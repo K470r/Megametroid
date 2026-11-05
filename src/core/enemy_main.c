@@ -23,6 +23,9 @@ static inline uint16 BankW(uint8 bank, uint16 a) {
   return 0;
 }
 
+/* palabra de cualquier banco de datos ya preparado (RomPtrWithBank del decomp: WriteColorsToPalette $A9:D2E4) */
+uint16 nt_bank_w(uint8 bank, uint16 a) { return BankW(bank, a); }
+
 /* Definición de enemigo por su dirección: búsqueda binaria (mkdata.py los deja ordenados), con una caché de las
    últimas: el bucle de enemigos la pide muchas veces por cuadro y con todos los enemigos de Zebes la búsqueda son
    8 pasos (en la Genesis se notaba en la pelea con Ridley). */
@@ -235,7 +238,7 @@ void InitializeEnemies(void) {  // 0xA08A9E
   num_enemy_deaths_left_to_clear = P->kill_count;
 }
 
-uint16 SpawnEnemyN(uint8 db, uint16 k) {  // 0xA09275: población de un solo enemigo en el banco db (16 bytes)
+uint16 SpawnEnemy(uint8 db, uint16 k) {  // 0xA09275: población de un solo enemigo en el banco db (16 bytes)
   uint16 varE20 = k;
   uint16 backup = cur_enemy_index;
   int16 v3 = enemy_def(BankW(db, k))->num_parts - 1;

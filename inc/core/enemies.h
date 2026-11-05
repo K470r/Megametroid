@@ -67,7 +67,7 @@ uint16 GunshipInstrWord(uint16 a);
 void CeresSteam_Init(void);
 void CeresSteam_Main(void);
 void CeresSteam_Touch(void);
-uint16 SpawnEnemyN(uint8 db, uint16 k);
+uint16 SpawnEnemy(uint8 db, uint16 k);
 extern uint8 nt_enemy_gfx_drawn_hook;     /* enemy_gfx_drawn_hook: 1 = Ridley_A2F2 ($A6:A2F2), 0 = nullsub */
 void CallEnemyGfxDrawnHook(void);
 uint16 RidleyInstr(uint16 f, uint16 jp, int *ok);

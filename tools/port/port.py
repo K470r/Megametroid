@@ -52,7 +52,9 @@ XLATE_BANKS = ENEMY_BANKS | {0xA0, 0x86}
 
 # funciones del decomp que no se traducen (usan la RAM o la VRAM del SNES directamente): quedan vacías y avisan
 # hasta que se escriban a mano para la Genesis
-MANUAL_STUBS = {'EprojInstr_GotoIfFunc1', 'Torizo_CorpseRottingInitFunc', 'Torizo_CorpseRottingMoveFunc', 'Torizo_CorpseRottingCopyFunc'}
+MANUAL_STUBS = {'EprojInstr_GotoIfFunc1', 'Torizo_CorpseRottingInitFunc', 'Torizo_CorpseRottingMoveFunc', 'Torizo_CorpseRottingCopyFunc',
+                # cadáveres de Tourian: escriben en la cola de VRAM y en la OAM del SNES (falta hacerlos para la Genesis)
+                'DeadTorizo_Func_1', 'MotherBrain_AddSpritemapToOam'}
 
 # estructuras de la ROM que lee el decomp con get_X(dirección): en el motor, una copia con los mismos campos
 ROM_STRUCTS = {'EnemyDef': 0xA0, 'Vulnerability': 0xB4}
@@ -65,7 +67,7 @@ def main():
     x = Xlate()
     g = x.g
     nat = native_names()
-    skip = set(DISPATCH) | {'Unreachable', 'Load24'}
+    skip = set(DISPATCH) | {'Unreachable', 'Load24', 'mov24'}   # (mov24 del gancho de dibujo: xlate.py)
     def bank_of(n):
         a = g.funcs.get(n, (0, 0, 0, None))[3]
         if a is None:
@@ -348,7 +350,7 @@ def main():
           'void CallEnemyPreInstr(uint32 ea);']
     h += ['typedef void Func_V(void);', 'typedef uint8 Func_U8(void);', 'typedef void Func_Y_V(uint16 j);',
           'extern uint16 eproj_spawn_x, eproj_spawn_y, eproj_spawn_varE24;',
-          'extern uint16 nt_gfx_hook_addr; extern uint8 nt_gfx_hook_bank;', 'uint8 port_call_void(uint32 ea);']
+          'extern uint16 nt_gfx_hook_addr; extern uint8 nt_gfx_hook_bank;', 'uint16 nt_ram_w(uint16 a);', 'uint16 nt_bank_w(uint8 bank, uint16 a);', 'uint8 port_call_void(uint32 ea);']
     h += ['uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);', 'uint32 Multiply16x16(uint16 a, uint16 j);', 'void SpawnPalfxObject(uint16 j);',
           'void SpawnEprojWithGfx(uint16 a, uint16 k, uint16 j);', 'uint8 EprojBlockCollisition_Horiz(uint16 k);',
           'uint8 EprojBlockCollisition_Vertical(uint16 k);']

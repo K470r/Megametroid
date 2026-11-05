@@ -17,6 +17,7 @@ void nt_unimpl(const char *what);
 extern uint32 nt_unimpl_val;               /* el valor que falta (dirección de la función, tipo...): para el aviso */
 static inline void nt_unimpl_v(const char *what, uint32 v) { nt_unimpl_val = v; nt_unimpl(what); nt_unimpl_val = 0; }
 void nt_clear_ram(uint16 from, uint16 to);   /* nt_ram.c: pone a cero las variables de 7E:from-7E:to-1 */
+uint16 nt_ram_w(uint16 a);                    /* nt_ram.c: palabra de la RAM del SNES (7E:a) por su dirección */
 
 /* ---- samus_move.c (banco $90: movimiento) */
 void Samus_Animate(void);

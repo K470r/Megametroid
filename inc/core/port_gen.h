@@ -41,6 +41,9 @@ static inline uint8 BB_A7(uint16 a) { return kBankA7B[(uint16)(a - 0x8000)]; }
 static inline uint16 BW_A8(uint16 a) { const uint8 *p = kBankA8B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_A8(uint16 a) { return kBankA8B[(uint16)(a - 0x8000)]; }
 #define IW_A8(a) BW_A8(a)
+static inline uint16 BW_A9(uint16 a) { const uint8 *p = kBankA9B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_A9(uint16 a) { return kBankA9B[(uint16)(a - 0x8000)]; }
+#define IW_A9(a) BW_A9(a)
 static inline uint16 BW_AA(uint16 a) { const uint8 *p = kBankAAB + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_AA(uint16 a) { return kBankAAB[(uint16)(a - 0x8000)]; }
 #define IW_AA(a) BW_AA(a)
@@ -53,6 +56,9 @@ static inline uint8 BB_B3(uint16 a) { return kBankB3B[(uint16)(a - 0x8000)]; }
 static inline uint16 BW_B4(uint16 a) { const uint8 *p = kBankB4B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_B4(uint16 a) { return kBankB4B[(uint16)(a - 0x8000)]; }
 #define IW_B4(a) BW_B4(a)
+static inline uint16 BW_B7(uint16 a) { const uint8 *p = kBankB7B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_B7(uint16 a) { return kBankB7B[(uint16)(a - 0x8000)]; }
+#define IW_B7(a) BW_B7(a)
 typedef struct EnemyDef {
   uint16 tile_data_size;
   uint16 palette_ptr;
@@ -184,6 +190,8 @@ typedef uint8 Func_U8(void);
 typedef void Func_Y_V(uint16 j);
 extern uint16 eproj_spawn_x, eproj_spawn_y, eproj_spawn_varE24;
 extern uint16 nt_gfx_hook_addr; extern uint8 nt_gfx_hook_bank;
+uint16 nt_ram_w(uint16 a);
+uint16 nt_bank_w(uint8 bank, uint16 a);
 uint8 port_call_void(uint32 ea);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
 uint32 Multiply16x16(uint16 a, uint16 j);

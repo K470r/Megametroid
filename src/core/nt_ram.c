@@ -23,3 +23,26 @@ void nt_clear_ram(uint16 from, uint16 to) {   /* [from, to), direcciones del SNE
     }
   }
 }
+
+/* un byte de la RAM del SNES por su dirección (las variables que el motor no tiene valen 0) */
+static uint8 nt_ram_b(uint16 a) {
+  int lo = 0, hi = NT_RAM_VARS - 1;
+  while (lo <= hi) {
+    int m = (lo + hi) >> 1;
+    const NtRamVar *v = &g_ram_vars[m];
+    if (a < v->addr) { hi = m - 1; continue; }
+    uint16 o = a - v->addr;
+    if (o >= v->esize * v->n) { lo = m + 1; continue; }
+    if (v->esize == 1)
+      return ((const uint8 *)v->p)[o];
+    uint16 w = ((const uint16 *)v->p)[o >> 1];
+    return (o & 1) ? w >> 8 : (uint8)w;
+  }
+  return 0;
+}
+
+/* una palabra de la RAM del SNES por su dirección: el decomp a veces lee una variable con un desplazamiento (el
+   fantasma de Wrecked Ship, $A8:9D36: samus_y_pos + índice del enemigo) */
+uint16 nt_ram_w(uint16 a) {
+  return nt_ram_b(a) | nt_ram_b((uint16)(a + 1)) << 8;
+}

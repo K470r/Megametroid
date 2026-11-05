@@ -28,7 +28,7 @@ void RidleyGetawayFrame(void);                                                  
 void SpawnEprojWithRoomGfx(uint16 j, uint16 a);
 uint16 EnemyInstrWord(uint8 bank, uint16 a);
 
-static void WriteColorsToPalette(uint16 dst, uint16 src, uint16 n) {  // 0x82D... (dst en bytes de palette_buffer)
+static void WriteColorsToPalette_A6(uint16 dst, uint16 src, uint16 n) {  // 0x82D... (dst en bytes de palette_buffer)
   uint16 d = dst >> 1;
   for (uint16 i = 0; i < n; i++)
     palette_buffer[d + i] = A6W(src + 2 * i);
@@ -44,7 +44,7 @@ static uint16 CallBabyMetroidInstr(uint16 f, uint16 k) {
     QueueSfx3_Max6(0x24);
     return k + 2;
   case 0xBFE1:                                  // BabyMetroid_Instr_3
-    WriteColorsToPalette(0x162, A6W(k), 15);
+    WriteColorsToPalette_A6(0x162, A6W(k), 15);
     return k + 2;
   case 0xBFF2: return RV(0x46) ? A6W(k) : k + 2;   // BabyMetroid_Instr_1
   case 0xBFF8: return A6W(k);                      // BabyMetroid_Goto
@@ -396,7 +396,7 @@ static void Ridley_Func_115(void) {  // 0xA6D97D: aleteo
 /* ------------------------------------------------------------------ paleta */
 static void Ridley_D495(uint16 r18) {  // 0xA6D495
   if (!palette_change_num)
-    WriteColorsToPalette(0x1E2, (uint16)(28 * r18 - 7062), 0xE);
+    WriteColorsToPalette_A6(0x1E2, (uint16)(28 * r18 - 7062), 0xE);
 }
 
 static void Ridley_Func_101(void) {  // 0xA6D4B5
@@ -1151,15 +1151,15 @@ static void CeresRidley_Func_22(void) {  // 0xA6A971: se va con la bebé
 static void CeresRidley_Func_23(void) {  // 0xA6A9A0
   EnemyData *E = gEnemyData(0);
   if (--E->ai_preinstr & 0x8000) {
-    SpawnEnemyN(0xA6, 0xAA2F);                    // CeresRidley_Func_25
-    SpawnEnemyN(0xA6, 0xAA3F);
+    SpawnEnemy(0xA6, 0xAA2F);                    // CeresRidley_Func_25
+    SpawnEnemy(0xA6, 0xAA3F);
     E->ai_var_B = 0;
     E->ai_var_C = 0;
     TS[0] = 0;
     E->ai_var_A = 0xAA11;                         // CeresRidley_Func_24
-    WriteColorsToPalette(0xA2, 0xA9E3, 0xF);
-    WriteColorsToPalette(0x42, 0xAA01, 8);
-    WriteColorsToPalette(0x1E2, 0xAA01, 8);
+    WriteColorsToPalette_A6(0xA2, 0xA9E3, 0xF);
+    WriteColorsToPalette_A6(0x42, 0xAA01, 8);
+    WriteColorsToPalette_A6(0x1E2, 0xAA01, 8);
   }
 }
 
@@ -1190,7 +1190,7 @@ void RidleyGetawayMode7Queue(uint16 list);       /* capa de la Genesis: QueueMod
 void Samus_SetPushedOutOfCeresRidley(void);       /* samus_move.c ($90:E119) */
 
 static void CeresRidley_Func_35(uint16 a) {  // 0xA6B0EF: la paleta de Ridley según la escala
-  WriteColorsToPalette(0xA2, (uint16)(32 * HI8(a) - 0x4EF9), 0xF);
+  WriteColorsToPalette_A6(0xA2, (uint16)(32 * HI8(a) - 0x4EF9), 0xF);
 }
 
 static void CeresRidley_Func_29(void) {  // 0xA6AB5F: matriz del modo 7 (giro y escala)

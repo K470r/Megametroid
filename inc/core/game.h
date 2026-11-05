@@ -56,6 +56,7 @@ void SetElevatorsAsUsed(void);                  /* $80:CD07 */                  
 uint8 AdvancePaletteFadeForAllPalettes(void);  /* $82:DA02 */
 uint8 CheckEventHappened(uint16 a);            /* $80:8233 */
 void SetEventHappened(uint16 a);               /* $80:81FA */
+void ClearEventHappened(uint16 a);             /* $80:8212 */
 uint8 CheckBossBitForCurArea(uint16 a);        /* $80:81DC */
 void SetBossBitForCurArea(uint16 a);           /* $80:81A6 */
 void run_irqs_for_frame(void);

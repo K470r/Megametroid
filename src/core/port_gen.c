@@ -35,6 +35,10 @@ typedef struct BabyMetroidExecState {
   uint16 ip;
   uint16 timer;
 } BabyMetroidExecState;
+typedef struct MotherBrainInstrExecState {
+  uint16 ip;
+  uint16 timer;
+} MotherBrainInstrExecState;
 
 uint8 sub_82DAF7(uint16 a);
 uint16 SuitDamageDivision(uint16 a);
@@ -44,7 +48,9 @@ void SpawnMorphBallEyeBeamHdma(void);
 void SpawnHardcodedPlm(uint8 x, uint8 y, uint16 id);
 void SpawnEprojWithRoomGfx(uint16 j, uint16 a);
 void SpawnEprojWithGfx(uint16 a, uint16 k, uint16 j);
+uint16 SpawnEnemy(uint8 db, uint16 k);
 void SpawnBombTorizoHaze(void);
+void SetEventHappened(uint16 a);
 void SetBossBitForCurArea(uint16 a);
 void Samus_ScrollFinishedHook_SporeSpawnFight(void);
 void Samus_RestoreSuperMissiles(uint16 a);
@@ -80,6 +86,7 @@ void GrappleBeam_Func2(void);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 EprojBlockCollisition_Horiz(uint16 k);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
+void ClearEventHappened(uint16 a);
 uint16 CheckIfEprojIsOffScreen(uint16 k);
 uint8 CheckEventHappened(uint16 a);
 uint8 CheckBossBitForCurArea(uint16 a);
@@ -168,6 +175,7 @@ void EprojPreInstr_BombTorizosChozoOrbs(uint16 k);
 void EprojPreInstr_GoldenTorizosChozoOrbs(uint16 k);
 static void EprojInit_TorizoSonicBoom(uint16 j);
 void EprojPreInstr_TorizoSonicBoom(uint16 k);
+static void EprojInit_WreckedShipChozoSpikeFootsteps(uint16 j);
 static void EprojInit_TourianStatueDustClouds(uint16 j);
 static void EprojInit_TourianLandingDustCloudsRightFoot(uint16 j);
 uint16 EprojInstr_MoveY_Minus4(uint16 k, uint16 epjp);
@@ -180,6 +188,9 @@ static void sub_86B279(uint16 k, uint16 a);
 uint16 EprojInstr_SetVelTowardsSamus1(uint16 k, uint16 epjp);
 static void EprojInit_GoldenTorizoEyeBeam(uint16 j);
 void EprojPreInstr_GoldenTorizoEyeBeam(uint16 k);
+static void EprojInit_LavaSeahorseFireball(uint16 j);
+void sub_86B535(uint16 k);
+void Eproj_DeleteIfYposOutside(uint16 k);
 static void EprojInit_TourianStatueUnlockingParticleWaterSplash(uint16 j);
 static void EprojInit_TourianStatueEyeGlow(uint16 j);
 static void EprojInit_TourianStatueUnlockingParticle(uint16 j);
@@ -189,6 +200,18 @@ static void EprojInit_TourianStatueRidley(uint16 j);
 static void EprojInit_TourianStatuePhantoon(uint16 j);
 static void EprojPreInstr_BA42(uint16 k);
 void EprojPreInstr_TourianStatueStuff(uint16 k);
+static void EprojInit_NuclearWaffleBody(uint16 j);
+static void EprojInit_NorfairLavaquakeRocks(uint16 j);
+void CallNorfairLavaquakeRocksFunc(uint32 ea, uint16 k);
+uint16 EprojPreInstr_NorfairLavaquakeRocks_Inner2(uint16 k);
+void EprojPreInstr_NorfairLavaquakeRocks_Inner(uint16 k);
+void EprojPreInstr_NorfairLavaquakeRocks(uint16 k);
+void Eproj_NorfairLavaquakeRocks_Func1(uint16 k);
+void Eproj_NorfairLavaquakeRocks_Func2(uint16 k);
+void Eproj_NorfairLavaquakeRocks_Func3(uint16 k);
+static void EprojInit_BDA2(uint16 j);
+static void EprojInit_ShaktoolAttackMiddleBackCircle(uint16 j);
+static void EprojInit_ShaktoolAttackFrontCircle(uint16 v1);
 static void EprojInit_MotherBrainDeathBeemFired(uint16 j);
 void SpawnMotherBrainDeathBeam(uint16 x);
 static void EprojInit_KiHunterAcidSpitCommon(uint16 k, uint16 j);
@@ -205,6 +228,13 @@ void EprojPreInstr_D0EC(uint16 k);
 void EprojPreInstr_D128(uint16 v0);
 uint16 EprojInstr_D15C(uint16 k, uint16 epjp);
 uint16 EprojInstr_D1B6(uint16 k, uint16 epjp);
+static void EprojInit_MaridiaFloatersSpikes(uint16 j);
+void EprojPreInstr_MaridiaFloatersSpikes(uint16 k);
+static void EprojInit_WreckedShipRobotLaserCommon(uint16 k, uint16 j);
+static void EprojInit_WreckedShipRobotLaserDown(uint16 j);
+static void EprojInit_WreckedShipRobotLaserHorizontal(uint16 j);
+static void EprojInit_WreckedShipRobotLaserUp(uint16 j);
+void EprojPreInstr_WreckedShipRobotLaser(uint16 k);
 void sub_86D992(uint16 v0);
 void EprojPreInstr_SpikeShootingPlantSpikes_MoveY1(uint16 k);
 void EprojPreInstr_SpikeShootingPlantSpikes_MoveY2(uint16 k);
@@ -221,6 +251,7 @@ void EprojPreInstr_SpikeShootingPlantSpikes_9_MoveX2Y2(uint16 k);
 void EprojPreInstrHelper_SpikeShootingPlantSpikes_Func1(uint16 k);
 void EprojPreInstr_SpikeShootingPlantSpikes(uint16 k);
 uint16 EprojPreInstrHelper_SpikeShootingPlantSpikes_Func2(uint16 k);
+uint16 EprojPreInstrHelper_DBF2_Func2(uint16 k);
 uint16 EprojInstr_DC5A(uint16 k, uint16 epjp);
 uint16 EprojInstr_SpawnEnemyDrops_0(uint16 k, uint16 epjp);
 uint16 EprojInstr_SpawnSporesEproj(uint16 k, uint16 epjp);
@@ -229,6 +260,19 @@ static void EprojInit_SporeSpawnStalk(uint16 j);
 static void EprojInit_SporeSpawners(uint16 j);
 void EprojPreInstr_Spores(uint16 k);
 void EprojPreInstr_SporeSpawners(uint16 k);
+static void EprojInit_NamiFuneFireball(uint16 j);
+static void EprojInit_NamiFuneFireball_MoveX1(uint16 k);
+static void EprojInit_NamiFuneFireball_MoveX2(uint16 k);
+void CallNamiFuneFireballFunc(uint32 ea, uint16 k);
+void EprojPreInstr_NamiFuneFireball(uint16 v0);
+void Eproj_NamiFuneFireball_After(uint16 v0);
+static void EprojInit_LavaThrownByLavaman(uint16 j);
+void CallLavamanFunc(uint32 ea, uint16 k);
+void sub_86E049(uint16 v0);
+void Eproj_LavaThrownByLavaman_MoveX1(uint16 k);
+void Eproj_LavaThrownByLavaman_MoveX2(uint16 k);
+void sub_86E0A4(uint16 v0);
+uint16 sub_86E0B0(uint16 k);
 static void EprojInit_DustCloudOrExplosion(uint16 v0);
 void EprojPreInstr_DustCloudOrExplosion(uint16 k);
 uint16 Eproj_FuncE722(uint16 k);
@@ -251,6 +295,8 @@ void Eproj_Pickup_Missiles(void);
 void Eproj_Pickup_SuperMissiles(void);
 uint16 RandomDropRoutine(uint16 k);
 void RespawnEnemy(uint16 v0);
+static void EprojInit_Sparks(uint16 j);
+void EprojPreInstr_Sparks(uint16 k);
 void CreateADudShot(void);
 uint16 EnemyInstr_SetAiPreInstr(uint16 k, uint16 jp);
 uint16 EnemyInstr_ClearAiPreInstr(uint16 k, uint16 jp);
@@ -262,8 +308,10 @@ uint16 EnemyInstr_Skip2bytes(uint16 k, uint16 jp);
 uint16 EnemyInstr_EnableOffScreenProcessing(uint16 k, uint16 jp);
 uint16 EnemyInstr_DisableOffScreenProcessing(uint16 k, uint16 jp);
 void SpawnEnemyDrops(uint16 a, uint16 k, uint16 varE20);
+void DeleteEnemyAndConnectedEnemies(void);
 void NormalEnemyFrozenAI(void);
 void EnemyDeathAnimation(uint16 k, uint16 a);
+void RinkasDeathAnimation(uint16 a);
 void NormalEnemyTouchAi(void);
 void NormalEnemyTouchAiSkipDeathAnim_CurEnemy(void);
 void NormalEnemyPowerBombAi(void);
@@ -278,6 +326,7 @@ uint16 CheckIfEnemyTouchesSamus(uint16 k);
 uint16 EnemyFunc_AC67(uint16 k);
 PairU16 EnemyFunc_ACA8(Point16U base_pt, Point16U samus_pt);
 uint16 CheckIfEnemyIsOnScreen(void);
+uint16 EnemyFunc_ADA3(uint16 a);
 uint16 DetermineDirectionOfSamusFromEnemy(void);
 uint16 GetSamusEnemyDelta_Y(uint16 k);
 uint16 GetSamusEnemyDelta_X(uint16 k);
@@ -296,14 +345,17 @@ void EnemyFunc_B691(uint16 varE20, Point32 pt);
 void EnemyFunc_B7A1(void);
 void Enemy_ItemDrop_MiniKraid(uint16 k);
 void Enemy_ItemDrop_LowerNorfairSpacePirate(uint16 k);
+void Enemy_ItemDrop_Metroid(uint16 k);
 void Enemy_ItemDrop_BombTorizo(uint16 k);
 void Enemy_ItemDrop_GoldenTorizo(uint16 k);
 void Enemy_ItemDrop_SporeSpawn(uint16 k);
 uint8 CompareDistToSamus_X(uint16 k, uint16 a);
 uint8 EnemyFunc_BBBF(uint16 k, int32 amt);
+uint8 EnemyFunc_BC76(uint16 k, int32 amt);
 uint8 EnemyFunc_BF8A(uint16 k, uint16 a, int32 amt);
 uint16 CalculateAngleOfSamusFromEproj(uint16 k);
 uint16 CalculateAngleOfSamusFromEnemy(uint16 k);
+uint16 CalculateAngleOfEnemyXfromEnemyY(uint16 k, uint16 j);
 uint8 IsEnemyLeavingScreen(uint16 k);
 static uint8 ClearCarry_13(EnemyBlockCollInfo *ebci);
 static uint8 SetCarry_4(EnemyBlockCollInfo *ebci);
@@ -316,6 +368,7 @@ static uint8 EnemyBlockCollHorizReact_Slope_NonSquare(EnemyBlockCollInfo *ebci);
 static uint8 EnemyBlockCollVertReact_Slope_NonSquare(EnemyBlockCollInfo *ebci);
 static uint8 EnemyBlockCollReact_HorizExt(EnemyBlockCollInfo *ebci);
 static uint8 EnemyBlockCollReact_VertExt(EnemyBlockCollInfo *ebci);
+uint8 Enemy_MoveRight_SlopesAsWalls(uint16 k, int32 amt);
 uint8 Enemy_MoveRight_ProcessSlopes(uint16 k, int32 amt);
 uint8 Enemy_MoveRight_IgnoreSlopes(uint16 k, int32 amt);
 static uint8 Enemy_MoveRight_IgnoreSlopes_Inner(uint16 k, int32 amount32, uint16 r32);
@@ -338,6 +391,42 @@ void BouncingGoofball_Func2(void);
 void BouncingGoofball_Func3(void);
 uint16 BouncingGoofball_Instr_88C5(uint16 k, uint16 jp);
 uint16 BouncingGoofball_Instr_88C6(uint16 k, uint16 jp);
+void MaridiaBeybladeTurtle_Init(void);
+void MiniMaridiaBeybladeTurtle_Init(void);
+void CallMaridiaBeybladeTurtleFunc(uint32 ea, uint16 k);
+void MaridiaBeybladeTurtle_Main(void);
+void MaridiaBeybladeTurtle_Func1(uint16 k);
+void MaridiaBeybladeTurtle_Func2(uint16 k);
+void MaridiaBeybladeTurtle_Func3(uint16 k);
+void MaridiaBeybladeTurtle_Func5(uint16 k);
+void MaridiaBeybladeTurtle_Func6(uint16 k);
+void MaridiaBeybladeTurtle_Func7(uint16 k);
+void MaridiaBeybladeTurtle_Func8(uint16 k);
+void MaridiaBeybladeTurtle_Func9(uint16 k);
+void MaridiaBeybladeTurtle_Func10(uint16 k);
+void MaridiaBeybladeTurtle_Func11(uint16 k);
+void MiniMaridiaBeybladeTurtle_Main(void);
+void MiniMaridiaBeybladeTurtle_Func1(uint16 k);
+void MiniMaridiaBeybladeTurtle_Func2(uint16 k);
+void MiniMaridiaBeybladeTurtle_Func3(uint16 k);
+void MiniMaridiaBeybladeTurtle_Func4(uint16 k);
+void MiniMaridiaBeybladeTurtle_Func5(uint16 k);
+void MiniMaridiaBeybladeTurtle_Func6(uint16 k);
+void MiniMaridiaBeybladeTurtle_Func7(void);
+void MaridiaBeybladeTurtle_Touch(void);
+void MiniMaridiaBeybladeTurtle_Touch(void);
+void MaridiaBeybladeTurtle_Func21(void);
+void MiniMaridiaBeybladeTurtle_Shot(void);
+void MaridiaBeybladeTurtle_Func4(void);
+uint16 MaridiaBeybladeTurtle_Instr_9381(uint16 k, uint16 jp);
+uint16 MaridiaBeybladeTurtle_Instr_9412(uint16 k, uint16 jp);
+uint16 MaridiaBeybladeTurtle_Instr_9447(uint16 k, uint16 jp);
+uint16 MaridiaBeybladeTurtle_Instr_9451(uint16 k, uint16 jp);
+uint16 MaridiaBeybladeTurtle_Instr_946B(uint16 k, uint16 jp);
+uint16 MaridiaBeybladeTurtle_Instr_9485(uint16 k, uint16 jp);
+uint16 MaridiaBeybladeTurtle_Instr_94A1(uint16 k, uint16 jp);
+uint16 MaridiaBeybladeTurtle_Instr_94C7(uint16 k, uint16 jp);
+uint16 MaridiaBeybladeTurtle_Instr_94D1(uint16 k, uint16 jp);
 void ThinHoppingBlobs_Init(void);
 void sub_A29A6C(uint16 a);
 void CallThinHoppingBlobs(uint32 ea);
@@ -371,6 +460,19 @@ void SpikeShootingPlant_7(void);
 void SpikeShootingPlant_8(void);
 uint16 SpikeShootingPlant_Instr_A095(uint16 k, uint16 jp);
 uint16 SpikeShootingPlant_Instr_A0A7(uint16 k, uint16 jp);
+void MaridiaSpikeyShell_Init(void);
+void MaridiaSpikeyShell_Main(void);
+void MaridiaSpikeyShell_1(void);
+void MaridiaSpikeyShell_2(void);
+void MaridiaSpikeyShell_3(void);
+void MaridiaSpikeyShell_4(void);
+void MaridiaSpikeyShell_5(void);
+void MaridiaSpikeyShell_6(void);
+void MaridiaSpikeyShell_7(void);
+void MaridiaSpikeyShell_8(uint16 k);
+uint16 MaridiaSpikeyShell_Instr_A56D(uint16 k, uint16 jp);
+uint16 MaridiaSpikeyShell_Instr_A571(uint16 k, uint16 jp);
+void MaridiaSpikeyShell_Shot(void);
 void Flies_Init(void);
 bool CarryAdd16(uint16 *rv, uint16 v);
 void Flies_1(uint16 k);
@@ -381,6 +483,40 @@ void Flies_4(uint16 k);
 void Flies_5(uint16 k);
 void Flies_6(uint16 k);
 void Flies_7(uint16 k);
+void NorfairErraticFireball_Init(void);
+void NorfairErraticFireball_Main(void);
+void LavaquakeRocks_Init(void);
+void CallLavaQuakeRocksFunc(uint32 ea);
+void LavaquakeRocks_Main(void);
+void LavaquakeRocks_1(void);
+void LavaquakeRocks_2(void);
+void LavaquakeRocks_3(void);
+void Rinka_Init(void);
+void Rinka_Init2(uint16 k);
+void Rinka_Init3(uint16 k);
+void Rinka_1(uint16 k);
+uint16 Rinka_2(uint16 k);
+void CallRinkaFunc(uint32 ea, uint16 k);
+void Rinka_Main(void);
+void Rinka_3(uint16 k);
+void Rinka_4(uint16 k);
+void Rinka_5(uint16 k);
+void Rinka_B85B(uint16 k);
+void Rinka_B865(uint16 k);
+void Rinka_6(uint16 k);
+void Rinka_7(uint16 k);
+void Rinka_8(uint16 k);
+uint8 Rinka_9(uint16 k);
+bool Rinka_10(uint16 r18, uint16 r20);
+void Rinka_Frozen(uint16 k);
+void Rinka_Touch(void);
+void Rinka_Shot(void);
+void Rinka_Powerbomb(uint16 k);
+void Rinka_B960(uint16 k);
+uint16 Rinka_Instr_B9A2(uint16 k, uint16 j);
+uint16 Rinka_Instr_B9B3(uint16 k, uint16 jp);
+uint16 Rinka_Instr_B9BD(uint16 k, uint16 jp);
+uint16 Rinka_Instr_B9C7(uint16 k, uint16 jp);
 uint16 EnemyInstr_Rio_Instr_1(uint16 k, uint16 jp);
 void Rio_Init(void);
 void CallRioFunc(uint32 ea);
@@ -391,6 +527,68 @@ void Rio_3(uint16 k);
 void Rio_4(uint16 k);
 void Rio_5(uint16 k);
 void Rio_6(uint16 a);
+uint16 NorfairLavajumpingEnemy_Instr_BE8E(uint16 k, uint16 jp);
+void NorfairLavajumpingEnemy_Init(void);
+void NorfairLavajumpingEnemy_Main(void);
+void NorfairLavajumpingEnemy_Func_1(uint16 k);
+void NorfairLavajumpingEnemy_Func_2(uint16 k);
+void NorfairLavajumpingEnemy_Func_3(uint16 k);
+void NorfairLavajumpingEnemy_Func_4(uint16 k);
+void NorfairLavajumpingEnemy_Func_5(uint16 k);
+void NorfairLavajumpingEnemy_Func_6(uint16 a);
+uint16 NorfairRio_Instr_C1C9(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C1D4(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C1DF(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C1EA(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C1F5(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C200(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C20B(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C216(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C221(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C22C(uint16 k, uint16 jp);
+uint16 NorfairRio_Instr_C237(uint16 k, uint16 jp);
+void NorfairRio_Init(void);
+void NorfairRio_Main(void);
+void NorfairRio_Func_1(uint16 k);
+void NorfairRio_Func_2(uint16 k);
+void NorfairRio_Func_3(uint16 k);
+void NorfairRio_Func_4(uint16 k);
+void NorfairRio_Func_5(uint16 k);
+void NorfairRio_Func_6(uint16 k);
+void NorfairRio_Func_7(uint16 a);
+uint16 LowerNorfairRio_Instr_C6D2(uint16 k, uint16 jp);
+uint16 LowerNorfairRio_Instr_C6DD(uint16 k, uint16 jp);
+uint16 LowerNorfairRio_Instr_C6E8(uint16 k, uint16 jp);
+void LowerNorfairRio_Init(void);
+void LowerNorfairRio_Main(void);
+void LowerNorfairRio_Func_1(uint16 k);
+void LowerNorfairRio_Func_2(uint16 k);
+void LowerNorfairRio_Func_3(uint16 k);
+void LowerNorfairRio_Func_4(uint16 k);
+void LowerNorfairRio_Func_5(uint16 k);
+void LowerNorfairRio_Func_6(uint16 k);
+void LowerNorfairRio_Func_7(uint16 a);
+uint16 MaridiaLargeSnail_Instr_CB6B(uint16 k, uint16 jp);
+uint16 MaridiaLargeSnail_Instr_CCB3(uint16 k, uint16 jp);
+uint16 MaridiaLargeSnail_Instr_CCBE(uint16 k, uint16 jp);
+uint16 MaridiaLargeSnail_Instr_CCC9(uint16 k, uint16 jp);
+void MaridiaLargeSnail_Init(void);
+void CallMaridiaLargeSnailFunc(uint32 ea);
+void MaridiaLargeSnail_Main(void);
+void MaridiaLargeSnail_Func_1(uint16 k);
+void MaridiaLargeSnail_Func_2(uint16 k);
+void MaridiaLargeSnail_Func_3(uint16 k);
+void MaridiaLargeSnail_Func_4(void);
+void MaridiaLargeSnail_Func_5(void);
+void MaridiaLargeSnail_Func_6(void);
+void MaridiaLargeSnail_Func_7(uint16 k);
+void MaridiaLargeSnail_Func_8(uint16 k);
+void MaridiaLargeSnail_Func_9(void);
+void MaridiaLargeSnail_Func_10(uint16 k);
+void MaridiaLargeSnail_Func_11(void);
+void MaridiaLargeSnail_Func_12(void);
+void MaridiaLargeSnail_Touch();
+void MaridiaLargeSnail_Shot(void);
 static uint16 HirisingSlowfalling_Func_1(uint16 k);
 void HirisingSlowfalling_Init(void);
 void HirisingSlowfalling_Func_2(uint16 k, uint16 r18);
@@ -413,6 +611,20 @@ void Ripper_Func_1(void);
 void JetPowerRipper_Shot(void);
 void Ripper_Init(void);
 void Ripper_Main(void);
+uint16 LavaSeahorse_Instr_E5FB(uint16 k, uint16 jp);
+void LavaSeahorse_Init(void);
+void LavaSeahorse_Main(void);
+void LavaSeahorse_Func_1(uint16 k);
+void LavaSeahorse_Func_2(uint16 k);
+void LavaSeahorse_Func_3(uint16 k);
+void LavaSeahorse_Func_4(uint16 k);
+void LavaSeahorse_Func_5(uint16 k);
+void LavaSeahorse_Func_6(void);
+void LavaSeahorse_Func_7(void);
+void LavaSeahorse_Touch(void);
+void LavaSeahorse_Shot(void);
+void LavaSeahorse_Powerbomb(void);
+void LavaSeahorse_E7DA(void);
 void TimedShutter_Init(void);
 void CallTimedShutterFunc(uint32 ea, uint16 k);
 void TimedShutter_Main(void);
@@ -454,6 +666,9 @@ void RisingFallingPlatform_Touch(void);
 void RisingFallingPlatform_Shot(void);
 void ShootableShutter_Shot(void);
 void RisingFallingPlatform_Powerbomb(void);
+void HorizontalShootableShutter_Init(void);
+void HorizontalShootableShutter_Func_1(uint16 k);
+void HorizontalShootableShutter_Main(void);
 void HorizontalShootableShutter_Func_2(void);
 void HorizontalShootableShutter_Func_3(void);
 void HorizontalShootableShutter_Func_4(void);
@@ -467,6 +682,9 @@ void HorizontalShootableShutter_Func_11(uint16 k);
 void HorizontalShootableShutter_Func_12(void);
 void HorizontalShootableShutter_Func_13(void);
 void HorizontalShootableShutter_Func_14(void);
+void HorizontalShootableShutter_Touch(void);
+void HorizontalShootableShutter_Shot(void);
+void HorizontalShootableShutter_Powerbomb(void);
 void Enemy_NormalTouchAI_A3(void);
 void Enemy_NormalShotAI_A3(void);
 void Enemy_NormalShotAI_SkipSomeParts_A3(void);
@@ -575,6 +793,14 @@ void Roach_Func_30(uint16 k);
 void Roach_Func_31(uint16 k);
 void Roach_Func_32(uint16 k);
 void Roach_Func_33(uint16 k);
+void Mochtroid_Init(void);
+void Mochtroid_Main(void);
+void Mochtroid_Func_1(void);
+void Mochtroid_Func_2(void);
+void Mochtroid_Func_3(void);
+void Mochtroid_Func_4(uint16 k, uint16 a);
+void Mochtroid_Touch(void);
+void Mochtroid_Shot(void);
 uint16 Sidehopper_Func_1(uint16 k, uint16 jp);
 uint16 Sidehopper_Instr_1(uint16 k, uint16 jp);
 void Sidehopper_Init(void);
@@ -601,6 +827,41 @@ void Sidehopper_Func_19(void);
 void Sidehopper_Func_20(void);
 void Sidehopper_Func_21(void);
 void Sidehopper_Func_22(void);
+uint16 MaridiaRefillCandy_Instr_1(uint16 k, uint16 jp);
+uint16 MaridiaRefillCandy_Instr_2(uint16 k, uint16 jp);
+uint16 MaridiaRefillCandy_Instr_3(uint16 k, uint16 jp);
+void MaridiaRefillCandy_Init(void);
+void CallMaridiaRefillCandyFunc(uint32 ea, uint16 k);
+void MaridiaRefillCandy_Main(void);
+void MaridiaRefillCandy_Func_1(void);
+void MaridiaRefillCandy_Func_2(uint16 k);
+void MaridiaRefillCandy_Func_3(uint16 k);
+void MaridiaRefillCandy_Func_4(void);
+void MaridiaRefillCandy_Func_5(void);
+void MaridiaRefillCandy_Func_6(void);
+void NorfairSlowFireball_Init(void);
+void NorfairSlowFireball_Func_1(void);
+uint16 Bang_Instr_1(uint16 k, uint16 jp);
+uint16 Bang_Instr_2(uint16 k, uint16 jp);
+void Bang_Init(void);
+void Bang_Main(void);
+void Bang_Func_1(void);
+void Bang_Func_2(void);
+void Bang_Func_3(void);
+uint16 Bang_Func_4(uint16 a);
+void Bang_Func_5(void);
+void Bang_Func_6(uint16 k);
+void Bang_Func_7(uint16 k);
+void Bang_Func_8(uint16 k);
+void Bang_Func_9(void);
+void Bang_Func_10(uint16 k);
+void Bang_Func_11(uint16 k);
+void Bang_Func_12(void);
+void Bang_Func_13(void);
+void Bang_Func_14(void);
+void Bang_Func_15(void);
+void Bang_Func_18(void);
+void Bang_Shot(void);
 uint16 Skree_Instr_1(uint16 k, uint16 jp);
 void Skree_Init(void);
 void CallSkreeFunc(uint32 ea);
@@ -611,7 +872,51 @@ void Skree_Func_3(void);
 void Skree_Func_4(void);
 void Skree_Func_5(void);
 void Skree_Shot(void);
+uint16 MaridiaSnail_Instr_1(uint16 k, uint16 jp);
+uint16 MaridiaSnail_Instr_2(uint16 k, uint16 jp);
+uint16 MaridiaSnail_Instr_4(uint16 k, uint16 jp);
+uint16 MaridiaSnail_Instr_3(uint16 k, uint16 jp);
+uint16 MaridiaSnail_Instr_5(uint16 k, uint16 jp);
+void MaridiaSnail_Func_1(uint16 k);
+void MaridiaSnail_Init(void);
+void MaridiaSnail_Func_2(uint16 k, uint16 j);
+void MaridiaSnail_Func_3(uint16 k);
+void MaridiaSnail_Main(void);
+void MaridiaSnail_Func_4(uint16 k);
+void MaridiaSnail_Func_5(uint16 k);
+void MaridiaSnail_Func_6(uint16 k);
 static uint32 Shift8AddMagn(int16 a, int s);
+void MaridiaSnail_Func_7(uint16 k);
+void MaridiaSnail_Func_9(uint16 k);
+void MaridiaSnail_CFB7(uint16 k);
+void MaridiaSnail_CFBD(uint16 k);
+void MaridiaSnail_CFCE(uint16 k);
+void MaridiaSnail_CFD4(uint16 k);
+void MaridiaSnail_CFE5(uint16 k);
+void MaridiaSnail_CFEB(uint16 k);
+void MaridiaSnail_CFFC(uint16 k);
+void MaridiaSnail_D002(uint16 k, uint16 j);
+void MaridiaSnail_D07E(uint16 k, uint16 j);
+void MaridiaSnail_Func_10(uint16 k, uint16 j);
+void MaridiaSnail_Func_11(uint16 k, uint16 j);
+void MaridiaSnail_Func_12(uint16 k, uint16 carry);
+void MaridiaSnail_Func_13(uint16 k, uint16 a);
+void MaridiaSnail_Func_14(uint16 k);
+void MaridiaSnail_Func_15(uint16 k);
+void MaridiaSnail_Func_16(uint16 k);
+uint8 MaridiaSnail_Func_17(uint16 k);
+uint8 MaridiaSnail_Func_18(uint16 k);
+uint8 MaridiaSnail_Func_19(uint16 k);
+void MaridiaSnail_Touch(void);
+uint8 MaridiaSnail_Func_20(uint16 k);
+uint8 MaridiaSnail_Func_21(uint16 k);
+void MaridiaSnail_Shot(void);
+void MaridiaSnail_Func_22(uint16 k);
+void MaridiaSnail_Func_23(uint16 k);
+void Reflec_Func_1(void);
+uint16 Reflec_Instr_1(uint16 k, uint16 jp);
+void Reflec_Init(void);
+void Reflec_Shot(void);
 uint16 WreckedShipOrangeZoomer_Func_1(uint16 k, uint16 jp);
 void WreckedShipOrangeZoomer_Init(void);
 void WreckedShipOrangeZoomer_Main(void);
@@ -627,6 +932,20 @@ void FireZoomer_Func_1(uint16 k);
 void FireZoomer_Func_2(uint16 k);
 void FireZoomer_Func_3(uint16 k);
 int32 FireZoomer_E8A5(uint16 k);
+void Metroid_Init(void);
+uint16 Metroid_Instr_2(uint16 k, uint16 jp);
+uint16 Metroid_Instr_1(uint16 k, uint16 jp);
+void Metroid_Frozen(void);
+void Metroid_Hurt(void);
+void Metroid_Main(void);
+void Metroid_Func_1(uint16 varE32);
+void Metroid_Func_2(uint16 varE32);
+void Metroid_Func_3(uint16 varE32);
+void Metroid_Func_4(uint16 varE32);
+void Metroid_Touch(void);
+void Metroid_Func_5(uint16 k);
+void Metroid_Shot(void);
+void Metroid_Powerbomb(uint16 k);
 uint16 Draygon_Instr_1(uint16 k, uint16 jp);
 uint16 Draygon_Instr_13(uint16 k, uint16 jp);
 static Point16U Draygon_Func_47(void);
@@ -684,6 +1003,55 @@ void Boulder_Func_6(void);
 void Boulder_Func_7(uint16 j);
 void Boulder_Func_8(uint16 j);
 void Boulder_Func_9(uint16 j);
+void SpikeyPlatform_Init(void);
+void SpikeyPlatform2ndEnemy_Init(void);
+void SpikeyPlatform2ndEnemy_Main(void);
+void CallSpikeyPlatformFunc(uint32 ea, uint16 k);
+void SpikeyPlatform_Main(void);
+void SpikeyPlatform_Func_1(void);
+void SpikeyPlatform_Func_2(void);
+void SpikeyPlatform_Func_3(uint16 k);
+void SpikeyPlatform_Func_4(void);
+uint16 SpikeyPlatform_Func_5(uint16 k);
+uint16 FireGeyser_Instr_1(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_2(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_3(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_4(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_5(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_6(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_7(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_8(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_9(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_10(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_11(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_12(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_13(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_14(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_15(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_16(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_17(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_18(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_19(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_20(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_21(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_22(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_23(uint16 k, uint16 jp);
+uint16 FireGeyser_Instr_24(uint16 k, uint16 jp);
+void FireGeyser_Init(void);
+void CallFireGeyserFunc(uint32 ea);
+void FireGeyser_Main(void);
+void FireGeyser_Func_1(void);
+void FireGeyser_Func_2(void);
+void NuclearWaffle_Init(void);
+void CallNuclearWaffleFunc(uint32 ea);
+void NuclearWaffle_Main(void);
+void NuclearWaffle_Func_1(void);
+void NuclearWaffle_Func_2(void);
+void NuclearWaffle_Func_3(uint16 varE32);
+void NuclearWaffle_Func_4(uint16 varE32);
+uint16 NuclearWaffle_Func_5(uint16 a, uint16 *r28_out);
+static PairU16 NuclearWaffle_Func_6(uint16 a);
+void NuclearWaffle_Func_7(uint16 r30);
 void FakeKraid_Init(void);
 void FakeKraid_Main(void);
 void FakeKraid_Func_1(uint16 k, uint16 j);
@@ -696,6 +1064,20 @@ uint16 FakeKraid_Instr_5(uint16 k, uint16 jp);
 void FakeKraid_Touch(void);
 void FakeKraid_Shot(void);
 void FakeKraid_9C50(void);
+void Zebetites_Init(void);
+void CallZebetitesFunc(uint32 ea, uint16 k);
+void Zebetites_Main(void);
+void Zebetites_Func_1(uint16 k);
+void Zebetites_Func_2(uint16 k);
+void Zebetites_Func_3(void);
+void Zebetites_Func_6(void);
+void Zebetites_Func_7(uint16 j, uint8 a);
+void Zebetites_Func_8(void);
+uint16 Zebetites_Func_9(void);
+void Zebetites_Func_5(void);
+void Zebetites_Func_4(void);
+void Zebetites_Touch(void);
+void Zebetites_Shot(void);
 void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void);
 void Etecoon_Init(void);
 void Etecoon_Main(void);
@@ -743,12 +1125,62 @@ void Enemy_NormalTouchAI_A8(void);
 void Enemy_NormalShotAI_A8(void);
 void Enemy_NormalPowerBombAI_A8(void);
 void Enemy_NormalFrozenAI_A8(void);
+uint16 MiniDraygon_Instr_2(uint16 k, uint16 jp);
+uint16 MiniDraygon_Instr_1(uint16 k, uint16 jp);
+uint16 MiniDraygon_Instr_3(uint16 k, uint16 jp);
+uint16 MiniDraygon_Instr_4(uint16 k, uint16 jp);
+void MiniDraygon_Init(void);
+void MiniDraygon_Func_1(void);
+void MiniDraygon_Func_2(void);
+void EvirProjectile_Init(void);
+void MiniDraygon_Func_3(void);
+void CallMiniDraygonFunc(uint32 ea);
+void MiniDraygon_Main(void);
+void MiniDraygon_Func_4(void);
+void MiniDraygon_Func_5(void);
+void MiniDraygon_Func_6(void);
+void EvirProjectile_Main(void);
+void MiniDraygon_Func_7(void);
+void MiniDraygon_Func_8(void);
+void MiniDraygon_Func_9(void);
+void MiniDraygon_Func_10(void);
+void MiniDraygon_Func_11(void);
+void MiniDraygon_Func_12(void);
+void MiniDraygon_Touch(void);
+void MiniDraygon_Powerbomb(void);
+void MiniDraygon_Shot(void);
+void MiniDraygon_Func_13(void);
 void MorphBallEye_Init(void);
 void MorphBallEye_Main(void);
 void MorphBallEye_Func_1(uint16 k);
 void MorphBallEye_Func_2(uint16 k);
 void MorphBallEye_Func_3(uint16 k);
 void MorphBallEye_Func_4(uint16 k);
+uint16 Fune_Instr_2(uint16 k, uint16 jp);
+uint16 Fune_Instr_6(uint16 k, uint16 jp);
+uint16 Fune_Instr_7(uint16 k, uint16 jp);
+uint16 Fune_Instr_1(uint16 k, uint16 jp);
+uint16 Fune_Instr_4(uint16 k, uint16 jp);
+uint16 Fune_Instr_3(uint16 k, uint16 jp);
+uint16 Fune_Instr_5(uint16 k, uint16 jp);
+void Fune_Init(void);
+void CallFuneFunc(uint32 ea);
+void Fune_Main(void);
+void Fune_Func_1(void);
+void Fune_Func_2(void);
+uint16 Fune_Func_3(void);
+void Fune_Func_4(void);
+void WreckedShipGhost_Init(void);
+void CallWreckedShipGhost(uint32 ea, uint16 k);
+void WreckedShipGhost_Main(void);
+void WreckedShipGhost_Func_1(uint16 k);
+void WreckedShipGhost_Func_2(uint16 k);
+void WreckedShipGhost_Func_3(uint16 k);
+void WreckedShipGhost_Func_4(uint16 k);
+void WreckedShipGhost_Func_5(uint16 k);
+void WreckedShipGhost_Func_6(uint16 k);
+void WreckedShipGhost_Func_7(uint16 k);
+uint16 WreckedShipGhost_Func_8(void);
 uint16 YappingMaw_Instr_2(uint16 k, uint16 jp);
 uint16 YappingMaw_Instr_4(uint16 k, uint16 jp);
 uint16 YappingMaw_Instr_5(uint16 k, uint16 jp);
@@ -786,6 +1218,50 @@ void CallKagoFunc(uint32 ea, uint16 k);
 void Kago_Main(void);
 void Kago_Func_1(uint16 k);
 void Kago_Shot(void);
+uint16 NorfairLavaMan_Instr_1(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_8(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_14(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_2(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_7(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_10(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_12(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_9(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_11(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_13(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_5(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_15(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_4(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_16(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_6(uint16 k, uint16 jp);
+uint16 NorfairLavaMan_Instr_3(uint16 k, uint16 jp);
+void NorfairLavaMan_Init(void);
+void NorfairLavaMan_Func_1(void);
+void NorfairLavaMan_Func_2(void);
+void NorfairLavaMan_Func_3(void);
+void NorfairLavaMan_Func_4(void);
+void NorfairLavaMan_Func_5(uint16 k);
+void NorfairLavaMan_Func_6(void);
+void NorfairLavaMan_Main(void);
+void NorfairLavaMan_Func_7(uint16 k);
+void NorfairLavaMan_Func_8(uint16 k);
+void sub_A8B193(uint16 k);
+void NorfairLavaMan_Func_9(uint16 k);
+void NorfairLavaMan_Func_10(uint16 k);
+void NorfairLavaMan_Func_11(uint16 k);
+void NorfairLavaMan_Func_12(uint16 k);
+void sub_A8B291(uint16 k);
+void NorfairLavaMan_Func_13(void);
+void NorfairLavaMan_Func_14(uint16 k);
+void NorfairLavaMan_Func_15(uint16 k);
+void NorfairLavaMan_Func_16(uint16 k);
+void NorfairLavaMan_Func_17(uint16 k);
+void NorfairLavaMan_Func_18(uint16 k);
+void NorfairLavaMan_Func_19(uint16 k);
+void NorfairLavaMan_Func_20(void);
+void NorfairLavaMan_Powerbomb(void);
+void NorfairLavaMan_Touch(void);
+void NorfairLavaMan_Shot(void);
+void NorfairLavaMan_Common(void);
 uint16 Beetom_Instr_1(uint16 k, uint16 jp);
 void Beetom_Func_1(void);
 void Beetom_Init(void);
@@ -829,6 +1305,66 @@ void CallBeetomFunc(uint32 ea);
 void Beetom_Main(void);
 void Beetom_Touch(void);
 void Beetom_Shot(void);
+void MaridiaFloater_Init(void);
+void MaridiaFloater_Main(void);
+void MaridiaFloater_Func_1(uint16 k);
+void MaridiaFloater_Func_2(uint16 k);
+void MaridiaFloater_Func_3(uint16 k);
+void MaridiaFloater_Func_4(uint16 k);
+void MaridiaFloater_Func_5(uint16 k);
+void MaridiaFloater_Func_6(uint16 k);
+void MaridiaFloater_Func_7(uint16 k);
+void MaridiaFloater_Func_8(uint16 k);
+void MaridiaFloater_Func_9(uint16 k);
+void MaridiaFloater_Func_10(uint16 k);
+void MaridiaFloater_Func_11(uint16 k);
+void MaridiaFloater_Func_12(uint16 k);
+void MaridiaFloater_Func_13(uint16 k);
+void MaridiaFloater_Touch(void);
+void MaridiaFloater_Shot(void);
+void MaridiaFloater_Powerbomb(void);
+void WreckedShipRobot_Init(void);
+void WreckedShipRobotDeactivated_Init(void);
+void WreckedShipRobot_Main(void);
+void WreckedShipRobot_Func_1(void);
+void WreckedShipRobot_Func_2(uint16 k);
+uint16 WreckedShipRobot_Instr_4(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_9(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_6(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_8(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_7(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_15(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_18(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_16(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_17(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_3(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_10(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_14(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_2(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_CommonInstr(uint16 k, uint16 jp, uint16 r50, uint16 r48);
+uint16 WreckedShipRobot_Instr_13(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_1(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_D10C(uint16 k, uint16 jp, uint16 r50);
+uint16 WreckedShipRobot_Instr_12(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_Instr_5(uint16 k, uint16 jp);
+uint16 WreckedShipRobot_D147(uint16 k, uint16 jp, uint16 r48, uint16 r50);
+uint16 WreckedShipRobot_Instr_11(uint16 k, uint16 jp);
+void WreckedShipRobotDeactivated_Touch(void);
+void WreckedShipRobotDeactivated_Shot(void);
+void WreckedShipRobot_Shot(void);
+void MaridiaPuffer_Init(void);
+void CallMaridiaPuffer(uint32 ea);
+void MaridiaPuffer_Main(void);
+void MaridiaPuffer_Func_1(void);
+void MaridiaPuffer_Func_2(void);
+void MaridiaPuffer_Func_3(void);
+void MaridiaPuffer_Func_4(void);
+void MaridiaPuffer_Func_5(void);
+void MaridiaPuffer_Func_6(void);
+void MaridiaPuffer_Func_7(void);
+void MaridiaPuffer_Func_8(uint16 k);
+void MaridiaPuffer_Func_9(uint16 k);
+void MaridiaPuffer_Shot(void);
 void WalkingLavaSeahorse_Init(void);
 void WalkingLavaSeahorse_Func_1(uint16 k);
 uint16 WalkingLavaSeahorse_Func_2(uint16 k);
@@ -850,6 +1386,26 @@ uint16 WalkingLavaSeahorse_Instr_6(uint16 k, uint16 jp);
 uint16 WalkingLavaSeahorse_Instr_2(uint16 k, uint16 jp);
 uint16 WalkingLavaSeahorse_Instr_1(uint16 k, uint16 jp);
 void WalkingLavaSeahorse_Func_10(void);
+void WreckedShipOrbs_Init(void);
+void CallWreckedShipOrbsA(uint32 ea);
+void CallWreckedShipOrbsB(uint32 ea);
+void WreckedShipOrbs_Main(void);
+void WreckedShipOrbs_Func_1(void);
+void WreckedShipOrbs_Func_2(void);
+void WreckedShipOrbs_Func_3(void);
+void WreckedShipOrbs_Func_4(void);
+void WreckedShipOrbs_Func_5(void);
+void WreckedShipOrbs_Func_6(void);
+uint16 WreckedShipSpark_Instr_2(uint16 k, uint16 jp);
+uint16 WreckedShipSpark_Instr_1(uint16 k, uint16 jp);
+static void WreckedShipSpark_Func_4(uint16 k, uint16 r18);
+void WreckedShipSpark_Init(void);
+void CallWreckedShipSpark(uint32 ea, uint16 k);
+void WreckedShipSpark_Main(void);
+void WreckedShipSpark_Func_1(uint16 k);
+void WreckedShipSpark_Func_2(uint16 k);
+void WreckedShipSpark_Func_3(uint16 k);
+void WreckedShipSpark_Shot(void);
 void BlueBrinstarFaceBlock_Init(void);
 void BlueBrinstarFaceBlock_Func_1(void);
 void BlueBrinstarFaceBlock_Main(void);
@@ -884,6 +1440,60 @@ void KiHunter_Func_14(void);
 void KiHunter_Func_15(uint16 k);
 void KiHunter_Func_16(uint16 k);
 void KiHunter_Func_17(void);
+void MoveEnemyWithVelocity(void);
+void Enemy_SetInstrList(uint16 k, uint16 a);
+void WriteColorsToPalette(uint16 k, uint8 db, uint16 j, uint16 a);
+void DeadTorizo_Init(void);
+void CallDeadTorizoFuncA(uint32 ea);
+void DeadTorizo_Main(void);
+void DeadTorizo_MainGfxHook(void);
+void DeadTorizo_WaitForSamusColl(uint16 k);
+void DeadTorizo_PreRotDelay(void);
+void DeadTorizo_Rotting(void);
+void DeadTorizo_Powerbomb(void);
+void DeadTorizo_Shot(void);
+uint8 DeadTorizo_Func_0(void);
+void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
+void DeadSidehopper_Init(void);
+void DeadSidehopper_Init_0(void);
+void DeadSidehopper_Init_1(void);
+void DeadZoomer_Init(void);
+void DeadRipper_Init(void);
+void DeadSkree_Init(void);
+void DeadSidehopper_Powerbomb(void);
+void CallDeadSidehopperFunc(uint32 ea, uint16 k);
+void DeadSidehopper_Main(void);
+void DeadSidehopper_Alive_WaitForActivate(uint16 k);
+void DeadSidehopper_Activated(uint16 k);
+void DeadMonsters_Func_1(uint16 k);
+void DeadMonsters_Func_2(uint16 k);
+uint8 DeadMonsters_Func_3(uint16 k);
+void DeadMonsters_Func_4(uint16 k, uint16 a);
+void DeadMonsters_Func_5(uint16 k);
+void DeadSidehopper_WaitForSamusColl(uint16 k);
+void DeadZoomer_WaitForSamusColl(uint16 k);
+void DeadSkree_WaitForSamusColl(uint16 k);
+void DeadRipper_WaitForSamusColl(uint16 k);
+void DeadMonsters_WaitForSamusColl(uint16 k, uint16 j);
+void DeadSidehopper_PreRotDelay(uint16 k);
+void DeadZoomer_PreRotDelay(uint16 k);
+void DeadRipper_PreRotDelay(uint16 k);
+void DeadSkree_PreRotDelay(uint16 k);
+void DeadMonsters_PreRotDelay_Common(uint16 k, uint16 j);
+void DeadSidehopper_Rotting(uint16 k);
+void DeadZoomer_Rotting(uint16 k);
+void DeadRipper_Rotting(uint16 k);
+void DeadSkree_Rotting(uint16 k);
+void DeadZoomer_Powerbomb(void);
+void DeadZoomer_Shot(void);
+void DeadRipper_Powerbomb(void);
+void DeadRipper_Shot(void);
+void DeadSkree_Powerbomb(void);
+void DeadSkree_Shot(void);
+void DeadSidehopper_Shot(void);
+void DeadSidehopper_DD31(void);
+void DeadSidehopper_DD34(uint16 a);
+void DeadSidehopper_Touch(void);
 void Enemy_NormalFrozenAI_AA(void);
 uint16 Enemy_ClearAiPreInstr_AA(uint16 k, uint16 jp);
 uint16 Enemy_SetAiPreInstr_AA(uint16 k, uint16 jp);
@@ -986,9 +1596,41 @@ void Torizo_D6A6(void);
 void Torizo_D6D1(uint16 k, uint16 j);
 void Torizo_D6F7(uint16 k, uint16 j);
 void TourianEntranceStatue_Init(void);
+uint16 Shaktool_Instr_2(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_3(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_4(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_5(uint16 k, uint16 jp);
+uint16 Shaktool_D956(uint16 k, uint16 jp, uint16 a);
+uint16 Shaktool_Instr_6(uint16 k, uint16 jp);
+void Shaktool_Func_2(uint16 k);
+uint16 Shaktool_Instr_1(uint16 k, uint16 jp);
+void Shaktool_DAE5(uint16 k);
+void Shaktool_DB0E(uint16 k, uint16 a);
+void Shaktool_DB27(uint16 k, uint16 a);
+void Shaktool_DB40(uint16 k, uint16 a);
+void Shaktool_DB59(uint16 k);
+void Shaktool_DC07(uint16 k);
+void Shaktool_DC2A(uint16 k);
+void Shaktool_DC6F(uint16 k);
+void Shaktool_Hurt(void);
+void Shaktool_DCAC(uint16 k);
+void Shaktool_DCD7(uint16 k);
+void Shaktool_DD25(uint16 k);
+void Shaktool_Init(void);
+void Shaktool_Touch(void);
+void Shaktool_Shot(void);
+uint16 Shaktool_Instr_9(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_11(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_10(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_8(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_13(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_12(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_7(uint16 k, uint16 jp);
+uint16 Shaktool_Instr_14(uint16 k, uint16 jp);
 void ChozoStatue_Init(void);
 void sub_AAE784(void);
 void ChozoStatue_Main(void);
+void Shaktool_PreInstr_0(uint16 k);
 void Enemy_NormalFrozenAI_B2(void);
 void WalkingSpacePirates_Powerbomb(void);
 void WalkingSpacePirates_Touch(void);
@@ -1064,7 +1706,10 @@ void BrinstarPipeBug_PreInstr_3(uint16 k);
 void BrinstarPipeBug_PreInstr_4(uint16 k);
 void BrinstarPipeBug_PreInstr_5(uint16 k);
 void BrinstarPipeBug_Func_1(void);
+void NorfairPipeBug_Init(void);
 void CallBugInstr(uint32 ea, uint16 k);
+void NorfairPipeBug_Main(void);
+void NorfairPipeBug_8BA8(void);
 void NorfairPipeBug_Func_1(void);
 void NorfairPipeBug_Func_2(void);
 void NorfairPipeBug_Func_3(uint16 k);
@@ -1102,11 +1747,13 @@ uint16 EscapeDachora_Instr_1(uint16 k, uint16 jp);
 uint16 EscapeDachora_Instr_4(uint16 k, uint16 jp);
 void EscapeDachora_Init(void);
 static Func_Y_V *const funcs_A2A79[3];
+static Func_V *const g_off_A8AF4F[3];
 static Func_Y_V *const kEprojPreInstr_SpikeShootingPlantSpikes[10];
 static Func_V *const off_86F0AD[7];
 static Func_EnemyBlockCollInfo_U8 *const off_A0C859[16];
 static Func_EnemyBlockCollInfo_U8 *const off_A0C88D[16];
 static Func_V *const off_A28718[2];
+static Func_V *const off_A2A3D3[7];
 static Func_V *const off_A2EB1A[5];
 static Func_V *const off_A2EC3A[5];
 static Func_V *const off_A2EDFB[5];
@@ -1114,7 +1761,15 @@ static Func_V *const off_A2F107[5];
 static Func_V *const off_A39540[4];
 static Func_V *const off_A39C97[2];
 static Func_V *const off_A39C9B[2];
+static Func_V *const off_A3A7A4[3];
+static Func_Y_V *const off_A3EC09[4];
+void Call(uint32 addr);
+void DeadTorizo_Func_1(void);
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
+void InitializeEnemyCorpseRotting(uint16 k, uint16 j);
+void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22);
+uint8 ProcessCorpseRotting(uint16 k);
+void ProcessCorpseRottingVramTransfers(uint16 k);
 void Samus_InputHandler_E913(void);
 void Samus_InputHandler_E91D(void);
 void SetGoldenTorizoPalette(uint16 a);
@@ -1123,7 +1778,13 @@ void Torizo_CorpseRottingInitFunc(void);
 void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
 void WriteReg(uint16 reg, uint8 value);
 
+void Call(uint32 addr) { nt_unimpl("Call"); }
+void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
+void InitializeEnemyCorpseRotting(uint16 k, uint16 j) { nt_unimpl("InitializeEnemyCorpseRotting"); }
+void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22) { nt_unimpl("MotherBrain_AddSpritemapToOam"); }
+uint8 ProcessCorpseRotting(uint16 k) { nt_unimpl("ProcessCorpseRotting"); return 0; }
+void ProcessCorpseRottingVramTransfers(uint16 k) { nt_unimpl("ProcessCorpseRottingVramTransfers"); }
 void Samus_InputHandler_E913(void) { nt_unimpl("Samus_InputHandler_E913"); }
 void Samus_InputHandler_E91D(void) { nt_unimpl("Samus_InputHandler_E91D"); }
 void SetGoldenTorizoPalette(uint16 a) { nt_unimpl("SetGoldenTorizoPalette"); }
@@ -1133,6 +1794,7 @@ void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_Corpse
 void WriteReg(uint16 reg, uint8 value) { nt_unimpl("WriteReg"); }
 
 static Func_Y_V *const funcs_A2A79[3] = { Etecoon_Func_13, Etecoon_Func_14, Etecoon_Func_15 };
+static Func_V *const g_off_A8AF4F[3] = { NorfairLavaMan_Func_1, NorfairLavaMan_Func_2, NorfairLavaMan_Func_3 };
 static Func_Y_V *const kEprojPreInstr_SpikeShootingPlantSpikes[10] = {  // 0x86D9DB
   EprojPreInstr_SpikeShootingPlantSpikes_0_MoveX1,
   EprojPreInstr_SpikeShootingPlantSpikes_1_MoveY1,
@@ -1191,6 +1853,13 @@ static Func_EnemyBlockCollInfo_U8 *const off_A0C88D[16] = {  // 0xA0C879
   SetCarry_4,
 };
 static Func_V *const off_A28718[2] = { BouncingGoofball_State0, BouncingGoofball_State1 };
+static Func_V *const off_A2A3D3[7] = {  // 0xA2A3F9
+  MaridiaSpikeyShell_1, MaridiaSpikeyShell_2,
+
+  MaridiaSpikeyShell_3, MaridiaSpikeyShell_4,
+  MaridiaSpikeyShell_5, MaridiaSpikeyShell_6,
+  MaridiaSpikeyShell_7,
+};
 static Func_V *const off_A2EB1A[5] = { TimedShutter_Func_6, TimedShutter_Func_7, TimedShutter_Func_8, TimedShutter_Func_9, TimedShutter_Func_Null };
 static Func_V *const off_A2EC3A[5] = {  // 0xA2EC13
   TimedShutter_Func_11,
@@ -1216,11 +1885,14 @@ static Func_V *const off_A2F107[5] = {  // 0xA2F224
 static Func_V *const off_A39540[4] = { Elevator_Func_1, Elevator_Func_2, Elevator_Func_3, Elevator_Func3b };
 static Func_V *const off_A39C97[2] = { PlatformThatFallsWithSamus_Func_1, PlatformThatFallsWithSamus_Func_2 };
 static Func_V *const off_A39C9B[2] = { PlatformThatFallsWithSamus_Func_3, PlatformThatFallsWithSamus_Func_4 };
+static Func_V *const off_A3A7A4[3] = { Mochtroid_Func_1, Mochtroid_Func_3, Mochtroid_Func_2 };
+static Func_Y_V *const off_A3EC09[4] = { Metroid_Func_1, Metroid_Func_2, Metroid_Func_3, Metroid_Func_4 };
 
 static const int16 kEprojInit_BombTorizoStatueBreaking_F[8] = { 16, 16, 16, 16, 16, 16, 16, 16 };
 static const int16 kEprojInit_BombTorizoStatueBreaking_Yvel[8] = { 256, 256, 256, 256, 256, 256, 256, 256 };
 static const int16 kEprojInit_MiniKraidSpikes_Tab0[3] = { -2, 12, 24 };
 static const int16 kEprojInit_SporeSpawners_X[4] = { 0x20, 0x60, 0xa0, 0xe0 };
+static const uint16 kWreckedShipGhost_Palette[16] = { 0x3800, 0x57ff, 0x42f7, 0x929, 0xa5, 0x4f5a, 0x36b5, 0x2610, 0x1dce, 0x1df, 0x1f, 0x18, 0xa, 0x6b9, 0xea, 0x45 };
 uint16 EprojInstr_Delete(uint16 k, uint16 epjp) {  // 0x868154
   eproj_id[k >> 1] = 0;
   return 0;
@@ -1897,6 +2569,12 @@ void EprojPreInstr_TorizoSonicBoom(uint16 k) {  // 0x86AE6C
       eproj_id[v1] = 0;
   }
 }
+static void EprojInit_WreckedShipChozoSpikeFootsteps(uint16 j) {  // 0x86AEFC
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  int v2 = j >> 1;
+  eproj_x_pos[v2] = eproj_init_param_1 + v1->x_pos;
+  eproj_y_pos[v2] = v1->y_pos + 28;
+}
 static void EprojInit_TourianStatueDustClouds(uint16 j) {  // 0x86AF43
   int v1 = j >> 1;
   eproj_E[v1] = 128;
@@ -1997,6 +2675,44 @@ void EprojPreInstr_GoldenTorizoEyeBeam(uint16 k) {  // 0x86B38A
     return;
   }
 }
+static void EprojInit_LavaSeahorseFireball(uint16 j) {  // 0x86B4EF
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  int v2 = j >> 1;
+  eproj_y_pos[v2] = v1->y_pos - 28;
+  eproj_y_vel[v2] = -961;
+  if ((v1->ai_var_A & 0x8000) == 0) {
+    eproj_x_pos[v2] = v1->x_pos + 12;
+    eproj_x_vel[v2] = 704;
+    eproj_instr_list_ptr[v2] = addr_word_86B4CB;
+  } else {
+    eproj_x_pos[v2] = v1->x_pos - 12;
+    eproj_x_vel[v2] = -704;
+    eproj_instr_list_ptr[v2] = addr_word_86B4BF;
+  }
+}
+void sub_86B535(uint16 k) {  // 0x86B535
+  int v1 = k >> 1;
+  AddToHiLo(&eproj_x_pos[v1], &eproj_x_subpos[v1], INT16_SHL8(eproj_x_vel[v1]));
+  AddToHiLo(&eproj_y_pos[v1], &eproj_y_subpos[v1], INT16_SHL8(eproj_y_vel[v1]));
+
+  int16 v6 = eproj_y_vel[v1];
+  if (v6 >= 0) {
+    eproj_y_vel[v1] = v6 + 32;
+    Eproj_DeleteIfYposOutside(k);
+  } else {
+    eproj_y_vel[v1] = v6 + 32;
+    if ((int16)(v6 + 32) >= 0) {
+      eproj_instr_list_ptr[v1] = (eproj_x_vel[v1] & 0x8000) == 0 ?
+          addr_word_86B4E3 : addr_word_86B4D7;
+      eproj_instr_timers[v1] = 1;
+    }
+  }
+}
+void Eproj_DeleteIfYposOutside(uint16 k) {  // 0x86B5B9
+  int v1 = k >> 1;
+  if ((int16)(eproj_y_pos[v1] - layer1_y_pos) >= 288)
+    eproj_id[v1] = 0;
+}
 static void EprojInit_TourianStatueUnlockingParticleWaterSplash(uint16 j) {  // 0x86B87A
   int v1 = j >> 1;
   eproj_x_pos[v1] = eproj_x_pos[eproj_init_param_1 >> 1];
@@ -2062,6 +2778,112 @@ void EprojPreInstr_TourianStatueStuff(uint16 k) {  // 0x86BA37
   if (!tourian_entrance_statue_animstate)
     tourian_entrance_statue_finished |= 0x8000;
   EprojPreInstr_BA42(k);
+}
+static void EprojInit_NuclearWaffleBody(uint16 j) {  // 0x86BB92
+  EnemyData *v2 = gEnemyData(cur_enemy_index);
+  int v3 = j >> 1;
+  eproj_x_pos[v3] = v2->x_pos;
+  eproj_x_subpos[v3] = v2->x_subpos;
+  eproj_y_pos[v3] = v2->y_pos;
+  eproj_y_subpos[v3] = v2->y_subpos;
+  ERAM(0x7800 + (cur_enemy_index + ERAM(0x8000 + 20 + (cur_enemy_index)))) = j;
+  eproj_flags[v3] = 1;
+}
+static void EprojInit_NorfairLavaquakeRocks(uint16 j) {  // 0x86BBDB
+  int v1 = j >> 1;
+  eproj_instr_list_ptr[v1] = addr_word_86BBD5;
+  eproj_E[v1] = 0xBC16 /* Eproj_NorfairLavaquakeRocks_Func1 */;
+  eproj_y_vel[v1] = eproj_init_param_1;
+  eproj_x_vel[v1] = eproj_unk1995;
+  EnemyData *v2 = gEnemyData(cur_enemy_index);
+  eproj_x_pos[v1] = v2->x_pos;
+  eproj_x_subpos[v1] = v2->x_subpos;
+  eproj_y_pos[v1] = v2->y_pos;
+  eproj_y_subpos[v1] = v2->y_subpos;
+}
+void CallNorfairLavaquakeRocksFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0x86BC16: Eproj_NorfairLavaquakeRocks_Func1(k); return;
+  case 0x86BC8F: Eproj_NorfairLavaquakeRocks_Func2(k); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+uint16 EprojPreInstr_NorfairLavaquakeRocks_Inner2(uint16 k) {  // 0x86BD2A
+  int v1 = k >> 1;
+  return (int16)(eproj_x_pos[v1] - layer1_x_pos) < 0
+    || (int16)(layer1_x_pos + 256 - eproj_x_pos[v1]) < 0
+    || (int16)(eproj_y_pos[v1] - layer1_y_pos) < 0
+    || (int16)(layer1_y_pos + 256 - eproj_y_pos[v1]) < 0;
+}
+void EprojPreInstr_NorfairLavaquakeRocks_Inner(uint16 k) {  // 0x86BD1E
+  if (EprojPreInstr_NorfairLavaquakeRocks_Inner2(k))
+    eproj_id[k >> 1] = 0;
+}
+void EprojPreInstr_NorfairLavaquakeRocks(uint16 k) {  // 0x86BC0F
+  CallNorfairLavaquakeRocksFunc(eproj_E[k >> 1] | 0x860000, k);
+  EprojPreInstr_NorfairLavaquakeRocks_Inner(k);
+}
+void Eproj_NorfairLavaquakeRocks_Func1(uint16 k) {  // 0x86BC16
+  int16 v2;
+  int16 v3;
+
+  int v1 = k >> 1;
+  v2 = eproj_y_vel[v1] - 2;
+  eproj_y_vel[v1] = v2;
+  if (v2 >= 0) {
+    int n = 2;
+    do {
+      v3 = n + eproj_y_vel[v1] - 1;
+      if (v3 < 0)
+        v3 = 0;
+      int t = (8 * v3 + 4) >> 1;
+      AddToHiLo(&eproj_y_pos[v1], &eproj_y_subpos[v1],  ((uint32)((uint32)BW_A0(0xCBC7 + 4 * (t >> 1)) | (uint32)BW_A0(0xCBC7 + 4 * (t >> 1) + 2) << 16)));
+      eproj_F[v1] = ((uint16)BW_A0(0xCBC7 + 2 * (t + 1)));  // junk
+    } while (--n);
+    Eproj_NorfairLavaquakeRocks_Func3(k);
+  } else {
+    eproj_y_vel[v1] = 0;
+    eproj_E[v1] = 0xBC8F /* Eproj_NorfairLavaquakeRocks_Func2 */;
+  }
+}
+void Eproj_NorfairLavaquakeRocks_Func2(uint16 k) {  // 0x86BC8F
+  int v1 = k >> 1;
+  uint16 v2 = eproj_y_vel[v1] + 2;
+  eproj_y_vel[v1] = v2;
+  if (!sign16(v2 - 64))
+    eproj_y_vel[v1] = 64;
+  int n = 2;
+  do {
+    int t = (8 * (eproj_y_vel[v1] - n + 1)) >> 1;
+    AddToHiLo(&eproj_y_pos[v1], &eproj_y_subpos[v1], ((uint32)((uint32)BW_A0(0xCBC7 + 4 * (t >> 1)) | (uint32)BW_A0(0xCBC7 + 4 * (t >> 1) + 2) << 16)));
+    eproj_F[v1] = ((uint16)BW_A0(0xCBC7 + 2 * (t + 1)));  // junk
+  } while (--n);
+  Eproj_NorfairLavaquakeRocks_Func3(k);
+}
+void Eproj_NorfairLavaquakeRocks_Func3(uint16 k) {  // 0x86BCF4
+  int v1 = k >> 1;
+  AddToHiLo(&eproj_x_pos[v1], &eproj_x_subpos[v1], INT16_SHL8(eproj_x_vel[v1]));
+}
+static void EprojInit_BDA2(uint16 j) {  // 0x86BDA2
+  int v1 = j >> 1;
+  EnemyData *v2 = gEnemyData(cur_enemy_index);
+  eproj_x_pos[v1] = v2->x_pos;
+  eproj_y_pos[v1] = v2->y_pos;
+  uint16 v3 = 2 * LOBYTE(v2->ai_var_D);
+  int v4 = v3 >> 1;
+  eproj_x_vel[v1] = kSinCosTable8bit_Sext[v4 + 64];
+  eproj_y_vel[v1] = kSinCosTable8bit_Sext[v4];
+  int v5 = (uint16)(v3 >> 5) >> 1;
+  eproj_x_pos[v1] += ((int16)BW_86(0xBDE3 + 2 * (v5)));
+  eproj_y_pos[v1] += ((int16)BW_86(0xBDF3 + 2 * (v5)));
+}
+static void EprojInit_ShaktoolAttackMiddleBackCircle(uint16 j) {  // 0x86BD9C
+  eproj_E[j >> 1] = eproj_init_param_1;
+  EprojInit_BDA2(j);
+}
+static void EprojInit_ShaktoolAttackFrontCircle(uint16 v1) {  // 0x86BE03
+  if (EprojBlockCollisition_Horiz(v1) & 1 || EprojBlockCollisition_Vertical(v1) & 1)
+    eproj_id[v1 >> 1] = 0;
 }
 static void EprojInit_MotherBrainDeathBeemFired(uint16 j) {  // 0x86C684
   int v1 = j >> 1;
@@ -2250,6 +3072,65 @@ uint16 EprojInstr_D1B6(uint16 k, uint16 epjp) {  // 0x86D1B6
   eproj_pre_instr[v1] = 0xD0CA /* EprojPreInstr_KagosBugs */;
   return epjp;
 }
+static void EprojInit_MaridiaFloatersSpikes(uint16 j) {  // 0x86D23A
+  int v1 = j >> 1;
+  eproj_x_subpos[v1] = 0;
+  eproj_y_subpos[v1] = 0;
+  eproj_x_vel[v1] = 0;
+  eproj_y_vel[v1] = 0;
+  EnemyData *v2 = gEnemyData(cur_enemy_index);
+  eproj_x_pos[v1] = v2->x_pos;
+  eproj_y_pos[v1] = v2->y_pos;
+  eproj_E[v1] = eproj_init_param_1;
+}
+void EprojPreInstr_MaridiaFloatersSpikes(uint16 k) {  // 0x86D263
+  int v1 = k >> 1;
+  eproj_x_vel[v1] += ((int16)BW_86(0xD21A + 2 * (eproj_E[v1])));
+  if (EprojBlockCollisition_Horiz(k) & 1
+      || (eproj_y_vel[v1] += ((int16)BW_86(0xD22A + 2 * (eproj_E[v1]))),  EprojBlockCollisition_Vertical(k) & 1)) {
+    eproj_instr_list_ptr[v1] = addr_off_86D218;
+    eproj_instr_timers[v1] = 1;
+  }
+}
+static void EprojInit_WreckedShipRobotLaserCommon(uint16 k, uint16 j) {  // 0x86D35B
+  EnemyData *v2 = gEnemyData(k);
+  int v3 = j >> 1;
+  eproj_y_pos[v3] = v2->y_pos - 16;
+  eproj_x_pos[v3] = v2->x_pos + (sign16(eproj_x_vel[v3]) ? -4 : 4);
+  eproj_y_subpos[v3] = 0;
+  eproj_x_subpos[v3] = 0;
+  if ((int16)(v2->x_width + v2->x_pos - layer1_x_pos) >= 0
+    && (int16)(v2->x_pos - v2->x_width - 257 - layer1_x_pos) < 0
+    && (int16)(v2->y_height + v2->y_pos - layer1_y_pos) >= 0
+    && (int16)(v2->y_pos - v2->y_height - 224) < 0) {
+    QueueSfx2_Max6(0x67);
+  }
+}
+static void EprojInit_WreckedShipRobotLaserDown(uint16 j) {  // 0x86D30C
+  int v2 = j >> 1;
+  eproj_x_vel[v2] = gEnemyData(cur_enemy_index)->ai_var_A;
+  eproj_y_vel[v2] = 128;
+  eproj_gfx_idx[v2] = 0;
+  EprojInit_WreckedShipRobotLaserCommon(cur_enemy_index, j);
+}
+static void EprojInit_WreckedShipRobotLaserHorizontal(uint16 j) {  // 0x86D32E
+  int v2 = j >> 1;
+  eproj_x_vel[v2] = gEnemyData(cur_enemy_index)->ai_var_A;
+  eproj_y_vel[v2] = 0;
+  EprojInit_WreckedShipRobotLaserCommon(cur_enemy_index, j);
+}
+static void EprojInit_WreckedShipRobotLaserUp(uint16 j) {  // 0x86D341
+  int v2 = j >> 1;
+  eproj_x_vel[v2] = gEnemyData(cur_enemy_index)->ai_var_A;
+  eproj_y_vel[v2] = -128;
+  EprojInit_WreckedShipRobotLaserCommon(cur_enemy_index, j);
+}
+void EprojPreInstr_WreckedShipRobotLaser(uint16 k) {  // 0x86D3BF
+  int v1 = k >> 1;
+  eproj_gfx_idx[v1] = 0;
+  if (EprojBlockCollisition_Horiz(k) & 1 || EprojBlockCollisition_Vertical(k) & 1)
+    eproj_id[v1] = 0;
+}
 void sub_86D992(uint16 v0) {  // 0x86D992
   uint16 v1 = eproj_init_param_1;
   int v2 = v0 >> 1;
@@ -2326,6 +3207,13 @@ uint16 EprojPreInstrHelper_SpikeShootingPlantSpikes_Func2(uint16 k) {  // 0x86DA
     || (int16)(eproj_y_pos[v1] - layer1_y_pos) < 0
     || (int16)(layer1_y_pos + 256 - eproj_y_pos[v1]) < 0;
 }
+uint16 EprojPreInstrHelper_DBF2_Func2(uint16 k) {  // 0x86DBC2
+  int v1 = k >> 1;
+  return (int16)(eproj_x_pos[v1] - layer1_x_pos) < 0
+    || (int16)(layer1_x_pos + 256 - eproj_x_pos[v1]) < 0
+    || (int16)(eproj_y_pos[v1] - layer1_y_pos) < 0
+    || (int16)(layer1_y_pos + 256 - eproj_y_pos[v1]) < 0;
+}
 uint16 EprojInstr_DC5A(uint16 k, uint16 epjp) {  // 0x86DC5A
   eproj_properties[k >> 1] = 12288;
   return epjp;
@@ -2382,6 +3270,94 @@ void EprojPreInstr_SporeSpawners(uint16 k) {  // 0x86DD46
     }
     --eproj_F[v1];
   }
+}
+static void EprojInit_NamiFuneFireball(uint16 j) {  // 0x86DED6
+  int v2 = j >> 1;
+  eproj_instr_list_ptr[v2] = addr_word_86DE96;
+  eproj_E[v2] = 0xDF40 /* EprojInit_NamiFuneFireball_MoveX1 */;
+  if (eproj_init_param_1) {
+    eproj_instr_list_ptr[v2] = addr_word_86DEA6;
+    eproj_E[v2] = 0xDF6A /* EprojInit_NamiFuneFireball_MoveX2 */;
+  }
+  EnemyData *v3 = gEnemyData(cur_enemy_index);
+  eproj_x_pos[v2] = v3->x_pos;
+  eproj_x_subpos[v2] = v3->x_subpos;
+  eproj_y_pos[v2] = v3->y_pos;
+  eproj_y_subpos[v2] = v3->y_subpos;
+  if ((v3->parameter_1 & 0xF) != 0)
+    eproj_y_pos[v2] += 4;
+  int v4 = (uint16)(4 * LOBYTE(v3->parameter_2)) >> 1;
+  eproj_y_vel[v2] = ((uint16)BW_86(0xDEB6 + 2 * (v4)));
+  eproj_x_vel[v2] = ((uint16)BW_86(0xDEB6 + 2 * (v4 + 1)));
+}
+static void EprojInit_NamiFuneFireball_MoveX1(uint16 k) {  // 0x86DF40
+  int v1 = k >> 1;
+  AddToHiLo(&eproj_x_pos[v1], &eproj_x_subpos[v1], INT16_SHL8(eproj_y_vel[v1]));
+}
+static void EprojInit_NamiFuneFireball_MoveX2(uint16 k) {  // 0x86DF6A
+  int v1 = k >> 1;
+  AddToHiLo(&eproj_x_pos[v1], &eproj_x_subpos[v1], INT16_SHL8(eproj_x_vel[v1]));
+}
+void CallNamiFuneFireballFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0x86DF40: EprojInit_NamiFuneFireball_MoveX1(k); return;
+  case 0x86DF6A: EprojInit_NamiFuneFireball_MoveX2(k); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void EprojPreInstr_NamiFuneFireball(uint16 v0) {  // 0x86DF39
+  CallNamiFuneFireballFunc(eproj_E[v0 >> 1] | 0x860000, v0);
+  Eproj_NamiFuneFireball_After(v0);
+}
+void Eproj_NamiFuneFireball_After(uint16 v0) {  // 0x86DF94
+  if (EprojPreInstrHelper_DBF2_Func2(v0))
+    eproj_id[v0 >> 1] = 0;
+}
+static void EprojInit_LavaThrownByLavaman(uint16 j) {  // 0x86E000
+  int v2 = j >> 1;
+  eproj_instr_list_ptr[v2] = addr_word_86DFD8;
+  eproj_E[v2] = 0xE050 /* Eproj_LavaThrownByLavaman_MoveX1 */;
+  if (eproj_init_param_1) {
+    eproj_instr_list_ptr[v2] = addr_word_86DFDE;
+    eproj_E[v2] = 0xE07A /* Eproj_LavaThrownByLavaman_MoveX2 */;
+  }
+  EnemyData *v3 = gEnemyData(cur_enemy_index);
+  eproj_x_pos[v2] = v3->x_pos;
+  eproj_x_subpos[v2] = v3->x_subpos;
+  eproj_y_pos[v2] = v3->y_pos + 2;
+  eproj_y_subpos[v2] = v3->y_subpos;
+  eproj_y_vel[v2] = -768;
+  eproj_x_vel[v2] = 768;
+}
+void CallLavamanFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0x86E050: Eproj_LavaThrownByLavaman_MoveX1(k); return;
+  case 0x86E07A: Eproj_LavaThrownByLavaman_MoveX2(k); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void sub_86E049(uint16 v0) {  // 0x86E049
+  CallLavamanFunc(eproj_E[v0 >> 1] | 0x860000, v0);
+  sub_86E0A4(v0);
+}
+void Eproj_LavaThrownByLavaman_MoveX1(uint16 k) {  // 0x86E050
+  int v1 = k >> 1;
+  AddToHiLo(&eproj_x_pos[v1], &eproj_x_subpos[v1], INT16_SHL8(eproj_y_vel[v1]));
+}
+void Eproj_LavaThrownByLavaman_MoveX2(uint16 k) {  // 0x86E07A
+  int v1 = k >> 1;
+  AddToHiLo(&eproj_x_pos[v1], &eproj_x_subpos[v1], INT16_SHL8(eproj_x_vel[v1]));
+}
+void sub_86E0A4(uint16 v0) {  // 0x86E0A4
+  if (sub_86E0B0(v0))
+    eproj_id[v0 >> 1] = 0;
+}
+uint16 sub_86E0B0(uint16 k) {  // 0x86E0B0
+  int v1 = k >> 1;
+  return (int16)(eproj_x_pos[v1] - layer1_x_pos) < 0
+    || (int16)(layer1_x_pos + 256 - eproj_x_pos[v1]) < 0
+    || (int16)(eproj_y_pos[v1] - layer1_y_pos) < 0
+    || (int16)(layer1_y_pos + 256 - eproj_y_pos[v1]) < 0;
 }
 static void EprojInit_DustCloudOrExplosion(uint16 v0) {  // 0x86E468
   int v1 = v0 >> 1;
@@ -2712,6 +3688,49 @@ void RespawnEnemy(uint16 v0) {  // 0x86F264
   E->bank = Edef->bank; E->field_2F = Edef->hurt_ai_time;
   CallEnemyAi(Edef->bank, Edef->ai_init);
 }
+static void EprojInit_Sparks(uint16 j) {  // 0x86F391
+  int v2 = j >> 1;
+  eproj_instr_list_ptr[v2] = addr_kEnemyDef_F353;
+  EnemyData *v3 = gEnemyData(cur_enemy_index);
+  eproj_x_pos[v2] = v3->x_pos;
+  eproj_x_subpos[v2] = v3->x_subpos;
+  eproj_y_pos[v2] = v3->y_pos + 8;
+  eproj_y_subpos[v2] = v3->y_subpos;
+  eproj_x_vel[v2] = 0;
+  eproj_y_vel[v2] = 0;
+  uint16 v4 = (NextRandom() & 0x1C) >> 1;
+  eproj_F[v2] = ((uint16)BW_86(0xF3D4 + 2 * (v4 + 0)));
+  eproj_E[v2] = ((uint16)BW_86(0xF3D4 + 2 * (v4 + 1)));
+}
+void EprojPreInstr_Sparks(uint16 k) {  // 0x86F3F0
+  int v1 = k >> 1;
+  if ((eproj_y_vel[v1] & 0x8000) == 0) {
+    if (EprojBlockCollisition_Vertical(k) & 1) {
+      eproj_instr_list_ptr[v1] = 0xF363;
+      eproj_instr_timers[v1] = 1;
+
+      eproj_F[v1] = eproj_F[v1] * 2 + (eproj_E[v1] >> 15);
+      eproj_E[v1] *= 2;
+
+      eproj_F[v1] = eproj_F[v1] * 2 + (eproj_E[v1] >> 15);
+      eproj_E[v1] *= 2;
+
+      eproj_x_vel[v1] = 0x8000;
+      eproj_y_vel[v1] = -1;
+      eproj_y_pos[v1] -= 2;
+      return;
+    }
+    uint16 v2 = eproj_x_vel[v1];
+    eproj_x_vel[v1] = v2 + 0x4000;
+    uint16 v3 = __CFADD__uint16(v2, 0x4000) + eproj_y_vel[v1];
+    if (v3 < 4)
+      eproj_y_vel[v1] = v3;
+  }
+  AddToHiLo(&eproj_y_pos[v1], &eproj_y_subpos[v1], __PAIR32__(eproj_y_vel[v1], eproj_x_vel[v1]));
+  AddToHiLo(&eproj_x_pos[v1], &eproj_x_subpos[v1], __PAIR32__(eproj_F[v1], eproj_E[v1]));
+  if ((nmi_frame_counter_byte & 3) == 0)
+    CreateSpriteAtPos(eproj_x_pos[v1], eproj_y_pos[v1], 48, eproj_gfx_idx[v1]);
+}
 void CreateADudShot(void) {  // 0xA08046
   CreateDudShot();
 }
@@ -2759,6 +3778,18 @@ void SpawnEnemyDrops(uint16 a, uint16 k, uint16 varE20) {  // 0xA0920E
   eproj_spawn_varE24 = a;
   SpawnEprojWithGfx(varE20, k, addr_kEproj_Pickup);
 }
+void DeleteEnemyAndConnectedEnemies(void) {  // 0xA0922B
+  EnemyData *v0 = gEnemyData(cur_enemy_index);
+  uint16 num_parts = get_EnemyDef_A2(v0->enemy_ptr)->num_parts;
+  if (!num_parts)
+    num_parts = 1;
+  uint16 v2 = num_parts;
+  do {
+    gEnemyData(cur_enemy_index)->enemy_ptr = 0;
+    cur_enemy_index += 64;
+    --v2;
+  } while (v2);
+}
 void NormalEnemyFrozenAI(void) {  // 0xA0957E
   EnemyData *v0 = gEnemyData(cur_enemy_index);
   v0->flash_timer = 0;
@@ -2783,6 +3814,19 @@ void EnemyDeathAnimation(uint16 k, uint16 a) {  // 0xA0A3AF
     E->bank = 0xa3;
   }
   num_enemies_killed_in_room++;
+}
+void RinkasDeathAnimation(uint16 a) {  // 0xA0A410
+  EnemyData *E = gEnemyData(cur_enemy_index);
+  if (!sign16(a - 3))
+    a = 0;
+//  varE20 = a;
+  SpawnEprojWithGfx(a, cur_enemy_index, addr_kEproj_EnemyDeathExplosion);
+  uint16 r18 = E->properties & 0x4000;
+  memset(E, 0, 64);
+  if (r18) {
+    E->enemy_ptr = addr_kEnemyDef_DAFF;
+    E->bank = 0xa3;
+  }
 }
 void NormalEnemyTouchAi(void) {  // 0xA0A477
   NormalEnemyTouchAiSkipDeathAnim();
@@ -3035,6 +4079,11 @@ uint16 CheckIfEnemyIsOnScreen(void) {  // 0xA0AD70
   return (int16)(v0->x_pos - layer1_x_pos) < 0 || (int16)(layer1_x_pos + 256 - v0->x_pos) < 0 || 
       (int16)(v0->y_pos - layer1_y_pos) < 0 || (int16)(layer1_y_pos + 256 - v0->y_pos) < 0;
 }
+uint16 EnemyFunc_ADA3(uint16 a) {  // 0xA0ADA3
+  EnemyData *E = gEnemyData(cur_enemy_index);
+  return (int16)(a + E->x_pos - layer1_x_pos) < 0 || (int16)(a + layer1_x_pos + 256 - E->x_pos) < 0 ||
+      (int16)(a + E->y_pos - layer1_y_pos) < 0 || (int16)(a + layer1_y_pos + 256 - E->y_pos) < 0;
+}
 uint16 DetermineDirectionOfSamusFromEnemy(void) {  // 0xA0AE29
   if (IsSamusWithinEnemy_Y(cur_enemy_index, 0x20)) {
     if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) != 0)
@@ -3140,6 +4189,14 @@ void Enemy_ItemDrop_LowerNorfairSpacePirate(uint16 k) {  // 0xA0B92B
     SpawnEnemyDrops(addr_kEnemyDef_F593, k, 0);
   } while (--n);
 }
+void Enemy_ItemDrop_Metroid(uint16 k) {  // 0xA0B968
+  int n = 5;
+  do {
+    eproj_spawn_x = special_death_item_drop_x_origin_pos + (NextRandom() & 0x1F) - 16;
+    eproj_spawn_y = special_death_item_drop_y_origin_pos + ((random_number & 0x1F00) >> 8) - 16;
+    SpawnEnemyDrops(addr_kEnemyDef_DD7F, k, 0);
+  } while (--n);
+}
 void Enemy_ItemDrop_BombTorizo(uint16 k) {  // 0xA0BAA4
   int n = 16;
   do {
@@ -3188,6 +4245,25 @@ uint8 EnemyFunc_BBBF(uint16 k, int32 amt) {  // 0xA0BBBF
   }
   return 1;
 }
+uint8 EnemyFunc_BC76(uint16 k, int32 amt) {  // 0xA0BC76
+  EnemyData *E = gEnemyData(k);
+  uint16 R26 = (E->x_pos - E->x_width) & 0xFFF0;
+  R26 = (uint16)(E->x_width + E->x_pos - 1 - R26) >> 4;
+  uint16 i = (amt + __PAIR32__(E->y_pos, E->y_subpos)) >> 16;
+  uint16 j;
+  if (sign32(amt))
+    j = i - E->y_height;
+  else
+    j = E->y_height + i - 1;
+  uint16 R34 = j;
+  uint16 prod = Mult8x8(j >> 4, room_width_in_blocks);
+  int16 v4 = (uint16)(E->x_pos - E->x_width) >> 4;
+  for (int i = 2 * (prod + v4); (level_get(i >> 1) & 0x8000) == 0; i += 2) {
+    if ((--R26 & 0x8000) != 0)
+      return 0;
+  }
+  return 1;
+}
 uint8 EnemyFunc_BF8A(uint16 k, uint16 a, int32 amt) {  // 0xA0BF8A
   uint16 v4;
 
@@ -3218,6 +4294,11 @@ uint16 CalculateAngleOfSamusFromEproj(uint16 k) {  // 0xA0C04E
 uint16 CalculateAngleOfSamusFromEnemy(uint16 k) {  // 0xA0C066
   EnemyData *E = gEnemyData(k);
   return CalculateAngleFromXY(samus_x_pos - E->x_pos, samus_y_pos - E->y_pos);
+}
+uint16 CalculateAngleOfEnemyXfromEnemyY(uint16 k, uint16 j) {  // 0xA0C096
+  EnemyData *Ek = gEnemyData(k);
+  EnemyData *Ej = gEnemyData(j);
+  return CalculateAngleFromXY(Ek->x_pos - Ej->x_pos, Ek->y_pos - Ej->y_pos);
 }
 uint8 IsEnemyLeavingScreen(uint16 k) {  // 0xA0C18E
   int16 x_pos;
@@ -3371,6 +4452,9 @@ static uint8 EnemyBlockCollReact_VertExt(EnemyBlockCollInfo *ebci) {  // 0xA0C64
     return 0xff;
   }
   return 0;
+}
+uint8 Enemy_MoveRight_SlopesAsWalls(uint16 k, int32 amt) {  // 0xA0C69D
+  return Enemy_MoveRight_IgnoreSlopes_Inner(k, amt, 0x4000);
 }
 uint8 Enemy_MoveRight_ProcessSlopes(uint16 k, int32 amt) {  // 0xA0C6A4
   return Enemy_MoveRight_IgnoreSlopes_Inner(k, amt, 0x8000);
@@ -3623,6 +4707,454 @@ uint16 BouncingGoofball_Instr_88C5(uint16 k, uint16 jp) {  // 0xA288C5
 uint16 BouncingGoofball_Instr_88C6(uint16 k, uint16 jp) {  // 0xA288C6
   ERAM(0x7804 + (cur_enemy_index)) = 0;
   QueueSfx2_Max6(0xE);
+  return jp;
+}
+void MaridiaBeybladeTurtle_Init(void) {  // 0xA28D6C
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties |= kEnemyProps_DisableSamusColl;
+  E->spritemap_pointer = addr_kSpritemap_Nothing_A2;
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->y_height = 0;
+  E->current_instruction = addr_kMaridiaBeybladeTurtle_Ilist_8C44;
+  E->ai_var_A = 0x8DD8 /* MaridiaBeybladeTurtle_Func1 */;
+  E->ai_preinstr = ((uint16)BW_A2(0x8D52 + 2 * (0)));
+}
+void MiniMaridiaBeybladeTurtle_Init(void) {  // 0xA28D9D
+  int16 mmbte_parameter_1;
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_C = E->x_pos;
+  E->ai_var_D = E->y_pos
+    - E->y_height;
+  E->ai_var_A = 0x9142 /* MiniMaridiaBeybladeTurtle_Func1 */;
+  E->instruction_timer = 1;
+  E->timer = 0;
+  uint16 v1 = addr_kMaridiaBeybladeTurtle_Ilist_8B80;
+  mmbte_parameter_1 = E->parameter_1;
+  E->ai_var_E = mmbte_parameter_1;
+  if (mmbte_parameter_1 >= 0)
+    v1 = addr_kMaridiaBeybladeTurtle_Ilist_8C72;
+  E->current_instruction = v1;
+}
+void CallMaridiaBeybladeTurtleFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA28DD8: MaridiaBeybladeTurtle_Func1(k); return;
+  case 0xA28E0A: MaridiaBeybladeTurtle_Func2(k); return;
+  case 0xA28EE0: MaridiaBeybladeTurtle_Func3(k); return;
+  case 0xA28F3F: MaridiaBeybladeTurtle_Func5(k); return;
+  case 0xA28F8D: MaridiaBeybladeTurtle_Func7(k); return;
+  case 0xA28FEB: MaridiaBeybladeTurtle_Func8(k); return;
+  case 0xA29083: MaridiaBeybladeTurtle_Func9(k); return;
+  case 0xA290CC: MaridiaBeybladeTurtle_Func10(k); return;
+  case 0xA290E1: MaridiaBeybladeTurtle_Func11(k); return;
+  case 0xA28E09: return;
+  case 0xA29142: MiniMaridiaBeybladeTurtle_Func1(k); return;
+  case 0xA2916E: MiniMaridiaBeybladeTurtle_Func2(k); return;
+  case 0xA29198: MiniMaridiaBeybladeTurtle_Func3(k); return;
+  case 0xA291F8: MiniMaridiaBeybladeTurtle_Func4(k); return;
+  case 0xA29239: MiniMaridiaBeybladeTurtle_Func6(k); return;
+  case 0xA2925E: MiniMaridiaBeybladeTurtle_Func7(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void MaridiaBeybladeTurtle_Main(void) {  // 0xA28DD2
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallMaridiaBeybladeTurtleFunc(E->ai_var_A | 0xA20000, cur_enemy_index);
+}
+void MaridiaBeybladeTurtle_Func1(uint16 k) {  // 0xA28DD8
+  uint16 palette_index = gEnemyData(k)->palette_index;
+  gEnemyData(k + 64)->palette_index = palette_index;
+  gEnemyData(k + 128)->palette_index = palette_index;
+  gEnemyData(k + 192)->palette_index = palette_index;
+  gEnemyData(k + 256)->palette_index = palette_index;
+  uint16 vram_tiles_index = gEnemyData(k)->vram_tiles_index;
+  EnemyData *E1 = gEnemyData(k + 64); const uint16 E1_k = (k + 64);
+  E1->vram_tiles_index = vram_tiles_index;
+  EnemyData *E2 = gEnemyData(k + 128); const uint16 E2_k = (k + 128);
+  E2->vram_tiles_index = vram_tiles_index;
+  EnemyData *E3 = gEnemyData(k + 192); const uint16 E3_k = (k + 192);
+  E3->vram_tiles_index = vram_tiles_index;
+  EnemyData *E4 = gEnemyData(k + 256); const uint16 E4_k = (k + 256);
+  E4->vram_tiles_index = vram_tiles_index;
+  E1->ai_var_B = k;
+  E2->ai_var_B = k;
+  E3->ai_var_B = k;
+  E4->ai_var_B = k;
+  gEnemyData(k)->ai_var_A = 0x8E0A /* MaridiaBeybladeTurtle_Func2 */;
+}
+void MaridiaBeybladeTurtle_Func2(uint16 k) {  // 0xA28E0A
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_preinstr) {
+    E->y_height = 0;
+    uint16 xd = E->x_pos - samus_x_pos;
+    uint16 v2 = abs16(xd);
+    if (sign16(v2 - 24)) {
+      if (sign16(xd))
+        v2 += 24;
+      uint16 v3 = cur_enemy_index;
+      E->y_height = -((int16)BW_A2(0x8E80 + 2 * (v2)));
+      E->properties |= 0x8000;
+      if (CheckIfEnemyTouchesSamus(v3)) {
+        uint16 r18 = E->y_pos - E->y_height;
+        if ((int16)(samus_y_radius + samus_y_pos - r18) >= 0)
+          extra_samus_y_displacement += r18 - (samus_y_radius + samus_y_pos);
+      }
+    }
+  } else {
+    E->ai_var_A = 0x8EE0 /* MaridiaBeybladeTurtle_Func3 */;
+    E->properties &= ~kEnemyProps_Tangible;
+  }
+}
+void MaridiaBeybladeTurtle_Func3(uint16 k) {  // 0xA28EE0
+  MaridiaBeybladeTurtle_Func4();
+  if ((nmi_frame_counter_byte & 1) == 0) {
+    if (CheckIfEnemyTouchesSamus(k))
+      --extra_samus_x_displacement;
+    EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+    --E->y_pos;
+    E->y_height = 16;
+    if ((E->y_pos & 1) != 0)
+      --E->x_pos;
+    else
+      ++E->x_pos;
+    if (!(Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL16(1)))) {
+      E->current_instruction = addr_kMaridiaBeybladeTurtle_Ilist_8C4A;
+      E->instruction_timer = 1;
+      //BW_A2((uint16)((k) + 6)) = ((uint16)BW_A2(0x8D54 + 2 * (0))); // WTF?
+      E->ai_var_A = addr_locret_A28E09;
+    }
+  }
+}
+void MaridiaBeybladeTurtle_Func5(uint16 k) {  // 0xA28F3F
+  uint16 v1 = addr_kMaridiaBeybladeTurtle_Ilist_8C1C;
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((int16)(E->x_pos - samus_x_pos) < 0)
+    v1 = addr_kMaridiaBeybladeTurtle_Ilist_8D00;
+  E->current_instruction = v1;
+  E->instruction_timer = 1;
+  E->ai_var_A = addr_locret_A28E09;
+}
+void MaridiaBeybladeTurtle_Func6(uint16 k) {  // 0xA28F5F
+  if (CheckIfEnemyTouchesSamus(k)) {
+    EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+    E->ai_var_A = 0x9083 /* MaridiaBeybladeTurtle_Func9 */;
+    AddToHiLo(&extra_samus_x_displacement, &extra_samus_x_subdisplacement, -IPAIR32(E->ai_var_E, ERAM(0x7806 + E_k)));
+    if (sign16(extra_samus_x_displacement + 16))
+      extra_samus_x_displacement = -16;
+  }
+}
+void MaridiaBeybladeTurtle_Func7(uint16 k) {  // 0xA28F8D
+  MaridiaBeybladeTurtle_Func4();
+  if (!(Enemy_MoveDown(k, INT16_SHL16(-1)))) {
+    if (CheckIfEnemyTouchesSamus(k))
+      --extra_samus_y_displacement;
+    EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+    uint16 v2 = ERAM(0x7800 + E_k) - 1;
+    ERAM(0x7800 + E_k) = v2;
+    if (!v2) {
+      uint16 v3 = 0;
+      if ((int16)(E->x_pos - samus_x_pos) < 0)
+        v3 = 4;
+      ERAM(0x7802 + E_k) = ((uint16)BW_A2(0x8D56 + (v3)));
+      ERAM(0x7804 + E_k) = ((uint16)BW_A2(0x8D58 + (v3)));
+      E->ai_var_E = 0;
+      ERAM(0x7806 + E_k) = 0;
+      E->ai_var_A = 0x8FEB /* MaridiaBeybladeTurtle_Func8 */;
+    }
+  }
+}
+void MaridiaBeybladeTurtle_Func8(uint16 k) {  // 0xA28FEB
+  MaridiaBeybladeTurtle_Func4();
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, __PAIR32__(E->ai_var_E, ERAM(0x7806 + E_k)))) {
+    SetHiLo(&E->ai_var_E, &ERAM(0x7806 + E_k), -IPAIR32(E->ai_var_E, ERAM(0x7806 + E_k)));
+    SetHiLo(&ERAM(0x7804 + E_k), &ERAM(0x7802 + E_k), -IPAIR32(ERAM(0x7804 + E_k), ERAM(0x7802 + E_k)));
+    earthquake_type = 0;
+    earthquake_timer = 16;
+    QueueSfx2_Max6(0x1B);
+  } else {
+    MaridiaBeybladeTurtle_Func6(k);
+    AddToHiLo(&E->ai_var_E, &ERAM(0x7806 + E_k), __PAIR32__(ERAM(0x7804 + E_k), ERAM(0x7802 + E_k)));
+    if ((int16)(abs16(E->ai_var_E) - ((uint16)BW_A2(0x8D5E + 2 * (0)))) >= 0)
+      E->ai_var_E = (E->ai_var_E & 0x8000) != 0 ? -((uint16)BW_A2(0x8D5E + 2 * (0))) : ((uint16)BW_A2(0x8D5E + 2 * (0)));
+  }
+}
+void MaridiaBeybladeTurtle_Func9(uint16 k) {  // 0xA29083
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 v2;
+  MaridiaBeybladeTurtle_Func4();
+  if ((int16)(E->y_pos - ((uint16)BW_A2(0x8D60 + 2 * (0)))) < 0) {
+    ERAM(0x7800 + E_k) = ((uint16)BW_A2(0x8D64 + 2 * (0)));
+    v2 = 0x90CC /* MaridiaBeybladeTurtle_Func10 */;
+  } else {
+    if (CheckIfEnemyTouchesSamus(k)) {
+      E->y_pos -= ((uint16)BW_A2(0x8D62 + 2 * (0)));
+      extra_samus_y_displacement -= ((uint16)BW_A2(0x8D62 + 2 * (0)));
+      return;
+    }
+    v2 = 0x90E1 /* MaridiaBeybladeTurtle_Func11 */;
+  }
+  E->ai_var_A = v2;
+  ERAM(0x780E + E_k) = 0;
+  ERAM(0x7808 + E_k) = 0;
+}
+void MaridiaBeybladeTurtle_Func10(uint16 k) {  // 0xA290CC
+  MaridiaBeybladeTurtle_Func4();
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 v2 = ERAM(0x7800 + E_k) - 1;
+  ERAM(0x7800 + E_k) = v2;
+  if (!v2)
+    E->ai_var_A = 0x90E1 /* MaridiaBeybladeTurtle_Func11 */;
+}
+void MaridiaBeybladeTurtle_Func11(uint16 k) {  // 0xA290E1
+  MaridiaBeybladeTurtle_Func4();
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((int16)(ERAM(0x7808 + (0)) - ((uint16)BW_A2(0x8D66 + 2 * (0)))) < 0)
+    AddToHiLo(&ERAM(0x7808 + E_k), &ERAM(0x780E + E_k), 0x2000);
+  if (Enemy_MoveDown(k, INT16_SHL16(ERAM(0x7808 + E_k)))) {
+    E->current_instruction = (E->ai_var_E & 0x8000) == 0 ?
+        addr_kMaridiaBeybladeTurtle_Ilist_8D28 : addr_kMaridiaBeybladeTurtle_Ilist_8C4A;
+    E->instruction_timer = 1;
+    E->ai_var_A = addr_locret_A28E09;
+  }
+}
+void MiniMaridiaBeybladeTurtle_Main(void) {  // 0xA2912E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x780C + (E->ai_var_B)) = 0;
+  CallMaridiaBeybladeTurtleFunc(E->ai_var_A | 0xA20000, cur_enemy_index);
+}
+void MiniMaridiaBeybladeTurtle_Func1(uint16 k) {  // 0xA29142
+  if (CheckIfEnemyTouchesSamus(k)) {
+    EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+    E->ai_var_A = 0x916E /* MiniMaridiaBeybladeTurtle_Func2 */;
+    ERAM(0x780A + E_k) = 4;
+    uint16 v2 = addr_kMaridiaBeybladeTurtle_Ilist_8C30;
+    if ((E->ai_var_E & 0x8000) == 0)
+      v2 = addr_kMaridiaBeybladeTurtle_Ilist_8D14;
+    E->current_instruction = v2;
+    E->instruction_timer = 1;
+  }
+}
+void MiniMaridiaBeybladeTurtle_Func2(uint16 k) {  // 0xA2916E
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (CheckIfEnemyTouchesSamus(k)) {
+    ERAM(0x780A + E_k) = 4;
+  } else {
+    uint16 v2 = ERAM(0x780A + E_k) - 1;
+    ERAM(0x780A + E_k) = v2;
+    if (!v2) {
+      E->ai_var_A = 0x9198 /* MiniMaridiaBeybladeTurtle_Func3 */;
+      ERAM(0x7800 + E_k) = 60;
+    }
+  }
+}
+void MiniMaridiaBeybladeTurtle_Func3(uint16 k) {  // 0xA29198
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (CheckIfEnemyTouchesSamus(k)) {
+    E->ai_var_A = 0x91F8 /* MiniMaridiaBeybladeTurtle_Func4 */;
+    E->current_instruction = addr_kMaridiaBeybladeTurtle_Ilist_8BD2;
+    E->instruction_timer = 1;
+    ERAM(0x7808 + E_k) = 1;
+    uint16 v2 = ((uint16)BW_A2(0x8D68 + 2 * (0)));
+    if ((samus_pose_x_dir & 0xF) == 8)
+      v2 = ((uint16)BW_A2(0x8D6A + 2 * (0)));
+    E->ai_var_E = v2;
+  } else {
+    uint16 v4 = ERAM(0x7800 + E_k) - 1;
+    ERAM(0x7800 + E_k) = v4;
+    if (!v4) {
+      uint16 v5 = addr_kMaridiaBeybladeTurtle_Ilist_8B80;
+      if ((E->ai_var_E & 0x8000) == 0)
+        v5 = addr_kMaridiaBeybladeTurtle_Ilist_8C72;
+      E->current_instruction = v5;
+      E->instruction_timer = 1;
+      E->ai_var_A = 0x9142 /* MiniMaridiaBeybladeTurtle_Func1 */;
+    }
+  }
+}
+void MiniMaridiaBeybladeTurtle_Func4(uint16 k) {  // 0xA291F8
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, __PAIR32__(E->ai_var_E, 0))) {
+    E->ai_var_E = -E->ai_var_E;
+  } else {
+    Enemy_MoveDown(k, INT16_SHL16(ERAM(0x7808 + E_k)));
+  }
+}
+void MiniMaridiaBeybladeTurtle_Func5(uint16 k) {  // 0xA2921D
+  uint16 v1 = addr_kMaridiaBeybladeTurtle_Ilist_8B80;
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((E->ai_var_E & 0x8000) == 0)
+    v1 = addr_kMaridiaBeybladeTurtle_Ilist_8C72;
+  E->current_instruction = v1;
+  E->instruction_timer = 1;
+  E->ai_var_A = 0x9142 /* MiniMaridiaBeybladeTurtle_Func1 */;
+}
+void MiniMaridiaBeybladeTurtle_Func6(uint16 k) {  // 0xA29239
+  if (CheckIfEnemyTouchesSamus(k)) {
+    uint16 v1 = addr_kMaridiaBeybladeTurtle_Ilist_8B80;
+    EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+    if ((E->ai_var_E & 0x8000) == 0)
+      v1 = addr_kMaridiaBeybladeTurtle_Ilist_8C72;
+    E->current_instruction = v1;
+    E->instruction_timer = 1;
+    E->ai_var_A = 0x9142 /* MiniMaridiaBeybladeTurtle_Func1 */;
+  } else {
+    MiniMaridiaBeybladeTurtle_Func4(k);
+  }
+}
+void MiniMaridiaBeybladeTurtle_Func7(void) {  // 0xA2925E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x780C + (E->ai_var_B)) = E->y_height;
+  if (!CheckIfEnemyTouchesSamus(cur_enemy_index))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0x9142 /* MiniMaridiaBeybladeTurtle_Func1 */;
+}
+void MaridiaBeybladeTurtle_Touch(void) {  // 0xA29281
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((E->properties & 0x8000) == 0) {
+    Enemy_NormalTouchAI_A2();
+    E->ai_var_A = 0x90E1 /* MaridiaBeybladeTurtle_Func11 */;
+    ERAM(0x7808 + E_k) = 2;
+  }
+}
+void MiniMaridiaBeybladeTurtle_Touch(void) {  // 0xA2929F
+  int16 v2;
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_var_A != 0x925E) {
+    if ((E->ai_var_E & 0x8000) != 0) {
+      E->current_instruction = addr_kMaridiaBeybladeTurtle_Ilist_8C72;
+      v2 = 1;
+    } else {
+      E->current_instruction = addr_kMaridiaBeybladeTurtle_Ilist_8B80;
+      v2 = -1;
+    }
+    E->ai_var_E = v2;
+    E->instruction_timer = 1;
+    uint16 v3;
+    if ((int16)(E->x_pos - samus_x_pos) >= 0)
+      v3 = E->x_width + samus_x_radius + samus_x_pos;
+    else
+      v3 = (__PAIR32__(samus_x_pos - samus_x_radius, samus_x_pos)
+            - __PAIR32__(E->x_width, samus_x_radius)) >> 16;
+    E->x_pos = v3;
+    E->ai_var_A = 0x9142 /* MiniMaridiaBeybladeTurtle_Func1 */;
+    Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, __PAIR32__(E->ai_var_E, 0));
+    MaridiaBeybladeTurtle_Func21();
+  }
+}
+void MaridiaBeybladeTurtle_Func21(void) {  // 0xA292FF
+  uint16 mbte_var_B = gEnemyData(cur_enemy_index)->ai_var_B;
+  EnemyData *E = gEnemyData(mbte_var_B); const uint16 E_k = (mbte_var_B);
+  if (E->ai_preinstr)
+    --E->ai_preinstr;
+}
+void MiniMaridiaBeybladeTurtle_Shot(void) {  // 0xA2930F
+  NormalEnemyShotAi();
+  MaridiaBeybladeTurtle_Func21();
+}
+void MaridiaBeybladeTurtle_Func4(void) {  // 0xA29315
+  EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+  uint16 r18 = E->x_pos - E->x_width - 8;
+  uint16 r20 = E->x_width + E->x_pos + 8;
+  uint16 r22 = E->y_pos - E->y_height + 4;
+  uint16 r24 = E->y_height + E->y_pos - 4;
+  if (sign16(samus_x_pos - samus_x_radius - 1 - r20)
+      && !sign16(samus_x_radius + samus_x_pos - r18)
+      && sign16(samus_y_pos - samus_y_radius + 1 - r24)
+      && !sign16(samus_y_radius + samus_y_pos - r22)
+      && !samus_invincibility_timer) {
+    NormalEnemyTouchAi();
+  }
+}
+uint16 MaridiaBeybladeTurtle_Instr_9381(uint16 k, uint16 jp) {  // 0xA29381
+  uint16 R48 = 0;
+  if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+    extra_samus_x_displacement += gEnemyData(cur_enemy_index)->ai_var_E;
+    R48 = 1;
+  }
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 R50 = E->y_pos;
+  E->y_pos = E->ai_var_D;
+  Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(E->ai_var_E));
+  if (gEnemyData(E->ai_var_B)->ai_var_A == 0x8E0A) {
+    uint16 x_pos = gEnemyData(E->ai_var_B)->x_pos;
+    uint16 xd = x_pos - E->x_pos;
+    uint16 v7 = abs16(xd);
+    uint16 v8;
+    if (sign16(v7 - 24)) {
+      if (sign16(xd))
+        v7 += 24;
+      v8 = ((int16)BW_A2(0x8E80 + 2 * (v7)));
+    } else {
+      v8 = 1;
+    }
+    Enemy_MoveDown(cur_enemy_index, INT16_SHL16(v8));
+    if (R48)
+      extra_samus_y_displacement += gEnemyData(cur_enemy_index)->y_pos - R50;
+  }
+  return jp;
+}
+uint16 MaridiaBeybladeTurtle_Instr_9412(uint16 k, uint16 jp) {  // 0xA29412
+  int16 v4;
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 xd = E->ai_var_C - E->x_pos;
+  if ((int16)(abs16(xd) - ((uint16)BW_A2(0x8D50 + 2 * (0)))) >= 0) {
+    if (!sign16(xd))
+      v4 = 1;
+    else
+      v4 = -1;
+    E->ai_var_E = v4;
+  }
+  if ((gEnemyData(cur_enemy_index)->ai_var_E & 0x8000) != 0)
+    return (uint16)(addr_kMaridiaBeybladeTurtle_Ilist_8B80);
+  return (uint16)(addr_kMaridiaBeybladeTurtle_Ilist_8C72);
+}
+uint16 MaridiaBeybladeTurtle_Instr_9447(uint16 k, uint16 jp) {  // 0xA29447
+  gEnemyData(cur_enemy_index)->ai_var_A = 0x8F3F /* MaridiaBeybladeTurtle_Func5 */;
+  return jp;
+}
+uint16 MaridiaBeybladeTurtle_Instr_9451(uint16 k, uint16 jp) {  // 0xA29451
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 0x8F8D /* MaridiaBeybladeTurtle_Func7 */;
+  E->ai_var_E = -1;
+  ERAM(0x7800 + E_k) = 16;
+  return (uint16)(addr_kMaridiaBeybladeTurtle_Ilist_8C02);
+}
+uint16 MaridiaBeybladeTurtle_Instr_946B(uint16 k, uint16 jp) {  // 0xA2946B
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 0x8F8D /* MaridiaBeybladeTurtle_Func7 */;
+  E->ai_var_E = 1;
+  ERAM(0x7800 + E_k) = 16;
+  return (uint16)(addr_kMaridiaBeybladeTurtle_Ilist_8C02);
+}
+uint16 MaridiaBeybladeTurtle_Instr_9485(uint16 k, uint16 jp) {  // 0xA29485
+  if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+    if ((gEnemyData(cur_enemy_index)->ai_var_E & 0x8000) == 0)
+      return (uint16)(addr_kMaridiaBeybladeTurtle_Ilist_8D40);
+    else
+      return (uint16)(addr_kMaridiaBeybladeTurtle_Ilist_8C62);
+  }
+  return jp;
+}
+uint16 MaridiaBeybladeTurtle_Instr_94A1(uint16 k, uint16 jp) {  // 0xA294A1
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (CheckIfEnemyTouchesSamus(cur_enemy_index))
+    E->ai_var_A = 0x925E /* MiniMaridiaBeybladeTurtle_Func7 */;
+  else
+    E->ai_var_A = 0x9142 /* MiniMaridiaBeybladeTurtle_Func1 */;
+  if ((E->ai_var_E & 0x8000) == 0)
+    return (uint16)(addr_kMaridiaBeybladeTurtle_Ilist_8C72);
+  return (uint16)(addr_kMaridiaBeybladeTurtle_Ilist_8B80);
+}
+uint16 MaridiaBeybladeTurtle_Instr_94C7(uint16 k, uint16 jp) {  // 0xA294C7
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 0x9239 /* MiniMaridiaBeybladeTurtle_Func6 */;
+  return jp;
+}
+uint16 MaridiaBeybladeTurtle_Instr_94D1(uint16 k, uint16 jp) {  // 0xA294D1
+  QueueSfx2_Max6(0x3A);
   return jp;
 }
 void ThinHoppingBlobs_Init(void) {  // 0xA29A3F
@@ -3975,6 +5507,98 @@ uint16 SpikeShootingPlant_Instr_A0A7(uint16 k, uint16 jp) {  // 0xA2A0A7
   SpawnEprojWithGfx(IW_A2(jp), cur_enemy_index, addr_kEproj_SpikeShootingPlantSpikes);
   return (uint16)(jp + 2);
 }
+void MaridiaSpikeyShell_Init(void) {
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->spritemap_pointer = addr_kSpritemap_Nothing_A2;
+  uint16 mssl_parameter_1_low = LOBYTE(E->parameter_1);
+  E->ai_var_E = mssl_parameter_1_low;
+  off_A2A3D3[mssl_parameter_1_low & 1]();
+  int v3 = 4 * LOBYTE(E->parameter_2);
+  E->ai_var_B = ((uint16)BW_A2(0x8187 + 2 * (v3)));
+  E->ai_var_A = ((uint16)BW_A2(0x8187 + 2 * (v3 + 1)));
+  E->ai_var_D = ((uint16)BW_A2(0x8187 + 2 * (v3 + 2)));
+  E->ai_var_C = ((uint16)BW_A2(0x8187 + 2 * (v3 + 3)));
+  int v4 = HIBYTE(E->parameter_2);
+  ERAM(0x7804 + E_k) = ((uint16)BW_A2(0xA3DD + 2 * (v4))) + E->x_pos;
+  ERAM(0x7802 + E_k) = E->x_pos - ((uint16)BW_A2(0xA3DD + 2 * (v4)));
+  ERAM(0x7800 + E_k) = ((uint16)BW_A2(0xA3ED + 2 * (HIBYTE(E->parameter_1))));
+  E->ai_preinstr = 0;
+  if (E->ai_var_E == 2) {
+    E->ai_preinstr = 16;
+    E->y_pos += 16;
+  }
+}
+void MaridiaSpikeyShell_Main(void) {  // 0xA2A47E
+  EnemyData *e = gEnemyData(cur_enemy_index); const uint16 e_k = (cur_enemy_index);
+  off_A2A3D3[(int16)e->ai_var_E + 2]();
+}
+void MaridiaSpikeyShell_1(void) {  // 0xA2A48A
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->current_instruction = addr_kMaridiaSpikeyShell_Ilist_A3AB;
+  E->instruction_timer = 1;
+  E->timer = 0;
+}
+void MaridiaSpikeyShell_2(void) {  // 0xA2A49D
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->current_instruction = addr_kMaridiaSpikeyShell_Ilist_A3BD;
+  E->instruction_timer = 1;
+  E->timer = 0;
+}
+void MaridiaSpikeyShell_3(void) {  // 0xA2A4B0
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  AddToHiLo(&E->x_pos, &E->x_subpos, __PAIR32__(E->ai_var_D, E->ai_var_C));
+  if ((int16)(E->x_pos - ERAM(0x7802 + E_k)) < 0)
+    --E->ai_var_E;
+  MaridiaSpikeyShell_8(cur_enemy_index);
+}
+void MaridiaSpikeyShell_4(void) {  // 0xA2A4D9
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  AddToHiLo(&E->x_pos, &E->x_subpos, __PAIR32__(E->ai_var_B, E->ai_var_A));
+  if ((int16)(E->x_pos - ERAM(0x7804 + E_k)) >= 0)
+    E->ai_var_E = 0;
+  MaridiaSpikeyShell_8(cur_enemy_index);
+}
+void MaridiaSpikeyShell_5(void) {  // 0xA2A502
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 v1 = ERAM(0x7800 + E_k) - 1;
+  ERAM(0x7800 + E_k) = v1;
+  if (!v1)
+    E->ai_var_E = 4;
+}
+void MaridiaSpikeyShell_6(void) {  // 0xA2A517
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ++E->y_pos;
+  if (!sign16(++E->ai_preinstr - 16)) {
+    E->ai_var_E = 2;
+    ERAM(0x7800 + E_k) = ((uint16)BW_A2(0xA3ED + 2 * (HIBYTE(E->parameter_1))));
+  }
+}
+void MaridiaSpikeyShell_7(void) {  // 0xA2A53E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  --E->y_pos;
+  if (E->ai_preinstr-- == 1)
+    E->ai_var_E = HIBYTE(random_number) & 1;
+}
+void MaridiaSpikeyShell_8(uint16 k) {  // 0xA2A553
+  NextRandom();
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (sign16((uint8)(LOBYTE(E->frame_counter) + random_number) - 6))
+    E->ai_var_E = 3;
+}
+uint16 MaridiaSpikeyShell_Instr_A56D(uint16 k, uint16 jp) {  // 0xA2A56D
+  gEnemyData(k)->ai_var_E = 0;
+  return jp;
+}
+uint16 MaridiaSpikeyShell_Instr_A571(uint16 k, uint16 jp) {  // 0xA2A571
+  gEnemyData(k)->ai_var_E = 1;
+  return jp;
+}
+void MaridiaSpikeyShell_Shot(void) {  // 0xA2A579
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (sign16(E->ai_var_E - 1))
+    Enemy_NormalShotAI_A2();
+}
 void Flies_Init(void) {  // 0xA2B06B
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
   E->ai_var_E = 0;
@@ -4071,6 +5695,368 @@ void Flies_7(uint16 k) {  // 0xA2B1D2
     E->ai_var_A = 24;
     E->ai_preinstr = 0xB14E /* Flies_4 */;
   }
+}
+void NorfairErraticFireball_Init(void) {  // 0xA2B3E0
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  Point32 pt = ConvertAngleToXy(E->parameter_1, LOBYTE(E->parameter_2));
+  E->ai_var_C = pt.x >> 16;
+  E->ai_var_D = pt.x;
+  E->ai_var_E = pt.y >> 16;
+  E->ai_preinstr = pt.y;
+  E->current_instruction = addr_kNorfairErraticFireball_Ilist_B2DC;
+}
+void NorfairErraticFireball_Main(void) {  // 0xA2B40F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  Point32 pt = ConvertAngleToXy(E->parameter_1, LOBYTE(E->parameter_2));
+  E->ai_var_C = pt.x >> 16;
+  E->ai_var_D = pt.x;
+  E->ai_var_E = pt.y >> 16;
+  E->ai_preinstr = pt.y;
+  if (((E->parameter_1 + 64) & 0x80) == 0) {
+    E->ai_var_C = ~E->ai_var_C;
+    E->ai_var_D = -E->ai_var_D;
+  }
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, __PAIR32__(E->ai_var_C, E->ai_var_D))) {
+    E->parameter_1 ^= 0x40;
+  } else {
+    if (((E->parameter_1 + 128) & 0x80) == 0) {
+      E->ai_var_E = ~E->ai_var_E;
+      E->ai_preinstr = -E->ai_preinstr;
+    }
+    if (Enemy_MoveDown(cur_enemy_index, __PAIR32__(E->ai_var_E, E->ai_preinstr)))
+      E->parameter_1 ^= 0xC0;
+  }
+}
+void LavaquakeRocks_Init(void) {  // 0xA2B570
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->current_instruction = addr_kNorfairErraticFireball_Ilist_B51A;
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->ai_var_A = 0xB596 /* LavaquakeRocks_1 */;
+  random_number = 17;
+}
+void CallLavaQuakeRocksFunc(uint32 ea) {
+  switch (ea) {
+  case 0xA2B596: LavaquakeRocks_1(); return;
+  case 0xA2B5B2: LavaquakeRocks_2(); return;
+  case 0xA2B5EA: LavaquakeRocks_3(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void LavaquakeRocks_Main(void) {  // 0xA2B58F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallLavaQuakeRocksFunc(E->ai_var_A | 0xA20000);
+}
+void LavaquakeRocks_1(void) {  // 0xA2B596
+  if (IsSamusWithinEnemy_X(cur_enemy_index, 0x40)) {
+    if (IsSamusWithinEnemy_Y(cur_enemy_index, 0x40))
+      gEnemyData(cur_enemy_index)->ai_var_A = 0xB5B2 /* LavaquakeRocks_2 */;
+  }
+}
+void LavaquakeRocks_2(void) {  // 0xA2B5B2
+  eproj_unk1995 = ((uint16)BW_A2(0xB550 + 2 * ((NextRandom() & 0x1E) >> 1)));
+  int v1 = (NextRandom() & 0x1E) >> 1;
+  SpawnEprojWithGfx(((uint16)BW_A2(0xB530 + 2 * (v1))), cur_enemy_index, addr_stru_86BD5A);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 0xB5EA /* LavaquakeRocks_3 */;
+  E->ai_var_B = ((uint16)BW_A2(0xB520 + 2 * ((uint16)(NextRandom() & 0xE) >> 1)));
+}
+void LavaquakeRocks_3(void) {  // 0xA2B5EA
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((--E->ai_var_B & 0x8000) != 0)
+    E->ai_var_A = 0xB596 /* LavaquakeRocks_1 */;
+}
+void Rinka_Init(void) {  // 0xA2B602
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->parameter_1) {
+    Rinka_1(cur_enemy_index);
+    E->properties = E->properties & ~(kEnemyProps_RespawnIfKilled | kEnemyProps_DisableSamusColl | kEnemyProps_ProcessedOffscreen | kEnemyProps_Tangible) | 0x2C00;
+  } else {
+    E->properties = E->properties & ~(kEnemyProps_RespawnIfKilled | kEnemyProps_DisableSamusColl | kEnemyProps_ProcessedOffscreen | kEnemyProps_Tangible) | 0x6400;
+  }
+  E->palette_index = 1024;
+  Rinka_Init3(cur_enemy_index);
+}
+void Rinka_Init2(uint16 k) {  // 0xA2B63E
+  EnemySpawnData *v2;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->parameter_1)
+    Rinka_1(k);
+  v2 = gEnemySpawnData(k);
+  E->x_pos = v2->x_pos;
+  E->y_pos = v2->y_pos;
+  Rinka_Init3(k);
+}
+void Rinka_Init3(uint16 k) {  // 0xA2B654
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->ai_var_A = 0xB852 /* Rinka_5 */;
+  E->ai_preinstr = 26;
+  E->ai_var_B = 0;
+  E->ai_var_C = 0;
+  if (E->parameter_1) {
+    if (ERAM(0x783A + (0))) {
+      E->properties |= kEnemyProps_Deleted;
+    } else {
+      E->current_instruction = addr_kRinka_Ilist_BA0C;
+      E->instruction_timer = 1;
+      E->timer = 0;
+    }
+  } else {
+    E->current_instruction = addr_kRinka_Ilist_B9E0;
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void Rinka_1(uint16 k) {  // 0xA2B69B
+  uint16 v2;
+  EnemySpawnData *ES = gEnemySpawnData(k);
+  if (Rinka_10(ES->x_pos, ES->y_pos) || (v2 = Rinka_2(k), ERAM(0x87FE + (v2)) & 1)) {
+    uint16 v3 = 0;
+    do {
+      int v4 = v3 >> 1;
+      uint16 x = ((uint16)BW_A2(0xB75B + 2 * (v4)));
+      uint16 y = ((uint16)BW_A2(0xB75B + 2 * (v4 + 1)));
+      if (!Rinka_10(x, y) && !(ERAM(0x87FE + (((uint16)BW_A2(0xB75B + 2 * (v4 + 2))))) & 1)) {
+        EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+        ES->x_pos = x;
+        E->x_pos = x;
+        ES->y_pos = y;
+        E->y_pos = y;
+        uint16 v9 = ((uint16)BW_A2(0xB75B + 2 * ((v3 >> 1) + 2)));
+        ERAM(0x87FE + (v9)) = -1;
+        E->ai_var_D = v9;
+        return;
+      }
+      v3 += 6;
+    } while ((int16)(v3 - 66) < 0);
+    uint16 v10 = 0;
+    while (ERAM(0x87FE + (((uint16)BW_A2(0xB75B + 2 * ((v10 >> 1) + 2))))) & 1) {
+      v10 += 6;
+      if ((int16)(v10 - 66) >= 0)
+        return;
+    }
+    int v11 = v10 >> 1;
+    uint16 v12 = ((uint16)BW_A2(0xB75B + 2 * (v11)));
+    ES->x_pos = v12;
+    EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+    E->x_pos = v12;
+    uint16 v15 = ((uint16)BW_A2(0xB75B + 2 * (v11 + 1)));
+    ES->y_pos = v15;
+    E->y_pos = v15;
+    uint16 v16 = ((uint16)BW_A2(0xB75B + 2 * (v11 + 2)));
+    E->ai_var_D = v16;
+    ERAM(0x87FE + (v16)) = -1;
+  } else {
+    gEnemyData(k)->ai_var_D = v2;
+    ERAM(0x87FE + (v2)) = -1;
+  }
+}
+uint16 Rinka_2(uint16 k) {  // 0xA2B79D
+  EnemySpawnData *v3;
+
+  uint16 v1 = 0;
+  while (1) {
+    int v2 = v1 >> 1;
+    v3 = gEnemySpawnData(k);
+    if (((uint16)BW_A2(0xB75B + 2 * (v2))) == v3->x_pos && ((uint16)BW_A2(0xB75B + 2 * (v2 + 1))) == v3->y_pos)
+      break;
+    v1 += 6;
+    if (!sign16(v1 - 66)) {
+      v1 = 0;
+      return ((uint16)BW_A2(0xB75B + 2 * ((v1 >> 1) + 2)));
+    }
+  }
+  return ((uint16)BW_A2(0xB75B + 2 * ((v1 >> 1) + 2)));
+}
+void CallRinkaFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA2B7DF: Rinka_3(k); return;
+  case 0xA2B844: Rinka_4(k); return;
+  case 0xA2B852: Rinka_5(k); return;
+  case 0xA2B85B: Rinka_B85B(k); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void Rinka_Main(void) {  // 0xA2B7C4
+  uint16 v2;
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->parameter_1 && ERAM(0x783A + (0))) {
+    Rinka_6(cur_enemy_index);
+    Rinka_8(cur_enemy_index);
+    //; /* (aviso del decomp) */
+    v2 = 0;
+    RinkasDeathAnimation(v2);
+  } else {
+    CallRinkaFunc(E->ai_var_A | 0xA20000, cur_enemy_index);
+  }
+}
+void Rinka_3(uint16 k) {  // 0xA2B7DF
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((--E->ai_preinstr & 0x8000) != 0) {
+    E->ai_var_A = 0xB85B /* Rinka_B85B */;
+    uint16 v3;
+    if (E->parameter_1)
+      v3 = E->properties & ~kEnemyProps_Tangible;
+    else
+      v3 = E->properties & 0xF3FF | 0x800;
+    E->properties = v3;
+    uint16 r18 = (uint8)-(CalculateAngleFromXY(samus_x_pos - E->x_pos, samus_y_pos - E->y_pos) + 0x80);
+    E->ai_var_B = Math_MultBySin(0x120, r18);
+    E->ai_var_C = Math_MultByCos(0x120, r18);
+  }
+}
+void Rinka_4(uint16 k) {  // 0xA2B844
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((--E->ai_preinstr & 0x8000) != 0) {
+    E->health = 10;
+    Rinka_Init2(k);
+  }
+}
+void Rinka_5(uint16 k) {  // 0xA2B852
+  if (Rinka_9(k) & 1)
+    Rinka_B865(k);
+}
+void Rinka_B85B(uint16 k) {  // 0xA2B85B
+  MoveEnemyWithVelocity();
+  if (Rinka_9(k) & 1)
+    Rinka_B865(k);
+}
+void Rinka_B865(uint16 k) {  // 0xA2B865
+  if (gEnemyData(k)->parameter_1 && (Rinka_8(k), ERAM(0x783A + (0)))) {
+    Rinka_6(k);
+    DeleteEnemyAndConnectedEnemies();
+  } else {
+    Rinka_6(k);
+    Rinka_Init2(k);
+  }
+}
+void Rinka_6(uint16 k) {  // 0xA2B880
+  int16 v3;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->parameter_1 && (E->properties & kEnemyProps_Invisible) == 0) {
+    EnemyData *E0 = gEnemyData(0); const uint16 E0_k = (0);
+    v3 = ERAM(0x783C + E0_k) - 1;
+    if (v3 < 0)
+      v3 = 0;
+    ERAM(0x783C + E0_k) = v3;
+  }
+}
+void Rinka_7(uint16 k) {  // 0xA2B89C
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((random_enemy_counter & 3) == E->parameter_1)
+    E->properties &= ~kEnemyProps_Tangible;
+  else
+    E->properties |= kEnemyProps_Tangible;
+}
+void Rinka_8(uint16 k) {  // 0xA2B8BB
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->parameter_1) {
+    uint16 rinka_var_D = E->ai_var_D;
+    if (rinka_var_D) {
+      ERAM(0x87FE + (rinka_var_D)) = 0;
+      E->ai_var_D = 0;
+    }
+  }
+}
+uint8 Rinka_9(uint16 k) {  // 0xA2B8D3
+  int16 y_pos;
+  int16 v3;
+  int16 x_pos;
+  int16 v5;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  y_pos = E->y_pos;
+  uint8 result = 1;
+  if (y_pos >= 0) {
+    v3 = y_pos + 16 - layer1_y_pos;
+    if (v3 >= 0) {
+      if (sign16(v3 - 256)) {
+        x_pos = E->x_pos;
+        if (x_pos >= 0) {
+          v5 = x_pos + 16 - layer1_x_pos;
+          if (v5 >= 0) {
+            if (sign16(v5 - 288))
+              return 0;
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+bool Rinka_10(uint16 r18, uint16 r20) {  // 0xA2B8FF
+  return (r20 & 0x8000) != 0 || (int16)(r20 - layer1_y_pos) < 0 || !sign16(r20 - layer1_y_pos - 224)
+       || (r20 & 0x8000) != 0 || (int16)(r18 - layer1_x_pos) < 0 || !sign16(r18 - layer1_x_pos - 256);
+}
+void Rinka_Frozen(uint16 k) {  // 0xA2B929
+  if (Rinka_9(k) & 1)
+    gEnemyData(k)->frozen_timer = 0;
+  NormalEnemyFrozenAI();
+  if (ERAM(0x783A + (0))) {
+    Rinka_6(k);
+    Rinka_8(k);
+//    ; /* (aviso del decomp) */
+    uint16 v1 = 0;
+    RinkasDeathAnimation(v1);
+  }
+}
+void Rinka_Touch(void) {  // 0xA2B947
+  NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
+  Rinka_B960(cur_enemy_index);
+}
+void Rinka_Shot(void) {  // 0xA2B94D
+  NormalEnemyShotAiSkipDeathAnim_CurEnemy();
+  Rinka_B960(cur_enemy_index);
+}
+void Rinka_Powerbomb(uint16 k) {  // 0xA2B953
+  if ((gEnemyData(k)->properties & kEnemyProps_Invisible) == 0) {
+    NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
+    Rinka_B960(k);
+  }
+}
+void Rinka_B960(uint16 k) {  // 0xA2B960
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (!E->health) {
+    Rinka_6(k);
+    Rinka_8(k);
+    if (E->parameter_1) {
+      E->properties |= kEnemyProps_Tangible | kEnemyProps_Invisible;
+      eproj_spawn_x = E->x_pos; eproj_spawn_y = E->y_pos;
+      SpawnEprojWithRoomGfx(0xE509, 3);
+      E->ai_var_A = 0xB844 /* Rinka_4 */;
+      E->ai_preinstr = 1;
+    } else {
+      RinkasDeathAnimation(0);
+    }
+  }
+}
+uint16 Rinka_Instr_B9A2(uint16 k, uint16 j) {  // 0xA2B9A2
+  EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+  if (sign16(ERAM(0x783C + E_k) - 3))
+    return j + 2;
+  else
+    return BW_A2(j);
+}
+uint16 Rinka_Instr_B9B3(uint16 k, uint16 jp) {  // 0xA2B9B3
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->properties |= kEnemyProps_Tangible | kEnemyProps_Invisible;
+  return jp;
+}
+uint16 Rinka_Instr_B9BD(uint16 k, uint16 jp) {  // 0xA2B9BD
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->properties |= kEnemyProps_ProcessedOffscreen | kEnemyProps_Tangible | kEnemyProps_Invisible;
+  return jp;
+}
+uint16 Rinka_Instr_B9C7(uint16 k, uint16 jp) {  // 0xA2B9C7
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->properties &= ~(kEnemyProps_Tangible | kEnemyProps_Invisible);
+  E->ai_var_A = 0xB7DF /* Rinka_3 */;
+  EnemyData *E0 = gEnemyData(0); const uint16 E0_k = (0);
+  ++ERAM(0x783C + E0_k);
+  return jp;
 }
 uint16 EnemyInstr_Rio_Instr_1(uint16 k, uint16 jp) {  // 0xA2BBC3
   gEnemyData(cur_enemy_index)->ai_var_E = 1;
@@ -4179,6 +6165,615 @@ void Rio_6(uint16 a) {  // 0xA2BD54
     E->instruction_timer = 1;
     E->timer = 0;
   }
+}
+uint16 NorfairLavajumpingEnemy_Instr_BE8E(uint16 k, uint16 jp) {  // 0xA2BE8E
+  ERAM(0x7800 + (cur_enemy_index)) = 1;
+  return jp;
+}
+void NorfairLavajumpingEnemy_Init(void) {  // 0xA2BE99
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7800 + E_k) = 0;
+  ERAM(0x7802 + E_k) = 0;
+  if ((E->parameter_1 & 0x8000) != 0) {
+    E->current_instruction = addr_kNorfairLavajumpingEnemy_Ilist_BE62;
+    E->ai_preinstr = 0xBEDC /* NorfairLavajumpingEnemy_Func_1 */;
+  } else {
+    E->ai_var_D = E->x_pos;
+    E->ai_var_E = E->y_pos;
+    E->current_instruction = addr_kNorfairLavajumpingEnemy_Ilist_BE3C;
+    E->ai_preinstr = 0xBF1A /* NorfairLavajumpingEnemy_Func_2 */;
+  }
+}
+void NorfairLavajumpingEnemy_Main(void) {  // 0xA2BED2
+  NextRandom();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallEnemyPreInstr(E->ai_preinstr | 0xA20000);
+}
+void NorfairLavajumpingEnemy_Func_1(uint16 k) {  // 0xA2BEDC
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int v1 = k >> 1;
+  if (gEnemyData((uint16)(k + (-64)))->health) {
+    uint16 v3 = gEnemyData((uint16)(k + (-64)))->frozen_timer;
+    E->frozen_timer = v3;
+    if (v3 || (gEnemyData((uint16)(k + (-64)))->ai_var_C & 0x8000) == 0) {
+      E->properties |= kEnemyProps_Invisible;
+    } else {
+      E->properties &= ~kEnemyProps_Invisible;
+      E->y_pos = gEnemyData((uint16)(k + (-64)))->y_pos;
+    }
+  } else {
+    E->properties |= kEnemyProps_Deleted;
+  }
+}
+void NorfairLavajumpingEnemy_Func_2(uint16 k) {  // 0xA2BF1A
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->ai_var_C = ((uint16)BW_A2(0xBE86 + 2 * ((uint16)(HIBYTE(random_number) & 6) >> 1)));
+  E->ai_preinstr = 0xBF3E /* NorfairLavajumpingEnemy_Func_3 */;
+  E->properties |= kEnemyProps_ProcessedOffscreen;
+  QueueSfx2_Max6(0xD);
+}
+void NorfairLavajumpingEnemy_Func_3(uint16 k) {  // 0xA2BF3E
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int t = E->y_subpos + (LOBYTE(E->ai_var_C) << 8);
+  E->y_subpos = t;
+  E->y_pos += (int8)HIBYTE(E->ai_var_C) + (t >> 16);
+  uint16 v3 = E->ai_var_C + 56;
+  E->ai_var_C = v3;
+  if (v3 >= 0xFC00) {
+    NorfairLavajumpingEnemy_Func_6(addr_kNorfairLavajumpingEnemy_Ilist_BE42);
+    E->ai_preinstr = 0xBF7C /* NorfairLavajumpingEnemy_Func_4 */;
+  }
+}
+void NorfairLavajumpingEnemy_Func_4(uint16 k) {  // 0xA2BF7C
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int t = E->y_subpos + (LOBYTE(E->ai_var_C) << 8);
+  E->y_subpos = t;
+  E->y_pos += (int8)HIBYTE(E->ai_var_C) + (t >> 16);
+  E->ai_var_C += 56;
+  if (ERAM(0x7800 + E_k)) {
+    ERAM(0x7800 + E_k) = 0;
+    E->ai_preinstr = 0xBFBC /* NorfairLavajumpingEnemy_Func_5 */;
+  }
+}
+void NorfairLavajumpingEnemy_Func_5(uint16 k) {  // 0xA2BFBC
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int t = E->y_subpos + (LOBYTE(E->ai_var_C) << 8);
+  E->y_subpos = t;
+  E->y_pos = E->y_pos + (int8)HIBYTE(E->ai_var_C) + (t >> 16);
+  if ((E->y_pos & 0xF0) == 240) {
+    E->x_pos = E->ai_var_D;
+    E->y_pos = E->ai_var_E;
+    NorfairLavajumpingEnemy_Func_6(addr_kNorfairLavajumpingEnemy_Ilist_BE3C);
+    E->ai_preinstr = 0xBF1A /* NorfairLavajumpingEnemy_Func_2 */;
+    E->properties &= ~kEnemyProps_ProcessedOffscreen;
+  } else {
+    E->ai_var_C += 56;
+  }
+}
+void NorfairLavajumpingEnemy_Func_6(uint16 a) {  // 0xA2C012
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (a != ERAM(0x7802 + E_k)) {
+    ERAM(0x7802 + E_k) = a;
+    E->current_instruction = a;
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+uint16 NorfairRio_Instr_C1C9(uint16 k, uint16 jp) {  // 0xA2C1C9
+  ERAM(0x7802 + (cur_enemy_index)) = 1;
+  return jp;
+}
+uint16 NorfairRio_Instr_C1D4(uint16 k, uint16 jp) {  // 0xA2C1D4
+  ERAM(0x7804 + (cur_enemy_index)) = 8;
+  return jp;
+}
+uint16 NorfairRio_Instr_C1DF(uint16 k, uint16 jp) {  // 0xA2C1DF
+  ERAM(0x7804 + (cur_enemy_index)) = 8;
+  return jp;
+}
+uint16 NorfairRio_Instr_C1EA(uint16 k, uint16 jp) {  // 0xA2C1EA
+  ERAM(0x7804 + (cur_enemy_index)) = 12;
+  return jp;
+}
+uint16 NorfairRio_Instr_C1F5(uint16 k, uint16 jp) {  // 0xA2C1F5
+  ERAM(0x7804 + (cur_enemy_index)) = -12;
+  return jp;
+}
+uint16 NorfairRio_Instr_C200(uint16 k, uint16 jp) {  // 0xA2C200
+  ERAM(0x7804 + (cur_enemy_index)) = 4;
+  return jp;
+}
+uint16 NorfairRio_Instr_C20B(uint16 k, uint16 jp) {  // 0xA2C20B
+  ERAM(0x7804 + (cur_enemy_index)) = 0;
+  return jp;
+}
+uint16 NorfairRio_Instr_C216(uint16 k, uint16 jp) {  // 0xA2C216
+  ERAM(0x7804 + (cur_enemy_index)) = -4;
+  return jp;
+}
+uint16 NorfairRio_Instr_C221(uint16 k, uint16 jp) {  // 0xA2C221
+  ERAM(0x7804 + (cur_enemy_index)) = -12;
+  return jp;
+}
+uint16 NorfairRio_Instr_C22C(uint16 k, uint16 jp) {  // 0xA2C22C
+  ERAM(0x7804 + (cur_enemy_index)) = -16;
+  return jp;
+}
+uint16 NorfairRio_Instr_C237(uint16 k, uint16 jp) {  // 0xA2C237
+  ERAM(0x7804 + (cur_enemy_index)) = 12;
+  return jp;
+}
+void NorfairRio_Init(void) {  // 0xA2C242
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7802 + E_k) = 0;
+  ERAM(0x7804 + E_k) = 0;
+  if ((E->parameter_1 & 0x8000) != 0) {
+    ERAM(0x7800 + E_k) = addr_kNorfairRio_Ilist_C18F;
+    E->current_instruction = addr_kNorfairRio_Ilist_C18F;
+    E->ai_preinstr = 0xC281 /* NorfairRio_Func_1 */;
+  } else {
+    ERAM(0x7800 + E_k) = addr_kNorfairRio_Ilist_C0F1;
+    E->current_instruction = addr_kNorfairRio_Ilist_C0F1;
+    E->ai_preinstr = 0xC2E7 /* NorfairRio_Func_2 */;
+  }
+}
+void NorfairRio_Main(void) {  // 0xA2C277
+  NextRandom();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallEnemyPreInstr(E->ai_preinstr | 0xA20000);
+}
+void NorfairRio_Func_1(uint16 k) {  // 0xA2C281
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  EnemySpawnData *v6;
+
+  int v1 = k >> 1;
+  if (gEnemyData((uint16)(k + (-64)))->health) {
+    uint16 v3 = gEnemyData((uint16)(k + (-64)))->frozen_timer;
+    E->frozen_timer = v3;
+    if (v3
+        || (E->properties &= ~kEnemyProps_Invisible,
+            gEnemySpawnData(k)[31].some_flag == addr_kNorfairRio_Ilist_C0F1)) {
+      E->properties |= kEnemyProps_Invisible;
+    } else {
+      uint16 r18 = addr_kNorfairRio_Ilist_C18F;
+      v6 = gEnemySpawnData(k);
+      if ((v6[31].field_4 & 0x8000) != 0)
+        r18 = addr_kNorfairRio_Ilist_C1A3;
+      NorfairRio_Func_7(r18);
+      E->properties &= ~kEnemyProps_Invisible;
+      E->x_pos = gEnemyData((uint16)(k + (-64)))->x_pos;
+      E->y_pos = v6[31].field_4 + gEnemyData((uint16)(k + (-64)))->y_pos;
+    }
+  } else {
+    E->properties |= kEnemyProps_Deleted;
+  }
+}
+void NorfairRio_Func_2(uint16 k) {  // 0xA2C2E7
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((random_number & 0x101) != 0 && !(CompareDistToSamus_X(k, 0xC0) & 1)) {
+    E->ai_var_A = ((uint16)BW_A2(0xC1C1 + 2 * ((uint16)((random_number >> 1) & 2) >> 1)));
+    E->ai_var_B = ((uint16)BW_A2(0xC1C5 + 2 * (0)));
+    if ((int16)(samus_x_pos - E->x_pos) < 0)
+      E->ai_var_B = -E->ai_var_B;
+    NorfairRio_Func_7(addr_kNorfairRio_Ilist_C107);
+    E->ai_preinstr = 0xC33F /* NorfairRio_Func_3 */;
+  } else {
+    if (ERAM(0x7802 + E_k)) {
+      ERAM(0x7802 + E_k) = 0;
+      NorfairRio_Func_7(addr_kNorfairRio_Ilist_C0F1);
+    }
+  }
+}
+void NorfairRio_Func_3(uint16 k) {  // 0xA2C33F
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x7802 + E_k)) {
+    ERAM(0x7802 + E_k) = 0;
+    NorfairRio_Func_7(addr_kNorfairRio_Ilist_C12F);
+    E->ai_preinstr = 0xC361 /* NorfairRio_Func_4 */;
+    QueueSfx2_Max6(0x65);
+  }
+}
+void NorfairRio_Func_4(uint16 k) {  // 0xA2C361
+  int16 v4;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL8(E->ai_var_B)))
+    E->ai_var_B = -E->ai_var_B;
+  if (Enemy_MoveDown(k, INT16_SHL8(E->ai_var_A)) || (v4 = E->ai_var_A - 32, E->ai_var_A = v4, v4 < 0)) {
+    E->ai_var_A = -1;
+    NorfairRio_Func_7(addr_kNorfairRio_Ilist_C145);
+    E->ai_preinstr = 0xC3B1 /* NorfairRio_Func_5 */;
+  }
+}
+void NorfairRio_Func_5(uint16 k) {  // 0xA2C3B1
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL8(E->ai_var_B)))
+    E->ai_var_B = -E->ai_var_B;
+  if (Enemy_MoveDown(k, INT16_SHL8(E->ai_var_A))) {
+    E->ai_preinstr = 0xC406 /* NorfairRio_Func_6 */;
+  } else {
+    E->ai_var_A -= 32;
+    if (ERAM(0x7802 + E_k)) {
+      ERAM(0x7802 + E_k) = 0;
+      NorfairRio_Func_7(addr_kNorfairRio_Ilist_C179);
+    }
+  }
+}
+void NorfairRio_Func_6(uint16 k) {  // 0xA2C406
+  gEnemyData(k)->ai_preinstr = 0xC2E7 /* NorfairRio_Func_2 */;
+}
+void NorfairRio_Func_7(uint16 a) {  // 0xA2C40D
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (a != ERAM(0x7800 + E_k)) {
+    ERAM(0x7800 + E_k) = a;
+    E->current_instruction = a;
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+uint16 LowerNorfairRio_Instr_C6D2(uint16 k, uint16 jp) {  // 0xA2C6D2
+  ERAM(0x7802 + (cur_enemy_index)) = 1;
+  return jp;
+}
+uint16 LowerNorfairRio_Instr_C6DD(uint16 k, uint16 jp) {  // 0xA2C6DD
+  ERAM(0x7804 + (cur_enemy_index)) = 0;
+  return jp;
+}
+uint16 LowerNorfairRio_Instr_C6E8(uint16 k, uint16 jp) {  // 0xA2C6E8
+  ERAM(0x7804 + (cur_enemy_index)) = 1;
+  return jp;
+}
+void LowerNorfairRio_Init(void) {  // 0xA2C6F3
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7802 + E_k) = 0;
+  if ((E->parameter_1 & 0x8000) == 0) {
+    E->ai_preinstr = 0xC771 /* LowerNorfairRio_Func_2 */;
+    ERAM(0x7800 + E_k) = addr_kLowerNorfairRio_Ilist_C61A;
+    E->current_instruction = addr_kLowerNorfairRio_Ilist_C61A;
+  } else {
+    E->ai_preinstr = 0xC72E /* LowerNorfairRio_Func_1 */;
+    ERAM(0x7800 + E_k) = addr_kLowerNorfairRio_Ilist_C6B0;
+    E->current_instruction = addr_kLowerNorfairRio_Ilist_C6B0;
+  }
+}
+void LowerNorfairRio_Main(void) {  // 0xA2C724
+  NextRandom();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallEnemyPreInstr(E->ai_preinstr | 0xA20000);
+}
+void LowerNorfairRio_Func_1(uint16 k) {  // 0xA2C72E
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+
+  int v1 = k >> 1;
+  if (gEnemyData((uint16)(k + (-64)))->health) {
+    uint16 v3 = gEnemyData((uint16)(k + (-64)))->frozen_timer;
+    E->frozen_timer = v3;
+    if (!v3 && gEnemySpawnData(k)[31].field_4) {
+      E->properties &= ~kEnemyProps_Invisible;
+      E->x_pos = gEnemyData((uint16)(k + (-64)))->x_pos;
+      E->y_pos = gEnemyData((uint16)(k + (-64)))->y_pos + 12;
+    } else {
+      E->properties |= kEnemyProps_Invisible;
+    }
+  } else {
+    E->properties |= kEnemyProps_Deleted;
+  }
+}
+void LowerNorfairRio_Func_2(uint16 k) {  // 0xA2C771
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((random_number & 0x101) != 0 && !(CompareDistToSamus_X(k, 0x70) & 1)) {
+    E->ai_var_C = ((uint16)BW_A2(0xC6CA + 2 * (0)));
+    E->ai_var_D = ((uint16)BW_A2(0xC6CE + 2 * (0)));
+    if ((int16)(samus_x_pos - E->x_pos) < 0)
+      E->ai_var_D = -E->ai_var_D;
+    LowerNorfairRio_Func_7(addr_kLowerNorfairRio_Ilist_C630);
+    E->ai_preinstr = 0xC7BB /* LowerNorfairRio_Func_3 */;
+  } else {
+    ERAM(0x7802 + E_k) = 0;
+    LowerNorfairRio_Func_7(addr_kLowerNorfairRio_Ilist_C61A);
+  }
+}
+void LowerNorfairRio_Func_3(uint16 k) {  // 0xA2C7BB
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x7802 + E_k)) {
+    ERAM(0x7802 + E_k) = 0;
+    LowerNorfairRio_Func_7(addr_kLowerNorfairRio_Ilist_C65A);
+    E->ai_preinstr = 0xC7D6 /* LowerNorfairRio_Func_4 */;
+  }
+}
+void LowerNorfairRio_Func_4(uint16 k) {  // 0xA2C7D6
+  int16 v4;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL8(E->ai_var_D)))
+    E->ai_var_D = -E->ai_var_D;
+  if (Enemy_MoveDown(k, INT16_SHL8(E->ai_var_C)) || (v4 = E->ai_var_C - 32, E->ai_var_C = v4, v4 < 0)) {
+    E->ai_var_C = -1;
+    LowerNorfairRio_Func_7(addr_kLowerNorfairRio_Ilist_C662);
+    E->ai_preinstr = 0xC82D /* LowerNorfairRio_Func_5 */;
+    QueueSfx2_Max6(0x64);
+  }
+}
+void LowerNorfairRio_Func_5(uint16 k) {  // 0xA2C82D
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL8(E->ai_var_D)))
+    E->ai_var_D = -E->ai_var_D;
+  if (Enemy_MoveDown(k, INT16_SHL8(E->ai_var_C))) {
+    LowerNorfairRio_Func_7(addr_kLowerNorfairRio_Ilist_C686);
+    E->ai_preinstr = 0xC888 /* LowerNorfairRio_Func_6 */;
+  } else {
+    E->ai_var_C -= 32;
+    if (ERAM(0x7802 + E_k)) {
+      ERAM(0x7802 + E_k) = 0;
+      LowerNorfairRio_Func_7(addr_kLowerNorfairRio_Ilist_C674);
+    }
+  }
+}
+void LowerNorfairRio_Func_6(uint16 k) {  // 0xA2C888
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x7802 + E_k)) {
+    ERAM(0x7802 + E_k) = 0;
+    LowerNorfairRio_Func_7(addr_kLowerNorfairRio_Ilist_C686);
+    E->ai_preinstr = 0xC771 /* LowerNorfairRio_Func_2 */;
+  }
+}
+void LowerNorfairRio_Func_7(uint16 a) {  // 0xA2C8A3
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (a != ERAM(0x7800 + E_k)) {
+    ERAM(0x7800 + E_k) = a;
+    E->current_instruction = a;
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+uint16 MaridiaLargeSnail_Instr_CB6B(uint16 k, uint16 jp) {  // 0xA2CB6B
+  QueueSfx2_Max6(0xE);
+  return jp;
+}
+uint16 MaridiaLargeSnail_Instr_CCB3(uint16 k, uint16 jp) {  // 0xA2CCB3
+  ERAM(0x7804 + (cur_enemy_index)) = 1;
+  return jp;
+}
+uint16 MaridiaLargeSnail_Instr_CCBE(uint16 k, uint16 jp) {  // 0xA2CCBE
+  ERAM(0x7806 + (cur_enemy_index)) = 1;
+  return jp;
+}
+uint16 MaridiaLargeSnail_Instr_CCC9(uint16 k, uint16 jp) {  // 0xA2CCC9
+  ERAM(0x7806 + (cur_enemy_index)) = 0;
+  return jp;
+}
+void MaridiaLargeSnail_Init(void) {  // 0xA2CCD4
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_B = 0;
+  E->ai_var_D = 0;
+  ERAM(0x7800 + E_k) = 0;
+  ERAM(0x7802 + E_k) = 0;
+  ERAM(0x7804 + E_k) = 0;
+  ERAM(0x7806 + E_k) = 0;
+  ERAM(0x7814 + E_k) = 0;
+  E->ai_var_E = 3;
+  E->ai_var_C = 128;
+  E->current_instruction = addr_kMaridiaLargeSnail_Ilist_CA4B;
+  E->ai_var_A = 0xCDE6 /* MaridiaLargeSnail_Func_4 */;
+  E->ai_preinstr = 0xCF66 /* MaridiaLargeSnail_Func_7 */;
+}
+void CallMaridiaLargeSnailFunc(uint32 ea) {
+  switch (ea) {
+  case 0xA2CDE6: MaridiaLargeSnail_Func_4(); return;
+  case 0xA2CE2B: MaridiaLargeSnail_Func_5(); return;
+  case 0xA2CF40: MaridiaLargeSnail_Func_6(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void MaridiaLargeSnail_Main(void) {  // 0xA2CD13
+  MaridiaLargeSnail_Func_1(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallMaridiaLargeSnailFunc(E->ai_var_A | 0xA20000);
+  MaridiaLargeSnail_Func_2(cur_enemy_index);
+  MaridiaLargeSnail_Func_3(cur_enemy_index);
+}
+void MaridiaLargeSnail_Func_1(uint16 k) {  // 0xA2CD23
+  MaridiaLargeSnail_Func_11();
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  ERAM(0x780C + E_k) = E->x_pos;
+  ERAM(0x7810 + E_k) = E->y_pos;
+}
+void MaridiaLargeSnail_Func_2(uint16 k) {  // 0xA2CD35
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  ERAM(0x7816 + E_k) = 0;
+  if (CheckIfEnemyTouchesSamus(k))
+    extra_samus_y_displacement = E->y_pos - ERAM(0x7810 + E_k);
+  if (ERAM(0x7808 + E_k)) {
+    uint16 r18 = E->x_pos - ERAM(0x780C + E_k);
+    if ((r18 & 0x8000) != 0) {
+      if (!ERAM(0x780A + E_k))
+        return;
+    } else if (ERAM(0x780A + E_k)) {
+      return;
+    }
+    extra_samus_x_displacement += r18;
+  }
+}
+void MaridiaLargeSnail_Func_3(uint16 k) {  // 0xA2CD77
+  int16 v2;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x7808 + E_k)) {
+    v2 = E->x_pos - ERAM(0x780C + E_k);
+    if (!v2) {
+      if (ERAM(0x780A + E_k)) {
+        if (!E->ai_var_D || (joypad1_lastkeys & 0x100) == 0)
+          return;
+      } else if (E->ai_var_D || (joypad1_lastkeys & 0x200) == 0) {
+        return;
+      }
+      ERAM(0x7816 + E_k) = 1;
+      E->x_pos = ERAM(0x780C + E_k);
+      return;
+    }
+    if (v2 < 0) {
+      if ((joypad1_lastkeys & 0x100) != 0) {
+        ERAM(0x7816 + E_k) = 1;
+        E->x_pos = ERAM(0x780C + E_k);
+      }
+    } else if ((joypad1_lastkeys & 0x200) != 0) {
+      ERAM(0x7816 + E_k) = 1;
+      E->x_pos = ERAM(0x780C + E_k);
+    }
+  }
+}
+void MaridiaLargeSnail_Func_4(void) {  // 0xA2CDE6
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_var_E) {
+    CallEnemyPreInstr(E->ai_preinstr | 0xA20000);
+  } else {
+    ERAM(0x7800 + E_k) = 0;
+    if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) != 0) {
+      E->ai_var_D = 1;
+      ERAM(0x7800 + E_k) = 1;
+    }
+    MaridiaLargeSnail_Func_10(cur_enemy_index);
+    if (IsSamusWithinEnemy_X(cur_enemy_index, 0x18)) {
+      ERAM(0x7800 + E_k) |= 2;
+      MaridiaLargeSnail_Func_10(cur_enemy_index);
+      E->ai_var_A = 0xCE2B /* MaridiaLargeSnail_Func_5 */;
+    }
+  }
+}
+void MaridiaLargeSnail_Func_5(void) {  // 0xA2CE2B
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_var_E) {
+    CallEnemyPreInstr(E->ai_preinstr | 0xA20000);
+  } else {
+    if (!(Enemy_MoveDown(cur_enemy_index, INT16_SHL16(1)))) {
+      E->ai_var_B = 0;
+      E->ai_preinstr = 0xCF66 /* MaridiaLargeSnail_Func_7 */;
+      E->ai_var_E = 3;
+    }
+  }
+  if (!ERAM(0x7816 + E_k)) {
+    uint16 R36 = 0;
+    bool v4 = (--E->ai_var_C & 0x8000) != 0;
+    if (v4 && (E->ai_var_C = 0, IsSamusWithinEnemy_X(cur_enemy_index, 0x20)) && ERAM(0x7806 + E_k) && !E->ai_var_E) {
+      ERAM(0x7800 + E_k) = 0;
+      E->ai_var_D = 0;
+      if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) != 0) {
+        ERAM(0x7800 + E_k) = 1;
+        E->ai_var_D = 1;
+      }
+      E->ai_var_C = 128;
+      ERAM(0x7800 + E_k) = ERAM(0x7800 + E_k) & 1 | 4;
+      MaridiaLargeSnail_Func_10(cur_enemy_index);
+      E->ai_var_A = 0xCF40 /* MaridiaLargeSnail_Func_6 */;
+    } else {
+      uint16 v5 = 128;
+      if (E->ai_var_D)
+        v5 = 132;
+      int v6 = v5 >> 1;
+      uint16 r18 = ((uint16)BW_A2(0x8187 + 2 * (v6 + 1)));
+      uint16 r20 = ((uint16)BW_A2(0x8187 + 2 * (v6)));
+      if (ERAM(0x7808 + E_k) && E->ai_var_D == ERAM(0x780A + E_k)) {
+        if (E->ai_var_D)
+          r20 -= 16;
+        else
+          r20 += 16;
+      }
+      if (Enemy_MoveRight_SlopesAsWalls(cur_enemy_index, __PAIR32__(r20, r18)))
+        ++R36;
+      if (ERAM(0x7808 + E_k) && E->ai_var_D == ERAM(0x780A + E_k)) {
+        uint16 v7;
+        if (E->ai_var_D)
+          v7 = E->x_pos + 16;
+        else
+          v7 = E->x_pos - 16;
+        E->x_pos = v7;
+      }
+      if (R36) {
+        E->ai_var_D ^= 1;
+        ERAM(0x7800 + E_k) ^= 4;
+        MaridiaLargeSnail_Func_10(cur_enemy_index);
+      }
+    }
+  }
+}
+void MaridiaLargeSnail_Func_6(void) {  // 0xA2CF40
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (ERAM(0x7804 + E_k)) {
+    ERAM(0x7804 + E_k) = 0;
+    ERAM(0x7800 + E_k) -= 2;
+    MaridiaLargeSnail_Func_10(cur_enemy_index);
+    E->ai_var_A = 0xCE2B /* MaridiaLargeSnail_Func_5 */;
+  }
+}
+void MaridiaLargeSnail_Func_7(uint16 k) {  // 0xA2CF66
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 v2 = E->ai_var_B + 384;
+  if (!sign16(v2 - 0x4000))
+    v2 = 0x4000;
+  E->ai_var_B = v2;
+  
+  int v5 = (8 * (v2 >> 8)) >> 1;
+  if (Enemy_MoveDown(k, ((uint32)((uint32)BW_A0(0xCBC7 + 4 * (v5 >> 1)) | (uint32)BW_A0(0xCBC7 + 4 * (v5 >> 1) + 2) << 16)))) {
+    --E->ai_var_E;
+    int16 v6 = E->ai_var_B - 4096;
+    if (v6 < 0)
+      E->ai_var_E = 0;
+    E->ai_var_B = v6;
+    E->ai_preinstr = 0xCFA9 /* MaridiaLargeSnail_Func_8 */;
+  }
+}
+void MaridiaLargeSnail_Func_8(uint16 k) {  // 0xA2CFA9
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int16 v2 = E->ai_var_B - 384;
+  E->ai_var_B = v2;
+  if (v2 >= 0) {
+    uint16 v3 = (v2 & 0x7F00) >> 8;
+    int v5 = (8 * v3) >> 1;
+    Enemy_MoveDown(k, ((uint32)((uint32)BW_A0(0xCBC7 + 4 * ((v5 + 2) >> 1)) | (uint32)BW_A0(0xCBC7 + 4 * ((v5 + 2) >> 1) + 2) << 16)));
+  } else {
+    E->ai_var_B = 0;
+    E->ai_preinstr = 0xCF66 /* MaridiaLargeSnail_Func_7 */;
+  }
+}
+void MaridiaLargeSnail_Func_9(void) {  // 0xA2CFD7
+  QueueSfx2_Max6(0x63);
+}
+void MaridiaLargeSnail_Func_10(uint16 k) {  // 0xA2CFDF
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 mlsl_var_00 = ERAM(0x7800 + E_k);
+  if (mlsl_var_00 != ERAM(0x7802 + E_k)) {
+    ERAM(0x7802 + E_k) = mlsl_var_00;
+    E->current_instruction = ((uint16)BW_A2(0xCB77 + 2 * (mlsl_var_00)));
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void MaridiaLargeSnail_Func_11(void) {  // 0xA2CFFF
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7808 + E_k) = 0;
+  ERAM(0x780A + E_k) = 0;
+  if (IsSamusWithinEnemy_Y(cur_enemy_index, 0x20) && IsSamusWithinEnemy_X(cur_enemy_index, 0x18)) {
+    ERAM(0x7808 + E_k) = 1;
+    if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) != 0)
+      ERAM(0x780A + E_k) = 1;
+  }
+}
+void MaridiaLargeSnail_Func_12(void) {  // 0xA2D388
+  Enemy_NormalTouchAI_A2();
+  MaridiaLargeSnail_Touch();
+}
+void MaridiaLargeSnail_Touch() {  // 0xA2D38C
+  uint16 k = cur_enemy_index;
+  if (!CheckIfEnemyTouchesSamus(k)) {
+    if ((int16)(samus_x_pos - gEnemyData(cur_enemy_index)->x_pos) < 0)
+      extra_samus_x_displacement -= 4;
+    else
+      extra_samus_x_displacement += 4;
+  }
+}
+void MaridiaLargeSnail_Shot(void) {  // 0xA2D3B4
+  NormalEnemyShotAi();
+  QueueSfx2_Max6(0x57);
 }
 static uint16 HirisingSlowfalling_Func_1(uint16 k) {  // 0xA2DFCE
   EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
@@ -4433,6 +7028,141 @@ void Ripper_Main(void) {  // 0xA2E4DA
     E->current_instruction = v3;
     E->instruction_timer = 1;
     E->timer = 0;
+  }
+}
+uint16 LavaSeahorse_Instr_E5FB(uint16 k, uint16 jp) {  // 0xA2E5FB
+  ERAM(0x7804 + (cur_enemy_index)) = 1;
+  return jp;
+}
+void LavaSeahorse_Init(void) {  // 0xA2E606
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7804 + E_k) = 0;
+  if (E->parameter_1) {
+    ERAM(0x7800 + E_k) = 2;
+    ERAM(0x7802 + E_k) = 2;
+    E->current_instruction = addr_kLavaSeahorse_Ilist_E5A1;
+    E->properties |= kEnemyProps_Tangible;
+    E->ai_preinstr = 0xE781 /* nullsub_196 */;
+  } else {
+    ERAM(0x7800 + E_k) = 0;
+    ERAM(0x7802 + E_k) = 0;
+    E->current_instruction = addr_kLavaSeahorse_Ilist_E59B;
+    E->ai_preinstr = 0xE654 /* LavaSeahorse_Func_1 */;
+  }
+}
+void LavaSeahorse_Main(void) {  // 0xA2E64E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallEnemyPreInstr(E->ai_preinstr | 0xA20000);
+}
+void LavaSeahorse_Func_1(uint16 k) {  // 0xA2E654
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((--E->ai_var_D & 0x8000) != 0) {
+    E->ai_var_D = 48;
+    E->ai_preinstr = 0xE6AD /* LavaSeahorse_Func_2 */;
+    uint16 t = GetSamusEnemyDelta_X(k);
+    E->ai_var_A = (E->ai_var_A & 0x7fff) | (t & 0x8000);
+    if ((E->ai_var_A & 0x8000) != 0) {
+      LOBYTE(ERAM(0x7800 + E_k)) &= ~1;
+      EnemyData *E1 = gEnemyData(k + 64); const uint16 E1_k = (k + 64);
+      LOBYTE(ERAM(0x7800 + E1_k)) &= ~1;
+    } else {
+      LOBYTE(ERAM(0x7800 + E_k)) |= 1;
+      EnemyData *E1 = gEnemyData(k + 64); const uint16 E1_k = (k + 64);
+      LOBYTE(ERAM(0x7800 + E1_k)) |= 1;
+    }
+    LavaSeahorse_Func_6();
+    LavaSeahorse_Func_7();
+  }
+}
+void LavaSeahorse_Func_2(uint16 k) {  // 0xA2E6AD
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((--E->ai_var_D & 0x8000) != 0) {
+    ERAM(0x7800 + E_k) += 4;
+    E->ai_var_D = 3;
+    E->ai_preinstr = 0xE6F1 /* LavaSeahorse_Func_3 */;
+  }
+  --E->y_pos;
+  EnemyData *E1 = gEnemyData(k + 64); const uint16 E1_k = (k + 64);
+  --E1->y_pos;
+}
+void LavaSeahorse_Func_3(uint16 k) {  // 0xA2E6F1
+  LavaSeahorse_Func_6();
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x7804 + E_k)) {
+    ERAM(0x7804 + E_k) = 0;
+    ERAM(0x7802 + E_k) = -1;
+    SpawnEprojWithGfx(0xFFFF, k, addr_kEproj_LavaSeahorseFireball);
+    QueueSfx2_Max6(0x61);
+    if (E->ai_var_D-- == 1) {
+      ERAM(0x7800 + E_k) -= 4;
+      E->ai_var_D = 96;
+      E->ai_preinstr = 0xE734 /* LavaSeahorse_Func_4 */;
+    }
+  }
+}
+void LavaSeahorse_Func_4(uint16 k) {  // 0xA2E734
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_var_D-- == 1) {
+    E->ai_var_D = 48;
+    E->ai_preinstr = 0xE749 /* LavaSeahorse_Func_5 */;
+    LavaSeahorse_Func_6();
+  }
+}
+void LavaSeahorse_Func_5(uint16 k) {  // 0xA2E749
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((--E->ai_var_D & 0x8000) != 0) {
+    E->ai_var_D = 128;
+    E->ai_preinstr = 0xE654 /* LavaSeahorse_Func_1 */;
+  }
+  ++E->y_pos;
+  EnemyData *E1 = gEnemyData(k + 64); const uint16 E1_k = (k + 64);
+  ++E1->y_pos;
+}
+void LavaSeahorse_Func_6(void) {  // 0xA2E782
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 lse_var_00 = ERAM(0x7800 + E_k);
+  if (lse_var_00 != ERAM(0x7802 + E_k)) {
+    ERAM(0x7802 + E_k) = lse_var_00;
+    E->current_instruction = ((uint16)BW_A2(0xE5EF + 2 * (lse_var_00)));
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void LavaSeahorse_Func_7(void) {  // 0xA2E7A5
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  uint16 lse_var_00 = ERAM(0x7800 + E_k);
+  if (lse_var_00 != ERAM(0x7802 + E_k)) {
+    ERAM(0x7802 + E_k) = lse_var_00;
+    E->current_instruction = ((uint16)BW_A2(0xE5EF + 2 * (lse_var_00)));
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void LavaSeahorse_Touch(void) {  // 0xA2E7C8
+  Enemy_NormalTouchAI_A2();
+  LavaSeahorse_E7DA();
+}
+void LavaSeahorse_Shot(void) {  // 0xA2E7CE
+  Enemy_NormalShotAI_A2();
+  LavaSeahorse_E7DA();
+}
+void LavaSeahorse_Powerbomb(void) {  // 0xA2E7D4
+  Enemy_NormalPowerBombAI_A2();
+  LavaSeahorse_E7DA();
+}
+void LavaSeahorse_E7DA(void) {  // 0xA2E7DA
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->health) {
+    uint16 shake_timer = E->shake_timer;
+    EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+    E1->shake_timer = shake_timer;
+    E1->invincibility_timer = E->invincibility_timer;
+    E1->flash_timer = E->flash_timer;
+    E1->frozen_timer = E->frozen_timer;
+    E1->ai_handler_bits = E->ai_handler_bits;
+  } else {
+    EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+    E1->properties |= 0x200;
   }
 }
 void TimedShutter_Init(void) {  // 0xA2E9DA
@@ -4821,6 +7551,62 @@ LABEL_10:
     goto LABEL_10;
   }
 }
+void HorizontalShootableShutter_Init(void) {  // 0xA2F111
+  HorizontalShootableShutter_Func_1(cur_enemy_index);
+  gEnemyData(cur_enemy_index)->current_instruction = addr_kTimedShutter_Ilist_E9D4;
+}
+void HorizontalShootableShutter_Func_1(uint16 k) {  // 0xA2F11E
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 current_instruction_low = LOBYTE(E->current_instruction);
+  ERAM(0x7800 + E_k) = current_instruction_low;
+  int v3 = (8 * current_instruction_low) >> 1;
+  E->ai_var_D = ((uint16)BW_A2(0x8187 + 2 * (v3)));
+  E->ai_var_C = ((uint16)BW_A2(0x8187 + 2 * (v3 + 1)));
+  E->ai_preinstr = ((uint16)BW_A2(0x8187 + 2 * (v3 + 2)));
+  E->ai_var_E = ((uint16)BW_A2(0x8187 + 2 * (v3 + 3)));
+  uint16 current_instruction_high = HIBYTE(E->current_instruction);
+  ERAM(0x7802 + E_k) = current_instruction_high;
+  ERAM(0x8000 + E_k) = current_instruction_high ^ 1;
+  uint16 extra_properties_low = LOBYTE(E->extra_properties);
+  ERAM(0x7804 + E_k) = extra_properties_low;
+  ERAM(0x7810 + E_k) = 16 * extra_properties_low;
+  uint16 extra_properties_high = HIBYTE(E->extra_properties);
+  ERAM(0x7806 + E_k) = extra_properties_high;
+  ERAM(0x7812 + E_k) = 16 * extra_properties_high;
+  uint16 rfpm_parameter_1_low = LOBYTE(E->parameter_1);
+  ERAM(0x7808 + E_k) = rfpm_parameter_1_low;
+  ERAM(0x780E + E_k) = 2 * rfpm_parameter_1_low;
+  ERAM(0x780A + E_k) = HIBYTE(E->parameter_1);
+  uint16 rfpm_parameter_2 = E->parameter_2;
+  ERAM(0x780C + E_k) = rfpm_parameter_2;
+  E->ai_var_B = rfpm_parameter_2;
+  uint16 x_pos = E->x_pos;
+  ERAM(0x7822 + E_k) = x_pos;
+  ERAM(0x7824 + E_k) = ERAM(0x780A + E_k) + x_pos;
+  if (!ERAM(0x7802 + E_k)) {
+    uint16 v10 = E->x_pos;
+    ERAM(0x7824 + E_k) = v10;
+    ERAM(0x7822 + E_k) = v10 - ERAM(0x780A + E_k);
+  }
+  E->ai_var_A = 0xF224 /* HorizontalShootableShutter_Func_2 */;
+  ERAM(0x782A + E_k) = samus_x_pos;
+  E->extra_properties = 0;
+  ERAM(0x7814 + E_k) = 0;
+  ERAM(0x7816 + E_k) = 0;
+}
+void HorizontalShootableShutter_Main(void) {  // 0xA2F1DE
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallRisingFallingPlatformFunc(E->ai_var_A | 0xA20000);
+  if (E->ai_var_A != 0xF272 /* HorizontalShootableShutter_Func_8 */
+      && E->ai_var_A != 0xF2E4 /* HorizontalShootableShutter_Func_9 */
+      && (enemy_index_colliding_dirs[3] & (uint16)(enemy_index_colliding_dirs[2] & enemy_index_colliding_dirs[1] & enemy_index_colliding_dirs[0])) != 0xFFFF
+      && (enemy_index_colliding_dirs[3] & (uint16)(enemy_index_colliding_dirs[2] & enemy_index_colliding_dirs[1] & enemy_index_colliding_dirs[0])) == cur_enemy_index
+      && samus_contact_damage_index) {
+    HorizontalShootableShutter_Powerbomb();
+  }
+  ERAM(0x782A + E_k) = samus_x_pos;
+  ERAM(0x782C + E_k) = samus_x_subpos;
+}
 void HorizontalShootableShutter_Func_2(void) {
 
   int v0 = ERAM(0x780E + (cur_enemy_index)) >> 1;
@@ -4928,6 +7714,41 @@ void HorizontalShootableShutter_Func_13(void) {  // 0xA2F3B0
 }
 void HorizontalShootableShutter_Func_14(void) {  // 0xA2F3D4
   ;
+}
+void HorizontalShootableShutter_Touch(void) {  // 0xA2F3D8
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_var_A == 0xF3D4 /* HorizontalShootableShutter_Func_14 */) {
+    if ((int16)(samus_x_pos - E->x_pos) >= 0) {
+      if ((joypad1_lastkeys & 0x200) != 0) {
+        extra_samus_x_displacement = 4;
+        extra_samus_y_subdisplacement = 0;
+      }
+    } else if ((joypad1_lastkeys & 0x100) != 0) {
+      extra_samus_x_displacement = -4;
+      extra_samus_y_subdisplacement = 0;
+    }
+  }
+}
+void HorizontalShootableShutter_Shot(void) {  // 0xA2F40E
+  NormalEnemyShotAiSkipDeathAnim_CurEnemy();
+  HorizontalShootableShutter_Powerbomb();
+}
+void HorizontalShootableShutter_Powerbomb(void) {  // 0xA2F41A
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!sign16(ERAM(0x780E + E_k) - 6)) {
+    if (ERAM(0x780E + E_k) != 8) {
+      if (ERAM(0x7818 + E_k))
+        return;
+      ERAM(0x7818 + E_k) = 1;
+    }
+    if (E->ai_var_A != 0xF272 /* HorizontalShootableShutter_Func_8 */
+        && E->ai_var_A != 0xF2E4 /* HorizontalShootableShutter_Func_9 */) {
+      ERAM(0x8000 + E_k) ^= 1;
+      E->ai_var_A = 0xF272 /* HorizontalShootableShutter_Func_8 */;
+      if (ERAM(0x8000 + E_k))
+        E->ai_var_A = 0xF2E4 /* HorizontalShootableShutter_Func_9 */;
+    }
+  }
 }
 void Enemy_NormalTouchAI_A3(void) {  // 0xA38023
   NormalEnemyTouchAi();
@@ -5831,6 +8652,126 @@ void Roach_Func_33(uint16 k) {  // 0xA3A648
       E->ai_var_B = 0xA2D7 /* Roach_Func_9 */;
   }
 }
+void Mochtroid_Init(void) {  // 0xA3A77D
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->layer = 2;
+  Mochtroid_Func_4(cur_enemy_index, addr_kMochtroid_Ilist_A745);
+  E->ai_preinstr = 0;
+}
+void Mochtroid_Main(void) {  // 0xA3A790
+  uint16 v0 = 2 * gEnemyData(cur_enemy_index)->ai_preinstr;
+  gEnemyData(cur_enemy_index)->ai_preinstr = 0;
+  off_A3A7A4[v0 >> 1]();
+}
+void Mochtroid_Func_1(void) {  // 0xA3A7AA
+  int16 v5, v10;
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int32 t = INT16_SHL8((int16)(E->y_pos - samus_y_pos) >> 2);
+  AddToHiLo(&E->ai_var_D, &E->ai_var_C, -t);
+  if ((int16)E->ai_var_D < 0) {
+    if ((uint16)E->ai_var_D < 0xFFFD) {
+      v5 = -3;
+      goto LABEL_8;
+    }
+  } else if ((uint16)E->ai_var_D >= 3) {
+    v5 = 3;
+LABEL_8:
+    E->ai_var_D = v5;
+    E->ai_var_C = 0;
+  }
+  if (Enemy_MoveDown(cur_enemy_index, __PAIR32__(E->ai_var_D, E->ai_var_C))) {
+    E->ai_var_C = 0;
+    E->ai_var_D = 0;
+  }
+  t = INT16_SHL8((int16)(E->x_pos - samus_x_pos) >> 2);
+  AddToHiLo(&E->ai_var_B, &E->ai_var_A, -t);
+  if ((int16)E->ai_var_B < 0) {
+    if ((uint16)E->ai_var_B < 0xFFFD) {
+      v10 = -3;
+      goto LABEL_21;
+    }
+  } else if ((uint16)E->ai_var_B >= 3) {
+    v10 = 3;
+LABEL_21:
+    E->ai_var_B = v10;
+    E->ai_var_A = 0;
+  }
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, __PAIR32__(E->ai_var_B, E->ai_var_A))) {
+    E->ai_var_A = 0;
+    E->ai_var_B = 0;
+  }
+  Mochtroid_Func_4(cur_enemy_index, addr_kMochtroid_Ilist_A745);
+}
+void Mochtroid_Func_2(void) {  // 0xA3A88F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int v2 = (E->ai_var_E & 6) >> 1;
+  E->x_pos += ((int16)BW_A3(0xA76D + 2 * (v2)));
+  E->y_pos += ((int16)BW_A3(0xA775 + 2 * (v2)));
+  E->ai_var_A = 0;
+  E->ai_var_B = 0;
+  E->ai_var_C = 0;
+  E->ai_var_D = 0;
+  if (E->ai_var_E-- == 1)
+    E->ai_preinstr = 0;
+  Mochtroid_Func_4(cur_enemy_index, addr_kMochtroid_Ilist_A745);
+}
+void Mochtroid_Func_3(void) {  // 0xA3A8C8
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 x_pos = E->x_pos;
+  if (x_pos == samus_x_pos) {
+    E->ai_var_A = 0;
+    E->ai_var_B = 0;
+  } else if ((int16)(x_pos - samus_x_pos) >= 0) {
+    E->ai_var_A = 0;
+    E->ai_var_B = -1;
+  } else {
+    E->ai_var_A = 0;
+    E->ai_var_B = 1;
+  }
+  Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, __PAIR32__(E->ai_var_B, E->ai_var_A));
+  uint16 y_pos = E->y_pos;
+  if (y_pos == samus_y_pos) {
+    E->ai_var_C = 0;
+    E->ai_var_D = 0;
+  } else if ((int16)(y_pos - samus_y_pos) >= 0) {
+    E->ai_var_C = 0;
+    E->ai_var_D = -1;
+  } else {
+    E->ai_var_C = 0;
+    E->ai_var_D = 1;
+  }
+  Enemy_MoveDown(cur_enemy_index, __PAIR32__(E->ai_var_D, E->ai_var_C));
+}
+void Mochtroid_Func_4(uint16 k, uint16 a) {  // 0xA3A93C
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (a != ERAM(0x7802 + E_k)) {
+    ERAM(0x7802 + E_k) = a;
+    E->current_instruction = a;
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void Mochtroid_Touch(void) {  // 0xA3A953
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_preinstr = 1;
+  Mochtroid_Func_4(cur_enemy_index, addr_kMochtroid_Ilist_A759);
+  ++ERAM(0x8000 + E_k);
+  if (samus_contact_damage_index)
+    goto LABEL_7;
+  if ((random_enemy_counter & 7) == 7 && !sign16(samus_health - 30))
+    QueueSfx3_Max6(0x2D);
+  if (!sign16(ERAM(0x8000 + E_k) - 80)) {
+    ERAM(0x8000 + E_k) = 0;
+LABEL_7:
+    Enemy_NormalTouchAI_A3();
+    samus_invincibility_timer = 0;
+    samus_knockback_timer = 0;
+  }
+}
+void Mochtroid_Shot(void) {  // 0xA3A9A8
+  Enemy_NormalShotAI_A3();
+}
 uint16 Sidehopper_Func_1(uint16 k, uint16 jp) {  // 0xA3AA68
   QueueSfx2_Max3(IW_A3(jp));
   return (uint16)(jp + 2);
@@ -6074,6 +9015,333 @@ void Sidehopper_Func_22(void) {  // 0xA3AE8E
     E->ai_var_C = v3;
   }
 }
+uint16 MaridiaRefillCandy_Instr_1(uint16 k, uint16 jp) {  // 0xA3B429
+  ERAM(0x7800 + (cur_enemy_index)) = 4;
+  return jp;
+}
+uint16 MaridiaRefillCandy_Instr_2(uint16 k, uint16 jp) {  // 0xA3B434
+  ERAM(0x7800 + (cur_enemy_index)) = 8;
+  return jp;
+}
+uint16 MaridiaRefillCandy_Instr_3(uint16 k, uint16 jp) {  // 0xA3B43F
+  ERAM(0x7800 + (cur_enemy_index)) = 12;
+  return jp;
+}
+void MaridiaRefillCandy_Init(void) {  // 0xA3B44A
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->parameter_1 = 0xB482 /* MaridiaRefillCandy_Func_1 */;
+  E->ai_var_D = 0;
+  E->ai_var_E = 0;
+  ERAM(0x7800 + E_k) = 0;
+  E->current_instruction = addr_kMaridiaRefillCandy_Ilist_B3C1;
+  E->properties |= kEnemyProps_Invisible;
+  E->ai_var_B = E->x_pos;
+  E->ai_var_C = E->y_pos;
+}
+void CallMaridiaRefillCandyFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA3B482: MaridiaRefillCandy_Func_1(); return;
+  case 0xA3B4A8: MaridiaRefillCandy_Func_2(k); return;
+  case 0xA3B4D6: MaridiaRefillCandy_Func_3(k); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void MaridiaRefillCandy_Main(void) {  // 0xA3B47C
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallMaridiaRefillCandyFunc(E->parameter_1 | 0xA30000, cur_enemy_index);
+}
+void MaridiaRefillCandy_Func_1(void) {  // 0xA3B482
+  int16 v1;
+
+  if (IsSamusWithinEnemy_X(cur_enemy_index, 0x80)) {
+    v1 = 1;
+    if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) == 0)
+      v1 = 3;
+    EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+    E->ai_var_D = v1;
+    MaridiaRefillCandy_Func_4();
+    E->parameter_1 = 0xB4A8 /* MaridiaRefillCandy_Func_2 */;
+  }
+}
+void MaridiaRefillCandy_Func_2(uint16 k) {  // 0xA3B4A8
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->properties &= ~kEnemyProps_Invisible;
+  if ((GetSamusEnemyDelta_Y(k) & 0x8000) != 0) {
+    AddToHiLo(&E->y_pos, &E->y_subpos, -0x8000);
+  } else {
+    --E->ai_var_D;
+    MaridiaRefillCandy_Func_4();
+    E->ai_preinstr = 0;
+    E->parameter_1 = 0xB4D6 /* MaridiaRefillCandy_Func_3 */;
+  }
+}
+void MaridiaRefillCandy_Func_3(uint16 k) {  // 0xA3B4D6
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int v2 = ERAM(0x7800 + E_k) >> 1;
+  int32 v = __PAIR32__(((uint16)BW_A3(0xB415 + 2 * (v2))), ((uint16)BW_A3(0xB415 + 2 * (v2 + 1))));
+  AddToHiLo(&E->x_pos, &E->x_subpos, E->ai_var_D ? v : -v);
+  if (!CheckIfEnemyIsOnScreen()) {
+    MaridiaRefillCandy_Func_4();
+    return;
+  }
+  E->properties |= kEnemyProps_Invisible;
+  E->x_pos = E->ai_var_B;
+  E->y_pos = E->ai_var_C;
+  E->ai_var_D = 0;
+  MaridiaRefillCandy_Func_4();
+  E->parameter_1 = 0xB482 /* MaridiaRefillCandy_Func_1 */;
+}
+void MaridiaRefillCandy_Func_4(void) {  // 0xA3B537
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 mrcy_var_D = E->ai_var_D;
+  if (mrcy_var_D != E->ai_var_E) {
+    E->ai_var_E = mrcy_var_D;
+    E->current_instruction = ((uint16)BW_A3(0xB40D + 2 * (mrcy_var_D)));
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void MaridiaRefillCandy_Func_5(void) {  // 0xA3B557
+  ;
+}
+void MaridiaRefillCandy_Func_6(void) {  // 0xA3B55B
+  ;
+}
+void NorfairSlowFireball_Init(void) {  // 0xA3B66F
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->parameter_2 = 6;
+  v1->current_instruction = ((uint16)BW_A3(0xB667 + 2 * (v1->properties & 3)));
+  StoneZoomer_E67A(cur_enemy_index);
+}
+void NorfairSlowFireball_Func_1(void) {  // 0xA3B6F9
+  uint16 current_instruction = gEnemyData(cur_enemy_index)->current_instruction;
+  if (current_instruction)
+    nt_unimpl("Unreachable");
+}
+uint16 Bang_Instr_1(uint16 k, uint16 jp) {  // 0xA3BA78
+  QueueSfx2_Max6(0x56);
+  return jp;
+}
+uint16 Bang_Instr_2(uint16 k, uint16 jp) {  // 0xA3BAA8
+  ERAM(0x8004 + (cur_enemy_index)) = 1;
+  return jp;
+}
+void Bang_Init(void) {  // 0xA3BAB3
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_B = E->palette_index;
+  E->properties |= kEnemyProps_BlockPlasmaBeam;
+  E->ai_preinstr = 0xBCA5 /* Bang_Func_6 */;
+  ERAM(0x7800 + E_k) = 16;
+  ERAM(0x7802 + E_k) = 0;
+  ERAM(0x7804 + E_k) = 0;
+  ERAM(0x8000 + E_k) = 0;
+  ERAM(0x8002 + E_k) = 0;
+  ERAM(0x8004 + E_k) = 0;
+  ERAM(0x7816 + E_k) = ((uint16)BW_A3(0xBA84 + 2 * (LOBYTE(E->parameter_2))));
+  int v1 = 2 * HIBYTE(E->parameter_2);
+  uint16 v2 = ((uint16)BW_A3(0xBC6A + 2 * (v1)));
+  ERAM(0x7818 + E_k) = v2;
+  ERAM(0x781A + E_k) = v2;
+  ERAM(0x781C + E_k) = ((uint16)BW_A3(0xBC6A + 2 * (v1 + 1)));
+  if (!E->current_instruction)
+    E->ai_preinstr = 0xBCC1 /* Bang_Func_7 */;
+  E->current_instruction = addr_kBang_Ilist_B75E;
+}
+void Bang_Main(void) {  // 0xA3BB25
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  Call(E->parameter_1 | 0xA30000);
+}
+void Bang_Func_1(void) {  // 0xA3BB2B
+  uint16 v0 = ERAM(0x8000 + (cur_enemy_index + 64)) + 10;
+  ERAM(0x8000 + (cur_enemy_index)) = v0;
+  Bang_Func_18();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties |= kEnemyProps_Tangible;
+}
+void Bang_Func_2(void) {  // 0xA3BB4A
+  uint16 v0 = ERAM(0x7800 + (cur_enemy_index + 1984)) + 20;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x8000 + E_k) = v0;
+  Bang_Func_18();
+  E->properties |= kEnemyProps_Tangible;
+}
+void Bang_Func_3(void) {  // 0xA3BB66
+  int16 bang_var_B;
+
+  Bang_Func_5();
+  EnemyData *E0 = gEnemyData(cur_enemy_index); const uint16 E0_k = (cur_enemy_index);
+  uint16 x_pos = E0->x_pos;
+  int v3 = cur_enemy_index >> 1;
+  gEnemyData((uint16)(cur_enemy_index + (-64)))->x_pos = x_pos;
+  EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+  E1->x_pos = x_pos;
+  uint16 y_pos = E0->y_pos;
+  gEnemyData((uint16)(cur_enemy_index + (-64)))->y_pos = y_pos;
+  E1->y_pos = y_pos;
+  bang_var_B = E0->ai_var_B;
+  if ((ERAM(0x8000 + E0_k) & 1) != 0)
+    bang_var_B = 3072;
+  E0->palette_index = bang_var_B;
+  Bang_Func_18();
+  if (ERAM(0x8004 + E0_k)) {
+    ERAM(0x8004 + E0_k) = 0;
+    if (ERAM(0x8000 + E0_k) == 9) {
+      E0->invincibility_timer = 16;
+      E0->properties |= kEnemyProps_Tangible;
+      uint16 v7 = DetermineDirectionOfSamusFromEnemy();
+      uint16 v8 = Bang_Func_4(v7);
+      EnemyDeathAnimation(cur_enemy_index, v8);
+      uint16 v9 = cur_enemy_index;
+      EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+      E->properties |= 0x200;
+      enemy_drawing_queue[(v9 >> 1) + 97] |= 0x200;
+    } else {
+      ++ERAM(0x8000 + E0_k);
+      Bang_Func_18();
+    }
+  }
+}
+uint16 Bang_Func_4(uint16 a) {  // 0xA3BBEB
+  int i;
+
+  if (!sign16(projectile_counter - 5))
+    return 1;
+  for (i = 0; projectile_damage[i >> 1]; i += 2)
+    ;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int v3 = i >> 1;
+  projectile_x_pos[v3] = E->x_pos;
+  projectile_y_pos[v3] = E->y_pos;
+  projectile_dir[v3] = a;
+  projectile_type[v3] = equipped_beams & 0xF | 0x10;
+  ++projectile_counter;
+  ProjectileReflection(i);
+  projectile_damage[v3] = E->ai_var_E;
+  QueueSfx1_Max6(((uint16)BW_A3(0xBC4A + 2 * (projectile_type[v3] & 0xF))));
+  return 0;
+}
+void Bang_Func_5(void) {  // 0xA3BC9E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallEnemyPreInstr(E->ai_preinstr | 0xA30000);
+}
+void Bang_Func_6(uint16 k) {  // 0xA3BCA5
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 v1 = ERAM(0x7800 + E_k) - 1;
+  ERAM(0x7800 + E_k) = v1;
+  if (!v1) {
+    ERAM(0x7800 + E_k) = 16;
+    E->ai_preinstr = 0xBCC5 /* Bang_Func_8 */;
+  }
+}
+void Bang_Func_7(uint16 k) {  // 0xA3BCC1
+}
+void Bang_Func_8(uint16 k) {  // 0xA3BCC5
+  uint8 v1 = CalculateAngleOfSamusFromEnemy(cur_enemy_index) - 64;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7802 + E_k) = v1;
+  E->ai_preinstr = 0xBD1C /* Bang_Func_10 */;
+  ERAM(0x780E + E_k) = 0;
+  ERAM(0x7810 + E_k) = 0;
+  ERAM(0x7812 + E_k) = 0;
+  ERAM(0x7814 + E_k) = 0;
+}
+void Bang_Func_9(void) {  // 0xA3BCF1
+  uint8 v1 = CalculateAngleOfSamusFromEnemy(cur_enemy_index) - 64;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7804 + E_k) = v1;
+  uint16 v3 = SignExtend8(v1 - ERAM(0x7802 + E_k));
+  uint16 v4 = Abs16(v3);
+  if (!sign16(v4 - 48))
+    E->ai_preinstr = 0xBD2C /* Bang_Func_11 */;
+}
+void Bang_Func_10(uint16 k) {  // 0xA3BD1C
+  Bang_Func_14();
+  Bang_Func_15();
+  Bang_Func_12();
+  Bang_Func_9();
+}
+void Bang_Func_11(uint16 k) {  // 0xA3BD2C
+  Bang_Func_14();
+  Bang_Func_15();
+  Bang_Func_13();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (ERAM(0x7814 + E_k) || (int16)ERAM(0x7812 + E_k) <= 0)
+    E->ai_preinstr = 0xBCA5 /* Bang_Func_6 */;
+}
+void Bang_Func_12(void) {  // 0xA3BD4F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int16 v1 = ERAM(0x7818 + E_k) - 1;
+  ERAM(0x7818 + E_k) = v1;
+  if (v1 < 0) {
+    ERAM(0x7818 + E_k) = ERAM(0x781A + E_k);
+    if ((int16)(ERAM(0x7814 + E_k) - ERAM(0x7816 + E_k)) < 0) {
+      ERAM(0x7812 + E_k) += 22;
+      ERAM(0x7814 + E_k) += ERAM(0x7812 + E_k);
+    }
+  }
+}
+void Bang_Func_13(void) {  // 0xA3BD89
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int16 v1 = ERAM(0x7818 + E_k) - 1;
+  ERAM(0x7818 + E_k) = v1;
+  if (v1 < 0) {
+    ERAM(0x7818 + E_k) = ERAM(0x781C + E_k);
+    ERAM(0x7812 + E_k) -= 22;
+    ERAM(0x7814 + E_k) -= ERAM(0x7812 + E_k);
+  }
+}
+void Bang_Func_14(void) {  // 0xA3BDB9
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 r18 = ((uint16)BW_A0(0xB1C3 + 2 * ((uint8)(ERAM(0x7802 + E_k) + 64))));
+  if ((r18 & 0x8000) != 0)
+    ERAM(0x780E + E_k) = 1;
+  uint32 t = ((uint16)Abs16(r18) >> 8) * ERAM(0x7814 + E_k);
+  if (ERAM(0x780E + E_k))
+    t = -(int32)t;
+  t = t + E->x_subpos;
+  E->x_subpos = t, E->x_pos = t >> 16;
+}
+void Bang_Func_15(void) {  // 0xA3BE1C
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 r18 = ((uint16)BW_A0(0xB1C3 + 2 * ((uint8)ERAM(0x7802 + E_k))));
+  if ((r18 & 0x8000) != 0)
+    ERAM(0x7810 + E_k) = 1;
+  uint32 t = ((uint16)Abs16(r18) >> 8) * ERAM(0x7814 + E_k);
+  if (ERAM(0x7810 + E_k))
+    t = -(int32)t;
+  t = t + E->y_subpos;
+  E->y_subpos = t, E->y_pos = t >> 16;
+}
+void Bang_Func_18(void) {  // 0xA3BEDA
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 bang_var_20 = ERAM(0x8000 + E_k);
+  if (bang_var_20 != ERAM(0x8002 + E_k)) {
+    ERAM(0x8002 + E_k) = bang_var_20;
+    E->current_instruction = ((uint16)BW_A3(0xB722 + 2 * (bang_var_20)));
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void Bang_Shot(void) {  // 0xA3BEFD
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_preinstr != 0xBCC1) {
+    ERAM(0x7802 + E_k) = ((uint16)BW_A3(0xBA94 + 2 * (projectile_dir[collision_detection_index] & 0xF)));
+    E->ai_preinstr = 0xBD2C /* Bang_Func_11 */;
+    ERAM(0x780E + E_k) = 0;
+    ERAM(0x7810 + E_k) = 0;
+    ERAM(0x7812 + E_k) = 256;
+    ERAM(0x7814 + E_k) = 1536;
+  }
+  if (ERAM(0x8000 + E_k) != 9) {
+    ++ERAM(0x8000 + E_k);
+    Bang_Func_18();
+    int v1 = collision_detection_index;
+    E->ai_var_E += projectile_damage[v1];
+    projectile_dir[v1] |= 0x10;
+    if (ERAM(0x8000 + E_k) == 9)
+      E->ai_var_D = 1;
+  }
+}
 uint16 Skree_Instr_1(uint16 k, uint16 jp) {  // 0xA3C6A4
   gEnemyData(cur_enemy_index)->ai_var_E = 1;
   return jp;
@@ -6175,10 +9443,492 @@ void Skree_Shot(void) {  // 0xA3C7F5
     EnemyDeathAnimation(2 * collision_detection_index, v5);
   }
 }
+uint16 MaridiaSnail_Instr_1(uint16 k, uint16 jp) {  // 0xA3CC36
+  gEnemyData(k)->ai_preinstr = IW_A3(jp);
+  return (uint16)(jp + 2);
+}
+uint16 MaridiaSnail_Instr_2(uint16 k, uint16 jp) {  // 0xA3CC3F
+  gEnemyData(k)->ai_var_D = IW_A3(jp);
+  return (uint16)(jp + 2);
+}
+uint16 MaridiaSnail_Instr_4(uint16 k, uint16 jp) {  // 0xA3CC48
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  ERAM(0x780E + E_k) = IW_A3((uint16)(jp + 0));
+  E->ai_var_C = ((uint16)BW_A3(0xCD42 + 6 + (8 * ERAM(0x780E + E_k))));
+  return (uint16)(jp + 2);
+}
+uint16 MaridiaSnail_Instr_3(uint16 k, uint16 jp) {  // 0xA3CC5F
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->x_pos += IW_A3((uint16)(jp + 0));
+  E->y_pos += IW_A3((uint16)(jp + 2));
+  return (uint16)(jp + 4);
+}
+uint16 MaridiaSnail_Instr_5(uint16 k, uint16 jp) {  // 0xA3CC78
+  if (ERAM(0x7810 + (k)) == 2 || (NextRandom() & 1) != 0)
+    jp -= 3;
+  return jp;
+}
+void MaridiaSnail_Func_1(uint16 k) {  // 0xA3CC92
+  MaridiaSnail_Func_17(k);
+}
+void MaridiaSnail_Init(void) {  // 0xA3CDE2
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_preinstr = 0xCF5F /* nullsub_215 */;
+  E->spritemap_pointer = addr_kSpritemap_Nothing_A3;
+  E->instruction_timer = 1;
+  uint16 current_instruction = E->current_instruction;
+  E->current_instruction = ((uint16)BW_A3(0xCD42 + 0 + 8 * (current_instruction)));
+  E->properties |= ((uint16)BW_A3(0xCD42 + 2 + 8 * (current_instruction)));
+  E->ai_var_D = ((uint16)BW_A3(0xCD42 + 4 + 8 * (current_instruction)));
+  E->ai_var_C = ((uint16)BW_A3(0xCD42 + 6 + 8 * (current_instruction)));
+  ERAM(0x7810 + E_k) = 0;
+  ERAM(0x780C + E_k) = E->parameter_1;
+  MaridiaSnail_Func_2(cur_enemy_index, current_instruction * 8);
+}
+void MaridiaSnail_Func_2(uint16 k, uint16 j) {  // 0xA3CE27
+  int v2 = j >> 1;
+  uint16 r18 = ((uint16)BW_A3(0xCD82 + 2 * (v2)));
+  uint16 r20 = ((uint16)BW_A3(0xCD82 + 2 * (v2 + 1)));
+  uint16 r22 = ((uint16)BW_A3(0xCD82 + 2 * (v2 + 2)));
+  uint16 r24 = ((uint16)BW_A3(0xCD82 + 2 * (v2 + 3)));
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->ai_var_A = r20 + (r18 ^ ((uint16)BW_A3(0xCCA2 + 2 * (E->parameter_1))));
+  E->ai_var_B = r24 + (r22 ^ ((uint16)BW_A3(0xCCA2 + 2 * (E->parameter_1))));
+}
+void MaridiaSnail_Func_3(uint16 k) {  // 0xA3CE57
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->ai_preinstr = ((uint16)BW_A3(0xCDD2 + 2 * (ERAM(0x780E + E_k))));
+}
+void MaridiaSnail_Main(void) {  // 0xA3CE64
+  MaridiaSnail_Func_4(cur_enemy_index);
+  MaridiaSnail_Func_5(cur_enemy_index);
+  MaridiaSnail_Func_6(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallEnemyPreInstr(E->ai_preinstr | 0xA30000);
+}
+void MaridiaSnail_Func_4(uint16 k) {  // 0xA3CE73
+  uint16 msl_var_08 = ERAM(0x7810 + (k));
+  if (msl_var_08 != 3 && msl_var_08 != 4 && msl_var_08 != 5 && earthquake_timer == 30 && earthquake_type == 20)
+    MaridiaSnail_Func_14(k);
+}
+void MaridiaSnail_Func_5(uint16 k) {  // 0xA3CE9A
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 msl_var_08 = ERAM(0x7810 + E_k);
+  if (msl_var_08 != 1 && msl_var_08 != 3 && msl_var_08 != 4 && msl_var_08 != 5) {
+    if (!sign16(E->y_pos - samus_y_pos + 96)) {
+      if ((int16)(E->x_pos - samus_x_pos) < 0) {
+        if (samus_pose_x_dir != 4)
+          goto LABEL_14;
+      } else if (samus_pose_x_dir != 8) {
+        goto LABEL_14;
+      }
+      if (ERAM(0x7810 + E_k) == 2)
+        return;
+      if (E->ai_var_D != 0xCF5F /* nullsub_215 */) {
+        E->current_instruction = E->ai_var_D;
+        E->spritemap_pointer = addr_kSpritemap_Nothing_A3;
+        E->instruction_timer = 1;
+        E->timer = 0;
+        ERAM(0x7810 + E_k) = 2;
+        return;
+      }
+    }
+LABEL_14:
+    ERAM(0x7810 + E_k) = 0;
+  }
+}
+void MaridiaSnail_Func_6(uint16 k) {  // 0xA3CF11
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_preinstr == 0xD1B3 /* MaridiaSnail_Func_15 */)
+    goto LABEL_11;
+  if (ERAM(0x7810 + E_k) == 1) {
+    if (samus_has_momentum_flag || E->ai_preinstr != 0xCF5F /* nullsub_215 */)
+      goto LABEL_11;
+LABEL_10:
+    E->properties |= 0x8000;
+    return;
+  }
+  if (!samus_has_momentum_flag) {
+    uint16 msl_var_08 = ERAM(0x7810 + E_k);
+    if (msl_var_08 == 2 || msl_var_08 != 3 && msl_var_08 != 5)
+      goto LABEL_10;
+  }
+LABEL_11:
+  E->properties &= 0x7FFF;
+}
 static uint32 Shift8AddMagn(int16 a, int s) {
   int32 r = (a << 8);
   r += (r < 0) ? -(s << 16) : (s << 16);
   return r;
+}
+void MaridiaSnail_Func_7(uint16 k) {  // 0xA3CF60
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x780E + E_k) >= 4) {
+    if (EnemyFunc_BC76(k, Shift8AddMagn(E->ai_var_B, 7)))
+      return;
+  } else {
+    if (EnemyFunc_BBBF(k, Shift8AddMagn(E->ai_var_A, 7)))
+      return;
+  }
+  MaridiaSnail_Func_14(k);
+}
+void MaridiaSnail_Func_9(uint16 k) {  // 0xA3CFA6
+  uint16 v1 = ERAM(0x780A + (k)) ? addr_stru_A3CD22 : addr_stru_A3CCE2;
+  MaridiaSnail_D07E(k, (uint16)(v1));
+}
+void MaridiaSnail_CFB7(uint16 k) {  // 0xA3CFB7
+  MaridiaSnail_D002(k, (uint16)(addr_stru_A3CCEA));
+}
+void MaridiaSnail_CFBD(uint16 k) {  // 0xA3CFBD
+  uint16 v1 = ERAM(0x780A + (k)) ? addr_stru_A3CD2A : addr_stru_A3CCF2;
+  MaridiaSnail_D07E(k, (uint16)(v1));
+}
+void MaridiaSnail_CFCE(uint16 k) {  // 0xA3CFCE
+  MaridiaSnail_D002(k, (uint16)(addr_stru_A3CCFA));
+}
+void MaridiaSnail_CFD4(uint16 k) {  // 0xA3CFD4
+  uint16 v1 = ERAM(0x780A + (k)) ? addr_stru_A3CD32 : addr_stru_A3CD02;
+  MaridiaSnail_D07E(k, (uint16)(v1));
+}
+void MaridiaSnail_CFE5(uint16 k) {  // 0xA3CFE5
+  MaridiaSnail_D002(k, (uint16)(addr_stru_A3CD0A));
+}
+void MaridiaSnail_CFEB(uint16 k) {  // 0xA3CFEB
+  uint16 v1;
+  if (ERAM(0x780A + (k)))
+    v1 = addr_stru_A3CD3A;
+  else
+    v1 = addr_stru_A3CD12;
+  MaridiaSnail_D07E(k, (uint16)(v1));
+}
+void MaridiaSnail_CFFC(uint16 k) {  // 0xA3CFFC
+  MaridiaSnail_D002(k, (uint16)(addr_stru_A3CD1A));
+}
+void MaridiaSnail_D002(uint16 k, uint16 j) {  // 0xA3D002
+  MaridiaSnail_Func_10(k, j);
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint8 rv = Enemy_MoveRight_ProcessSlopes(k, Shift8AddMagn(E->ai_var_A, 1));
+  MaridiaSnail_Func_11(k, j);
+  if (rv) {
+    E->ai_var_E = 0;
+    uint8 carry = EnemyFunc_C8AD(k);
+    MaridiaSnail_Func_12(k, carry);
+    if (Enemy_MoveDown(k, INT16_SHL8(E->ai_var_B))) {
+      E->ai_var_A = -E->ai_var_A;
+      MaridiaSnail_Func_13(k, BW_A3((uint16)(j + 6)));
+    }
+  } else {
+    uint16 v7 = E->ai_var_E + 1;
+    E->ai_var_E = v7;
+    if (sign16(v7 - 4)) {
+      E->ai_var_B = -E->ai_var_B;
+      MaridiaSnail_Func_13(k, BW_A3((uint16)(j + 4)));
+    } else {
+      MaridiaSnail_Func_14(k);
+    }
+  }
+}
+void MaridiaSnail_D07E(uint16 k, uint16 j) {  // 0xA3D07E
+  MaridiaSnail_Func_10(k, j);
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint8 rv = Enemy_MoveDown(k, Shift8AddMagn(E->ai_var_B, 1));
+  MaridiaSnail_Func_11(k, j);
+  if (rv) {
+    E->ai_var_E = 0;
+    if (Enemy_MoveRight_ProcessSlopes(k, INT16_SHL8(E->ai_var_A))) {
+      E->ai_var_B = -E->ai_var_B;
+      MaridiaSnail_Func_13(k, BW_A3((uint16)(j + 6)));
+    } else {
+      uint8 carry = EnemyFunc_C8AD(k);
+      MaridiaSnail_Func_12(k, carry);
+    }
+  } else {
+    uint16 v7 = E->ai_var_E + 1;
+    E->ai_var_E = v7;
+    if (sign16(v7 - 4)) {
+      E->ai_var_A = -E->ai_var_A;
+      MaridiaSnail_Func_13(k, BW_A3((uint16)(j + 4)));
+    } else {
+      MaridiaSnail_Func_14(k);
+    }
+  }
+}
+void MaridiaSnail_Func_10(uint16 k, uint16 j) {  // 0xA3D0F8
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->x_pos += BW_A3(j);
+  E->y_pos += BW_A3((uint16)(j + 2));
+}
+void MaridiaSnail_Func_11(uint16 k, uint16 j) {  // 0xA3D10D
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->x_pos -= BW_A3(j);
+  E->y_pos -= BW_A3((uint16)(j + 2));
+}
+void MaridiaSnail_Func_12(uint16 k, uint16 carry) {  // 0xA3D124
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (!carry) {
+    if ((uint16)(ERAM(0x7808 + E_k) + 1) >= 0x10)
+      ERAM(0x780A + E_k) = 0;
+    else
+      ++ERAM(0x7808 + E_k);
+  } else {
+    ERAM(0x780A + E_k) = 1;
+    ERAM(0x7808 + E_k) = 0;
+  }
+}
+void MaridiaSnail_Func_13(uint16 k, uint16 a) {  // 0xA3D14C
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->current_instruction = a;
+  E->instruction_timer = 1;
+  ERAM(0x780A + E_k) = 1;
+  ERAM(0x7808 + E_k) = 0;
+}
+void MaridiaSnail_Func_14(uint16 k) {  // 0xA3D164
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x7810 + E_k) != 3) {
+    ERAM(0x7810 + E_k) = 3;
+    E->ai_preinstr = 0xD1B3 /* MaridiaSnail_Func_15 */;
+    int v2 = 2 * E->ai_var_C;
+    E->current_instruction = ((uint16)BW_A3(0xD1AB + 2 * (v2)));
+    E->ai_var_D = ((uint16)BW_A3(0xD1AB + 2 * (v2 + 1)));
+    E->instruction_timer = 1;
+    E->timer = 0;
+    ERAM(0x7804 + E_k) = 0;
+    ERAM(0x7806 + E_k) = 0;
+    ERAM(0x7800 + E_k) = 0;
+    ERAM(0x7802 + E_k) = 0;
+  }
+}
+void MaridiaSnail_Func_15(uint16 k) {  // 0xA3D1B3
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x7810 + E_k) != 3) {
+    if (Enemy_MoveRight_IgnoreSlopes(k, __PAIR32__(ERAM(0x7806 + E_k), ERAM(0x7804 + E_k)))) {
+      ERAM(0x7804 + E_k) = -ERAM(0x7804 + E_k);
+      ERAM(0x7806 + E_k) = -ERAM(0x7806 + E_k);
+      ERAM(0x8000 + E_k) = 1;
+      QueueSfx2_Max3(0x70);
+    } else {
+      uint32 delta;
+      if ((ERAM(0x7806 + E_k) & 0x8000) != 0)
+        delta = 4096;
+      else
+        delta = -4096;
+      uint32 t = __PAIR32__(ERAM(0x7806 + E_k), ERAM(0x7804 + E_k)) + delta;
+      ERAM(0x7804 + E_k) = t;
+      if (t >> 16)
+        ERAM(0x7806 + E_k) = (t >> 16);
+    }
+  }
+  if (Enemy_MoveDown(k, __PAIR32__(ERAM(0x7802 + E_k), ERAM(0x7800 + E_k)))) {
+    int16 msl_var_01 = ERAM(0x7802 + E_k);
+    if (msl_var_01 >= 0 && sign16(msl_var_01 - 3)) {
+      ERAM(0x7806 + E_k) = 0;
+      ERAM(0x7804 + E_k) = 0;
+      ERAM(0x7802 + E_k) = 0;
+      ERAM(0x7800 + E_k) = 0;
+      E->ai_var_E = 0;
+      ERAM(0x7808 + E_k) = 0;
+      ERAM(0x780A + E_k) = 1;
+      if (ERAM(0x7810 + E_k) == 3) {
+        ERAM(0x7810 + E_k) = 0;
+      } else {
+        ERAM(0x7810 + E_k) = 1;
+        E->parameter_1 = 8;
+        MaridiaSnail_Func_18(k);
+        MaridiaSnail_Func_16(k);
+      }
+      E->properties = E->ai_var_C | E->properties & ~3;
+      StoneZoomer_E67A(k);
+      E->ai_preinstr = 0xCF5F /* nullsub_215 */;
+      E->current_instruction = E->ai_var_D;
+      E->instruction_timer = 1;
+      E->timer = 0;
+    } else {
+      ERAM(0x7800 + E_k) = -ERAM(0x7800 + E_k);
+      ERAM(0x7802 + E_k) = -ERAM(0x7802 + E_k);
+      ERAM(0x8000 + E_k) = 0;
+    }
+  } else {
+    uint32 t = __PAIR32__(ERAM(0x7802 + E_k), ERAM(0x7800 + E_k)) + 0x2000;
+    ERAM(0x7800 + E_k) = t;
+    if (sign16((t >> 16) - 4))
+      ERAM(0x7802 + E_k) = (t >> 16);
+  }
+}
+void MaridiaSnail_Func_16(uint16 k) {  // 0xA3D2FA
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int v2 = (uint16)(4 * E->ai_var_C) >> 1;
+  E->current_instruction = ((uint16)BW_A3(0xD30D + 2 * (v2)));
+  E->ai_var_D = ((uint16)BW_A3(0xD30D + 2 * (v2 + 1)));
+}
+uint8 MaridiaSnail_Func_17(uint16 k) {  // 0xA3D315
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x780A + E_k))
+    return 0;
+  if (ERAM(0x780E + E_k) >= 4)
+    return MaridiaSnail_Func_18(k) & 1;
+  if ((ERAM(0x780E + E_k) & 1) != 0) {
+    return (E->y_pos >= samus_y_pos) ? MaridiaSnail_Func_19(k) : 0;
+  } else {
+    return (E->y_pos < samus_y_pos) ? MaridiaSnail_Func_19(k) : 0;
+  }
+}
+uint8 MaridiaSnail_Func_18(uint16 k) {  // 0xA3D33E
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_var_C) {
+    return (E->x_pos >= samus_x_pos) ? MaridiaSnail_Func_19(k) : 0;
+  } else {
+    return (E->x_pos < samus_x_pos) ? MaridiaSnail_Func_19(k) : 0;
+  }
+}
+uint8 MaridiaSnail_Func_19(uint16 k) {  // 0xA3D356
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (ERAM(0x7810 + E_k) == 2 || E->ai_preinstr == 0xCF5F)
+    return 0;
+  uint16 v2 = ((uint16)BW_A3(0xCDC2 + 2 * (ERAM(0x780E + E_k))));
+  ERAM(0x780E + E_k) = v2;
+  E->current_instruction = ((uint16)BW_A3(0xCD42 + 0 + ((8 * v2))));
+  E->properties = ((uint16)BW_A3(0xCD42 + 2 + ((8 * v2)))) | E->properties & ~3;
+  E->ai_var_D = ((uint16)BW_A3(0xCD42 + 4 + ((8 * v2))));
+  E->ai_var_C = ((uint16)BW_A3(0xCD42 + 6 + ((8 * v2))));
+  MaridiaSnail_Func_2(k, 8 * v2);
+  MaridiaSnail_Func_3(k);
+  ERAM(0x780A + E_k) = 1;
+  ERAM(0x7808 + E_k) = 0;
+  return 1;
+}
+void MaridiaSnail_Touch(void) {  // 0xA3D3B0
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((ERAM(0x7810 + E_k) != 1
+       || E->ai_preinstr == 0xCF5F
+       || !(MaridiaSnail_Func_20(cur_enemy_index) & 1))
+      && (E->ai_preinstr == 0xD1B3 || samus_has_momentum_flag)) {
+    MaridiaSnail_Func_22(cur_enemy_index);
+    if (E->ai_preinstr == 0xD1B3)
+      QueueSfx2_Max3(0x70);
+  } else if (E->ai_preinstr != 0xCF5F && ERAM(0x7810 + E_k) != 4 && ERAM(0x7810 + E_k) != 3) {
+    Enemy_NormalTouchAI_A3();
+    E->parameter_1 = ERAM(0x780C + E_k);
+    if (ERAM(0x7810 + E_k))
+      MaridiaSnail_Func_19(cur_enemy_index);
+    ERAM(0x7810 + E_k) = 0;
+  }
+}
+uint8 MaridiaSnail_Func_20(uint16 k) {  // 0xA3D421
+  uint16 r20 = gEnemyData(k)->ai_var_C & 1;
+  if ((uint16)(joypad1_lastkeys & 0x300) >> 8 == 1) {
+    if (r20)
+      return 0;
+  } else if (!r20) {
+    return 0;
+  }
+  return 1;
+}
+uint8 MaridiaSnail_Func_21(uint16 k) {  // 0xA3D446
+  if ((gEnemyData(k)->ai_var_A & 0x8000) != 0)
+    return samus_pose_x_dir == 8;
+  return samus_pose_x_dir == 4;
+}
+void MaridiaSnail_Shot(void) {  // 0xA3D469
+  uint16 v0 = projectile_type[collision_detection_index] & 0xFF00;
+  if (v0 == 768 || v0 == 1280) {
+    Enemy_NormalShotAI_A3();
+  } else {
+    uint16 msl_var_08 = ERAM(0x7810 + (cur_enemy_index));
+    if (msl_var_08 != 3 && msl_var_08 != 4)
+      MaridiaSnail_Func_23(cur_enemy_index);
+    QueueSfx2_Max3(0x70);
+  }
+}
+void MaridiaSnail_Func_22(uint16 k) {  // 0xA3D49F
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  ERAM(0x7810 + E_k) = 4;
+  E->ai_preinstr = 0xD1B3 /* MaridiaSnail_Func_15 */;
+  int v2 = (uint16)(4 * E->ai_var_C) >> 1;
+  E->current_instruction = ((uint16)BW_A3(0xD50F + 2 * (v2)));
+  E->ai_var_D = ((uint16)BW_A3(0xD50F + 2 * (v2 + 1)));
+  E->instruction_timer = 1;
+  E->timer = 0;
+  ERAM(0x7804 + E_k) = absolute_moved_last_frame_x_fract;
+  uint16 v3 = absolute_moved_last_frame_x;
+  ERAM(0x7806 + E_k) = absolute_moved_last_frame_x;
+  if (v3 >= 0x10)
+    v3 = 15;
+  int v4 = (uint16)(4 * v3) >> 1;
+  ERAM(0x7800 + E_k) = ((uint16)BW_A3(0xD517 + 2 * (v4)));
+  ERAM(0x7802 + E_k) = ((uint16)BW_A3(0xD517 + 2 * (v4 + 1)));
+  if ((samus_pose_x_dir & 4) != 0) {
+    ERAM(0x7804 + E_k) = -ERAM(0x7804 + E_k);
+    ERAM(0x7806 + E_k) = -ERAM(0x7806 + E_k);
+  }
+}
+void MaridiaSnail_Func_23(uint16 k) {  // 0xA3D557
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  ERAM(0x7810 + E_k) = 5;
+  E->ai_preinstr = 0xD1B3 /* MaridiaSnail_Func_15 */;
+  int v2 = (uint16)(4 * E->ai_var_C) >> 1;
+  E->current_instruction = ((uint16)BW_A3(0xD5A4 + 2 * (v2)));
+  E->ai_var_D = ((uint16)BW_A3(0xD5A4 + 2 * (v2 + 1)));
+  E->instruction_timer = 1;
+  E->timer = 0;
+  ERAM(0x7802 + E_k) = -1;
+  ERAM(0x7806 + E_k) = (samus_pose_x_dir == 4) ? -1 : 1;
+}
+void Reflec_Func_1(void) {  // 0xA3DB0C
+  if (!door_transition_flag_enemies && !--variables_for_enemy_graphics_drawn_hook[2]) {
+    variables_for_enemy_graphics_drawn_hook[2] = 16;
+    uint16 v0 = variables_for_enemy_graphics_drawn_hook[0];
+    uint16 v1 = 8 * variables_for_enemy_graphics_drawn_hook[1];
+    int n = 4;
+    do {
+      { palette_buffer[(v0 >> 1) + 137] = ((uint16)BW_A3(0xDABC + 2 * (v1 >> 1))); nt_pal_dirty((uint8)((v0 >> 1) + 137), (uint8)((v0 >> 1) + 137)); }
+      v1 += 2;
+      v0 += 2;
+    } while (--n);
+    variables_for_enemy_graphics_drawn_hook[1] = (LOBYTE(variables_for_enemy_graphics_drawn_hook[1]) + 1) & 7;
+  }
+}
+uint16 Reflec_Instr_1(uint16 k, uint16 jp) {  // 0xA3DBC8
+  gEnemyData(k)->parameter_2 = IW_A3((uint16)(jp + 0));
+  return (uint16)(jp + 2);
+}
+void Reflec_Init(void) {  // 0xA3DBD3
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties |= kEnemyProps_BlockPlasmaBeam;
+  E->current_instruction = ((uint16)BW_A3(0xDC0B + 2 * (E->parameter_1)));
+  nt_gfx_hook_addr = 0xDB0C /* Reflec_Func_1 */;
+  nt_gfx_hook_bank = 163;
+  variables_for_enemy_graphics_drawn_hook[0] = ((16 * E->palette_index) & 0xFF00) >> 8;
+  variables_for_enemy_graphics_drawn_hook[2] = 16;
+}
+void Reflec_Shot(void) {
+  uint16 v0 = 2 * collision_detection_index;
+  EnemyData *EK = gEnemyData(cur_enemy_index); const uint16 EK_k = (cur_enemy_index);
+  EK->invincibility_timer = 10;
+  uint16 v2 = 32 * EK->parameter_2 + 2 * (projectile_dir[v0 >> 1] & 0xF);
+  uint16 varE32 = v2;
+  int v3 = v2 >> 1;
+  if (((uint16)BW_A3(0xDCAE + 2 * (v3))) == 0x8000) {
+    projectile_dir[v0 >> 1] |= 0x10;
+    ; /* (aviso del decomp) */
+    EnemyData *ET = gEnemyData(v2); const uint16 ET_k = (v2);
+    if (ET->health) {
+      Enemy_NormalShotAI_SkipSomeParts_A3();
+      if (!ET->health) {
+        ET->current_instruction = ((uint16)BW_A3(0xDCA6 + 2 * (ET->parameter_2)));
+        ET->instruction_timer = 1;
+        ET->timer = 0;
+      }
+    }
+  } else {
+    int16 v4 = ((uint16)BW_A3(0xDCAE + 2 * (v3)));
+    if (v4 < 0)
+      v4 = -((uint16)BW_A3(0xDCAE + 2 * (varE32 >> 1)));
+    int v5 = v0 >> 1;
+    projectile_dir[v5] = v4;
+    projectile_type[v5] &= ~0x8000;
+    ProjectileReflection(v0);
+    QueueSfx2_Max6(0x57);
+  }
 }
 uint16 WreckedShipOrangeZoomer_Func_1(uint16 k, uint16 jp) {  // 0xA3DFC2
   gEnemyData(k)->ai_preinstr = IW_A3((uint16)(jp + 0));
@@ -6451,6 +10201,325 @@ int32 FireZoomer_E8A5(uint16 k) {  // 0xA3E8A5
       return -(int32)Multiply16x16(-E->ai_var_A, v1);
   } else {
     return INT16_SHL8(E->ai_var_A);
+  }
+}
+void Metroid_Init(void) {  // 0xA3EA4F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->current_instruction = addr_kMetroid_Ilist_E9CF;
+  ERAM(0x7800 + E_k) = CreateSpriteAtPos(E->x_pos, E->y_pos, 50, E->vram_tiles_index | E->palette_index);
+  ERAM(0x7802 + E_k) = CreateSpriteAtPos(E->x_pos, E->y_pos, 52, E->vram_tiles_index | E->palette_index);
+  ERAM(0x7804 + E_k) = 0;
+}
+uint16 Metroid_Instr_2(uint16 k, uint16 jp) {  // 0xA3EAA5
+  QueueSfx2_Max6(0x50);
+  return jp;
+}
+uint16 Metroid_Instr_1(uint16 k, uint16 jp) {  // 0xA3EAB1
+  int v2 = NextRandom() & 7;
+  QueueSfx2_Max6(((uint16)BW_A3(0xEAD6 + 2 * (v2))));
+  return jp;
+}
+void Metroid_Frozen(void) {  // 0xA3EAE6
+  Enemy_NormalFrozenAI_A3();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_var_E) {
+    --E->ai_var_E;
+    E->flash_timer = 2;
+  }
+  int v1 = ERAM(0x7800 + E_k) >> 1;
+  sprite_palettes[v1] = 3072;
+  sprite_disable_flag[v1] = 1;
+  sprite_instr_list_ptrs[v1] = addr_kSpriteObject_Ilist_C3BA;
+  int v2 = ERAM(0x7802 + E_k) >> 1;
+  sprite_palettes[v2] = 3072;
+  sprite_disable_flag[v2] = 1;
+  sprite_instr_list_ptrs[v2] = addr_kSpriteObject_Ilist_C4B6;
+}
+void Metroid_Hurt(void) {  // 0xA3EB33
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((E->flash_timer & 2) != 0) {
+    uint16 r18 = E->palette_index;
+    int v1 = ERAM(0x7800 + E_k) >> 1;
+    sprite_palettes[v1] = r18 | sprite_palettes[v1] & 0xF1FF;
+    int v2 = ERAM(0x7802 + E_k) >> 1;
+    sprite_palettes[v2] = r18 | sprite_palettes[v2] & 0xF1FF;
+  } else {
+    int v3 = ERAM(0x7800 + E_k) >> 1;
+    sprite_palettes[v3] &= 0xF1FF;
+    uint16 metroid_var_01 = ERAM(0x7802 + E_k);
+    sprite_palettes[metroid_var_01 >> 1] &= 0xF1FF;
+  }
+}
+void Metroid_Main(void) {  // 0xA3EB98
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  off_A3EC09[E->ai_preinstr](samus_y_pos - 8);
+  uint16 r24 = E->vram_tiles_index | E->palette_index;
+  int v2 = ERAM(0x7800 + E_k) >> 1;
+  sprite_x_pos[v2] = E->x_pos;
+  sprite_y_pos[v2] = E->y_pos;
+  sprite_palettes[v2] = r24;
+  sprite_disable_flag[v2] = 0;
+  int v4 = ERAM(0x7802 + E_k) >> 1;
+  sprite_x_pos[v4] = E->x_pos;
+  sprite_y_pos[v4] = E->y_pos;
+  sprite_palettes[v4] = r24;
+  sprite_disable_flag[v4] = 0;
+}
+void Metroid_Func_1(uint16 varE32) {  // 0xA3EC11
+  int16 v3;
+  int16 v4;
+  int16 v8;
+  int16 v9;
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int32 t = INT16_SHL8((int16)(E->y_pos - varE32) >> 2);
+  uint16 r18 = t, r20 = t >> 16;
+  uint16 metroid_var_C = E->ai_var_C;
+  bool v2 = metroid_var_C < r18;
+  E->ai_var_C = metroid_var_C - r18;
+  v3 = E->ai_var_D - (v2 + r20);
+  E->ai_var_D = v3;
+  if (v3 < 0) {
+    if ((uint16)v3 >= 0xFFFD)
+      goto LABEL_9;
+    v4 = -3;
+  } else {
+    if ((uint16)v3 < 3)
+      goto LABEL_9;
+    v4 = 3;
+  }
+  E->ai_var_D = v4;
+  E->ai_var_C = 0;
+LABEL_9:
+  if (Enemy_MoveDown(cur_enemy_index, __PAIR32__(E->ai_var_D, E->ai_var_C))) {
+    E->ai_var_C = 0;
+    E->ai_var_D = 0;
+  }
+  t = INT16_SHL8((int16)(E->x_pos - samus_x_pos) >> 2);
+  r18 = t, r20 = t >> 16;
+  uint16 metroid_var_A = E->ai_var_A;
+  v2 = metroid_var_A < r18;
+  E->ai_var_A = metroid_var_A - r18;
+  v8 = E->ai_var_B - (v2 + r20);
+  E->ai_var_B = v8;
+  if (v8 < 0) {
+    if ((uint16)v8 >= 0xFFFD)
+      goto LABEL_19;
+    v9 = -3;
+  } else {
+    if ((uint16)v8 < 3)
+      goto LABEL_19;
+    v9 = 3;
+  }
+  E->ai_var_B = v9;
+  E->ai_var_A = 0;
+LABEL_19:
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, __PAIR32__(E->ai_var_B, E->ai_var_A))) {
+    E->ai_var_A = 0;
+    E->ai_var_B = 0;
+  }
+}
+void Metroid_Func_2(uint16 varE32) {  // 0xA3ECDC
+  int16 v1;
+  int16 v5;
+  uint16 v2, v6;
+  uint16 r18 = 0, r20 = 0;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  LOBYTE(v1) = (uint16)(varE32 - E->y_pos) >> 8;
+  HIBYTE(v1) = varE32 - LOBYTE(E->y_pos);
+  r20 = (uint16)(v1 & 0xFF00) >> 3;
+  if ((r20 & 0x1000) != 0)
+    r20 |= 0xE000;
+  if ((r20 & 0x8000) != 0) {
+    if (r20 >= 0xFFFD)
+      goto LABEL_9;
+    v2 = -3;
+  } else {
+    if (r20 < 3)
+      goto LABEL_9;
+    v2 = 3;
+  }
+  r20 = v2;
+  r18 = 0;
+LABEL_9:
+  E->ai_var_C = r18;
+  E->ai_var_D = r20;
+  if (Enemy_MoveDown(cur_enemy_index, __PAIR32__(r20, r18))) {
+    E->ai_var_C = 0;
+    E->ai_var_D = 0;
+  }
+  r18 = 0, r20 = 0;
+  LOBYTE(v5) = (uint16)(samus_x_pos - E->x_pos) >> 8;
+  HIBYTE(v5) = samus_x_pos - LOBYTE(E->x_pos);
+  r20 = (uint16)(v5 & 0xFF00) >> 3;
+  if ((r20 & 0x1000) != 0)
+    r20 |= 0xE000;
+  if ((r20 & 0x8000) != 0) {
+    if (r20 >= 0xFFFD)
+      goto LABEL_19;
+    v6 = -3;
+  } else {
+    if (r20 < 3)
+      goto LABEL_19;
+    v6 = 3;
+  }
+  r20 = v6;
+  r18 = 0;
+LABEL_19:
+  E->ai_var_A = r18;
+  E->ai_var_B = r20;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, __PAIR32__(r20, r18))) {
+    E->ai_var_A = 0;
+    E->ai_var_B = 0;
+  }
+}
+void Metroid_Func_3(uint16 varE32) {  // 0xA3ED8F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->x_pos = samus_x_pos;
+  E->y_pos = varE32;
+  E->ai_var_A = 0;
+  E->ai_var_B = 0;
+  E->ai_var_C = 0;
+  E->ai_var_D = 0;
+}
+void Metroid_Func_4(uint16 varE32) {  // 0xA3EDAB
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int v1 = E->ai_var_E & 3;
+  E->x_pos += ((uint16)BW_A3(0xEA3F + 2 * (v1)));
+  E->y_pos += ((uint16)BW_A3(0xEA3F + 2 * (v1 + 4)));
+  E->ai_var_A = 0;
+  E->ai_var_B = 0;
+  E->ai_var_C = 0;
+  E->ai_var_D = 0;
+  if (E->ai_var_E-- == 1) {
+    E->ai_preinstr = 0;
+    E->current_instruction = addr_kMetroid_Ilist_E9CF;
+    E->instruction_timer = 1;
+  }
+}
+void Metroid_Touch(void) {  // 0xA3EDEB
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 varE32 = samus_y_pos - 8;
+  if (samus_contact_damage_index) {
+    if (E->ai_preinstr != 2) {
+      E->ai_var_A = 0;
+      E->ai_var_C = 0;
+      int16 v2 = E->x_pos - samus_x_pos;
+      E->ai_var_B = (v2 < 0) ? -256 : 0;
+      { uint16 mw_ = (v2 << 6); E->ai_var_A = (uint16)((E->ai_var_A & 0xFF) | mw_ << 8); E->ai_var_B = (uint16)((E->ai_var_B & 0xFF00) | mw_ >> 8); }
+      int16 v4 = E->y_pos - varE32;
+      E->ai_var_D = (v4 < 0) ? -256 : 0;
+      { uint16 mw_ = (v4 << 6); E->ai_var_C = (uint16)((E->ai_var_C & 0xFF) | mw_ << 8); E->ai_var_D = (uint16)((E->ai_var_D & 0xFF00) | mw_ >> 8); }
+      E->ai_preinstr = 0;
+      E->current_instruction = addr_kMetroid_Ilist_E9CF;
+      E->instruction_timer = 1;
+    }
+  } else {
+    uint16 v5 = cur_enemy_index;
+    if (E->ai_preinstr != 3) {
+      if ((random_enemy_counter & 7) == 7 && !sign16(samus_health - 30))
+        QueueSfx3_Max6(0x2D);
+      Metroid_Func_5(v5);
+    }
+    if (E->ai_preinstr < 2) {
+      uint16 v7 = 1;
+      if (abs16(E->x_pos - samus_x_pos) < 8 && abs16(E->y_pos - varE32) < 8) {
+        v7 = 2;
+        CallSomeSamusCode(0x12);
+      }
+      E->ai_preinstr = v7;
+      if (v7 == 2) {
+        E->current_instruction = addr_kMetroid_Ilist_EA25;
+        E->instruction_timer = 1;
+      }
+    }
+  }
+}
+void Metroid_Func_5(uint16 k) {  // 0xA3EECE
+  uint16 v1;
+  uint16 varE32 = samus_y_pos - 8;
+  if ((equipped_items & 0x20) != 0) {
+    v1 = 12288;
+  } else if (equipped_items & 1) {
+    v1 = 24576;
+  } else {
+    v1 = -16384;
+  }
+  uint16 r18 = v1;
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 metroid_var_02 = ERAM(0x7804 + E_k);
+  bool v4 = metroid_var_02 < r18;
+  ERAM(0x7804 + E_k) = metroid_var_02 - r18;
+  if (v4)
+    Samus_DealDamage(1);
+}
+void Metroid_Shot(void) {  // 0xA3EF07
+  uint16 v0 = 2 * collision_detection_index;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->frozen_timer) {
+    uint16 v3 = projectile_type[v0 >> 1] & 0xF00;
+    if (v3 == 256 || v3 == 512) {
+      special_death_item_drop_x_origin_pos = E->x_pos;
+      special_death_item_drop_y_origin_pos = E->y_pos;
+      Enemy_NormalShotAI_SkipSomeParts_A3();
+      if (!E->health) {
+        E->ai_var_B = 0;
+        EnemyDeathAnimation(cur_enemy_index, 4);
+        CallSomeSamusCode(0x13);
+        sprite_instr_list_ptrs[ERAM(0x7800 + E_k) >> 1] = 0;
+        uint16 metroid_var_01 = ERAM(0x7802 + E_k);
+        sprite_instr_list_ptrs[metroid_var_01 >> 1] = 0;
+        Enemy_ItemDrop_Metroid(metroid_var_01);
+      }
+    }
+  } else {
+    if (E->ai_preinstr == 2) {
+      if ((projectile_type[v0 >> 1] & 0xF00) == 1280) {
+        E->ai_var_E = 4;
+        E->ai_preinstr = 3;
+        E->current_instruction = addr_kMetroid_Ilist_E9CF;
+        E->instruction_timer = 1;
+        CallSomeSamusCode(0x13);
+      }
+    } else {
+      E->ai_var_A = 0;
+      E->ai_var_C = 0;
+      int16 v7 = E->x_pos - projectile_x_pos[0];
+      E->ai_var_B = (v7 < 0) ? -256 : 0;
+      { uint16 mw_ = (32 * v7); E->ai_var_A = (uint16)((E->ai_var_A & 0xFF) | mw_ << 8); E->ai_var_B = (uint16)((E->ai_var_B & 0xFF00) | mw_ >> 8); }
+      int16 v9 = E->y_pos - projectile_y_pos[0];
+      E->ai_var_D = (v9 < 0) ? -256 : 0;
+      { uint16 mw_ = (32 * v9); E->ai_var_C = (uint16)((E->ai_var_C & 0xFF) | mw_ << 8); E->ai_var_D = (uint16)((E->ai_var_D & 0xFF00) | mw_ >> 8); }
+      E->ai_preinstr = 0;
+      E->current_instruction = addr_kMetroid_Ilist_E9CF;
+      E->instruction_timer = 1;
+      int v10 = collision_detection_index;
+      if ((projectile_type[v10] & 2) != 0) {
+        QueueSfx3_Max6(0xA);
+        uint16 r18 = projectile_damage[v10];
+        E->flash_timer = 4;
+        uint16 metroid_parameter_2 = E->parameter_2;
+        bool v13 = metroid_parameter_2 < r18;
+        uint16 v12 = metroid_parameter_2 - r18;
+        v13 = !v13;
+        if (!v12 || !v13) {
+          E->parameter_2 = 0;
+          E->frozen_timer = 400;
+          E->ai_handler_bits |= 4;
+          return;
+        }
+        E->parameter_2 = v12;
+      }
+      QueueSfx2_Max6(0x5A);
+    }
+  }
+}
+void Metroid_Powerbomb(uint16 k) {  // 0xA3F042
+  NormalEnemyPowerBombAi();
+  if (!gEnemyData(k)->health) {
+    CallSomeSamusCode(0x13);
+    sprite_instr_list_ptrs[ERAM(0x7800 + (cur_enemy_index)) >> 1] = 0;
+    sprite_instr_list_ptrs[ERAM(0x7802 + (cur_enemy_index)) >> 1] = 0;
   }
 }
 uint16 Draygon_Instr_1(uint16 k, uint16 jp) {  // 0xA594DD
@@ -7061,6 +11130,531 @@ void Boulder_Func_9(uint16 j) {  // 0xA68A3A
   int v3 = j >> 1;
   AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(((uint16)BW_A2(0x838F + 2 * (v3 + 1))), ((uint16)BW_A2(0x838F + 2 * (v3)))));
 }
+void SpikeyPlatform_Init(void) {  // 0xA68B2F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->current_instruction = addr_kSpikeyPlatform_Ilist_8B29;
+  E->ai_var_A = 0x8BB4 /* SpikeyPlatform_Func_1 */;
+  uint16 v1 = 8 * LOBYTE(E->parameter_1);
+  ERAM(0x7804 + E_k) = v1;
+  int v2 = v1 >> 1;
+  E->ai_var_E = ((uint16)BW_A2(0x8187 + 2 * (v2 + 1)));
+  E->ai_preinstr = ((uint16)BW_A2(0x8187 + 2 * (v2)));
+  E->ai_var_D = E->y_pos + HIBYTE(E->parameter_2);
+  E->ai_var_C = E->y_pos;
+  uint16 spm_parameter_2_low = LOBYTE(E->parameter_2);
+  ERAM(0x7800 + E_k) = spm_parameter_2_low;
+  E->ai_var_B = spm_parameter_2_low;
+}
+void SpikeyPlatform2ndEnemy_Init(void) {  // 0xA68B85
+  int v0 = cur_enemy_index >> 1;
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->x_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->x_pos;
+  v1->y_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->y_pos + 12;
+}
+void SpikeyPlatform2ndEnemy_Main(void) {  // 0xA68B99
+  int v0 = cur_enemy_index >> 1;
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->x_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->x_pos;
+  v1->y_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->y_pos + 12;
+}
+void CallSpikeyPlatformFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA68BB4: SpikeyPlatform_Func_1(); return;
+  case 0xA68BDC: SpikeyPlatform_Func_2(); return;
+  case 0xA68C4A: SpikeyPlatform_Func_3(k); return;
+  case 0xA68C5D: SpikeyPlatform_Func_4(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void SpikeyPlatform_Main(void) {  // 0xA68BAD
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallSpikeyPlatformFunc(E->ai_var_A | 0xA60000, cur_enemy_index);
+}
+void SpikeyPlatform_Func_1(void) {  // 0xA68BB4
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!--E->ai_var_B) {
+    E->ai_var_B = ERAM(0x7800 + E_k);
+    ERAM(0x7804 + E_k) = 8 * LOBYTE(E->parameter_1);
+    E->ai_var_A = 0x8BDC /* SpikeyPlatform_Func_2 */;
+  }
+}
+void SpikeyPlatform_Func_2(void) {  // 0xA68BDC
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7802 + E_k) = E->y_pos;
+  int v1 = ERAM(0x7804 + E_k) >> 1;
+  AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(((uint16)BW_A2(0x8187 + 2 * (v1))), ((uint16)BW_A2(0x8187 + 2 * (v1 + 1)))));
+  if ((int16)(E->y_pos - E->ai_var_D) >= 0) {
+    ERAM(0x7806 + E_k) = 64;
+    E->ai_var_A = 0x8C4A /* SpikeyPlatform_Func_3 */;
+    E->y_pos = E->ai_var_D;
+    QueueSfx2_Max6(0x1B);
+  }
+  if (SpikeyPlatform_Func_5(cur_enemy_index))
+    extra_samus_y_displacement += E->y_pos - ERAM(0x7802 + E_k);
+  int16 v4 = ERAM(0x7804 + E_k) + 8;
+  if (!sign16(ERAM(0x7804 + E_k) - 504))
+    v4 = 512;
+  ERAM(0x7804 + E_k) = v4;
+}
+void SpikeyPlatform_Func_3(uint16 k) {  // 0xA68C4A
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 v2 = ERAM(0x7806 + E_k) - 1;
+  ERAM(0x7806 + E_k) = v2;
+  if (!v2)
+    E->ai_var_A = 0x8C5D /* SpikeyPlatform_Func_4 */;
+}
+void SpikeyPlatform_Func_4(void) {  // 0xA68C5D
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7802 + E_k) = E->y_pos;
+  AddToHiLo(&E->y_pos, &E->y_subpos, -0x8000);
+  if ((int16)(E->y_pos - E->ai_var_C) < 0) {
+    E->ai_var_A = 0x8BB4 /* SpikeyPlatform_Func_1 */;
+    E->y_pos = E->ai_var_C;
+  }
+  if (SpikeyPlatform_Func_5(cur_enemy_index))
+    extra_samus_y_displacement += E->y_pos - ERAM(0x7802 + E_k);
+}
+uint16 SpikeyPlatform_Func_5(uint16 k) {  // 0xA68CA1
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 v2 = abs16(samus_x_pos - E->x_pos);
+  bool v3 = v2 < samus_x_radius;
+  uint16 v4 = v2 - samus_x_radius;
+  if (!v3 && v4 >= E->x_width)
+    return 0;
+  if ((int16)(samus_y_pos + 5 - E->y_pos) < 0) {
+    uint16 v6 = E->y_pos - (samus_y_pos + 5);
+    v3 = v6 < samus_y_radius;
+    uint16 v7 = v6 - samus_y_radius;
+    if (v3 || v7 == E->y_height || v7 < E->y_height)
+      return -1;
+  }
+  return 0;
+}
+uint16 FireGeyser_Instr_1(uint16 k, uint16 jp) {  // 0xA68DAF
+  QueueSfx2_Max6(0x61);
+  return jp;
+}
+uint16 FireGeyser_Instr_2(uint16 k, uint16 jp) {  // 0xA68E13
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DBB + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DE7 + 2 * (0)));
+  E->x_width = 8;
+  return jp;
+}
+uint16 FireGeyser_Instr_3(uint16 k, uint16 jp) {  // 0xA68E2D
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DBD + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DE9 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_4(uint16 k, uint16 jp) {  // 0xA68E41
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DBF + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DEB + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_5(uint16 k, uint16 jp) {  // 0xA68E55
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DC1 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DED + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_6(uint16 k, uint16 jp) {  // 0xA68E69
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DC3 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DEF + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_7(uint16 k, uint16 jp) {  // 0xA68E7D
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DC5 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DF1 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_8(uint16 k, uint16 jp) {  // 0xA68E91
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DC7 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DF3 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_9(uint16 k, uint16 jp) {  // 0xA68EA5
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DC9 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DF5 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_10(uint16 k, uint16 jp) {  // 0xA68EB9
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DCB + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DF7 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_11(uint16 k, uint16 jp) {  // 0xA68ECD
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DCD + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DF9 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_12(uint16 k, uint16 jp) {  // 0xA68EE1
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DCF + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DFB + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_13(uint16 k, uint16 jp) {  // 0xA68EF5
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DD1 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DFD + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_14(uint16 k, uint16 jp) {  // 0xA68F09
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DD3 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8DFF + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_15(uint16 k, uint16 jp) {  // 0xA68F1D
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DD5 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E01 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_16(uint16 k, uint16 jp) {  // 0xA68F31
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DD7 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E03 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_17(uint16 k, uint16 jp) {  // 0xA68F45
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DD9 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E05 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_18(uint16 k, uint16 jp) {  // 0xA68F59
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DDB + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E07 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_19(uint16 k, uint16 jp) {  // 0xA68F6D
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DDD + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E09 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_20(uint16 k, uint16 jp) {  // 0xA68F81
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DDF + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E0B + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_21(uint16 k, uint16 jp) {  // 0xA68F95
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DE1 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E0D + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_22(uint16 k, uint16 jp) {  // 0xA68FA9
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DE3 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E0F + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_23(uint16 k, uint16 jp) {  // 0xA68FBD
+  uint16 v2 = gEnemyData(cur_enemy_index)->ai_var_D - ((uint16)BW_A6(0x8DE5 + 2 * (0)));
+  EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
+  E->y_pos = v2;
+  E->y_height = ((uint16)BW_A6(0x8E11 + 2 * (0)));
+  return jp;
+}
+uint16 FireGeyser_Instr_24(uint16 k, uint16 jp) {  // 0xA68FD1
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_C = 1;
+  EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+  E1->x_width = 0;
+  E1->y_height = 0;
+  E->y_pos = E->ai_var_D;
+  E->properties |= kEnemyProps_Invisible;
+  E1->properties |= 0x400;
+  return jp;
+}
+void FireGeyser_Init(void) {  // 0xA68FFC
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->current_instruction = addr_kFireGeyser_Ilist_8DA9;
+  if (!E->parameter_2) {
+    E->current_instruction = addr_kFireGeyser_Ilist_8D1B;
+    E->ai_var_A = 0x902F /* FireGeyser_Func_1 */;
+    E->ai_var_D = E->y_pos;
+    E->x_width = 0;
+  }
+}
+void CallFireGeyserFunc(uint32 ea) {
+  switch (ea) {
+  case 0xA6902F: FireGeyser_Func_1(); return;
+  case 0xA69062: FireGeyser_Func_2(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void FireGeyser_Main(void) {  // 0xA69023
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!E->parameter_2)
+    CallFireGeyserFunc(E->ai_var_A | 0xA60000);
+}
+void FireGeyser_Func_1(void) {  // 0xA6902F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((--E->ai_var_B & 0x8000) != 0) {
+    E->ai_var_A = 0x9062 /* FireGeyser_Func_2 */;
+    E->ai_var_C = 0;
+    E->instruction_timer = 1;
+    E->timer = 0;
+    E->current_instruction = addr_kFireGeyser_Ilist_8D1B;
+    E->properties &= ~kEnemyProps_Invisible;
+    EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+    E1->properties &= ~0x400;
+  }
+}
+void FireGeyser_Func_2(void) {  // 0xA69062
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_var_C) {
+    E->ai_var_B = E->parameter_1;
+    E->properties |= kEnemyProps_Invisible;
+    E->ai_var_A = 0x902F /* FireGeyser_Func_1 */;
+  }
+}
+void NuclearWaffle_Init(void) {  // 0xA694C4
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->current_instruction = addr_kNuclearWaffle_Ilist_9490;
+  E->ai_var_C = LOBYTE(E->parameter_1);
+  E->ai_var_D = HIBYTE(E->parameter_1);
+  E->ai_var_E = LOBYTE(E->parameter_2);
+  uint16 nwe_parameter_2_high = HIBYTE(E->parameter_2);
+  E->ai_preinstr = nwe_parameter_2_high;
+  E->ai_var_B = nwe_parameter_2_high;
+  E->ai_var_A = 0x9615 /* NuclearWaffle_Func_1 */;
+  int v2 = (uint16)(4 * E->ai_var_E) >> 1;
+  uint16 v3 = ((uint16)BW_A6(0x95F6 + 2 * (v2)));
+  ERAM(0x8006 + E_k) = v3;
+  ERAM(0x8002 + E_k) = v3;
+  ERAM(0x801C + E_k) = ((uint16)BW_A6(0x95F6 + 2 * (v2 + 1)));
+  ERAM(0x8016 + E_k) = ((uint16)BW_A6(0x95FE + 2 * (v2)));
+  ERAM(0x8018 + E_k) = ((uint16)BW_A6(0x95FE + 2 * (v2 + 1)));
+  ERAM(0x8020 + E_k) = ((uint16)BW_A6(0x9606 + 2 * (v2)));
+  ERAM(0x801E + E_k) = ((uint16)BW_A6(0x9606 + 2 * (v2 + 1)));
+  uint16 v4 = 8 * E->ai_var_C;
+  if (!E->ai_var_E)
+    v4 += 4;
+  int v5 = v4 >> 1;
+  ERAM(0x800A + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v5)));
+  ERAM(0x8008 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v5 + 1)));
+  ERAM(0x800C + E_k) = E->x_pos;
+  ERAM(0x800E + E_k) = E->y_pos;
+  uint16 v6 = ERAM(0x800C + E_k) + CosineMult8bit(ERAM(0x8006 + E_k), E->ai_var_D);
+  ERAM(0x8010 + E_k) = v6;
+  E->x_pos = v6;
+  uint16 v7 = ERAM(0x800E + E_k) + SineMult8bit(ERAM(0x8006 + E_k), E->ai_var_D);
+  ERAM(0x8012 + E_k) = v7;
+  E->y_pos = v7;
+  uint16 v8 = 8;
+  ERAM(0x8014 + E_k) = 8;
+  do {
+    SpawnEprojWithGfx(v8, cur_enemy_index, addr_kEproj_NuclearWaffleBody);
+    v8 = ERAM(0x8014 + E_k) - 2;
+    ERAM(0x8014 + E_k) = v8;
+  } while (v8);
+  ERAM(0x8014 + E_k) = 6;
+  uint16 v15;
+  do {
+    uint16 v13 = E->vram_tiles_index | E->palette_index;
+    ERAM(0x8028 + E_k) = v13;
+    uint16 r18 = CreateSpriteAtPos(E->x_pos, E->y_pos, 43, v13);
+    ERAM(0x7820 + (cur_enemy_index + ERAM(0x8014 + E_k))) = r18;
+    v15 = ERAM(0x8014 + E_k) - 2;
+    ERAM(0x8014 + E_k) = v15;
+  } while (v15);
+}
+void CallNuclearWaffleFunc(uint32 ea) {
+  switch (ea) {
+  case 0xA69615: NuclearWaffle_Func_1(); return;
+  case 0xA69682: NuclearWaffle_Func_2(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void NuclearWaffle_Main(void) {  // 0xA6960E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallNuclearWaffleFunc(E->ai_var_A | 0xA60000);
+}
+void NuclearWaffle_Func_1(void) {  // 0xA69615
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((--E->ai_var_B & 0x8000) != 0) {
+    E->ai_var_B = E->ai_preinstr;
+    ERAM(0x8002 + E_k) = ERAM(0x8006 + E_k);
+    E->ai_var_A = 0x9682 /* NuclearWaffle_Func_2 */;
+    ERAM(0x8026 + E_k) = 0;
+    ERAM(0x7810 + E_k) = 0;
+    ERAM(0x7812 + E_k) = 0;
+    ERAM(0x7814 + E_k) = 0;
+    ERAM(0x7816 + E_k) = 0;
+    ERAM(0x7818 + E_k) = 0;
+    ERAM(0x781A + E_k) = 0;
+    ERAM(0x781C + E_k) = 0;
+    ERAM(0x781E + E_k) = 0;
+    ERAM(0x7830 + E_k) = 0;
+    ERAM(0x7832 + E_k) = 0;
+    ERAM(0x7834 + E_k) = 0;
+    ERAM(0x7836 + E_k) = 0;
+    ERAM(0x7838 + E_k) = 0;
+    ERAM(0x783A + E_k) = 0;
+    ERAM(0x783C + E_k) = 0;
+    ERAM(0x783E + E_k) = 0;
+    E->properties |= kEnemyProps_ProcessedOffscreen;
+  }
+}
+void NuclearWaffle_Func_2(void) {  // 0xA69682
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 varE32 = E->ai_var_D;
+  PairU16 pair = NuclearWaffle_Func_6(ERAM(0x8002 + E_k));
+  uint16 v8 = pair.j;
+  if (pair.j != ERAM(0x8026 + E_k)) {
+    CreateSpriteAtPos(E->x_pos, E->y_pos, 46, ERAM(0x8028 + E_k));
+    CreateSpriteAtPos(E->x_pos, E->y_pos, pair.k + 44, ERAM(0x8028 + E_k));
+    NuclearWaffle_Func_7(pair.j);
+  }
+  ERAM(0x8026 + E_k) = v8;
+  uint16 tmp;
+  uint16 v4 = NuclearWaffle_Func_5(ERAM(0x8002 + E_k), &tmp);
+  E->x_pos = ERAM(0x800C + E_k) + CosineMult8bit(v4, E->ai_var_D);
+  uint16 v5 = NuclearWaffle_Func_5(ERAM(0x8002 + E_k), &tmp);
+  E->y_pos = ERAM(0x800E + E_k) + SineMult8bit(v5, E->ai_var_D);
+  NuclearWaffle_Func_3(varE32);
+  NuclearWaffle_Func_4(varE32);
+  AddToHiLo(&ERAM(0x8002 + E_k), &ERAM(0x8000 + E_k), __PAIR32__(ERAM(0x800A + E_k), ERAM(0x8008 + E_k)));
+}
+void NuclearWaffle_Func_3(uint16 varE32) {  // 0xA69721
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 v12;
+  ERAM(0x8014 + E_k) = 8;
+  uint16 R36 = ERAM(0x8018 + E_k) + ERAM(0x8002 + E_k);
+  uint16 r28;
+  do {
+    R36 -= ERAM(0x8016 + E_k);
+    EnemyData *ET = gEnemyData(cur_enemy_index + ERAM(0x8014 + E_k)); const uint16 ET_k = (cur_enemy_index + ERAM(0x8014 + E_k));
+    uint16 nwe_var_00 = ERAM(0x7800 + ET_k);
+    PairU16 pair = NuclearWaffle_Func_6(R36);
+    uint16 v13 = pair.j;
+    if (pair.j != ERAM(0x7810 + ET_k)) {
+      int v5 = nwe_var_00 >> 1;
+      CreateSpriteAtPos(eproj_x_pos[v5], eproj_y_pos[v5], 46, ERAM(0x8028 + E_k));
+      CreateSpriteAtPos(eproj_x_pos[v5], eproj_y_pos[v5], pair.k + 44, ERAM(0x8028 + E_k));
+      NuclearWaffle_Func_7(pair.j);
+    }
+    ERAM(0x7810 + ET_k) = v13;
+    uint16 v7 = NuclearWaffle_Func_5(R36, &r28);
+    int v10 = nwe_var_00 >> 1;
+    eproj_x_pos[v10] = ERAM(0x800C + E_k) + CosineMult8bit(v7, varE32);
+    uint16 v11 = NuclearWaffle_Func_5(R36, &r28);
+    eproj_y_pos[v10] = ERAM(0x800E + E_k) + SineMult8bit(v11, varE32);
+    v12 = ERAM(0x8014 + E_k) - 2;
+    ERAM(0x8014 + E_k) = v12;
+  } while (v12);
+  if (r28) {
+    E->ai_var_A = 0x9615 /* NuclearWaffle_Func_1 */;
+    E->properties &= ~kEnemyProps_ProcessedOffscreen;
+  }
+}
+void NuclearWaffle_Func_4(uint16 varE32) {  // 0xA697E9
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x8014 + E_k) = 6;
+  uint16 R36 = ERAM(0x8002 + E_k);
+  uint16 v12;
+  uint16 r28 = 0;
+  do {
+    R36 -= ERAM(0x8016 + E_k);
+    EnemyData *ET = gEnemyData(cur_enemy_index + ERAM(0x8014 + E_k)); const uint16 ET_k = (cur_enemy_index + ERAM(0x8014 + E_k));
+    uint16 nwe_var_10 = ERAM(0x7820 + ET_k);
+    PairU16 pair = NuclearWaffle_Func_6(R36);
+    uint16 v13 = pair.j;
+    if (pair.j != ERAM(0x7830 + ET_k)) {
+      uint16 r38 = ERAM(0x8028 + E_k);
+      int v5 = nwe_var_10 >> 1;
+      CreateSpriteAtPos(sprite_x_pos[v5], sprite_y_pos[v5], 46, r38);
+      CreateSpriteAtPos(sprite_x_pos[v5], sprite_y_pos[v5], pair.k + 44, r38);
+      NuclearWaffle_Func_7(pair.j);
+    }
+    ERAM(0x7830 + ET_k) = v13;
+    uint16 v6 = NuclearWaffle_Func_5(R36, &r28);
+    uint16 v7 = CosineMult8bit(v6, varE32);
+    uint16 R32 = ERAM(0x800C + E_k) + v7;
+    uint16 v9 = NuclearWaffle_Func_5(R36, &r28);
+    uint16 R34 = ERAM(0x800E + E_k) + SineMult8bit(v9, varE32);
+    sprite_x_pos[nwe_var_10 >> 1] = R32;
+    sprite_y_pos[nwe_var_10 >> 1] = R34;
+    v12 = ERAM(0x8014 + E_k) - 2;
+    ERAM(0x8014 + E_k) = v12;
+  } while (v12);
+}
+uint16 NuclearWaffle_Func_5(uint16 a, uint16 *r28_out) {  // 0xA698AD
+  *r28_out = 0;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!E->ai_var_E) {
+    if ((int16)(a - ERAM(0x801C + E_k)) >= 0) {
+      if ((int16)(a - ERAM(0x8006 + E_k)) < 0)
+        return a;
+      return ERAM(0x8006 + E_k);
+    }
+LABEL_8:
+    ++(*r28_out);
+    return ERAM(0x801C + E_k);
+  }
+  if ((int16)(a - ERAM(0x801C + E_k)) >= 0)
+    goto LABEL_8;
+  if ((int16)(a - ERAM(0x8006 + E_k)) < 0)
+    return ERAM(0x8006 + E_k);
+  return a;
+}
+static PairU16 NuclearWaffle_Func_6(uint16 a) {  // 0xA698E7
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_var_E) {
+    if ((int16)(a - ERAM(0x801E + E_k)) >= 0) {
+      return (PairU16) { 1, 2 };
+    } else if ((int16)(a - ERAM(0x8020 + E_k)) >= 0) {
+      return (PairU16) { 0, 1 };
+    } else {
+      return (PairU16) { 0, 0 };
+    }
+  } else if ((int16)(a - ERAM(0x801E + E_k)) < 0) {
+    return (PairU16) { 0, 2 };
+  } else if ((int16)(a - ERAM(0x8020 + E_k)) < 0) {
+    return (PairU16) { 1, 1 };
+  } else {
+    return (PairU16) { 0, 0 };
+  }
+}
+void NuclearWaffle_Func_7(uint16 r30) {  // 0xA6993F
+  if (r30 != 2)
+    QueueSfx2_Max6(0x5E);
+}
 void FakeKraid_Init(void) {  // 0xA69A58
   uint16 v0 = (random_number & 3) + 2;
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
@@ -7194,6 +11788,155 @@ void FakeKraid_9C50(void) {  // 0xA69C50
     EnemyDeathAnimation(cur_enemy_index, 3);
     Enemy_ItemDrop_MiniKraid(cur_enemy_index);
   }
+}
+void Zebetites_Init(void) {  // 0xA6FB72
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties |= 0xA000;
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->palette_index = 1024;
+  E->vram_tiles_index = 128;
+  E->ai_var_C = 0;
+  uint16 v1 = 0xFC41 /* Zebetites_Func_1 */;
+  if (E->parameter_1)
+    v1 = 0xFC5B /* Zebetites_Func_2 */;
+  E->ai_var_A = v1;
+  uint16 r18 = 0;
+  r18 = (r18 << 1) | CheckEventHappened(5);
+  r18 = (r18 << 1) | CheckEventHappened(4);
+  r18 = (r18 << 1) | CheckEventHappened(3);
+  uint16 v2 = r18;
+  E->ai_var_D = r18;
+  if (sign16(v2 - 4)) {
+    int v3 = v2;
+    E->ai_preinstr = ((uint16)BW_A6(0xFC03 + 2 * (v3)));
+    E->y_height = ((uint16)BW_A6(0xFC0B + 2 * (v3)));
+    E->current_instruction = ((uint16)BW_A6(0xFC13 + 2 * (v3)));
+    E->x_pos = ((uint16)BW_A6(0xFC1B + 2 * (v3)));
+    uint16 v4;
+    if (E->parameter_1)
+      v4 = ((uint16)BW_A6(0xFC2B + 2 * (v3)));
+    else
+      v4 = ((uint16)BW_A6(0xFC23 + 2 * (v3)));
+    E->y_pos = v4;
+  } else {
+    E->properties |= kEnemyProps_Deleted;
+  }
+}
+void CallZebetitesFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA6FC41: Zebetites_Func_1(k); return;
+  case 0xA6FC5B: Zebetites_Func_2(k); return;
+  case 0xA6FC67: Zebetites_Func_3(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void Zebetites_Main(void) {  // 0xA6FC33
+  if (!earthquake_timer)
+    gEnemyData(cur_enemy_index)->shake_timer = 0;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallZebetitesFunc(E->ai_var_A | 0xA60000, cur_enemy_index);
+}
+void Zebetites_Func_1(uint16 k) {  // 0xA6FC41
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((E->ai_preinstr & 0x8000) != 0) {
+    uint16 new_k = Zebetites_Func_9();
+    gEnemyData(new_k)->parameter_2 = k;
+    gEnemyData(k)->parameter_2 = new_k;
+  }
+  gEnemyData(k)->ai_var_A = 0xFC5B /* Zebetites_Func_2 */;
+  Zebetites_Func_2(k);
+}
+void Zebetites_Func_2(uint16 k) {  // 0xA6FC5B
+  if (!door_transition_flag_elevator_zebetites) {
+    gEnemyData(k)->ai_var_A = 0xFC67 /* Zebetites_Func_3 */;
+    Zebetites_Func_3();
+  }
+}
+void Zebetites_Func_3(void) {  // 0xA6FC67
+  int16 v3;
+
+  Zebetites_Func_4();
+  Zebetites_Func_5();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 health = E->health;
+  if (health) {
+    v3 = health + 1;
+    if (!sign16(v3 - 1000))
+      v3 = 1000;
+    E->health = v3;
+  } else if (E->parameter_1
+             || (Zebetites_Func_6(), !sign16(E->ai_var_D - 4))) {
+    EnemyDeathAnimation(cur_enemy_index, 0);
+  } else {
+    EnemyDeathAnimation(cur_enemy_index, 0);
+    Zebetites_Func_8();
+  }
+}
+void Zebetites_Func_6(void) {  // 0xA6FCAA
+  int16 v1;
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  v1 = E->ai_var_D + 1;
+  E->ai_var_D = v1;
+  uint16 r18 = v1;
+  Zebetites_Func_7(3, (r18 >> 0) & 1);
+  Zebetites_Func_7(4, (r18 >> 1) & 1);
+  Zebetites_Func_7(5, (r18 >> 2) & 1);
+}
+void Zebetites_Func_7(uint16 j, uint8 a) {  // 0xA6FCCB
+  if (a)
+    SetEventHappened(j);
+  else
+    ClearEventHappened(j);
+}
+void Zebetites_Func_8(void) {  // 0xA6FCD9
+  SpawnEnemy(0xA6, addr_stru_A6FCE1);
+}
+uint16 Zebetites_Func_9(void) {  // 0xA6FCF1
+  return SpawnEnemy(0xA6, addr_stru_A6FCF9);
+}
+void Zebetites_Func_5(void) {  // 0xA6FD09
+  uint16 v0 = 0;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 health = E->health;
+  if (sign16(health - 800)) {
+    v0 = 2;
+    if (sign16(health - 600)) {
+      v0 = 4;
+      if (sign16(health - 400)) {
+        v0 = 6;
+        if (sign16(health - 200))
+          v0 = 8;
+      }
+    }
+  }
+  int v3 = v0 >> 1;
+  uint16 v4 = ((uint16)BW_A6(0xFD4A + 2 * (v3)));
+  if ((E->ai_preinstr & 0x8000) != 0)
+    v4 = ((uint16)BW_A6(0xFD54 + 2 * (v3)));
+  E->current_instruction = v4;
+  E->instruction_timer = 1;
+  E->timer = 0;
+}
+void Zebetites_Func_4(void) {  // 0xA6FD5E
+  if (!palette_change_num && !gEnemyData(cur_enemy_index)->parameter_1) {
+    EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+    uint16 v1 = (E->ai_var_C + 1) & 7;
+    E->ai_var_C = v1;
+    WriteColorsToPalette(0x158, 0xa6, 4 * v1 - 0x279, 2);
+  }
+}
+void Zebetites_Touch(void) {  // 0xA6FDA7
+  NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
+}
+void Zebetites_Shot(void) {  // 0xA6FDAC
+  QueueSfx3_Max6(9);
+  NormalEnemyShotAiSkipDeathAnim_CurEnemy();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  EnemyData *G = gEnemyData(E->parameter_2); const uint16 G_k = (E->parameter_2);
+  G->health = E->health;
+  G->flash_timer = E->flash_timer;
 }
 void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void) {  // 0xA7803C
   NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
@@ -7848,6 +12591,241 @@ void Enemy_NormalPowerBombAI_A8(void) {  // 0xA88037
 void Enemy_NormalFrozenAI_A8(void) {  // 0xA88041
   NormalEnemyFrozenAI();
 }
+uint16 MiniDraygon_Instr_2(uint16 k, uint16 jp) {  // 0xA8878F
+  QueueSfx2_Max6(0x5E);
+  return jp;
+}
+uint16 MiniDraygon_Instr_1(uint16 k, uint16 jp) {  // 0xA8879B
+  if (gEnemySpawnData(cur_enemy_index)[30].cause_of_death == addr_kMiniDraygon_Ilist_870B)
+    gEnemyData(cur_enemy_index)->ai_preinstr = -8;
+  else
+    gEnemyData(cur_enemy_index)->ai_preinstr = 8;
+  return jp;
+}
+uint16 MiniDraygon_Instr_3(uint16 k, uint16 jp) {  // 0xA887B6
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (gEnemySpawnData(cur_enemy_index)[30].cause_of_death == addr_kMiniDraygon_Ilist_870B) {
+    ++E->ai_preinstr;
+  } else {
+    --E->ai_preinstr;
+  }
+  return jp;
+}
+uint16 MiniDraygon_Instr_4(uint16 k, uint16 jp) {  // 0xA887CB
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7818 + E_k) = 0;
+  ERAM(0x7816 + E_k) = 0;
+  E->ai_var_C = 0x8A34 /* MiniDraygon_Func_8 */;
+  return jp;
+}
+void MiniDraygon_Init(void) {  // 0xA887E0
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->parameter_1) {
+    MiniDraygon_Func_2();
+    E->layer = 4;
+  } else {
+    MiniDraygon_Func_1();
+    uint16 v2 = 8 * LOBYTE(E->parameter_2);
+    int v3 = v2 >> 1;
+    ERAM(0x7808 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v3)));
+    ERAM(0x7806 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v3 + 1)));
+    ERAM(0x780C + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v3 + 2)));
+    ERAM(0x780A + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v3 + 3)));
+    E->ai_var_E = HIBYTE(gEnemyData(v2)->parameter_2) >> 1;
+  }
+  ERAM(0x7800 + E_k) = 0;
+  ERAM(0x7802 + E_k) = 0;
+  E->ai_var_C = 0x8922 /* MiniDraygon_Func_4 */;
+}
+void MiniDraygon_Func_1(void) {  // 0xA88838
+  gEnemyData(cur_enemy_index)->ai_var_B = (GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) == 0;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_86A7;
+  if (E->ai_var_B)
+    ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_870B;
+  MiniDraygon_Func_12();
+}
+void MiniDraygon_Func_2(void) {  // 0xA88866
+  int v0 = cur_enemy_index >> 1;
+  uint16 v1 = gEnemyData((uint16)(cur_enemy_index + (-64)))->ai_var_B;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_B = v1;
+  if (v1) {
+    E->x_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->x_pos + 4;
+    E->y_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->y_pos + 10;
+    ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_8727;
+  } else {
+    E->x_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->x_pos - 4;
+    E->y_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->y_pos + 10;
+    ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_86C3;
+  }
+  MiniDraygon_Func_12();
+}
+void EvirProjectile_Init(void) {  // 0xA888B0
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_876F;
+  MiniDraygon_Func_12();
+  int v2 = cur_enemy_index >> 1;
+  E->palette_index = gEnemyData((uint16)(cur_enemy_index + (-128)))->palette_index;
+  E->vram_tiles_index = gEnemyData((uint16)(cur_enemy_index + (-128)))->vram_tiles_index;
+  MiniDraygon_Func_3();
+  ERAM(0x7802 + E_k) = 0;
+  ERAM(0x7818 + E_k) = 0;
+  ERAM(0x7816 + E_k) = 0;
+  E->ai_preinstr = 0;
+  E->ai_var_C = 0x8A34 /* MiniDraygon_Func_8 */;
+}
+void MiniDraygon_Func_3(void) {  // 0xA888E5
+  int v0 = cur_enemy_index >> 1;
+  uint16 v1 = gEnemyData((uint16)(cur_enemy_index + (-128)))->ai_var_B;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_B = v1;
+  if (v1)
+    E->x_pos = gEnemyData((uint16)(cur_enemy_index + (-128)))->x_pos + 4;
+  else
+    E->x_pos = gEnemyData((uint16)(cur_enemy_index + (-128)))->x_pos - 4;
+  E->y_pos = gEnemyData((uint16)(cur_enemy_index + (-128)))->y_pos + 18;
+}
+void CallMiniDraygonFunc(uint32 ea) {
+  switch (ea) {
+  case 0xA88922: MiniDraygon_Func_4(); return;
+  case 0xA88A34: MiniDraygon_Func_8(); return;
+  case 0xA88A3B: MiniDraygon_Func_9(); return;
+  case 0xA88A78: MiniDraygon_Func_10(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void MiniDraygon_Main(void) {  // 0xA8891B
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallMiniDraygonFunc(E->ai_var_C | 0xA80000);
+}
+void MiniDraygon_Func_4(void) {  // 0xA88922
+  if (gEnemyData(cur_enemy_index)->parameter_1)
+    MiniDraygon_Func_6();
+  else
+    MiniDraygon_Func_5();
+}
+void MiniDraygon_Func_5(void) {  // 0xA88933
+  if (!ERAM(0x7818 + (cur_enemy_index + 128)))
+    MiniDraygon_Func_1();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (ERAM(0x7800 + E_k)) {
+    AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(ERAM(0x7808 + E_k), ERAM(0x7806 + E_k)));
+  } else {
+    AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(ERAM(0x780C + E_k), ERAM(0x780A + E_k)));
+  }
+  if ((--E->ai_var_E & 0x8000) != 0) {
+    E->ai_var_E = HIBYTE(E->parameter_2);
+    ERAM(0x7800 + E_k) ^= 1;
+  }
+}
+void MiniDraygon_Func_6(void) {  // 0xA88997
+  MiniDraygon_Func_2();
+}
+void EvirProjectile_Main(void) {  // 0xA8899E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!E->frozen_timer) {
+    if (ERAM(0x7816 + E_k)) {
+      ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_876F;
+      MiniDraygon_Func_12();
+    } else if (ERAM(0x7818 + E_k)) {
+      ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_8775;
+      MiniDraygon_Func_12();
+    } else {
+      MiniDraygon_Func_7();
+    }
+  }
+  CallMiniDraygonFunc(E->ai_var_C | 0xA80000);
+}
+void MiniDraygon_Func_7(void) {  // 0xA889D4
+  if (IsSamusWithinEnemy_X(cur_enemy_index - 128, 0x80)) {
+    uint16 r22 = -(uint8)(CalculateAngleOfSamusFromEnemy(cur_enemy_index) - 64);
+    EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+    SetHiLo(&ERAM(0x780E + E_k), &ERAM(0x7810 + E_k), CosineMult8bitFull(r22, 4));
+    SetHiLo(&ERAM(0x7812 + E_k), &ERAM(0x7814 + E_k), SineMult8bitFull(r22, 4));
+    ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_876F;
+    MiniDraygon_Func_12();
+    ERAM(0x7816 + E_k) = 1;
+    E->ai_var_C = 0x8A3B /* MiniDraygon_Func_9 */;
+  }
+}
+void MiniDraygon_Func_8(void) {  // 0xA88A34
+  MiniDraygon_Func_3();
+}
+void MiniDraygon_Func_9(void) {  // 0xA88A3B
+  MiniDraygon_Func_11();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  AddToHiLo(&E->x_pos, &E->x_subpos, __PAIR32__(ERAM(0x780E + E_k), ERAM(0x7810 + E_k)));
+  AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(ERAM(0x7812 + E_k), ERAM(0x7814 + E_k)));
+}
+void MiniDraygon_Func_10(void) {  // 0xA88A78
+  if (!enemy_drawing_queue[(cur_enemy_index >> 1) + 77]) {
+    EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+    if (ERAM(0x7818 + E_k)) {
+      MiniDraygon_Func_3();
+      E->x_pos += E->ai_preinstr;
+    } else {
+      ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_876F;
+      MiniDraygon_Func_12();
+      ERAM(0x7818 + E_k) = 0;
+      ERAM(0x7816 + E_k) = 0;
+      E->ai_var_C = 0x8A34 /* MiniDraygon_Func_8 */;
+    }
+  }
+}
+void MiniDraygon_Func_11(void) {  // 0xA88AB1
+  if (EnemyFunc_ADA3(0x100)) {
+    if (!enemy_drawing_queue[(cur_enemy_index >> 1) + 77]) {
+      EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+      ERAM(0x7816 + E_k) = 0;
+      ERAM(0x7818 + E_k) = 1;
+      E->ai_var_C = 0x8A78 /* MiniDraygon_Func_10 */;
+      ERAM(0x7818 + E_k) = 1;
+      ERAM(0x7804 + E_k) = addr_kMiniDraygon_Ilist_8775;
+      MiniDraygon_Func_12();
+    }
+  }
+}
+void MiniDraygon_Func_12(void) {  // 0xA88AE8
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 mdn_var_02 = ERAM(0x7804 + E_k);
+  if (mdn_var_02 != ERAM(0x7802 + E_k)) {
+    E->current_instruction = mdn_var_02;
+    ERAM(0x7802 + E_k) = mdn_var_02;
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void MiniDraygon_Touch(void) {  // 0xA88B06
+  Enemy_NormalTouchAI_A8();
+  MiniDraygon_Func_13();
+}
+void MiniDraygon_Powerbomb(void) {  // 0xA88B0C
+  Enemy_NormalPowerBombAI_A8();
+  MiniDraygon_Func_13();
+}
+void MiniDraygon_Shot(void) {  // 0xA88B12
+  NormalEnemyShotAi();
+  MiniDraygon_Func_13();
+}
+void MiniDraygon_Func_13(void) {  // 0xA88B16
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+  EnemyData *E2 = gEnemyData(cur_enemy_index + 128); const uint16 E2_k = (cur_enemy_index + 128);
+  if (!E->health) {
+    E1->properties |= 0x200;
+    E2->properties |= 0x200;
+  }
+  uint16 frozen_timer = E->frozen_timer;
+  if (frozen_timer) {
+    E1->frozen_timer = frozen_timer;
+    E1->ai_handler_bits |= 4;
+    if (E2->ai_var_C != 0x8A3B /* MiniDraygon_Func_9 */) {
+      E2->ai_handler_bits |= 4;
+      E2->frozen_timer = E->frozen_timer;
+    }
+  }
+}
 void MorphBallEye_Init(void) {  // 0xA89058
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
   E->properties |= kEnemyProps_DisableSamusColl;
@@ -7923,6 +12901,369 @@ void MorphBallEye_Func_4(uint16 k) {  // 0xA891CE
   bool v3 = (--E->ai_var_E & 0x8000) != 0;
   if (v2 || v3)
     E->ai_preinstr = 0x90F1 /* MorphBallEye_Func_1 */;
+}
+uint16 Fune_Instr_2(uint16 k, uint16 jp) {  // 0xA89625
+  QueueSfx2_Max9(0x1F);
+  return jp;
+}
+uint16 Fune_Instr_6(uint16 k, uint16 jp) {  // 0xA89631
+  eproj_unk1995 = LOBYTE(gEnemyData(cur_enemy_index)->parameter_2);
+  SpawnEprojWithGfx(0, cur_enemy_index, addr_stru_86DFBC);
+  return jp;
+}
+uint16 Fune_Instr_7(uint16 k, uint16 jp) {  // 0xA8964A
+  eproj_unk1995 = LOBYTE(gEnemyData(cur_enemy_index)->parameter_2);
+  SpawnEprojWithGfx(1, cur_enemy_index, addr_stru_86DFBC);
+  return jp;
+}
+uint16 Fune_Instr_1(uint16 k, uint16 jp) {  // 0xA89663
+  eproj_unk1995 = LOBYTE(gEnemyData(cur_enemy_index)->parameter_2);
+  SpawnEprojWithGfx(0, cur_enemy_index, addr_stru_86DFCA);
+  return jp;
+}
+uint16 Fune_Instr_4(uint16 k, uint16 jp) {  // 0xA8967C
+  eproj_unk1995 = LOBYTE(gEnemyData(cur_enemy_index)->parameter_2);
+  SpawnEprojWithGfx(1, cur_enemy_index, addr_stru_86DFCA);
+  return jp;
+}
+uint16 Fune_Instr_3(uint16 k, uint16 jp) {  // 0xA89695
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A += 4;
+  E->ai_var_B = 0x9737 /* Fune_Func_1 */;
+  if (E->ai_var_D)
+    E->ai_var_B = 0x975C /* Fune_Func_2 */;
+  return jp;
+}
+uint16 Fune_Instr_5(uint16 k, uint16 jp) {  // 0xA896B4
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A += 4;
+  E->ai_var_B = 0x9737 /* Fune_Func_1 */;
+  if (E->ai_var_D)
+    E->ai_var_B = 0x975C /* Fune_Func_2 */;
+  return jp;
+}
+void Fune_Init(void) {  // 0xA896E3
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = addr_off_A896D7;
+  E->ai_var_B = 0x9737 /* Fune_Func_1 */;
+  uint16 v1 = E->parameter_1 & 0xF;
+  E->ai_var_D = v1;
+  if (v1) {
+    E->ai_var_A = addr_off_A896DF;
+    E->ai_var_B = 0x975C /* Fune_Func_2 */;
+  }
+  if ((E->parameter_1 & 0xF0) != 0)
+    E->ai_var_A += 2;
+  Fune_Func_4();
+  E->ai_var_C = HIBYTE(E->parameter_2);
+  E->ai_preinstr = HIBYTE(E->parameter_1);
+  E->ai_var_E = 0;
+}
+void CallFuneFunc(uint32 ea) {
+  switch (ea) {
+  case 0xA89737: Fune_Func_1(); return;  // 0xa89737
+  case 0xA8975C: Fune_Func_2(); return;  // 0xa8975c
+  case 0xA8978E: return;  // 0xa8978e
+  case 0xA8978F: return;  // 0xa8978f
+  default: nt_unimpl("Unreachable");
+  }
+}
+void Fune_Main(void) {  // 0xA89730
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallFuneFunc(E->ai_var_B | 0xA80000);
+}
+void Fune_Func_1(void) {  // 0xA89737
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((int16)(++E->ai_var_E - E->ai_preinstr) >= 0) {
+    E->ai_var_A -= 4;
+    Fune_Func_4();
+    E->ai_var_B = 0x978E /* nullsub_247 */;
+    E->ai_var_E = 0;
+  }
+}
+void Fune_Func_2(void) {  // 0xA8975C
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7800 + E_k) = E->ai_var_A;
+  if (Fune_Func_3()) {
+    uint16 fune_var_00 = ERAM(0x7800 + E_k);
+    E->ai_var_A = fune_var_00;
+    fune_var_00 -= 4;
+    ERAM(0x7800 + E_k) = fune_var_00;
+    E->ai_var_A = fune_var_00;
+    Fune_Func_4();
+    E->ai_var_B = 0x978F /* nullsub_248 */;
+  }
+  E->ai_var_A = ERAM(0x7800 + E_k);
+}
+uint16 Fune_Func_3(void) {  // 0xA89790
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  return IsSamusWithinEnemy_Y(cur_enemy_index, E->ai_var_C);
+}
+void Fune_Func_4(void) {  // 0xA8979B
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->current_instruction = BW_A8(E->ai_var_A);
+}
+void WreckedShipGhost_Init(void) {  // 0xA89AEE
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties |= kEnemyProps_DisableSamusColl | kEnemyProps_Tangible | kEnemyProps_Invisible;
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->current_instruction = addr_kWreckedShipGhost_Ilist_9A8C;
+  E->ai_var_A = 0x9D13 /* WreckedShipGhost_Func_6 */;
+  E->ai_var_B = ((uint16)BW_A8(0x9AA4 + 2 * (0))) + 160;
+
+  uint16 v2 = swap16(E->palette_index);
+  uint16 v3 = 16 * v2 + 256;
+  int n = 16;
+  do {
+    target_palettes[v3 >> 1] = 0;
+    v3 += 2;
+  } while (--n >= 0);
+}
+void CallWreckedShipGhost(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA89B42: WreckedShipGhost_Func_1(k); return;
+  case 0xA89BAD: WreckedShipGhost_Func_2(k); return;
+  case 0xA89C69: WreckedShipGhost_Func_4(k); return;
+  case 0xA89C8A: WreckedShipGhost_Func_5(k); return;
+  case 0xA89D13: WreckedShipGhost_Func_6(k); return;
+  case 0xA89D36: WreckedShipGhost_Func_7(k); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void WreckedShipGhost_Main(void) {  // 0xA89B3C
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallWreckedShipGhost(E->ai_var_A | 0xA80000, cur_enemy_index);
+}
+void WreckedShipGhost_Func_1(uint16 k) {  // 0xA89B42
+  WreckedShipGhost_Func_3(k);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 v3 = swap16(E->palette_index);
+  uint16 v4 = 16 * v3 + 256;
+  int n = 16, v1 = 16;
+  do {
+    int v5 = v4 >> 1;
+    if (sign16((palette_buffer[v5] & 0x1F) - 31)) {
+      palette_buffer[v5] += 1057;
+      --v1;
+    }
+    v4 += 2;
+  } while (--n);
+  if ((int16)(v1 - 16) >= 0) {
+    E->ai_var_A = 0x9BAD /* WreckedShipGhost_Func_2 */;
+    uint16 v7 = swap16(E->palette_index);
+    uint16 v8 = 16 * v7 + 256;
+    uint16 v9 = 0;
+    do {
+      target_palettes[v8 >> 1] = kWreckedShipGhost_Palette[v9 >> 1];
+      v8 += 2;
+      v9 += 2;
+    } while ((int16)(v9 - 32) < 0);
+  }
+}
+void WreckedShipGhost_Func_2(uint16 k) {  // 0xA89BAD
+  uint16 v4 = WreckedShipGhost_Func_8();
+  WreckedShipGhost_Func_3(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!(E->ai_var_B | v4)) {
+    E->properties &= 0xFAFF;
+    E->ai_var_A = 0x9C8A /* WreckedShipGhost_Func_5 */;
+    ERAM(0x7800 + E_k) = E->y_pos;
+    E->ai_var_B = 1;
+    E->ai_var_C = 2;
+    ERAM(0x7802 + E_k) = 0;
+    ERAM(0x7804 + E_k) = ((uint16)BW_A8(0x9AA2 + 2 * (0)));
+    E->ai_var_B = ((uint16)BW_A8(0x9AA6 + 2 * (0)));
+    ERAM(0x780A + E_k) = 4;
+    uint16 v2 = samus_x_pos;
+    ERAM(0x780C + E_k) = samus_x_pos;
+    ERAM(0x780E + E_k) = v2;
+    ERAM(0x7810 + E_k) = v2;
+    ERAM(0x7812 + E_k) = 12;
+    uint16 v3 = nt_ram_w((uint16)(0x0AFA + (cur_enemy_index)));
+    ERAM(0x7814 + E_k) = v3;
+    ERAM(0x7816 + E_k) = v3;
+    ERAM(0x7818 + E_k) = v3;
+    ERAM(0x781A + E_k) = ((uint16)BW_A8(0x9A9E + 2 * (0)));
+    ERAM(0x781C + E_k) = ((uint16)BW_A8(0x9A9C + 2 * (0)));
+  }
+}
+void WreckedShipGhost_Func_3(uint16 k) {  // 0xA89C31
+  int16 v5;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 wsgt_var_B = E->ai_var_B;
+  if (!wsgt_var_B)
+    goto LABEL_6;
+  uint16 v3;
+  v3 = wsgt_var_B - 1;
+  E->ai_var_B = v3;
+  if (!v3) {
+    uint16 wsgt_var_C;
+    wsgt_var_C = E->ai_var_C;
+    v5 = ((uint16)BW_A8(0x9ACC + 2 * (wsgt_var_C >> 1)));
+    if (v5 < 0) {
+      E->ai_var_B = 0;
+      E->ai_var_C = 0;
+      return;
+    }
+    E->ai_var_B = v5;
+    E->ai_var_C = wsgt_var_C + 2;
+    if ((wsgt_var_C & 2) == 0) {
+LABEL_6:
+      E->properties &= ~kEnemyProps_Invisible;
+    }
+  }
+}
+void WreckedShipGhost_Func_4(uint16 k) {  // 0xA89C69
+  if (!WreckedShipGhost_Func_8()) {
+    EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+    E->ai_var_A = 0x9D13 /* WreckedShipGhost_Func_6 */;
+    E->properties |= kEnemyProps_Invisible;
+    E->ai_var_B = ((uint16)BW_A8(0x9AA4 + 2 * (0)));
+  }
+}
+void WreckedShipGhost_Func_5(uint16 k) {  // 0xA89C8A
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(ERAM(0x7804 + E_k), ERAM(0x7802 + E_k)));
+  AddToHiLo(&ERAM(0x7804 + E_k), &ERAM(0x7802 + E_k), ((int16)(E->y_pos - ERAM(0x7800 + E_k)) < 0) ? ((uint16)BW_A8(0x9AA0 + 2 * (0))) : -((uint16)BW_A8(0x9AA0 + 2 * (0))));
+  if (--E->ai_var_B == 0) {
+    E->ai_var_A = 0x9C69 /* WreckedShipGhost_Func_4 */;
+    E->properties |= kEnemyProps_Tangible;
+    // todo: this must be swap16 it seems
+    int t = swap16(E->palette_index);
+    uint16 v9 = 16 * t + 256;
+    int n = 16;
+    do {
+      target_palettes[v9 >> 1] = 0x7FFF;
+      v9 += 2;
+    } while ((--n & 0x8000) == 0);
+  }
+}
+void WreckedShipGhost_Func_6(uint16 k) {  // 0xA89D13
+  uint16 v3;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 wsgt_var_B = E->ai_var_B;
+  if (!wsgt_var_B || (v3 = wsgt_var_B - 1, (E->ai_var_B = v3) == 0)) {
+    E->ai_var_B = 1;
+    E->ai_var_C = 2;
+    E->ai_var_A = 0x9D36 /* WreckedShipGhost_Func_7 */;
+  }
+}
+void WreckedShipGhost_Func_7(uint16 k) {  // 0xA89D36
+  int16 v2;
+  int16 v4;
+  int16 v7;
+  int16 v9;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((int16)(samus_x_pos - ERAM(0x780E + E_k)) < 0
+      || (int16)(samus_x_pos - ERAM(0x7810 + E_k)) >= 0
+      || (v2 = nt_ram_w((uint16)(0x0AFA + (k))), (int16)(v2 - ERAM(0x7816 + E_k)) < 0)
+      || (int16)(v2 - ERAM(0x7818 + E_k)) >= 0) {
+    ERAM(0x781A + E_k) = ((uint16)BW_A8(0x9A9E + 2 * (0)));
+    v4 = 0;
+    if ((int16)(samus_x_pos - ERAM(0x780C + E_k)) >= 0) {
+      v4 = (samus_x_pos == ERAM(0x780C + E_k)) ? 4 : 8;
+    }
+    if (v4 == ERAM(0x780A + E_k)) {
+      v7 = 0;
+      v9 = samus_y_pos - ERAM(0x7814 + E_k);
+      if (v9 >= 0) {
+        v7 = v9 ? 24 : 12;
+      }
+      if (v7 == ERAM(0x7812 + E_k)) {
+        uint16 v10 = ERAM(0x781C + E_k) - 1;
+        ERAM(0x781C + E_k) = v10;
+        if (!v10)
+          goto LABEL_13;
+      } else {
+        ERAM(0x7812 + E_k) = v7;
+        ERAM(0x781C + E_k) = ((uint16)BW_A8(0x9A9C + 2 * (0)));
+      }
+    } else {
+      ERAM(0x780A + E_k) = v4;
+      ERAM(0x781C + E_k) = ((uint16)BW_A8(0x9A9C + 2 * (0)));
+    }
+  } else {
+    uint16 v3;
+    v3 = ERAM(0x781A + E_k) - 1;
+    ERAM(0x781A + E_k) = v3;
+    if (!v3) {
+      ERAM(0x780A + E_k) = 4;
+      ERAM(0x7812 + E_k) = 12;
+LABEL_13:
+      E->ai_var_A = 0x9B42 /* WreckedShipGhost_Func_1 */;
+      ERAM(0x781A + E_k) = ((uint16)BW_A8(0x9A9E + 2 * (0)));
+      ERAM(0x781C + E_k) = ((uint16)BW_A8(0x9A9C + 2 * (0)));
+      int v6 = (uint16)(ERAM(0x7812 + E_k) + ERAM(0x780A + E_k)) >> 1;
+      E->x_pos = ((uint16)BW_A8(0x9AA8 + 2 * (v6))) + nt_ram_w((uint16)(0x0AF6 + (k)));
+      E->y_pos = ((uint16)BW_A8(0x9AA8 + 2 * (v6 + 1))) + nt_ram_w((uint16)(0x0AFA + (k)));
+      return;
+    }
+  }
+  uint16 v11 = samus_x_pos;
+  ERAM(0x780C + E_k) = samus_x_pos;
+  ERAM(0x780E + E_k) = v11 - ((uint16)BW_A8(0x9D32 + 2 * (0)));
+  ERAM(0x7810 + E_k) = ((uint16)BW_A8(0x9D32 + 2 * (0))) + samus_x_pos;
+  uint16 v13 = samus_y_pos;
+  ERAM(0x7814 + E_k) = samus_y_pos;
+  ERAM(0x7816 + E_k) = v13 - ((uint16)BW_A8(0x9D34 + 2 * (0)));
+  ERAM(0x7818 + E_k) = ((uint16)BW_A8(0x9D34 + 2 * (0))) + samus_y_pos;
+}
+uint16 WreckedShipGhost_Func_8(void) {  // 0xA89E88
+  uint16 v0 = 0;
+  if (!door_transition_flag_enemies) {
+    EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+    uint16 v2 = swap16(E->palette_index);
+    uint16 v3 = 16 * v2 + 256;
+    uint16 r20 = 16 * v2 + 288;
+    do {
+      int v4 = v3 >> 1;
+      if (target_palettes[v4] != palette_buffer[v4]) {
+        uint16 r18 = target_palettes[v4] & 0x1F;
+        uint16 v5 = palette_buffer[v4] & 0x1F;
+        if (v5 != r18) {
+          uint16 v6;
+          if ((int16)(v5 - r18) >= 0)
+            v6 = v5 - 1;
+          else
+            v6 = v5 + 1;
+          r18 = v6;
+          { palette_buffer[v4] = v6 | palette_buffer[v4] & 0xFFE0; nt_pal_dirty((uint8)(v4), (uint8)(v4)); }
+          ++v0;
+        }
+        r18 = target_palettes[v4] & 0x3E0;
+        uint16 v7 = palette_buffer[v4] & 0x3E0;
+        if (v7 != r18) {
+          uint16 v8;
+          if ((int16)(v7 - r18) >= 0)
+            v8 = v7 - 32;
+          else
+            v8 = v7 + 32;
+          { palette_buffer[v4] = v8 | palette_buffer[v4] & 0xFC1F; nt_pal_dirty((uint8)(v4), (uint8)(v4)); }
+          ++v0;
+        }
+        r18 = target_palettes[v4] & 0x7C00;
+        uint16 v9 = palette_buffer[v4] & 0x7C00;
+        if (v9 != r18) {
+          uint16 v10;
+          if ((int16)(v9 - r18) >= 0)
+            v10 = v9 - 1024;
+          else
+            v10 = v9 + 1024;
+          r18 = v10;
+          { palette_buffer[v4] = v10 | palette_buffer[v4] & 0x83FF; nt_pal_dirty((uint8)(v4), (uint8)(v4)); }
+          ++v0;
+        }
+      }
+      v3 += 2;
+    } while ((int16)(v3 - r20) < 0);
+  }
+  return v0;
 }
 uint16 YappingMaw_Instr_2(uint16 k, uint16 jp) {  // 0xA8A0C7
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
@@ -8348,6 +13689,404 @@ void Kago_Shot(void) {  // 0xA8AB83
     E->ai_preinstr = 1;
   }
   SpawnEprojWithGfx(E->y_pos, cur_enemy_index, addr_loc_A8D02E);
+}
+uint16 NorfairLavaMan_Instr_1(uint16 k, uint16 jp) {  // 0xA8AE12
+  if (!CheckIfEnemyIsOnScreen()) {
+    QueueSfx2_Max6(IW_A8((uint16)(jp + 0)));
+  }
+  return (uint16)(jp + 2);
+}
+uint16 NorfairLavaMan_Instr_8(uint16 k, uint16 jp) {  // 0xA8AE26
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ++E->y_pos;
+  ++E->y_pos;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_14(uint16 k, uint16 jp) {  // 0xA8AE30
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  --E->y_pos;
+  --E->y_pos;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_2(uint16 k, uint16 jp) {  // 0xA8AE3A
+  ERAM(0x7802 + (cur_enemy_index)) = 1;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_7(uint16 k, uint16 jp) {  // 0xA8AE45
+  ERAM(0x7802 + (cur_enemy_index)) = 0;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_10(uint16 k, uint16 jp) {  // 0xA8AE50
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  --E->y_pos;
+  EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+  --E1->y_pos;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_12(uint16 k, uint16 jp) {  // 0xA8AE5A
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ++E->y_pos;
+  EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+  ++E1->y_pos;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_9(uint16 k, uint16 jp) {  // 0xA8AE64
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 v4 = ERAM(0x7806 + E_k) + 24;
+  E->y_pos = v4;
+  EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+  E1->y_pos = v4;
+  E1->properties &= ~0x100;
+  EnemyData *E2 = gEnemyData(cur_enemy_index + 128); const uint16 E2_k = (cur_enemy_index + 128);
+  E2->properties &= ~0x100;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_11(uint16 k, uint16 jp) {  // 0xA8AE88
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 nlmn_var_03 = ERAM(0x7806 + E_k);
+  E->y_pos = nlmn_var_03;
+  gEnemyData(cur_enemy_index + 64)->y_pos = nlmn_var_03;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_13(uint16 k, uint16 jp) {  // 0xA8AE96
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 v4 = ERAM(0x7806 + E_k) + 4;
+  E->y_pos = v4;
+  EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+  E1->y_pos = v4;
+  E1->properties |= 0x100;
+  EnemyData *E2 = gEnemyData(cur_enemy_index + 128); const uint16 E2_k = (cur_enemy_index + 128);
+  E2->properties |= 0x100;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_5(uint16 k, uint16 jp) {  // 0xA8AEBA
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  SpawnEprojWithGfx(E->ai_var_B, cur_enemy_index, addr_kEproj_LavaThrownByLavaman);
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_15(uint16 k, uint16 jp) {  // 0xA8AECA
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->x_pos = ERAM(0x7824 + E_k) + 8;
+  E->y_pos = ERAM(0x7826 + E_k) - 4;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_4(uint16 k, uint16 jp) {  // 0xA8AEE4
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->x_pos = ERAM(0x7824 + E_k) - 8;
+  E->y_pos = ERAM(0x7826 + E_k) - 4;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_16(uint16 k, uint16 jp) {  // 0xA8AEFE
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->x_pos = ERAM(0x7824 + E_k) + 8;
+  E->y_pos = ERAM(0x7826 + E_k) - 8;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_6(uint16 k, uint16 jp) {  // 0xA8AF18
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->x_pos = ERAM(0x7824 + E_k) - 8;
+  E->y_pos = ERAM(0x7826 + E_k) - 4;
+  return jp;
+}
+uint16 NorfairLavaMan_Instr_3(uint16 k, uint16 jp) {  // 0xA8AF44
+  ERAM(0x7808 + (cur_enemy_index)) = 256;
+  return jp;
+}
+void NorfairLavaMan_Init(void) {  // 0xA8AF8B
+  uint16 v0 = 2 * gEnemyData(cur_enemy_index)->parameter_1;
+  g_off_A8AF4F[v0 >> 1]();
+  NorfairLavaMan_Func_4();
+  NorfairLavaMan_Func_5(cur_enemy_index);
+}
+void NorfairLavaMan_Func_1(void) {  // 0xA8AF9D
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_C = 0;
+  ERAM(0x7800 + E_k) = 0;
+  ERAM(0x7804 + E_k) = 0;
+  ERAM(0x7806 + E_k) = E->y_pos;
+  if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) != 0)
+    ERAM(0x7800 + E_k) = 1;
+  E->ai_var_D = addr_kNorfairLavaMan_Ilist_AC9C;
+  if (!ERAM(0x7800 + E_k))
+    E->ai_var_D = addr_kNorfairLavaMan_Ilist_AD3C;
+  NorfairLavaMan_Func_20();
+  E->ai_preinstr = 0xB11A /* NorfairLavaMan_Func_7 */;
+}
+void NorfairLavaMan_Func_2(void) {  // 0xA8AFE2
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7806 + E_k) = E->y_pos;
+  E->ai_var_C = 0;
+  ERAM(0x7818 + E_k) = 0;
+  ERAM(0x781A + E_k) = 1;
+  E->ai_var_D = addr_kNorfairLavaMan_Ilist_ADDC;
+  NorfairLavaMan_Func_20();
+  E->y_pos += 32;
+  E->ai_preinstr = 0xB1DD /* NorfairLavaMan_Func_10 */;
+  E->properties |= kEnemyProps_Invisible;
+}
+void NorfairLavaMan_Func_3(void) {  // 0xA8B020
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7806 + E_k) = E->y_pos;
+  ERAM(0x7822 + E_k) = E->x_pos;
+  E->ai_var_C = 0;
+  ERAM(0x7808 + E_k) = 0;
+  E->ai_var_D = addr_kNorfairLavaMan_Ilist_AE0C;
+  NorfairLavaMan_Func_20();
+  E->y_pos += 32;
+  E->ai_preinstr = 0xB30D /* NorfairLavaMan_Func_15 */;
+  E->properties |= kEnemyProps_Invisible;
+}
+void NorfairLavaMan_Func_4(void) {  // 0xA8B05E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int v1 = (8 * HIBYTE(E->parameter_2)) >> 1;
+  ERAM(0x7810 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1)));
+  ERAM(0x780E + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1 + 1)));
+  ERAM(0x7814 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1 + 2)));
+  ERAM(0x7812 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1 + 3)));
+}
+void NorfairLavaMan_Func_5(uint16 k) {  // 0xA8B088
+  nt_gfx_hook_addr = 0xB0B2 /* NorfairLavaMan_Func_6 */;
+  nt_gfx_hook_bank = 168;
+  variables_for_enemy_graphics_drawn_hook[0] = ((uint16)(gEnemyData(k)->palette_index & 0xE00) >> 4)
+    + 256;
+  variables_for_enemy_graphics_drawn_hook[2] = 8;
+  variables_for_enemy_graphics_drawn_hook[1] = 0;
+}
+void NorfairLavaMan_Func_6(void) {  // 0xA8B0B2
+  if (!door_transition_flag_enemies && !--variables_for_enemy_graphics_drawn_hook[2]) {
+    variables_for_enemy_graphics_drawn_hook[2] = 8;
+    ++variables_for_enemy_graphics_drawn_hook[1];
+    int v0 = (uint16)(32 * (variables_for_enemy_graphics_drawn_hook[1] & 3)) >> 1;
+    uint16 r18 = ((uint16)BW_A8(0xAC1C + 2 * (v0 + 9)));
+    uint16 r20 = ((uint16)BW_A8(0xAC1C + 2 * (v0 + 10)));
+    uint16 r22 = ((uint16)BW_A8(0xAC1C + 2 * (v0 + 11)));
+    uint16 r24 = ((uint16)BW_A8(0xAC1C + 2 * (v0 + 12)));
+    int v1 = variables_for_enemy_graphics_drawn_hook[0] >> 1;
+    { palette_buffer[v1 + 9] = r18; nt_pal_dirty((uint8)(v1 + 9), (uint8)(v1 + 9)); }
+    { palette_buffer[v1 + 10] = r20; nt_pal_dirty((uint8)(v1 + 10), (uint8)(v1 + 10)); }
+    { palette_buffer[v1 + 11] = r22; nt_pal_dirty((uint8)(v1 + 11), (uint8)(v1 + 11)); }
+    { palette_buffer[v1 + 12] = r24; nt_pal_dirty((uint8)(v1 + 12), (uint8)(v1 + 12)); }
+  }
+}
+void NorfairLavaMan_Main(void) {  // 0xA8B10A
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  --ERAM(0x7808 + E_k);
+  CallEnemyPreInstr(E->ai_preinstr | 0xA80000);
+}
+void NorfairLavaMan_Func_7(uint16 k) {  // 0xA8B11A
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7800 + E_k) = 0;
+  E->ai_var_D = addr_kNorfairLavaMan_Ilist_AC9C;
+  if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) == 0) {
+    E->ai_var_D = addr_kNorfairLavaMan_Ilist_AD3C;
+    ERAM(0x7800 + E_k) = 1;
+  }
+  NorfairLavaMan_Func_20();
+  EnemyData *E2 = gEnemyData(cur_enemy_index + 128); const uint16 E2_k = (cur_enemy_index + 128);
+  if ((ERAM(0x7808 + E2_k) & 0x8000) != 0) {
+    ERAM(0x7808 + E2_k) = 0;
+    if (IsSamusWithinEnemy_X(cur_enemy_index, LOBYTE(E->parameter_2))) {
+      E->ai_var_D = addr_kNorfairLavaMan_Ilist_ACDE;
+      if (ERAM(0x7800 + E_k))
+        E->ai_var_D = addr_kNorfairLavaMan_Ilist_AD7E;
+      NorfairLavaMan_Func_20();
+      E->ai_preinstr = 0xB175 /* NorfairLavaMan_Func_8 */;
+    }
+  }
+}
+void NorfairLavaMan_Func_8(uint16 k) {  // 0xA8B175
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+   if (!ERAM(0x7802 + E_k)) {
+    ERAM(0x7804 + E_k) = 1;
+    ERAM(0x781A + (cur_enemy_index + 64)) = 0;
+    E->ai_preinstr = 0xB193 /* sub_A8B193 */;
+  }
+}
+void sub_A8B193(uint16 k) {  // 0xA8B193
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!ERAM(0x7804 + E_k)) {
+    E->ai_var_D = addr_kNorfairLavaMan_Ilist_AD0C;
+    if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) == 0)
+      E->ai_var_D = addr_kNorfairLavaMan_Ilist_ADAC;
+    NorfairLavaMan_Func_20();
+    E->ai_preinstr = 0xB1B8 /* NorfairLavaMan_Func_9 */;
+  }
+}
+void NorfairLavaMan_Func_9(uint16 k) {  // 0xA8B1B8
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!ERAM(0x7802 + E_k)) {
+    E->ai_var_D = addr_kNorfairLavaMan_Ilist_AC9C;
+    if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) == 0)
+      E->ai_var_D = addr_kNorfairLavaMan_Ilist_AD3C;
+    NorfairLavaMan_Func_20();
+    E->ai_preinstr = 0xB11A /* NorfairLavaMan_Func_7 */;
+  }
+}
+void NorfairLavaMan_Func_10(uint16 k) {  // 0xA8B1DD
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!ERAM(0x781A + E_k)) {
+    E->ai_preinstr = 0xB204 /* NorfairLavaMan_Func_11 */;
+    E->ai_var_E = 0;
+    ERAM(0x781A + E_k) = 0;
+    E->ai_var_B = 2;
+    E->y_pos = ERAM(0x7806 + E_k);
+  }
+}
+void NorfairLavaMan_Func_11(uint16 k) {  // 0xA8B204
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  EnemySpawnData *v3 = gEnemySpawnData(cur_enemy_index);
+
+  uint32 v = v3[31].ypos2 + E->y_subpos;
+  E->y_subpos = v;
+  E->y_pos += v3[31].field_14 + (v >> 16);
+  E->ai_var_E += v3[31].field_14 + (v >> 16);
+  NorfairLavaMan_Func_12(cur_enemy_index);
+}
+void NorfairLavaMan_Func_12(uint16 k) {  // 0xA8B230
+  int v3;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (!sign16(-E->ai_var_E - 108))
+    ; /* (aviso del decomp) */
+  uint16 nlmn_var_B = E->ai_var_B;
+
+  if (!sign16(-E->ai_var_E - 108)
+      || (v3 = nlmn_var_B >> 1,
+          (int16)(E->y_pos - ((uint16)BW_A8(0xAF79 + 2 * (v3))) - samus_y_pos) < 0)) {
+    E->ai_preinstr = 0xB291 /* sub_A8B291 */;
+    ERAM(0x7818 + E_k) = 1;
+    if ((int16)(-E->ai_var_E - ((uint16)BW_A8(0xAF55 + 2 * (nlmn_var_B >> 1)))) < 0)
+      return;
+    goto LABEL_6;
+  }
+  if ((int16)(-E->ai_var_E - ((uint16)BW_A8(0xAF55 + 2 * (v3)))) >= 0) {
+LABEL_6:
+    ++E->ai_var_B;
+    ++E->ai_var_B;
+    E->y_pos += 8;
+    E->ai_var_D = ((uint16)BW_A8(0xAF67 + 2 * (E->ai_var_B >> 1)));
+    NorfairLavaMan_Func_20();
+  }
+}
+void sub_A8B291(uint16 k) {  // 0xA8B291
+  ;
+}
+void NorfairLavaMan_Func_13(void) {  // 0xA8B295
+  EnemySpawnData *v2;
+
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  v2 = gEnemySpawnData(cur_enemy_index);
+  bool v4 = __CFADD__uint16(v2[31].field_E, E->y_subpos);
+  E->y_subpos = v2[31].field_E + E->y_subpos;
+  E->y_pos += v2[31].xpos2 + v4;
+  E->ai_var_E += v2[31].xpos2 + v4;
+  NorfairLavaMan_Func_14(cur_enemy_index);
+}
+void NorfairLavaMan_Func_14(uint16 k) {  // 0xA8B2C5
+  int16 nlmn_var_E;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  nlmn_var_E = E->ai_var_E;
+  if (nlmn_var_E >= 0) {
+    ERAM(0x781A + E_k) = 1;
+    gEnemySpawnData(k)[31].field_4 = 0;
+    E->ai_preinstr = 0xB1DD /* NorfairLavaMan_Func_10 */;
+  } else if ((int16)(-nlmn_var_E - ((uint16)BW_A8(0xAF55 + 2 * ((uint16)(E->ai_var_B - 2) >> 1)))) < 0) {
+    E->ai_var_B -= 2;
+    E->y_pos -= 8;
+    E->ai_var_D = ((uint16)BW_A8(0xAF67 + 2 * (E->ai_var_B >> 1)));
+    NorfairLavaMan_Func_20();
+  }
+}
+void NorfairLavaMan_Func_15(uint16 k) {  // 0xA8B30D
+  if (enemy_drawing_queue[(cur_enemy_index >> 1) + 87] == 0xB175 /* NorfairLavaMan_Func_8 */)
+    gEnemyData(cur_enemy_index)->ai_preinstr = 0xB356 /* NorfairLavaMan_Func_17 */;
+}
+void NorfairLavaMan_Func_16(uint16 k) {  // 0xA8B31F
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!ERAM(0x7802 + E_k)) {
+    E->ai_var_D = addr_kNorfairLavaMan_Ilist_AE0C;
+    NorfairLavaMan_Func_20();
+    enemy_drawing_queue_sizes[(cur_enemy_index >> 1) + 5] = 0xB295 /* NorfairLavaMan_Func_13 */;
+    E->ai_preinstr = 0xB3A7 /* NorfairLavaMan_Func_18 */;
+    gEnemySpawnData(cur_enemy_index)[31].field_18 = 0;
+    E->x_pos = ERAM(0x7824 + E_k);
+    E->y_pos = ERAM(0x7826 + E_k);
+  }
+  NorfairLavaMan_Func_19(cur_enemy_index);
+}
+void NorfairLavaMan_Func_17(uint16 k) {  // 0xA8B356
+  if (gEnemySpawnData(cur_enemy_index)[31].field_18) {
+    EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+    E->ai_var_D = addr_kNorfairLavaMan_Ilist_ACB0;
+    E->ai_var_B = 0;
+    if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) == 0) {
+      E->ai_var_D = addr_kNorfairLavaMan_Ilist_AD50;
+      E->ai_var_B = 1;
+    }
+    NorfairLavaMan_Func_20();
+    E->ai_preinstr = 0xB31F /* NorfairLavaMan_Func_16 */;
+    ERAM(0x7824 + E_k) = E->x_pos;
+    ERAM(0x7826 + E_k) = E->y_pos;
+  } else {
+    gEnemyData(cur_enemy_index)->y_pos = enemy_drawing_queue[(cur_enemy_index >> 1) + 93]
+      - ((uint16)BW_A8(0xAF79 + 2 * (enemy_drawing_queue_sizes[(cur_enemy_index >> 1) + 1] >> 1)));
+  }
+  NorfairLavaMan_Func_19(cur_enemy_index);
+}
+void NorfairLavaMan_Func_18(uint16 k) {  // 0xA8B3A7
+  int v1 = cur_enemy_index >> 1;
+  if (gEnemyData((uint16)(cur_enemy_index + (-128)))->ai_preinstr == 0xB11A /* NorfairLavaMan_Func_7 */)
+    gEnemyData(cur_enemy_index)->ai_preinstr = 0xB30D /* NorfairLavaMan_Func_15 */;
+  else
+    gEnemyData(cur_enemy_index)->y_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->y_pos
+    - ((uint16)BW_A8(0xAF79 + 2 * (gEnemyData((uint16)(cur_enemy_index + (-64)))->ai_var_B >> 1)));
+  NorfairLavaMan_Func_19(cur_enemy_index);
+}
+void NorfairLavaMan_Func_19(uint16 k) {  // 0xA8B3CB
+  int v1 = k >> 1;
+  uint16 v2 = gEnemyData((uint16)(k + (-128)))->y_pos - gEnemyData(k)->y_pos + 2;
+  gEnemyData((uint16)(k + (-128)))->y_height = v2;
+  if (sign16(v2 - 8))
+    gEnemyData((uint16)(k + (-128)))->y_height = 8;
+}
+void NorfairLavaMan_Func_20(void) {  // 0xA8B3E5
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 nlmn_var_D = E->ai_var_D;
+  if (nlmn_var_D != E->ai_var_C) {
+    E->current_instruction = nlmn_var_D;
+    E->ai_var_C = nlmn_var_D;
+    E->instruction_timer = 1;
+    E->timer = 0;
+  }
+}
+void NorfairLavaMan_Powerbomb(void) {  // 0xA8B400
+  Enemy_NormalPowerBombAI_A8();
+  NorfairLavaMan_Common();
+}
+void NorfairLavaMan_Touch(void) {  // 0xA8B406
+  Enemy_NormalTouchAI_A8();
+  NorfairLavaMan_Common();
+}
+void NorfairLavaMan_Shot(void) {  // 0xA8B40C
+  NormalEnemyShotAi();
+  NorfairLavaMan_Common();
+}
+void NorfairLavaMan_Common(void) {  // 0xA8B410
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  EnemyData *E1 = gEnemyData(cur_enemy_index + 64); const uint16 E1_k = (cur_enemy_index + 64);
+  EnemyData *E2 = gEnemyData(cur_enemy_index + 128); const uint16 E2_k = (cur_enemy_index + 128);
+  if (!E->health) {
+    E1->properties |= 0x200;
+    E2->properties |= 0x200;
+  }
+  uint16 frozen_timer = E->frozen_timer;
+  if (frozen_timer) {
+    E1->frozen_timer = frozen_timer;
+    E1->ai_handler_bits |= 4;
+    E2->frozen_timer = frozen_timer;
+    E2->ai_handler_bits |= 4;
+  }
 }
 uint16 Beetom_Instr_1(uint16 k, uint16 jp) {  // 0xA8B75E
   return jp;
@@ -8803,6 +14542,804 @@ void Beetom_Shot(void) {  // 0xA8BEAC
   }
   ERAM(0x7810 + E_k) = 0;
 }
+void MaridiaFloater_Init(void) {  // 0xA8C1C9
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties |= kEnemyProps_DisableSamusColl;
+  E->spritemap_pointer = addr_kSpritemap_Nothing_A8;
+  E->instruction_timer = 1;
+  E->timer = 0;
+  if (E->parameter_1) {
+    E->ai_var_A = E->x_pos;
+    E->ai_var_B = E->y_pos;
+    E->ai_preinstr = 0xC568 /* nullsub_256 */;
+    E->current_instruction = addr_stru_A8C199;
+    E->ai_var_D = E->parameter_2;
+  } else {
+    E->ai_var_E = 60;
+    E->ai_preinstr = 0xC283 /* MaridiaFloater_Func_3 */;
+    E->current_instruction = addr_kMaridiaFloater_Ilist_C173;
+  }
+}
+void MaridiaFloater_Main(void) {  // 0xA8C21C
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallEnemyPreInstr(E->ai_preinstr | 0xA80000);
+}
+void MaridiaFloater_Func_1(uint16 k) {  // 0xA8C223
+  for (int i = 7; i >= 0; --i)
+    SpawnEprojWithGfx(i, k, addr_kEproj_MaridiaFloatersSpikes);
+}
+void MaridiaFloater_Func_2(uint16 k) {  // 0xA8C234
+  int v1 = k >> 1;
+  uint16 v2 = gEnemyData((uint16)(k + (-64)))->current_instruction;
+  if (sign16(v2 + 0x3E6F)) {
+    uint16 v3 = (uint16)(v2 - 4 + 15997) >> 1;
+    if (!sign16(v3 - 6))
+      v3 = 0;
+    gEnemyData((uint16)(k + (-64)))->y_pos = ((int16)BW_A8(0xC277 + 2 * (v3 >> 1))) + gEnemyData(k)->y_pos;
+  } else {
+    uint16 v4 = (uint16)(v2 - 4 + 15983) >> 1;
+    if (!sign16(v4 - 6))
+      v4 = 0;
+    gEnemyData((uint16)(k + (-64)))->y_pos = ((int16)BW_A8(0xC27D + 2 * (v4 >> 1))) + gEnemyData(k)->y_pos;
+  }
+}
+void MaridiaFloater_Func_3(uint16 k) {  // 0xA8C283
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  bool v2 = E->ai_var_E == 1;
+  bool v3 = (--E->ai_var_E & 0x8000) != 0;
+  if (v2 || v3) {
+    int v4 = k >> 1;
+    gEnemyData((uint16)(k + (-64)))->instruction_timer = 1;
+    gEnemyData((uint16)(k + (-64)))->current_instruction = addr_kMaridiaFloater_Ilist_C183;
+    E->ai_preinstr = 0xC2A6 /* MaridiaFloater_Func_4 */;
+    E->ai_var_E = 10;
+  }
+  MaridiaFloater_Func_2(k);
+}
+void MaridiaFloater_Func_4(uint16 k) {  // 0xA8C2A6
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  bool v2 = E->ai_var_E == 1;
+  bool v3 = (--E->ai_var_E & 0x8000) != 0;
+  if (v2 || v3) {
+    E->ai_preinstr = 0xC2CF /* MaridiaFloater_Func_5 */;
+    E->ai_var_A = ((uint16)BW_A8(0xC1C5 + 2 * (0)));
+    E->ai_var_B = ((uint16)BW_A8(0xC1C7 + 2 * (0)));
+    E->instruction_timer = 1;
+    E->current_instruction = addr_kMaridiaFloater_Ilist_C163;
+  }
+  MaridiaFloater_Func_2(k);
+}
+void MaridiaFloater_Func_5(uint16 k) {  // 0xA8C2CF
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((E->ai_handler_bits & 1) != 0) {
+    E->ai_preinstr = 0xC3E1 /* MaridiaFloater_Func_7 */;
+    MaridiaFloater_Func_7(k);
+  } else {
+    bool v2 = E->ai_var_D == 1;
+    bool v3 = (--E->ai_var_D & 0x8000) != 0;
+    if (v2 || v3) {
+      E->ai_var_D = 5;
+      int v4 = k >> 1;
+      uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + enemy_drawing_queue_sizes[v4];
+      gEnemyData((uint16)(k + (-64)))->x_pos = v5;
+      E->x_pos = v5;
+      uint16 v6 = E->ai_var_C + 1;
+      if (!sign16(E->ai_var_C - 11))
+        v6 = 0;
+      E->ai_var_C = v6;
+    }
+    AddToHiLo(&E->ai_var_A, &E->ai_var_B, __PAIR32__(((uint16)BW_A8(0xC1B9 + 2 * (0))), ((uint16)BW_A8(0xC1BB + 2 * (0)))));
+    if (Enemy_MoveDown(k, __PAIR32__(E->ai_var_A, E->ai_var_B))
+        || (int16)(enemy_drawing_queue_sizes[(k >> 1) + 1] - ((uint16)BW_A8(0xC19F + 2 * (0))) - E->y_pos) >= 0) {
+      uint16 mfr_var_C = E->ai_var_C;
+      if (!mfr_var_C || mfr_var_C == 6) {
+        E->ai_preinstr = 0xC500 /* MaridiaFloater_Func_10 */;
+        E->ai_var_E = 10;
+        int v10 = k >> 1;
+        gEnemyData((uint16)(k + (-64)))->instruction_timer = 1;
+        gEnemyData((uint16)(k + (-64)))->current_instruction = addr_kMaridiaFloater_Ilist_C191;
+      } else {
+        E->ai_preinstr = 0xC36B /* MaridiaFloater_Func_6 */;
+      }
+    }
+    MaridiaFloater_Func_2(k);
+  }
+}
+void MaridiaFloater_Func_6(uint16 k) {  // 0xA8C36B
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  bool v2 = E->ai_var_D == 1;
+  bool v3 = (--E->ai_var_D & 0x8000) != 0;
+  if (!v2 && !v3) {
+LABEL_9:;
+    AddToHiLo(&E->ai_var_A, &E->ai_var_B, __PAIR32__(((uint16)BW_A8(0xC1B9 + 2 * (0))), ((uint16)BW_A8(0xC1BB + 2 * (0)))));
+    Enemy_MoveDown(k, __PAIR32__(E->ai_var_A, E->ai_var_B));
+    goto LABEL_10;
+  }
+  E->ai_var_D = 5;
+  int v4;
+  v4 = k >> 1;
+  {
+    uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + enemy_drawing_queue_sizes[v4];
+    enemy_drawing_queue[v4 + 91] = v5;
+    E->x_pos = v5;
+  }
+  if (E->ai_var_C && E->ai_var_C != 6) {
+    uint16 v7 = E->ai_var_C + 1;
+    if (!sign16(v7 - 12))
+      v7 = 0;
+    E->ai_var_C = v7;
+    goto LABEL_9;
+  }
+  E->ai_preinstr = 0xC500 /* MaridiaFloater_Func_10 */;
+  E->ai_var_E = 10;
+  enemy_drawing_queue[v4 + 104] = 1;
+  enemy_drawing_queue[v4 + 103] = addr_kMaridiaFloater_Ilist_C191;
+LABEL_10:
+  MaridiaFloater_Func_2(k);
+}
+void MaridiaFloater_Func_7(uint16 k) {  // 0xA8C3E1
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((E->ai_handler_bits & 1) != 0) {
+    bool v2 = E->ai_var_D == 1;
+    bool v3 = (--E->ai_var_D & 0x8000) != 0;
+    if (v2 || v3) {
+      E->ai_var_D = 5;
+      int v4 = k >> 1;
+      uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + enemy_drawing_queue_sizes[v4];
+      gEnemyData((uint16)(k + (-64)))->x_pos = v5;
+      E->x_pos = v5;
+      uint16 v6 = E->ai_var_C + 1;
+      if (!sign16(E->ai_var_C - 11))
+        v6 = 0;
+      E->ai_var_C = v6;
+    }
+    AddToHiLo(&E->ai_var_A, &E->ai_var_B, __PAIR32__(((uint16)BW_A8(0xC1B9 + 2 * (0))), ((uint16)BW_A8(0xC1BB + 2 * (0)))));
+    if (Enemy_MoveDown(k, __PAIR32__(E->ai_var_A, E->ai_var_B))
+        || (int16)(enemy_drawing_queue_sizes[(k >> 1) + 1] - enemy_drawing_queue_sizes[(k >> 1) + 3] - E->y_pos) >= 0) {
+      if (!E->ai_var_C || E->ai_var_C == 6)
+        E->ai_preinstr = 0xC4DC /* MaridiaFloater_Func_9 */;
+      else
+        E->ai_preinstr = 0xC469 /* MaridiaFloater_Func_8 */;
+    }
+    MaridiaFloater_Func_2(k);
+  } else {
+    E->ai_preinstr = 0xC36B /* MaridiaFloater_Func_6 */;
+  }
+}
+void MaridiaFloater_Func_8(uint16 k) {  // 0xA8C469
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((E->ai_handler_bits & 1) == 0) {
+    E->ai_preinstr = 0xC36B /* MaridiaFloater_Func_6 */;
+    return;
+  }
+  bool v2 = E->ai_var_D == 1;
+  bool v3 = (--E->ai_var_D & 0x8000) != 0;
+  if (!v2 && !v3)
+    goto LABEL_11;
+  E->ai_var_D = 5;
+  int v4;
+  v4 = k >> 1;
+  uint16 v5;
+  v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + enemy_drawing_queue_sizes[v4];
+  enemy_drawing_queue[v4 + 91] = v5;
+  E->x_pos = v5;
+  if (E->ai_var_C && E->ai_var_C != 6) {
+    {
+      uint16 v7 = E->ai_var_C + 1;
+      if (!sign16(v7 - 12))
+        v7 = 0;
+      E->ai_var_C = v7;
+    }
+LABEL_11:;
+    AddToHiLo(&E->ai_var_A, &E->ai_var_B, __PAIR32__(((uint16)BW_A8(0xC1B9 + 2 * (0))), ((uint16)BW_A8(0xC1BB + 2 * (0)))));
+    Enemy_MoveDown(k, __PAIR32__(E->ai_var_A, E->ai_var_B));
+    goto LABEL_12;
+  }
+  E->ai_preinstr = 0xC4DC /* MaridiaFloater_Func_9 */;
+LABEL_12:
+  MaridiaFloater_Func_2(k);
+}
+void MaridiaFloater_Func_9(uint16 k) {  // 0xA8C4DC
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((E->ai_handler_bits & 1) == 0) {
+    E->ai_preinstr = 0xC500 /* MaridiaFloater_Func_10 */;
+    E->ai_var_E = 10;
+    int v2 = k >> 1;
+    gEnemyData((uint16)(k + (-64)))->instruction_timer = 1;
+    gEnemyData((uint16)(k + (-64)))->current_instruction = addr_kMaridiaFloater_Ilist_C191;
+  }
+  MaridiaFloater_Func_2(k);
+}
+void MaridiaFloater_Func_10(uint16 k) {  // 0xA8C500
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  bool v2 = E->ai_var_E == 1;
+  bool v3 = (--E->ai_var_E & 0x8000) != 0;
+  if (v2 || v3) {
+    E->ai_preinstr = 0xC51D /* MaridiaFloater_Func_11 */;
+    E->ai_var_A = ((uint16)BW_A8(0xC1C1 + 2 * (0)));
+    E->ai_var_B = ((uint16)BW_A8(0xC1C3 + 2 * (0)));
+  }
+  MaridiaFloater_Func_2(k);
+}
+void MaridiaFloater_Func_11(uint16 k) {  // 0xA8C51D
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  AddToHiLo(&E->ai_var_A, &E->ai_var_B, __PAIR32__(((uint16)BW_A8(0xC1BD + 2 * (0))), ((uint16)BW_A8(0xC1BF + 2 * (0)))));
+  Enemy_MoveDown(k, __PAIR32__(E->ai_var_A, E->ai_var_B));
+  int v4 = k >> 1;
+  if ((int16)(E->y_pos - gEnemyData((uint16)(k + (-64)))->ai_var_B) >= 0) {
+    E->y_pos = gEnemyData((uint16)(k + (-64)))->ai_var_B;
+    E->ai_preinstr = 0xC283 /* MaridiaFloater_Func_3 */;
+    E->ai_var_E = 60;
+    E->instruction_timer = 1;
+    E->current_instruction = addr_kMaridiaFloater_Ilist_C173;
+  }
+  MaridiaFloater_Func_2(k);
+}
+void MaridiaFloater_Func_12(uint16 k) {  // 0xA8C569
+  int v1 = k >> 1;
+  if (!sign16(gEnemyData((uint16)(k + (-64)))->current_instruction + 0x3E6F)) {
+    uint16 v2 = (uint16)(gEnemyData((uint16)(k + (-64)))->current_instruction - 4 + 15983) >> 1;
+    if (v2) {
+      gEnemyData((uint16)(k + (-64)))->current_instruction = ((uint16)BW_A8(0xC599 + 2 * (v2 >> 1)));
+      gEnemyData((uint16)(k + (-64)))->instruction_timer = 1;
+    }
+  }
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->ai_preinstr = 0xC59F /* MaridiaFloater_Func_13 */;
+  E->ai_var_E = 32;
+  MaridiaFloater_Func_2(k);
+}
+void MaridiaFloater_Func_13(uint16 k) {  // 0xA8C59F
+  uint16 v5;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  bool v2 = E->ai_var_E == 1;
+  bool v3 = (--E->ai_var_E & 0x8000) != 0;
+  if (v2 || v3) {
+    int v4 = k >> 1;
+    gEnemyData((uint16)(k + (-64)))->health = 0;
+    gEnemyData((uint16)(k + (-64)))->properties |= 0x200;
+    MaridiaFloater_Func_1(k);
+    //; /* (aviso del decomp) */
+    v5 = 0;
+    EnemyDeathAnimation(k, v5);
+  } else {
+    MaridiaFloater_Func_2(k);
+  }
+}
+void MaridiaFloater_Touch(void) {  // 0xA8C5BE
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!E->parameter_2) {
+    uint16 palette_index = E->palette_index;
+    NormalEnemyTouchAi();
+    if (!E->health) {
+      enemy_drawing_queue[(cur_enemy_index >> 1) + 97] |= 0x200;
+      E->palette_index = palette_index;
+      MaridiaFloater_Func_1(cur_enemy_index);
+      E->palette_index = 2560;
+    }
+  }
+}
+void MaridiaFloater_Shot(void) {  // 0xA8C5EF
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!E->parameter_2) {
+    NormalEnemyShotAiSkipDeathAnim_CurEnemy();
+    if ((E->ai_handler_bits & 4) != 0) {
+      int v2 = cur_enemy_index >> 1;
+      gEnemyData((uint16)(cur_enemy_index + (-64)))->frozen_timer = E->frozen_timer;
+      gEnemyData((uint16)(cur_enemy_index + (-64)))->ai_handler_bits |= 4;
+    }
+    if ((E->ai_handler_bits & 2) != 0) {
+      int v3 = cur_enemy_index >> 1;
+      gEnemyData((uint16)(cur_enemy_index + (-64)))->flash_timer = E->flash_timer;
+      gEnemyData((uint16)(cur_enemy_index + (-64)))->ai_handler_bits |= 2;
+    }
+    if (!E->health) {
+      E->ai_preinstr = 0xC569 /* MaridiaFloater_Func_12 */;
+      E->parameter_2 = 1;
+    }
+  }
+}
+void MaridiaFloater_Powerbomb(void) {  // 0xA8C63F
+  Enemy_NormalPowerBombAI_A8();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->health) {
+    int v1 = cur_enemy_index >> 1;
+    gEnemyData((uint16)(cur_enemy_index + (-64)))->shake_timer = E->shake_timer;
+    gEnemyData((uint16)(cur_enemy_index + (-64)))->invincibility_timer = E->invincibility_timer;
+    gEnemyData((uint16)(cur_enemy_index + (-64)))->flash_timer = E->flash_timer;
+    gEnemyData((uint16)(cur_enemy_index + (-64)))->frozen_timer = E->frozen_timer;
+    gEnemyData((uint16)(cur_enemy_index + (-64)))->ai_handler_bits = E->ai_handler_bits;
+  } else {
+    enemy_drawing_queue[(cur_enemy_index >> 1) + 97] |= 0x200;
+  }
+}
+void WreckedShipRobot_Init(void) {  // 0xA8CB77
+  if ((*(uint16 *)&boss_bits_for_area[area_index] & 1) != 0) {
+    nt_gfx_hook_bank = -88;
+    nt_gfx_hook_addr = 0xCC67 /* WreckedShipRobot_Func_1 */;
+    EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+    E->properties |= 0xA000;
+    E->instruction_timer = 4;
+    E->timer = 0;
+    E->current_instruction = addr_kWreckedShipRobot_Ilist_C6E5;
+    E->ai_var_A = -512;
+    wrecked_ship_robot_palanim_timer = 1;
+    *(uint16 *)&wrecked_ship_robot_palanim_table_index = 0;
+    E->ai_var_B = 0;
+    wrecked_ship_robot_palanim_palindex = E->palette_index;
+  } else {
+    WreckedShipRobotDeactivated_Init();
+  }
+}
+void WreckedShipRobotDeactivated_Init(void) {  // 0xA8CBCC
+  EnemyData *v0 = gEnemyData(cur_enemy_index);
+  uint16 parameter_1 = v0->parameter_1;
+  if (sign16(parameter_1) || !sign16(parameter_1 - 4))
+    parameter_1 = 0;
+  v0->parameter_1 = parameter_1;
+  v0->current_instruction = ((uint16)BW_A8(0xCC30 + 2 * (parameter_1)));
+  v0->properties |= 0x8000;
+  v0->instruction_timer = 1;
+  v0->timer = 0;
+  wrecked_ship_robot_palanim_timer = 0;
+  v0->ai_var_E = 0;
+  v0->ai_preinstr = 1;
+  int v2 = (16 * ((wrecked_ship_robot_palanim_palindex & 0xFF00) >> 8)) >> 1;
+  { palette_buffer[v2 + 137] = 10; nt_pal_dirty((uint8)(v2 + 137), (uint8)(v2 + 137)); }
+  { palette_buffer[v2 + 138] = 10; nt_pal_dirty((uint8)(v2 + 138), (uint8)(v2 + 138)); }
+  { palette_buffer[v2 + 139] = 10; nt_pal_dirty((uint8)(v2 + 139), (uint8)(v2 + 139)); }
+  { palette_buffer[v2 + 140] = 10; nt_pal_dirty((uint8)(v2 + 140), (uint8)(v2 + 140)); }
+}
+void WreckedShipRobot_Main(void) {  // 0xA8CC36
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!Enemy_MoveDown(cur_enemy_index, __PAIR32__(E->ai_preinstr, E->ai_var_E))) {
+    ++E->instruction_timer;
+    AddToHiLo(&E->ai_preinstr, &E->ai_var_E, 0x8000);
+  }
+}
+void WreckedShipRobot_Func_1(void) {  // 0xA8CC67
+  uint16 i;
+  int16 v2;
+
+  if (!door_transition_flag_enemies) {
+    if (wrecked_ship_robot_palanim_timer) {
+      if (!--wrecked_ship_robot_palanim_timer) {
+        int v1;
+        for (i = *(uint16 *)&wrecked_ship_robot_palanim_table_index; ; i = 0) {
+          v1 = i >> 1;
+          v2 = ((int16)BW_A8(0xCCC1 + 2 * (v1)));
+          if (v2 >= 0)
+            break;
+        }
+        int v3 = (16 * ((wrecked_ship_robot_palanim_palindex & 0xFF00) >> 8)) >> 1;
+        { palette_buffer[v3 + 137] = v2; nt_pal_dirty((uint8)(v3 + 137), (uint8)(v3 + 137)); }
+        { palette_buffer[v3 + 138] = ((int16)BW_A8(0xCCC1 + 2 * (v1 + 1))); nt_pal_dirty((uint8)(v3 + 138), (uint8)(v3 + 138)); }
+        { palette_buffer[v3 + 139] = ((int16)BW_A8(0xCCC1 + 2 * (v1 + 2))); nt_pal_dirty((uint8)(v3 + 139), (uint8)(v3 + 139)); }
+        { palette_buffer[v3 + 140] = ((int16)BW_A8(0xCCC1 + 2 * (v1 + 3))); nt_pal_dirty((uint8)(v3 + 140), (uint8)(v3 + 140)); }
+        wrecked_ship_robot_palanim_timer = ((int16)BW_A8(0xCCC1 + 2 * (v1 + 4)));
+        *(uint16 *)&wrecked_ship_robot_palanim_table_index = i + 10;
+      }
+    }
+  }
+}
+void WreckedShipRobot_Func_2(uint16 k) {  // 0xA8CCFF
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 wsrt_var_B = E->ai_var_B;
+  if (wsrt_var_B)
+    E->ai_var_B = wsrt_var_B - 1;
+}
+uint16 WreckedShipRobot_Instr_4(uint16 k, uint16 jp) {  // 0xA8CD09
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = -512;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(-4))) {
+    E->ai_var_B += 8;
+    return (uint16)(addr_kWreckedShipRobot_Ilist_C73F);
+  } else {
+    if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+      extra_samus_x_subdisplacement = 0;
+      extra_samus_x_displacement = -4;
+    }
+    E->ai_var_D = E->y_pos;
+    uint16 x_pos = E->x_pos;
+    E->ai_var_C = x_pos;
+    E->x_pos = x_pos - E->x_width - E->x_width;
+    if (Enemy_MoveDown(cur_enemy_index, INT16_SHL16(1))) {
+      E->x_pos = E->ai_var_C;
+      E->y_pos = E->ai_var_D;
+    } else {
+      E->ai_var_B += 8;
+      E->x_pos = E->ai_var_C;
+      E->y_pos = E->ai_var_D;
+      E->ai_var_A = 512;
+      return (uint16)(addr_kWreckedShipRobot_Ilist_CB65);
+    }
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_9(uint16 k, uint16 jp) {  // 0xA8CDA4
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = -512;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(-4))) {
+    E->ai_var_B += 8;
+    return (uint16)(addr_kWreckedShipRobot_Ilist_C73F);
+  } else if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+    extra_samus_x_subdisplacement = 0;
+    extra_samus_x_displacement = -4;
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_6(uint16 k, uint16 jp) {  // 0xA8CDEA
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = -512;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(4))) {
+    E->ai_var_B += 8;
+    return (uint16)(addr_stru_A8C6E9);
+  } else {
+    if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+      extra_samus_x_subdisplacement = 0;
+      extra_samus_x_displacement = 4;
+    }
+    E->ai_var_D = E->y_pos;
+    uint16 x_pos = E->x_pos;
+    E->ai_var_C = x_pos;
+    E->x_pos = E->x_width + E->x_width + x_pos;
+    if (Enemy_MoveDown(cur_enemy_index, INT16_SHL16(1))) {
+      E->x_pos = E->ai_var_C;
+      E->y_pos = E->ai_var_D;
+    } else {
+      E->ai_var_B += 8;
+      E->x_pos = E->ai_var_C;
+      E->y_pos = E->ai_var_D;
+      E->ai_var_A = -512;
+      return (uint16)(addr_kWreckedShipRobot_Ilist_C91B);
+    }
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_8(uint16 k, uint16 jp) {  // 0xA8CE85
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = -512;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(4))) {
+    E->ai_var_B += 8;
+    return (uint16)(addr_stru_A8C6E9);
+  } else if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+    extra_samus_x_subdisplacement = 0;
+    extra_samus_x_displacement = 4;
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_7(uint16 k, uint16 jp) {  // 0xA8CECB
+  return (uint16)(addr_kWreckedShipRobot_Ilist_C92D);
+}
+uint16 WreckedShipRobot_Instr_15(uint16 k, uint16 jp) {  // 0xA8CECF
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 512;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(4))) {
+    E->ai_var_B += 8;
+    return (uint16)(addr_kWreckedShipRobot_Ilist_C985);
+  } else {
+    if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+      extra_samus_x_subdisplacement = 0;
+      extra_samus_x_displacement = 4;
+    }
+    E->ai_var_D = E->y_pos;
+    uint16 x_pos = E->x_pos;
+    E->ai_var_C = x_pos;
+    E->x_pos = E->x_width + E->x_width + x_pos;
+    if (Enemy_MoveDown(cur_enemy_index, INT16_SHL16(1))) {
+      E->x_pos = E->ai_var_C;
+      E->y_pos = E->ai_var_D;
+    } else {
+      E->ai_var_B += 8;
+      E->x_pos = E->ai_var_C;
+      E->y_pos = E->ai_var_D;
+      E->ai_var_A = -512;
+      return (uint16)(addr_kWreckedShipRobot_Ilist_C91B);
+    }
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_18(uint16 k, uint16 jp) {  // 0xA8CF6A
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 512;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(4))) {
+    E->ai_var_B += 8;
+    return (uint16)(addr_kWreckedShipRobot_Ilist_C985);
+  } else if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+    extra_samus_x_subdisplacement = 0;
+    extra_samus_x_displacement = 4;
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_16(uint16 k, uint16 jp) {  // 0xA8CFB0
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 512;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(-4))) {
+    E->ai_var_B += 8;
+    return (uint16)(addr_stru_A8C6E9);
+  } else {
+    if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+      extra_samus_x_subdisplacement = 0;
+      extra_samus_x_displacement = -4;
+    }
+    E->ai_var_D = E->y_pos;
+    uint16 x_pos = E->x_pos;
+    E->ai_var_C = x_pos;
+    E->x_pos = x_pos - E->x_width - E->x_width;
+    if (Enemy_MoveDown(cur_enemy_index, INT16_SHL16(1))) {
+      E->y_pos = E->ai_var_D;
+      E->x_pos = E->ai_var_C;
+    } else {
+      E->ai_var_B += 8;
+      E->y_pos = E->ai_var_D;
+      E->x_pos = E->ai_var_C;
+      E->ai_var_A = 512;
+      return (uint16)(addr_kWreckedShipRobot_Ilist_CB65);
+    }
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_17(uint16 k, uint16 jp) {  // 0xA8D04B
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 512;
+  if (Enemy_MoveRight_IgnoreSlopes(cur_enemy_index, INT16_SHL16(-4))) {
+    E->ai_var_B += 8;
+    return (uint16)(addr_stru_A8C6E9);
+  } else if (CheckIfEnemyTouchesSamus(cur_enemy_index)) {
+    extra_samus_x_subdisplacement = 0;
+    extra_samus_x_displacement = -4;
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_3(uint16 k, uint16 jp) {  // 0xA8D091
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((int16)(layer1_x_pos - E->x_pos) < 0
+      && (int16)(layer1_x_pos + 256 - E->x_pos) >= 0
+      && (int16)(layer1_y_pos - E->y_pos) < 0
+      && (int16)(layer1_y_pos + 224 - E->y_pos) >= 0) {
+    QueueSfx2_Max6(0x68);
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_10(uint16 k, uint16 jp) {  // 0xA8D0C2
+  return (uint16)(addr_stru_A8C6E9);
+}
+uint16 WreckedShipRobot_Instr_14(uint16 k, uint16 jp) {  // 0xA8D0C6
+  return WreckedShipRobot_CommonInstr(k, jp,
+      addr_kWreckedShipRobot_Ilist_CB1D, addr_kEproj_WreckedShipRobotLaserUpRight);
+}
+uint16 WreckedShipRobot_Instr_2(uint16 k, uint16 jp) {  // 0xA8D0D2
+  return WreckedShipRobot_CommonInstr(k, jp,
+      addr_kWreckedShipRobot_Ilist_C8D1, addr_kEproj_WreckedShipRobotLaserUpLeft);
+}
+uint16 WreckedShipRobot_CommonInstr(uint16 k, uint16 jp, uint16 r50, uint16 r48) {  // 0xA8D0DC
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_var_B) {
+    WreckedShipRobot_Func_2(k);
+  } else {
+    uint16 v3 = (random_number & 0x1F) + 16;
+    E->ai_var_B = v3;
+    SpawnEprojWithGfx(v3, cur_enemy_index, r48);
+    return (uint16)(r50);
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_13(uint16 k, uint16 jp) {  // 0xA8D100
+  return WreckedShipRobot_D10C(k, jp, addr_kWreckedShipRobot_Ilist_CB09);
+}
+uint16 WreckedShipRobot_Instr_1(uint16 k, uint16 jp) {  // 0xA8D107
+  return WreckedShipRobot_D10C(k, jp, addr_kWreckedShipRobot_Ilist_C8BD);
+}
+uint16 WreckedShipRobot_D10C(uint16 k, uint16 jp, uint16 r50) {  // 0xA8D10C
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_var_B) {
+    WreckedShipRobot_Func_2(k);
+  } else {
+    uint16 v3 = (random_number & 0x1F) + 16;
+    E->ai_var_B = v3;
+    SpawnEprojWithGfx(v3, cur_enemy_index, addr_kEproj_WreckedShipRobotLaserHorizontal);
+    return (uint16)(r50);
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_12(uint16 k, uint16 jp) {  // 0xA8D131
+  return WreckedShipRobot_D147(k, jp,
+      addr_kEproj_WreckedShipRobotLaserDownRight, addr_kWreckedShipRobot_Ilist_CAFD);
+}
+uint16 WreckedShipRobot_Instr_5(uint16 k, uint16 jp) {  // 0xA8D13D
+  return WreckedShipRobot_D147(k, jp,
+      addr_kEproj_WreckedShipRobotLaserDownLeft, addr_kWreckedShipRobot_Ilist_C8B1);
+}
+uint16 WreckedShipRobot_D147(uint16 k, uint16 jp, uint16 r48, uint16 r50) {  // 0xA8D147
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_var_B) {
+    WreckedShipRobot_Func_2(k);
+  } else {
+    uint16 v3 = (random_number & 0x1F) + 16;
+    E->ai_var_B = v3;
+    SpawnEprojWithGfx(v3, cur_enemy_index, r48);
+    return (uint16)(r50);
+  }
+  return jp;
+}
+uint16 WreckedShipRobot_Instr_11(uint16 k, uint16 jp) {  // 0xA8D16B
+  WreckedShipRobot_Func_2(cur_enemy_index);
+  return jp;
+}
+void WreckedShipRobotDeactivated_Touch(void) {  // 0xA8D174
+  if ((int16)(gEnemyData(cur_enemy_index)->x_pos - samus_x_pos) < 0)
+    extra_samus_x_displacement = 4;
+  else
+    extra_samus_x_displacement = -4;
+}
+void WreckedShipRobotDeactivated_Shot(void) {  // 0xA8D18D
+  NormalEnemyShotAi();
+}
+void WreckedShipRobot_Shot(void) {  // 0xA8D192
+  if ((*(uint16 *)&boss_bits_for_area[area_index] & 1) != 0) {
+    NormalEnemyShotAi();
+    EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+    if (E->health) {
+      uint16 v1;
+      if ((E->ai_var_A & 0x8000) != 0) {
+        if ((int16)(samus_x_pos - E->x_pos) >= 0)
+          v1 = addr_kWreckedShipRobot_Ilist_C833;
+        else
+          v1 = addr_kWreckedShipRobot_Ilist_C7BB;
+      } else if ((int16)(samus_x_pos - E->x_pos) < 0) {
+        v1 = addr_kWreckedShipRobot_Ilist_CA7D;
+      } else {
+        v1 = addr_kWreckedShipRobot_Ilist_CA01;
+      }
+      E->current_instruction = v1;
+      E->instruction_timer = 1;
+      E->ai_var_B += 64;
+    }
+  }
+}
+void MaridiaPuffer_Init(void) {  // 0xA8D8C9
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->current_instruction = addr_kMaridiaPuffer_Ilist_D841;
+  int v1 = (uint16)(4 * E->parameter_1) >> 1;
+  uint16 v2 = ((int16)BW_A8(0xD895 + 2 * (v1)));
+  ERAM(0x780A + E_k) = v2;
+  E->ai_preinstr = v2;
+  ERAM(0x780C + E_k) = ((int16)BW_A8(0xD895 + 2 * (v1 + 1)));
+  E->ai_var_E = 16;
+  E->ai_var_A = 0xD92B /* MaridiaPuffer_Func_1 */;
+  ERAM(0x7800 + E_k) = ((int16)BW_A8(0xD885 + 2 * (E->parameter_2)));
+}
+void CallMaridiaPuffer(uint32 ea) {
+  switch (ea) {
+  case 0xA8D92B: MaridiaPuffer_Func_1(); return;
+  case 0xA8D940: MaridiaPuffer_Func_2(); return;
+  case 0xA8D963: MaridiaPuffer_Func_3(); return;
+  case 0xA8D97C: MaridiaPuffer_Func_4(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void MaridiaPuffer_Main(void) {  // 0xA8D90B
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 v1 = ERAM(0x780E + E_k) - 1;
+  ERAM(0x780E + E_k) = v1;
+  if (!v1) {
+    ERAM(0x780E + E_k) = 1;
+    ERAM(0x7806 + E_k) = 0;
+  }
+  CallMaridiaPuffer(E->ai_var_A | 0xA80000);
+}
+void MaridiaPuffer_Func_1(void) {  // 0xA8D92B
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (E->ai_var_E-- == 1) {
+    E->ai_var_E = 16;
+    E->ai_var_A = 0xD940 /* MaridiaPuffer_Func_2 */;
+  }
+}
+void MaridiaPuffer_Func_2(void) {  // 0xA8D940
+  uint8 v1 = CalculateAngleOfSamusFromEnemy(cur_enemy_index) - 64;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7802 + E_k) = v1;
+  ERAM(0x7804 + E_k) = v1;
+  E->ai_var_A = 0xD963 /* MaridiaPuffer_Func_3 */;
+  E->ai_var_C = 24;
+}
+void MaridiaPuffer_Func_3(void) {  // 0xA8D963
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((int16)(E->ai_var_D - ERAM(0x7800 + E_k)) < 0)
+    MaridiaPuffer_Func_8(cur_enemy_index);
+  MaridiaPuffer_Func_6();
+  MaridiaPuffer_Func_7();
+  MaridiaPuffer_Func_5();
+}
+void MaridiaPuffer_Func_4(void) {  // 0xA8D97C
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((int16)E->ai_var_D > 0 && (int16)E->ai_var_B > 0) {
+    MaridiaPuffer_Func_6();
+    MaridiaPuffer_Func_7();
+    MaridiaPuffer_Func_9(cur_enemy_index);
+  } else {
+    E->ai_var_A = 0xD92B /* MaridiaPuffer_Func_1 */;
+    E->ai_var_B = 0;
+    E->ai_var_C = 0;
+    E->ai_var_D = 0;
+  }
+}
+void MaridiaPuffer_Func_5(void) {  // 0xA8D9AA
+  uint8 v1 = CalculateAngleOfSamusFromEnemy(cur_enemy_index) - 64;
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7802 + E_k) = v1;
+  uint16 v3 = SignExtend8(v1 - ERAM(0x7804 + E_k));
+  uint16 v4 = Abs16(v3);
+  if (!sign16(v4 - 48)) {
+    E->ai_var_A = 0xD97C /* MaridiaPuffer_Func_4 */;
+    E->ai_var_C = 24;
+  }
+}
+void MaridiaPuffer_Func_6(void) {  // 0xA8D9DB
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 R26 = 0;
+  uint16 r18 = ((uint16)BW_A0(0xB1C3 + 2 * ((uint8)(ERAM(0x7804 + E_k) + 64))));
+  if ((r18 & 0x8000) != 0)
+    ++R26;
+  uint32 t = ((Abs16(r18) & 0xFF00) >> 8) * E->ai_var_D;
+  if (R26)
+    t = -(int32)t;
+  AddToHiLo(&E->x_pos, &E->x_subpos, t);
+}
+void MaridiaPuffer_Func_7(void) {  // 0xA8DA28
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  uint16 R26 = 0;
+  uint16 r18 = ((uint16)BW_A0(0xB1C3 + 2 * ((uint8)ERAM(0x7804 + E_k))));
+  if ((r18 & 0x8000) != 0)
+    ++R26;
+  uint32 t = ((Abs16(r18) & 0xFF00) >> 8) * E->ai_var_D;
+  if (R26)
+    t = -(int32)t;
+  AddToHiLo(&E->y_pos, &E->y_subpos, t);
+}
+void MaridiaPuffer_Func_8(uint16 k) {  // 0xA8DA71
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_preinstr-- == 1) {
+    E->ai_preinstr = ERAM(0x780A + E_k);
+    E->ai_var_B += E->ai_var_C;
+    E->ai_var_D += E->ai_var_B;
+  }
+}
+void MaridiaPuffer_Func_9(uint16 k) {  // 0xA8DA92
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_preinstr-- == 1) {
+    E->ai_preinstr = ERAM(0x780C + E_k);
+    E->ai_var_B -= E->ai_var_C;
+    E->ai_var_D -= E->ai_var_B;
+  }
+}
+void MaridiaPuffer_Shot(void) {  // 0xA8DB14
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x8800 + E_k) = E->health;
+  Enemy_NormalShotAI_A8();
+  if (E->health == ERAM(0x8800 + E_k) && !ERAM(0x7806 + E_k)) {
+    E->instruction_timer = 1;
+    E->timer = 0;
+    E->current_instruction = addr_kMaridiaPuffer_Ilist_D855;
+    ERAM(0x7804 + E_k) = ((int16)BW_A8(0xD871 + 2 * (projectile_dir[collision_detection_index] & 0xF)));
+    E->ai_var_B = 256;
+    E->ai_var_D = 1536;
+    E->ai_var_A = 0xD97C /* MaridiaPuffer_Func_4 */;
+    ERAM(0x780E + E_k) = 48;
+    ERAM(0x7806 + E_k) = 1;
+  }
+}
 void WalkingLavaSeahorse_Init(void) {  // 0xA8DCCD
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
   ERAM(0x7808 + E_k) = 0;
@@ -9018,6 +15555,147 @@ uint16 WalkingLavaSeahorse_Instr_1(uint16 k, uint16 jp) {  // 0xA8DF71
 }
 void WalkingLavaSeahorse_Func_10(void) {  // 0xA8DF9D
   NormalEnemyShotAi();
+}
+void WreckedShipOrbs_Init(void) {  // 0xA8E388
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->current_instruction = ((uint16)BW_A8(0xE380 + 2 * (E->parameter_1)));
+  int v1 = (8 * E->parameter_2) >> 1;
+  ERAM(0x7802 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1)));
+  ERAM(0x7800 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1 + 1)));
+  ERAM(0x7806 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1 + 2)));
+  ERAM(0x7804 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1 + 3)));
+}
+void CallWreckedShipOrbsA(uint32 ea) {
+  switch (ea) {
+  case 0xA8E405: WreckedShipOrbs_Func_3(); return;
+  case 0xA8E424: WreckedShipOrbs_Func_4(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void CallWreckedShipOrbsB(uint32 ea) {
+  switch (ea) {
+  case 0xA8E443: WreckedShipOrbs_Func_5(); return;
+  case 0xA8E462: WreckedShipOrbs_Func_6(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void WreckedShipOrbs_Main(void) {  // 0xA8E3C3
+  WreckedShipOrbs_Func_1();
+  WreckedShipOrbs_Func_2();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallWreckedShipOrbsA(E->ai_var_A | 0xA80000);
+  CallWreckedShipOrbsB(E->ai_var_B | 0xA80000);
+}
+void WreckedShipOrbs_Func_1(void) {  // 0xA8E3D9
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = 0xE405 /* WreckedShipOrbs_Func_3 */;
+  if ((GetSamusEnemyDelta_Y(cur_enemy_index) & 0x8000) == 0)
+    E->ai_var_A = 0xE424 /* WreckedShipOrbs_Func_4 */;
+}
+void WreckedShipOrbs_Func_2(void) {  // 0xA8E3EF
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_B = 0xE443 /* WreckedShipOrbs_Func_5 */;
+  if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) == 0)
+    E->ai_var_B = 0xE462 /* WreckedShipOrbs_Func_6 */;
+}
+void WreckedShipOrbs_Func_3(void) {  // 0xA8E405
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(ERAM(0x7806 + E_k), ERAM(0x7804 + E_k)));
+}
+void WreckedShipOrbs_Func_4(void) {  // 0xA8E424
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(ERAM(0x7802 + E_k), ERAM(0x7800 + E_k)));
+}
+void WreckedShipOrbs_Func_5(void) {  // 0xA8E443
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  AddToHiLo(&E->x_pos, &E->x_subpos, __PAIR32__(ERAM(0x7806 + E_k), ERAM(0x7804 + E_k)));
+}
+void WreckedShipOrbs_Func_6(void) {  // 0xA8E462
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  AddToHiLo(&E->x_pos, &E->x_subpos, __PAIR32__(ERAM(0x7802 + E_k), ERAM(0x7800 + E_k)));
+}
+uint16 WreckedShipSpark_Instr_2(uint16 k, uint16 jp) {  // 0xA8E61D
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties |= kEnemyProps_Tangible;
+  return jp;
+}
+uint16 WreckedShipSpark_Instr_1(uint16 k, uint16 jp) {  // 0xA8E62A
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties &= ~kEnemyProps_Tangible;
+  return jp;
+}
+static void WreckedShipSpark_Func_4(uint16 k, uint16 r18) {  // 0xA8E6F6
+  int16 wssk_var_E;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  wssk_var_E = E->ai_var_E;
+  if (wssk_var_E < 0)
+    wssk_var_E = (NextRandom() & 0x3F) + 4;
+  E->ai_preinstr = r18 + wssk_var_E;
+}
+void WreckedShipSpark_Init(void) {  // 0xA8E637
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  int v2 = E->parameter_1 & 3;
+  E->ai_var_B = ((uint16)BW_A8(0xE688 + 2 * (v2)));
+  E->ai_var_E = E->parameter_2;
+  WreckedShipSpark_Func_4(cur_enemy_index, 0);
+  E->instruction_timer = 1;
+  E->current_instruction = ((uint16)BW_A8(0xE682 + 2 * (v2)));
+  E->timer = 0;
+  E->instruction_timer = 1;
+  if ((boss_bits_for_area[area_index] & 1) == 0) {
+    E->properties |= nt_ram_w(0x0100);
+  }
+}
+void CallWreckedShipSpark(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA8E695: WreckedShipSpark_Func_1(k); return;
+  case 0xA8E6B7: WreckedShipSpark_Func_2(k); return;
+  case 0xA8E6DC: WreckedShipSpark_Func_3(k); return;
+  case 0xA8E694: return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void WreckedShipSpark_Main(void) {  // 0xA8E68E
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallWreckedShipSpark(E->ai_var_B | 0xA80000, cur_enemy_index);
+}
+void WreckedShipSpark_Func_1(uint16 k) {  // 0xA8E695
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_preinstr == 1) {
+    E->ai_var_B = 0xE6B7 /* WreckedShipSpark_Func_2 */;
+    E->current_instruction = addr_kWreckedShipSpark_Ilist_E5A7;
+    E->instruction_timer = 1;
+    WreckedShipSpark_Func_4(k, 0);
+  } else {
+    --E->ai_preinstr;
+  }
+}
+void WreckedShipSpark_Func_2(uint16 k) {  // 0xA8E6B7
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_preinstr == 1) {
+    E->ai_var_B = 0xE695 /* WreckedShipSpark_Func_1 */;
+    E->current_instruction = addr_kWreckedShipSpark_Ilist_E5E5;
+    E->instruction_timer = 1;
+    WreckedShipSpark_Func_4(k, 8);
+  } else {
+    --E->ai_preinstr;
+  }
+}
+void WreckedShipSpark_Func_3(uint16 k) {  // 0xA8E6DC
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (E->ai_preinstr == 1) {
+    uint16 v2 = cur_enemy_index;
+    SpawnEprojWithGfx(0, cur_enemy_index, addr_kEproj_Sparks);
+    WreckedShipSpark_Func_4(v2, 0);
+  } else {
+    --E->ai_preinstr;
+  }
+}
+void WreckedShipSpark_Shot(void) {  // 0xA8E70E
+  projectile_dir[collision_detection_index] &= ~0x10;
 }
 void BlueBrinstarFaceBlock_Init(void) {  // 0xA8E82E
   EnemyData *v0 = gEnemyData(cur_enemy_index);
@@ -9520,6 +16198,465 @@ void KiHunter_Func_17(void) {  // 0xA8F98D
     v5 = ((uint16)BW_A2(0x838F + ((8 * v3) + 1))) + E->ai_var_D;
     E->ai_var_D = v5;
   } while (sign16(v5 - 0x2000));
+}
+void MoveEnemyWithVelocity(void) {  // 0xA9C3EF
+  EnemyData *v0 = gEnemyData(cur_enemy_index);
+  uint16 ai_var_B = v0->ai_var_B;
+  int carry = HIBYTE(v0->x_subpos) + LOBYTE(ai_var_B);
+  HIBYTE(v0->x_subpos) = carry;
+  v0->x_pos += (int8)(ai_var_B >> 8) + (carry >> 8);
+
+  uint16 ai_var_C = v0->ai_var_C;
+  carry = HIBYTE(v0->y_subpos) + LOBYTE(ai_var_C);
+  HIBYTE(v0->y_subpos) = carry;
+  v0->y_pos += (int8)(ai_var_C >> 8) + (carry >> 8);
+}
+void Enemy_SetInstrList(uint16 k, uint16 a) {  // 0xA9C453
+  EnemyData *v2 = gEnemyData(k);
+  v2->current_instruction = a;
+  v2->instruction_timer = 1;
+  v2->timer = 0;
+}
+void WriteColorsToPalette(uint16 k, uint8 db, uint16 j, uint16 a) {  // 0xA9D2E4
+  int n = a;
+  do {
+    { palette_buffer[k >> 1] = nt_bank_w(db, j); nt_pal_dirty((uint8)(k >> 1), (uint8)(k >> 1)); }
+    k += 2;
+    j += 2;
+  } while (--n);
+}
+void DeadTorizo_Init(void) {  // 0xA9D308
+  for (int i = 4094; i >= 0; i -= 2)
+    tilemap_stuff[i >> 1] = 0;
+  EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+  E->ai_var_A = 0xD3AD /* DeadTorizo_WaitForSamusColl */;
+  E->properties |= 0xA000;
+  E->current_instruction = addr_kDeadTorizo_Ilist_D6DC;
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->palette_index = 512;
+  E->ai_var_B = 0;
+  E->ai_var_C = 8;
+  ERAM(0x7808 + E_k) = 0;
+  ERAM(0x7804 + E_k) = 15;
+  ERAM(0x7806 + E_k) = 0;
+  InitializeEnemyCorpseRotting(0, addr_stru_A9DD58);
+}
+void CallDeadTorizoFuncA(uint32 ea) {
+  switch (ea) {
+  case 0xA9D3AD: DeadTorizo_WaitForSamusColl(cur_enemy_index); return;
+  case 0xA9D3E6: DeadTorizo_Rotting(); return;
+  case 0xA9D3C8: DeadTorizo_PreRotDelay(); return;
+  case 0xA9D3C7: return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void DeadTorizo_Main(void) {  // 0xA9D368
+  EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+  if ((E->properties & kEnemyProps_Tangible) == 0 && DeadTorizo_Func_0() & 1) {
+    E->properties |= kEnemyProps_Tangible;
+    E->ai_var_A = 0xD3E6 /* DeadTorizo_Rotting */;
+  }
+  nt_gfx_hook_bank = 0xA9; nt_gfx_hook_addr = 0xD39A;
+  CallDeadTorizoFuncA(E->ai_var_A | 0xA90000);
+  DeadTorizo_Func_1();
+}
+void DeadTorizo_MainGfxHook(void) {  // 0xA9D39A
+  MotherBrain_AddSpritemapToOam(addr_kDeadTorizo_Sprmap_D761, 296, 187, 0);
+}
+void DeadTorizo_WaitForSamusColl(uint16 k) {  // 0xA9D3AD
+  if (k == enemy_index_colliding_dirs[0]
+      || k == enemy_index_colliding_dirs[1]
+      || k == enemy_index_colliding_dirs[2]
+      || k == enemy_index_colliding_dirs[3]) {
+    gEnemyData(0)->ai_var_A = 0xD3C8 /* DeadTorizo_PreRotDelay */;
+  }
+}
+void DeadTorizo_PreRotDelay(void) {  // 0xA9D3C8
+  EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+  uint16 v1 = ERAM(0x7808 + E_k) + 1;
+  ERAM(0x7808 + E_k) = v1;
+  if (v1 >= 0x10) {
+    E->properties |= kEnemyProps_Tangible;
+    E->ai_var_A = 0xD3E6 /* DeadTorizo_Rotting */;
+    DeadTorizo_Rotting();
+  }
+}
+void DeadTorizo_Rotting(void) {  // 0xA9D3E6
+  EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+  uint16 v1 = ERAM(0x7806 + E_k) + 1;
+  ERAM(0x7806 + E_k) = v1;
+  if (v1 >= 0xF) {
+    ERAM(0x7806 + E_k) = 0;
+    uint16 dto_var_02 = ERAM(0x7804 + E_k);
+    if (dto_var_02) {
+      DeadTorizo_CopyLineOfSandHeapTileData(dto_var_02);
+      --ERAM(0x7804 + E_k);
+    }
+  }
+  ++E->ai_var_C;
+  MoveEnemyWithVelocity();
+  if (!(ProcessCorpseRotting(0) & 1))
+    E->ai_var_A = 0xD3C7 /* nullsub_361 */;
+}
+void DeadTorizo_Powerbomb(void) {  // 0xA9D42A
+  if ((gEnemyData(0)->properties & kEnemyProps_Tangible) == 0)
+    DeadTorizo_Shot();
+}
+void DeadTorizo_Shot(void) {  // 0xA9D433
+  EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+  E->properties |= kEnemyProps_Tangible;
+  E->ai_var_A = 0xD3E6 /* DeadTorizo_Rotting */;
+}
+uint8 DeadTorizo_Func_0(void) {  // 0xA9D443
+  int16 v5;
+  uint16 v3, v4;
+  EnemyData *E = gEnemyData(0); const uint16 E_k = (0);
+  uint16 r18 = E->x_pos, r20 = E->y_pos;
+  uint16 p = (addr_kDeadTorizo_Hitbox_D77C);
+  int R22 = BW_A9(p);
+  uint16 R24;
+  for (p += 2; R22; p += 8, R22--) {
+    if ((int16)(samus_y_pos - r20) >= 0) {
+      R24 = samus_y_pos - r20;
+      v3 = BW_A9(p + 6);
+    } else {
+      R24 = r20 - samus_y_pos;
+      v3 = BW_A9(p + 2);
+    }
+    if ((int16)(samus_y_radius + abs16(v3) - R24) >= 0) {
+      if ((int16)(samus_x_pos - r18) >= 0) {
+        R24 = samus_x_pos - r18;
+        v4 = BW_A9(p + 4);
+      } else {
+        R24 = r18 - samus_x_pos;
+        v4 = BW_A9(p);
+      }
+      v5 = samus_x_radius + abs16(v4) - R24;
+      if (v5 >= 0) {
+        if (sign16(v5 - 4))
+          v5 = 4;
+        extra_samus_x_displacement = v5;
+        extra_samus_y_displacement = 4;
+        extra_samus_x_subdisplacement = 0;
+        extra_samus_y_subdisplacement = 0;
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) {  // 0xA9D5EA
+  uint16 v1 = ((uint16)BW_A9(0xD67C + 2 * (a)));
+  int v2 = ((uint16)BW_A9(0xD69C + 2 * (a))) >> 1;
+  *(uint16 *)(&g_byte_7E9500 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2)));
+  *(uint16 *)(&g_byte_7E9510 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 8)));
+  *(uint16 *)(&g_byte_7E9520 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 16)));
+  *(uint16 *)(&g_byte_7E9530 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 24)));
+  *(uint16 *)(&g_byte_7E9540 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 32)));
+  *(uint16 *)(&g_byte_7E9550 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 40)));
+  *(uint16 *)(&g_byte_7E9560 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 48)));
+  *(uint16 *)(&g_byte_7E9570 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 56)));
+  *(uint16 *)(&g_byte_7E9580 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 64)));
+  *(uint16 *)(&g_byte_7E9590 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 72)));
+  *(uint16 *)(&g_byte_7E95A0 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 80)));
+  *(uint16 *)(&g_byte_7E95B0 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 88)));
+  *(uint16 *)(&g_byte_7E95C0 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 96)));
+  *(uint16 *)(&g_byte_7E95D0 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 104)));
+  *(uint16 *)(&g_byte_7E95E0 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 112)));
+  *(uint16 *)(&g_byte_7E95F0 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 120)));
+  *(uint16 *)(&g_byte_7E9600 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 128)));
+  *(uint16 *)(&g_byte_7E9610 + v1) = ((uint16)BW_B7(0xA800 + 2 * (v2 + 136)));
+}
+void DeadSidehopper_Init(void) {  // 0xA9D7B6
+  uint16 dsr_parameter_1 = gEnemyData(cur_enemy_index)->parameter_1;
+  if (dsr_parameter_1) {
+    if (dsr_parameter_1 != 2) {
+      nt_unimpl("Unreachable");
+    }
+    DeadSidehopper_Init_1();
+  } else {
+    DeadSidehopper_Init_0();
+  }
+}
+void DeadSidehopper_Init_0(void) {  // 0xA9D7C4
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->properties = E->properties & 0x77FF | kEnemyProps_ProcessedOffscreen;
+  if ((gEnemyData(0)->properties & kEnemyProps_Invisible) != 0)
+    E->properties |= kEnemyProps_Deleted;
+  ERAM(0x7810 + E_k) = 0;
+  ERAM(0x7814 + E_k) = 96;
+  ERAM(0x7816 + E_k) = 256;
+  E->x_pos = 488;
+  E->y_pos = 184;
+  E->ai_var_A = 0xD8E2 /* DeadSidehopper_Alive_WaitForActivate */;
+  E->palette_index = 512;
+  E->y_height = 21;
+  Enemy_SetInstrList(cur_enemy_index, addr_kDeadMonsters_Ilist_ECE3);
+  InitializeEnemyCorpseRotting(cur_enemy_index, addr_stru_A9DD68);
+}
+void DeadSidehopper_Init_1(void) {  // 0xA9D825
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  ERAM(0x7810 + E_k) = -1;
+  E->ai_var_A = 0xDA64 /* DeadSidehopper_WaitForSamusColl */;
+  E->palette_index = 3584;
+  Enemy_SetInstrList(cur_enemy_index, addr_kDeadMonsters_Ilist_ECEF);
+  InitializeEnemyCorpseRotting(cur_enemy_index, addr_stru_A9DD78);
+}
+void DeadZoomer_Init(void) {  // 0xA9D849
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->palette_index = 3584;
+  v1->ai_var_A = 0xDA69 /* DeadZoomer_WaitForSamusColl */;
+  int v2 = v1->parameter_1 >> 1;
+  Enemy_SetInstrList(cur_enemy_index, ((uint16)BW_A9(0xD86A + 2 * (v2))));
+  InitializeEnemyCorpseRotting(cur_enemy_index, ((uint16)BW_A9(0xD870 + 2 * (v2))));
+}
+void DeadRipper_Init(void) {  // 0xA9D876
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->palette_index = 3584;
+  v1->ai_var_A = 0xDA73 /* DeadRipper_WaitForSamusColl */;
+  int v2 = v1->parameter_1 >> 1;
+  Enemy_SetInstrList(cur_enemy_index, ((uint16)BW_A9(0xD897 + 2 * (v2))));
+  InitializeEnemyCorpseRotting(cur_enemy_index, ((uint16)BW_A9(0xD89B + 2 * (v2))));
+}
+void DeadSkree_Init(void) {  // 0xA9D89F
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  v1->palette_index = 3584;
+  v1->ai_var_A = 0xDA6E /* DeadSkree_WaitForSamusColl */;
+  int v2 = v1->parameter_1 >> 1;
+  Enemy_SetInstrList(cur_enemy_index, ((uint16)BW_A9(0xD8C0 + 2 * (v2))));
+  InitializeEnemyCorpseRotting(cur_enemy_index, ((uint16)BW_A9(0xD8C6 + 2 * (v2))));
+}
+void DeadSidehopper_Powerbomb(void) {  // 0xA9D8CC
+  if (ERAM(0x7810 + (cur_enemy_index)) >= 8)
+    DeadSidehopper_Shot();
+  else
+    DeadSidehopper_Main();
+}
+void CallDeadSidehopperFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0xA9D8F1: DeadSidehopper_Activated(k); return;
+  case 0xA9D8E2: DeadSidehopper_Alive_WaitForActivate(k); return;
+
+  case 0xA9DA64: DeadSidehopper_WaitForSamusColl(k); return;
+  case 0xA9DA69: DeadZoomer_WaitForSamusColl(k); return;
+  case 0xA9DA6E: DeadSkree_WaitForSamusColl(k); return;
+  case 0xA9DA73: DeadRipper_WaitForSamusColl(k); return;
+
+  case 0xA9DA8F: DeadSidehopper_PreRotDelay(k); return;
+  case 0xA9DA94: DeadZoomer_PreRotDelay(k); return;
+  case 0xA9DA9E: DeadSkree_PreRotDelay(k); return;
+  case 0xA9DA99: DeadRipper_PreRotDelay(k); return;
+
+  case 0xA9DABA: DeadSidehopper_Rotting(k); return;
+  case 0xA9DAD0: DeadZoomer_Rotting(k); return;
+  case 0xA9DAFC: DeadSkree_Rotting(k); return;
+  case 0xA9DAE6: DeadRipper_Rotting(k); return;
+
+  case 0xA9D910: DeadMonsters_Func_1(k); return;
+  case 0xA9D91D: DeadMonsters_Func_2(k); return;
+  case 0xA9DA08: DeadMonsters_Func_5(k); return;
+
+  case 0xA9D90F: return;
+  case 0xA9DA63: return;
+
+  default: nt_unimpl("Unreachable");
+  }
+}
+void DeadSidehopper_Main(void) {  // 0xA9D8DB
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallDeadSidehopperFunc(E->ai_var_A | 0xA90000, cur_enemy_index);
+}
+void DeadSidehopper_Alive_WaitForActivate(uint16 k) {  // 0xA9D8E2
+  if (sign16(layer1_x_pos - 513)) {
+    gEnemyData(k)->ai_var_A = 0xD8F1 /* DeadSidehopper_Activated */;
+    DeadSidehopper_Activated(k);
+  }
+}
+void DeadSidehopper_Activated(uint16 k) {  // 0xA9D8F1
+  if (DeadMonsters_Func_3(k) & 1) {
+    EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+    ERAM(0x780C + E_k) = (ERAM(0x780C + E_k) + 1) & 3;
+    Enemy_SetInstrList(k, addr_kDeadMonsters_Ilist_ECAC);
+    E->ai_var_A = 0xD90F /* nullsub_362 */;
+  }
+}
+void DeadMonsters_Func_1(uint16 k) {  // 0xA9D910
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->ai_var_A = 0xD91D /* DeadMonsters_Func_2 */;
+  E->ai_preinstr = 64;
+}
+void DeadMonsters_Func_2(uint16 k) {  // 0xA9D91D
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if ((--E->ai_preinstr & 0x8000) != 0) {
+    if (ERAM(0x7810 + E_k)) {
+      E->ai_var_A = 0xDA08 /* DeadMonsters_Func_5 */;
+    } else {
+      E->ai_var_A = 0xD8F1 /* DeadSidehopper_Activated */;
+      Enemy_SetInstrList(k, addr_kDeadMonsters_Ilist_ECE3);
+      int v3 = ERAM(0x780C + E_k);
+      ERAM(0x7816 + E_k) = ((uint16)BW_A9(0xD951 + 2 * (v3)));
+      ERAM(0x7814 + E_k) = ((uint16)BW_A9(0xD959 + 2 * (v3)));
+    }
+  }
+}
+uint8 DeadMonsters_Func_3(uint16 k) {  // 0xA9D961
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  DeadMonsters_Func_4(k, ERAM(0x7814 + E_k));
+  uint16 v2 = 32;
+  if ((ERAM(0x7816 + E_k) & 0x8000) == 0)
+    v2 = 128;
+  uint16 v3 = ERAM(0x7816 + E_k) + v2;
+  ERAM(0x7816 + E_k) = v3;
+  if (sign16(E->x_pos - 544)) {
+    int full = HIBYTE(E->y_subpos) + LOBYTE(v3);
+    HIBYTE(E->y_subpos) = full;
+    uint16 v12 = E->y_pos + (int8)(v3 >> 8) + (full >> 8);
+    E->y_pos = v12;
+    return sign16(v12 - 184) == 0;
+  } else {
+    return Enemy_MoveDown(k, INT16_SHL8(v3));
+  }
+}
+void DeadMonsters_Func_4(uint16 k, uint16 a) {  // 0xA9D9C7
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (sign16(E->x_pos - 544)) {
+    int full = HIBYTE(E->x_subpos) + LOBYTE(a);
+    HIBYTE(E->x_subpos) = full;
+    E->x_pos += (int8)(a >> 8) + (full >> 8);
+  } else {
+    Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL8(a));
+  }
+}
+void DeadMonsters_Func_5(uint16 k) {  // 0xA9DA08
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 v2 = ERAM(0x780E + E_k) + 1;
+  ERAM(0x780E + E_k) = v2;
+  if (v2 >= 8) {
+    ERAM(0x780E + E_k) = 0;
+    WriteColorsToPalette(
+      0x122,
+      0xa9, 32 * (ERAM(0x7810 + E_k) - 1) - 0x1434,
+      0xF);
+    uint16 v3 = cur_enemy_index;
+    uint16 v5 = ERAM(0x7810 + E_k) + 1;
+    ERAM(0x7810 + E_k) = v5;
+    if (v5 >= 8) {
+      Enemy_SetInstrList(v3, addr_kDeadMonsters_Ilist_ECE9);
+      E->ai_var_A = 0xDA64 /* DeadSidehopper_WaitForSamusColl */;
+      E->properties |= 0x8000;
+      E->y_height = 12;
+    }
+  }
+}
+void DeadSidehopper_WaitForSamusColl(uint16 k) {  // 0xA9DA64
+  DeadMonsters_WaitForSamusColl(k, 0xDA8F /* DeadSidehopper_PreRotDelay */);
+}
+void DeadZoomer_WaitForSamusColl(uint16 k) {  // 0xA9DA69
+  DeadMonsters_WaitForSamusColl(k, 0xDA94 /* DeadZoomer_PreRotDelay */);
+}
+void DeadSkree_WaitForSamusColl(uint16 k) {  // 0xA9DA6E
+  DeadMonsters_WaitForSamusColl(k, 0xDA9E /* DeadSkree_PreRotDelay */);
+}
+void DeadRipper_WaitForSamusColl(uint16 k) {  // 0xA9DA73
+  DeadMonsters_WaitForSamusColl(k, 0xDA99 /* DeadRipper_PreRotDelay */);
+}
+void DeadMonsters_WaitForSamusColl(uint16 k, uint16 j) {  // 0xA9DA76
+  if (k == enemy_index_colliding_dirs[0]
+      || k == enemy_index_colliding_dirs[1]
+      || k == enemy_index_colliding_dirs[2]
+      || k == enemy_index_colliding_dirs[3]) {
+    gEnemyData(k)->ai_var_A = j;
+  }
+}
+void DeadSidehopper_PreRotDelay(uint16 k) {  // 0xA9DA8F
+  DeadMonsters_PreRotDelay_Common(k, 0xDABA /* DeadSidehopper_Rotting */);
+}
+void DeadZoomer_PreRotDelay(uint16 k) {  // 0xA9DA94
+  DeadMonsters_PreRotDelay_Common(k, 0xDAD0 /* DeadZoomer_Rotting */);
+}
+void DeadRipper_PreRotDelay(uint16 k) {  // 0xA9DA99
+  DeadMonsters_PreRotDelay_Common(k, 0xDAE6 /* DeadRipper_Rotting */);
+}
+void DeadSkree_PreRotDelay(uint16 k) {  // 0xA9DA9E
+  DeadMonsters_PreRotDelay_Common(k, 0xDAFC /* DeadSkree_Rotting */);
+}
+void DeadMonsters_PreRotDelay_Common(uint16 k, uint16 j) {  // 0xA9DAA1
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  if (++E->ai_var_B >= 0x10) {
+    E->ai_var_A = j;
+    E->properties |= kEnemyProps_Tangible;
+  }
+}
+void DeadSidehopper_Rotting(uint16 k) {  // 0xA9DABA
+  uint8 v1 = ProcessCorpseRotting(k);
+  if (!(v1 & 1))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0xDA64 /* DeadSidehopper_WaitForSamusColl */;
+  uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
+  ProcessCorpseRottingVramTransfers(dms_var_53);
+}
+void DeadZoomer_Rotting(uint16 k) {  // 0xA9DAD0
+  uint8 v1 = ProcessCorpseRotting(k);
+  if (!(v1 & 1))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0xDA63 /* nullsub_268 */;
+  uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
+  ProcessCorpseRottingVramTransfers(dms_var_53);
+}
+void DeadRipper_Rotting(uint16 k) {  // 0xA9DAE6
+  uint8 v1 = ProcessCorpseRotting(k);
+  if (!(v1 & 1))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0xDA63 /* nullsub_268 */;
+  uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
+  ProcessCorpseRottingVramTransfers(dms_var_53);
+}
+void DeadSkree_Rotting(uint16 k) {  // 0xA9DAFC
+  uint8 v1 = ProcessCorpseRotting(k);
+  if (!(v1 & 1))
+    gEnemyData(cur_enemy_index)->ai_var_A = 0xDA63 /* nullsub_268 */;
+  uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
+  ProcessCorpseRottingVramTransfers(dms_var_53);
+}
+void DeadZoomer_Powerbomb(void) {  // 0xA9DCED
+  if ((gEnemyData(cur_enemy_index)->properties & kEnemyProps_Tangible) == 0)
+    DeadZoomer_Shot();
+}
+void DeadZoomer_Shot(void) {  // 0xA9DCF8
+  DeadSidehopper_DD34(0xDAD0 /* DeadZoomer_Rotting */);
+}
+void DeadRipper_Powerbomb(void) {  // 0xA9DCFD
+  if ((gEnemyData(cur_enemy_index)->properties & kEnemyProps_Tangible) == 0)
+    DeadRipper_Shot();
+}
+void DeadRipper_Shot(void) {  // 0xA9DD08
+  DeadSidehopper_DD34(0xDAE6 /* DeadRipper_Rotting */);
+}
+void DeadSkree_Powerbomb(void) {  // 0xA9DD0D
+  if ((gEnemyData(cur_enemy_index)->properties & kEnemyProps_Tangible) == 0)
+    DeadSkree_Shot();
+}
+void DeadSkree_Shot(void) {  // 0xA9DD18
+  DeadSidehopper_DD34(0xDAFC /* DeadSkree_Rotting */);
+}
+void DeadSidehopper_Shot(void) {  // 0xA9DD1D
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if ((E->properties & kEnemyProps_Tangible) != 0 || ERAM(0x7810 + E_k) < 8)
+    ;
+  else
+    DeadSidehopper_DD31();
+}
+void DeadSidehopper_DD31(void) {  // 0xA9DD31
+  DeadSidehopper_DD34(0xDABA /* DeadSidehopper_Rotting */);
+}
+void DeadSidehopper_DD34(uint16 a) {  // 0xA9DD34
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->ai_var_A = a;
+  E->properties |= kEnemyProps_ProcessedOffscreen | kEnemyProps_Tangible;
+}
+void DeadSidehopper_Touch(void) {  // 0xA9DD44
+  if (ERAM(0x7810 + (cur_enemy_index)) < 8)
+    NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
+  else
+    DeadSidehopper_DD31();
 }
 void Enemy_NormalFrozenAI_AA(void) {  // 0xAA8041
   NormalEnemyFrozenAI();
@@ -10416,6 +17553,347 @@ void TourianEntranceStatue_Init(void) {  // 0xAAD7C8
     target_palettes[v5 + 160] = ((uint16)BW_AA(0xD765 + 2 * (v5)));
   }
 }
+uint16 Shaktool_Instr_2(uint16 k, uint16 jp) {  // 0xAAD931
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  EnemyData *EX = gEnemyData(E->ai_var_E + 192); const uint16 EX_k = (E->ai_var_E + 192);
+  return Shaktool_D956(k, jp, EX->ai_var_D ^ 0x80);
+}
+uint16 Shaktool_Instr_3(uint16 k, uint16 jp) {  // 0xAAD93F
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  EnemyData *EX = gEnemyData(E->ai_var_E + 192); const uint16 EX_k = (E->ai_var_E + 192);
+  return Shaktool_D956(k, jp, EX->ai_var_D);
+}
+uint16 Shaktool_Instr_4(uint16 k, uint16 jp) {  // 0xAAD94A
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  return Shaktool_D956(k, jp, ((uint16)(HIBYTE(E->ai_var_A) | LOBYTE(E->ai_var_B) << 8)) ^ 0x80);
+}
+uint16 Shaktool_Instr_5(uint16 k, uint16 jp) {  // 0xAAD953
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  return Shaktool_D956(k, jp, ((uint16)(HIBYTE(E->ai_var_A) | LOBYTE(E->ai_var_B) << 8)));
+}
+uint16 Shaktool_D956(uint16 k, uint16 jp, uint16 a) {  // 0xAAD956
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int v3 = (uint8)a;
+  AddToHiLo(&E->x_pos, &E->x_subpos, INT16_SHL8(kSinCosTable8bit_Sext[v3 + 64]));
+  AddToHiLo(&E->y_pos, &E->y_subpos, INT16_SHL8(kSinCosTable8bit_Sext[v3]));
+  return jp;
+}
+uint16 Shaktool_Instr_6(uint16 k, uint16 jp) {  // 0xAAD99F
+  return jp;
+}
+void Shaktool_Func_2(uint16 k) {  // 0xAAD9A0
+  SpawnEprojWithGfx(0, k, addr_kEproj_ShaktoolAttackFrontCircle);
+  SpawnEprojWithGfx(0, k, addr_kEproj_ShaktoolAttackMiddleCircle);
+  SpawnEprojWithGfx(0, k, addr_kEproj_ShaktoolAttackBackCircle);
+}
+uint16 Shaktool_Instr_1(uint16 k, uint16 jp) {  // 0xAAD9BA
+  uint16 shakt_var_E = gEnemyData(k)->ai_var_E;
+  gEnemyData(shakt_var_E)->ai_preinstr = ((uint16)BW_AA(0xDEDB + 2 * (0)));
+  gEnemyData(shakt_var_E + 64)->ai_preinstr = ((uint16)BW_AA(0xDEDB + 2 * (1)));
+  gEnemyData(shakt_var_E + 128)->ai_preinstr = ((uint16)BW_AA(0xDEDB + 2 * (2)));
+  gEnemyData(shakt_var_E + 192)->ai_preinstr = ((uint16)BW_AA(0xDEDB + 2 * (3)));
+  gEnemyData(shakt_var_E + 256)->ai_preinstr = ((uint16)BW_AA(0xDEDB + 2 * (4)));
+  gEnemyData(shakt_var_E + 320)->ai_preinstr = ((uint16)BW_AA(0xDEDB + 2 * (5)));
+  gEnemyData(shakt_var_E + 384)->ai_preinstr = ((uint16)BW_AA(0xDEDB + 2 * (6)));
+  return jp;
+}
+void Shaktool_DAE5(uint16 k) {  // 0xAADAE5
+  if ((NextRandom() & 0x8431) == 0) {
+    for (int i = 12; i >= 0; i -= 2) {
+      EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+      E->ai_preinstr = 0xDCAA /* nullsub_274 */;
+      E->current_instruction = ((uint16)BW_AA(0xDF21 + 2 * (i >> 1)));
+      E->instruction_timer = 1;
+      k -= 64;
+    }
+  }
+}
+void Shaktool_DB0E(uint16 k, uint16 a) {  // 0xAADB0E
+  uint16 shakt_var_E = gEnemyData(k)->ai_var_E;
+  gEnemyData(shakt_var_E)->parameter_1 = a;
+  gEnemyData(shakt_var_E + 64)->parameter_1 = a;
+  gEnemyData(shakt_var_E + 128)->parameter_1 = a;
+  gEnemyData(shakt_var_E + 192)->parameter_1 = a;
+  gEnemyData(shakt_var_E + 256)->parameter_1 = a;
+  gEnemyData(shakt_var_E + 320)->parameter_1 = a;
+  gEnemyData(shakt_var_E + 384)->parameter_1 = a;
+}
+void Shaktool_DB27(uint16 k, uint16 a) {  // 0xAADB27
+  uint16 shakto_var_E = gEnemyData(k)->ai_var_E;
+  gEnemyData(shakto_var_E)->ai_var_A = a;
+  gEnemyData(shakto_var_E + 64)->ai_var_A = a;
+  gEnemyData(shakto_var_E + 128)->ai_var_A = a;
+  gEnemyData(shakto_var_E + 192)->ai_var_A = a;
+  gEnemyData(shakto_var_E + 256)->ai_var_A = a;
+  gEnemyData(shakto_var_E + 320)->ai_var_A = a;
+  gEnemyData(shakto_var_E + 384)->ai_var_A = a;
+}
+void Shaktool_DB40(uint16 k, uint16 a) {  // 0xAADB40
+  uint16 shakto_var_E = gEnemyData(k)->ai_var_E;
+  gEnemyData(shakto_var_E)->ai_var_B = a;
+  gEnemyData(shakto_var_E + 64)->ai_var_B = a;
+  gEnemyData(shakto_var_E + 128)->ai_var_B = a;
+  gEnemyData(shakto_var_E + 192)->ai_var_B = a;
+  gEnemyData(shakto_var_E + 256)->ai_var_B = a;
+  gEnemyData(shakto_var_E + 320)->ai_var_B = a;
+  gEnemyData(shakto_var_E + 384)->ai_var_B = a;
+}
+void Shaktool_DB59(uint16 k) {  // 0xAADB59
+  uint16 shakto_var_E;
+  uint16 shakto_var_B;
+  uint16 v7;
+  uint16 v10;
+  uint16 x_subpos;
+  uint16 y_subpos;
+  uint16 x_pos;
+  uint16 y_pos;
+
+  shakto_var_E = gEnemyData(k)->ai_var_E;
+  EnemyData *Shaktool = gEnemyData(shakto_var_E + 192); const uint16 Shaktool_k = (shakto_var_E + 192);
+  Shaktool->ai_var_D ^= 0x8000;
+  EnemyData *v3 = gEnemyData(shakto_var_E + 384); const uint16 v3_k = (shakto_var_E + 384);
+  shakto_var_B = v3->ai_var_B;
+  EnemyData *v5 = gEnemyData(shakto_var_E + 64); const uint16 v5_k = (shakto_var_E + 64);
+  v3->ai_var_B = (v5->ai_var_B ^ 0x8000) & 0xFF00;
+  v5->ai_var_B = (shakto_var_B ^ 0x8000) & 0xFF00;
+  EnemyData *v6 = gEnemyData(shakto_var_E + 320); const uint16 v6_k = (shakto_var_E + 320);
+  v7 = v6->ai_var_B;
+  EnemyData *v8 = gEnemyData(shakto_var_E + 128); const uint16 v8_k = (shakto_var_E + 128);
+  v6->ai_var_B = (v8->ai_var_B ^ 0x8000) & 0xFF00;
+  v8->ai_var_B = (v7 ^ 0x8000) & 0xFF00;
+  EnemyData *v9 = gEnemyData(shakto_var_E + 256); const uint16 v9_k = (shakto_var_E + 256);
+  v10 = v9->ai_var_B;
+  EnemyData *v11 = gEnemyData(shakto_var_E + 192); const uint16 v11_k = (shakto_var_E + 192);
+  v9->ai_var_B = (v11->ai_var_B ^ 0x8000) & 0xFF00;
+  v11->ai_var_B = (v10 ^ 0x8000) & 0xFF00;
+  EnemyData *v12 = gEnemyData(shakto_var_E + 384); const uint16 v12_k = (shakto_var_E + 384);
+  x_subpos = v12->x_subpos;
+  EnemyData *v14 = gEnemyData(shakto_var_E); const uint16 v14_k = (shakto_var_E);
+  v12->x_subpos = v14->x_subpos;
+  v14->x_subpos = x_subpos;
+  y_subpos = v12->y_subpos;
+  v12->y_subpos = v14->y_subpos;
+  v14->y_subpos = y_subpos;
+  x_pos = v12->x_pos;
+  v12->x_pos = v14->x_pos;
+  v14->x_pos = x_pos;
+  y_pos = v12->y_pos;
+  v12->y_pos = v14->y_pos;
+  v14->y_pos = y_pos;
+  gEnemyData(shakto_var_E + 64)->x_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 128)->x_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 192)->x_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 256)->x_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 320)->x_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 64)->y_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 128)->y_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 192)->y_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 256)->y_subpos = 0x8000;
+  gEnemyData(shakto_var_E + 320)->y_subpos = 0x8000;
+}
+void Shaktool_DC07(uint16 k) {  // 0xAADC07
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 v2;
+  if ((E->parameter_1 & 0x8000) != 0)
+    v2 = E->ai_var_B - E->ai_var_A;
+  else
+    v2 = E->ai_var_A - E->ai_var_B;
+  E->ai_var_C = 4 * HIBYTE(v2);
+}
+void Shaktool_DC2A(uint16 k) {  // 0xAADC2A
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  int v3 = HIBYTE(E->ai_var_B);
+  int v5 = k >> 1;
+  SetHiLo(&E->x_pos, &E->x_subpos, INT16_SHL8(((uint16)BW_AA(0xE0BD + 2 * (v3)))) + 
+      __PAIR32__(gEnemyData((uint16)(k + (-64)))->x_pos, gEnemyData((uint16)(k + (-64)))->x_subpos));
+  SetHiLo(&E->y_pos, &E->y_subpos, INT16_SHL8(((uint16)BW_AA(0xE03D + 2 * (v3)))) +
+      __PAIR32__(gEnemyData((uint16)(k + (-64)))->y_pos, gEnemyData((uint16)(k + (-64)))->y_subpos));
+}
+void Shaktool_DC6F(uint16 k) {  // 0xAADC6F
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  Shaktool_DB40(k, E->ai_var_A);
+  uint16 shakto_var_E = E->ai_var_E;
+  gEnemyData(shakto_var_E)->ai_var_C = ((uint16)BW_AA(0xDEE9 + 2 * (0)));
+  gEnemyData(shakto_var_E + 64)->ai_var_C = ((uint16)BW_AA(0xDEE9 + 2 * (1)));
+  gEnemyData(shakto_var_E + 128)->ai_var_C = ((uint16)BW_AA(0xDEE9 + 2 * (2)));
+  gEnemyData(shakto_var_E + 192)->ai_var_C = ((uint16)BW_AA(0xDEE9 + 2 * (3)));
+  gEnemyData(shakto_var_E + 256)->ai_var_C = ((uint16)BW_AA(0xDEE9 + 2 * (4)));
+  gEnemyData(shakto_var_E + 320)->ai_var_C = ((uint16)BW_AA(0xDEE9 + 2 * (5)));
+  gEnemyData(shakto_var_E + 384)->ai_var_C = ((uint16)BW_AA(0xDEE9 + 2 * (6)));
+}
+void Shaktool_Hurt(void) {  // 0xAADCA3
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  CallEnemyPreInstr(E->ai_preinstr | 0xAA0000);
+}
+void Shaktool_DCAC(uint16 k) {  // 0xAADCAC
+  Shaktool_DC2A(k);
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 shakto_var_C;
+  if ((E->parameter_1 & 0x4000) != 0) {
+    E->ai_var_A += 256;
+    shakto_var_C = 256;
+  } else {
+    shakto_var_C = E->ai_var_C;
+  }
+  E->ai_var_B += sign16(E->parameter_1) ? -shakto_var_C : shakto_var_C;
+}
+void Shaktool_DCD7(uint16 k) {  // 0xAADCD7
+  Shaktool_DCAC(k);
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 r18 = E->ai_var_B ^ 0x8000;
+  int16 v2 = r18 + ((uint16)(gEnemyData(k + 64)->ai_var_B - r18) >> 1);
+  if ((E->ai_var_D & 0x8000) != 0)
+    HIBYTE(v2) ^= 0x80;
+  uint16 v3 = (HIBYTE(v2) + 8) & 0xE0;
+  LOBYTE(E->ai_var_D) = v3;
+  E->current_instruction = ((uint16)BW_AA(0xDD15 + 2 * ((uint16)(v3 >> 4) >> 1)));
+  E->instruction_timer = 1;
+}
+void Shaktool_DD25(uint16 k) {  // 0xAADD25
+  int16 v7;
+
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  uint16 y_pos = E->y_pos;
+  uint16 x_pos = E->x_pos;
+  Shaktool_DCAC(k);
+  uint16 v12 = E->y_pos;
+  uint16 v11 = E->x_pos;
+  E->x_pos = x_pos;
+  E->y_pos = y_pos;
+  if (Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL16(v11 - x_pos))
+      || (E->y_pos = y_pos, Enemy_MoveDown(k, INT16_SHL16(v12 - y_pos)))) {
+    if ((E->parameter_1 & 0x2000) != 0) {
+      Shaktool_DB0E(k, (E->parameter_1 ^ 0x8000) & 0x8FFF);
+    } else {
+      E->x_pos = x_pos;
+      E->y_pos = y_pos;
+      Shaktool_DB59(k);
+      Shaktool_DB0E(cur_enemy_index, E->parameter_1 | 0x2000);
+      Shaktool_DB0E(cur_enemy_index, E->parameter_1 & 0xBFFF);
+    }
+    E->ai_var_D = 0;
+    uint16 v5 = CalculateAngleOfEnemyXfromEnemyY(k, E->ai_var_E);
+    v7 = v5 << 8;
+    uint16 v8;
+    if ((E->parameter_1 & 0x8000) != 0)
+      v8 = v7 - 0x4000;
+    else
+      v8 = v7 + 0x4000;
+    Shaktool_DB27(k, v8);
+    for (int i = 12; i >= 0; i -= 2) {
+      Shaktool_DC07(k);
+      EnemyData *EK = gEnemyData(k); const uint16 EK_k = (k);
+      EK->ai_preinstr = 0xDCAA /* nullsub_274 */;
+      EK->current_instruction = ((uint16)BW_AA(0xDF13 + 2 * (i >> 1)));
+      EK->instruction_timer = 1;
+      k -= 64;
+    }
+  } else {
+    E->x_pos = v11;
+    E->y_pos = v12;
+    if ((E->parameter_1 & 0x4000) != 0) {
+      E->ai_var_A += 256;
+    } else {
+      if (((E->ai_var_A ^ E->ai_var_B) & 0xFF00) == 0) {
+        Shaktool_DC6F(k);
+        E->ai_var_D = 30720;
+        Shaktool_DB0E(k, E->parameter_1 & 0xDFFF);
+        E->ai_var_D = HIBYTE(E->ai_var_D) << 8;
+      }
+      uint16 v2 = E->ai_var_D + E->ai_var_C;
+      E->ai_var_D = v2;
+      if (v2 >= 0xF000)
+        Shaktool_DB0E(k, E->parameter_1 | 0x4000);
+    }
+  }
+}
+void Shaktool_Init(void) {  // 0xAADE43
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  E->instruction_timer = 1;
+  E->timer = 0;
+  E->ai_var_A = 0;
+  E->ai_var_D = 0;
+  uint16 shakto_parameter_2 = E->parameter_2;
+  int v3 = shakto_parameter_2 >> 1;
+  E->properties |= ((uint16)BW_AA(0xDE95 + 2 * (v3)));
+  E->ai_var_E = cur_enemy_index - ((uint16)BW_AA(0xDEA3 + 2 * (v3)));
+  E->ai_preinstr = ((uint16)BW_AA(0xDEDB + (shakto_parameter_2)));
+  E->ai_var_C = ((uint16)BW_AA(0xDEE9 + (shakto_parameter_2))) - ((uint16)BW_AA(0xDEF7 + 2 * (v3)));
+  E->ai_var_B = ((uint16)BW_AA(0xDEB1 + 2 * (v3)));
+  E->current_instruction = ((uint16)BW_AA(0xDEB1 + 2 * (v3 + 7)));
+  E->layer = ((uint16)BW_AA(0xDECD + 2 * (v3)));
+  if (shakto_parameter_2)
+    Shaktool_DC2A(cur_enemy_index);
+}
+void Shaktool_Touch(void) {  // 0xAADF2F
+  NormalEnemyTouchAi();
+}
+void Shaktool_Shot(void) {  // 0xAADF34
+  NormalEnemyShotAi();
+  EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
+  if (!E->health) {
+    uint16 shakto_var_E = E->ai_var_E;
+    gEnemyData(shakto_var_E)->properties = 512;
+    gEnemyData(shakto_var_E + 64)->properties = 512;
+    gEnemyData(shakto_var_E + 128)->properties = 512;
+    gEnemyData(shakto_var_E + 192)->properties = 512;
+    gEnemyData(shakto_var_E + 256)->properties = 512;
+    gEnemyData(shakto_var_E + 320)->properties = 512;
+    gEnemyData(shakto_var_E + 384)->properties = 512;
+  }
+}
+uint16 Shaktool_Instr_9(uint16 k, uint16 jp) {  // 0xAAE429
+  fx_timer = 32;
+  fx_y_vel = 64;
+  return jp;
+}
+uint16 Shaktool_Instr_11(uint16 k, uint16 jp) {  // 0xAAE436
+  fx_base_y_pos = 722;
+  return jp;
+}
+uint16 Shaktool_Instr_10(uint16 k, uint16 jp) {  // 0xAAE43D
+  CallSomeSamusCode(1);
+  return jp;
+}
+uint16 Shaktool_Instr_8(uint16 k, uint16 jp) {  // 0xAAE57F
+  QueueSfx2_Max6(0x1C);
+  return jp;
+}
+uint16 Shaktool_Instr_13(uint16 k, uint16 jp) {  // 0xAAE587
+  QueueSfx2_Max6(0x4B);
+  return jp;
+}
+uint16 Shaktool_Instr_12(uint16 k, uint16 jp) {  // 0xAAE58F
+  EnemyData *e = gEnemyData(k); const uint16 e_k = (k);
+  uint16 arg = IW_AA((uint16)(jp + 0));
+
+  CalculateBlockContainingPixelPos(e->x_pos + arg, e->y_pos + 28);
+  if ((level_get(room_width_in_blocks + cur_block_index) & 0xF000) == 0xA000) {
+    SpawnPLM(addr_kPlmHeader_D113);
+    SpawnEprojWithRoomGfx(addr_kEproj_WreckedShipChozoSpikeFootsteps_1, arg);
+  }
+  return (uint16)(jp + 2);
+}
+uint16 Shaktool_Instr_7(uint16 k, uint16 jp) {  // 0xAAE5D8
+  EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+  E->ai_var_C = IW_AA((uint16)(jp + 0));
+  Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL8(((uint16)BW_AA(0xE630 + 2 * (E->ai_var_C >> 1)))));
+  Enemy_MoveDown(k, INT16_SHL8(abs16(((uint16)BW_AA(0xE630 + 2 * (E->ai_var_C >> 1))))));
+  EnemyFunc_C8AD(k);
+  int v6 = E->ai_var_C >> 1;
+  samus_x_pos = ((uint16)BW_AA(0xE670 + 2 * (v6))) + E->x_pos;
+  samus_y_pos = ((uint16)BW_AA(0xE6B0 + 2 * (v6))) + E->y_pos;
+  return (uint16)(jp + 2);
+}
+uint16 Shaktool_Instr_14(uint16 k, uint16 jp) {  // 0xAAE6F0
+  CallSomeSamusCode(1);
+  *(uint16 *)&scrolls[6] = 0;
+  *(uint16 *)&scrolls[8] = 0;
+  *(uint16 *)&scrolls[9] = 0;
+  *(uint16 *)&scrolls[13] = 1;
+  SpawnHardcodedPlm(0x17, 0x1d, 0xd6fc);
+  return jp;
+}
 void ChozoStatue_Init(void) {  // 0xAAE725
   EnemyData *v0 = gEnemyData(cur_enemy_index);
   v0->properties |= kEnemyProps_DisableSamusColl | kEnemyProps_ProcessedOffscreen | 0x8000;
@@ -10451,6 +17929,17 @@ void sub_AAE784(void) {  // 0xAAE784
 void ChozoStatue_Main(void) {  // 0xAAE7A7
   EnemyData *v0 = gEnemyData(cur_enemy_index);
   CallEnemyPreInstr(v0->ai_preinstr | 0xAA0000);
+}
+void Shaktool_PreInstr_0(uint16 k) {  // 0xAAE7AE
+  if ((*(uint16 *)&boss_bits_for_area[area_index] & 1) != 0) {
+    EnemyData *E = gEnemyData(k); const uint16 E_k = (k);
+    if (E->parameter_1) {
+      E->current_instruction = addr_kShaktool_Ilist_E461;
+      E->instruction_timer = 1;
+      E->ai_var_A = -256;
+      E->ai_var_B = 256;
+    }
+  }
 }
 void Enemy_NormalFrozenAI_B2(void) {  // 0xB28041
   NormalEnemyFrozenAI();
@@ -11254,6 +18743,18 @@ void BrinstarPipeBug_Func_1(void) {  // 0xB3898B
     PipeBug->timer = 0;
   }
 }
+void NorfairPipeBug_Init(void) {  // 0xB38B61
+  EnemyData *PipeBug = gEnemyData(cur_enemy_index); const uint16 PipeBug_k = (cur_enemy_index);
+  PipeBug->ai_var_D = PipeBug->x_pos;
+  PipeBug->ai_var_E = PipeBug->y_pos;
+  PipeBug->properties |= kEnemyProps_Invisible;
+  PipeBug->ai_var_B = 8 * HIBYTE(PipeBug->parameter_2);
+  PipeBug->ai_var_C = 0;
+  PipeBug->instruction_timer = 1;
+  PipeBug->timer = 0;
+  PipeBug->current_instruction = addr_kNorfairPipeBug_Ilist_8AE1;
+  PipeBug->ai_var_A = 0x8BCD /* NorfairPipeBug_Func_1 */;
+}
 void CallBugInstr(uint32 ea, uint16 k) {
   switch (ea) {
   case 0xB38BCD: NorfairPipeBug_Func_1(); return;  // 0xb38bcd
@@ -11274,6 +18775,20 @@ void CallBugInstr(uint32 ea, uint16 k) {
   case 0xB3915A: BrinstarYellowPipeBug_Func_7(); return;  // 0xb3915a
   case 0xB391D8: BrinstarYellowPipeBug_Func_8(); return;  // 0xb391d8
   default: nt_unimpl("Unreachable");
+  }
+}
+void NorfairPipeBug_Main(void) {  // 0xB38B9E
+  EnemyData *PipeBug = gEnemyData(cur_enemy_index); const uint16 PipeBug_k = (cur_enemy_index);
+  CallBugInstr(PipeBug->ai_var_A | 0xB30000, cur_enemy_index);
+  NorfairPipeBug_8BA8();
+}
+void NorfairPipeBug_8BA8(void) {  // 0xB38BA8
+  if (CheckIfEnemyIsOnScreen()) {
+    EnemyData *PipeBug = gEnemyData(cur_enemy_index); const uint16 PipeBug_k = (cur_enemy_index);
+    PipeBug->properties |= kEnemyProps_Invisible;
+    PipeBug->ai_var_A = 0x8BCD /* NorfairPipeBug_Func_1 */;
+    PipeBug->x_pos = PipeBug->ai_var_D;
+    PipeBug->y_pos = PipeBug->ai_var_E;
   }
 }
 void NorfairPipeBug_Func_1(void) {  // 0xB38BCD
@@ -11700,8 +19215,11 @@ void EscapeDachora_Init(void) {  // 0xB3EAE5
 }
 void port_nop_v(void) {}
 void port_nop_k(uint16 k) { (void)k; }   /* nullsubs: quien llama puede saltarlas */
+static void port_w_Rinka_Frozen(void) { Rinka_Frozen(cur_enemy_index); }
+static void port_w_Rinka_Powerbomb(void) { Rinka_Powerbomb(cur_enemy_index); }
 static void port_w_Fireflea_Touch(void) { Fireflea_Touch(cur_enemy_index); }
-static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
+static void port_w_Metroid_Powerbomb(void) { Metroid_Powerbomb(cur_enemy_index); }
+static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[325] = {
   {0xA28023, Enemy_NormalTouchAI_A2},
   {0xA2802D, Enemy_NormalShotAI_A2},
   {0xA28041, Enemy_NormalFrozenAI_A2},
@@ -11709,14 +19227,47 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA2804C, port_nop_v},
   {0xA2871C, BouncingGoofball_Init},
   {0xA2879C, BouncingGoofball_Main},
+  {0xA28D6C, MaridiaBeybladeTurtle_Init},
+  {0xA28D9D, MiniMaridiaBeybladeTurtle_Init},
+  {0xA28DD2, MaridiaBeybladeTurtle_Main},
+  {0xA2912E, MiniMaridiaBeybladeTurtle_Main},
+  {0xA29281, MaridiaBeybladeTurtle_Touch},
+  {0xA2929F, MiniMaridiaBeybladeTurtle_Touch},
+  {0xA2930F, MiniMaridiaBeybladeTurtle_Shot},
   {0xA29A3F, ThinHoppingBlobs_Init},
   {0xA29A7D, ThinHoppingBlobs_Main},
   {0xA29F48, SpikeShootingPlant_Init},
   {0xA29FB3, SpikeShootingPlant_Main},
+  {0xA2A3F9, MaridiaSpikeyShell_Init},
+  {0xA2A47E, MaridiaSpikeyShell_Main},
+  {0xA2A579, MaridiaSpikeyShell_Shot},
   {0xA2B06B, Flies_Init},
   {0xA2B11F, Flies_Main},
+  {0xA2B3E0, NorfairErraticFireball_Init},
+  {0xA2B40F, NorfairErraticFireball_Main},
+  {0xA2B570, LavaquakeRocks_Init},
+  {0xA2B58F, LavaquakeRocks_Main},
+  {0xA2B602, Rinka_Init},
+  {0xA2B7C4, Rinka_Main},
+  {0xA2B929, port_w_Rinka_Frozen},
+  {0xA2B947, Rinka_Touch},
+  {0xA2B94D, Rinka_Shot},
+  {0xA2B953, port_w_Rinka_Powerbomb},
   {0xA2BBCD, Rio_Init},
   {0xA2BBE3, Rio_Main},
+  {0xA2BE99, NorfairLavajumpingEnemy_Init},
+  {0xA2BED2, NorfairLavajumpingEnemy_Main},
+  {0xA2C242, NorfairRio_Init},
+  {0xA2C277, NorfairRio_Main},
+  {0xA2C6F3, LowerNorfairRio_Init},
+  {0xA2C724, LowerNorfairRio_Main},
+  {0xA2CCD4, MaridiaLargeSnail_Init},
+  {0xA2CD13, MaridiaLargeSnail_Main},
+  {0xA2D388, MaridiaLargeSnail_Func_12},
+  {0xA2D38C, MaridiaLargeSnail_Touch},
+  {0xA2D38C, MaridiaLargeSnail_Touch},
+  {0xA2D3B4, MaridiaLargeSnail_Shot},
+  {0xA2D3B4, MaridiaLargeSnail_Shot},
   {0xA2DF76, HirisingSlowfalling_Init},
   {0xA2E02E, HirisingSlowfalling_Main},
   {0xA2E1D3, Gripper_Init},
@@ -11726,6 +19277,11 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA2E3A9, JetPowerRipper_Shot},
   {0xA2E49F, Ripper_Init},
   {0xA2E4DA, Ripper_Main},
+  {0xA2E606, LavaSeahorse_Init},
+  {0xA2E64E, LavaSeahorse_Main},
+  {0xA2E7C8, LavaSeahorse_Touch},
+  {0xA2E7CE, LavaSeahorse_Shot},
+  {0xA2E7D4, LavaSeahorse_Powerbomb},
   {0xA2E9DA, TimedShutter_Init},
   {0xA2EAB6, TimedShutter_Main},
   {0xA2EE05, RisingFallingPlatform_Init},
@@ -11735,6 +19291,11 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA2F0A2, RisingFallingPlatform_Shot},
   {0xA2F0AA, ShootableShutter_Shot},
   {0xA2F0B6, RisingFallingPlatform_Powerbomb},
+  {0xA2F111, HorizontalShootableShutter_Init},
+  {0xA2F1DE, HorizontalShootableShutter_Main},
+  {0xA2F3D8, HorizontalShootableShutter_Touch},
+  {0xA2F40E, HorizontalShootableShutter_Shot},
+  {0xA2F41A, HorizontalShootableShutter_Powerbomb},
   {0xA38023, Enemy_NormalTouchAI_A3},
   {0xA3802D, Enemy_NormalShotAI_A3},
   {0xA38041, Enemy_NormalFrozenAI_A3},
@@ -11762,18 +19323,41 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA39F08, FastMovingSlowSinkingPlatform_Shot},
   {0xA3A14D, Roach_Init},
   {0xA3A2D0, Roach_Main},
+  {0xA3A77D, Mochtroid_Init},
+  {0xA3A790, Mochtroid_Main},
+  {0xA3A953, Mochtroid_Touch},
+  {0xA3A9A8, Mochtroid_Shot},
   {0xA3AB09, Sidehopper_Init},
   {0xA3ABCF, Sidehopper_Main},
+  {0xA3B44A, MaridiaRefillCandy_Init},
+  {0xA3B47C, MaridiaRefillCandy_Main},
+  {0xA3B66F, NorfairSlowFireball_Init},
+  {0xA3BAB3, Bang_Init},
+  {0xA3BB25, Bang_Main},
+  {0xA3BEFD, Bang_Shot},
   {0xA3C6AE, Skree_Init},
   {0xA3C6C7, Skree_Main},
   {0xA3C7F5, Skree_Shot},
+  {0xA3CDE2, MaridiaSnail_Init},
+  {0xA3CE64, MaridiaSnail_Main},
+  {0xA3D3B0, MaridiaSnail_Touch},
+  {0xA3D469, MaridiaSnail_Shot},
+  {0xA3DBD3, Reflec_Init},
   {0xA3DC1B, port_nop_v},
+  {0xA3DC1C, Reflec_Shot},
   {0xA3E043, WreckedShipOrangeZoomer_Init},
   {0xA3E08B, WreckedShipOrangeZoomer_Main},
   {0xA3E2D4, BigEyeBugs_Init},
   {0xA3E59C, FireZoomer_Init},
   {0xA3E669, StoneZoomer_Init},
   {0xA3E6C2, StoneZoomer_Main},
+  {0xA3EA4F, Metroid_Init},
+  {0xA3EAE6, Metroid_Frozen},
+  {0xA3EB33, Metroid_Hurt},
+  {0xA3EB98, Metroid_Main},
+  {0xA3EDEB, Metroid_Touch},
+  {0xA3EF07, Metroid_Shot},
+  {0xA3F042, port_w_Metroid_Powerbomb},
   {0xA4804C, port_nop_v},
   {0xA4B950, port_nop_v},
   {0xA4B950, port_nop_v},
@@ -11794,11 +19378,23 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA6804C, port_nop_v},
   {0xA686F5, Boulder_Init},
   {0xA68793, Boulder_Main},
+  {0xA68B2F, SpikeyPlatform_Init},
+  {0xA68B85, SpikeyPlatform2ndEnemy_Init},
+  {0xA68B99, SpikeyPlatform2ndEnemy_Main},
+  {0xA68BAD, SpikeyPlatform_Main},
+  {0xA68FFC, FireGeyser_Init},
+  {0xA69023, FireGeyser_Main},
+  {0xA694C4, NuclearWaffle_Init},
+  {0xA6960E, NuclearWaffle_Main},
   {0xA69A58, FakeKraid_Init},
   {0xA69AC2, FakeKraid_Main},
   {0xA69C22, FakeKraid_Touch},
   {0xA69C39, FakeKraid_Shot},
   {0xA6F920, port_nop_v},
+  {0xA6FB72, Zebetites_Init},
+  {0xA6FC33, Zebetites_Main},
+  {0xA6FDA7, Zebetites_Touch},
+  {0xA6FDAC, Zebetites_Shot},
   {0xA7803C, Enemy_NormalPowerBombAI_SkipDeathAnim_A7},
   {0xA7804C, port_nop_v},
   {0xA7804C, port_nop_v},
@@ -11816,8 +19412,19 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA8802D, Enemy_NormalShotAI_A8},
   {0xA88041, Enemy_NormalFrozenAI_A8},
   {0xA8804C, port_nop_v},
+  {0xA887E0, MiniDraygon_Init},
+  {0xA888B0, EvirProjectile_Init},
+  {0xA8891B, MiniDraygon_Main},
+  {0xA8899E, EvirProjectile_Main},
+  {0xA88B06, MiniDraygon_Touch},
+  {0xA88B0C, MiniDraygon_Powerbomb},
+  {0xA88B12, MiniDraygon_Shot},
   {0xA89058, MorphBallEye_Init},
   {0xA890E2, MorphBallEye_Main},
+  {0xA896E3, Fune_Init},
+  {0xA89730, Fune_Main},
+  {0xA89AEE, WreckedShipGhost_Init},
+  {0xA89B3C, WreckedShipGhost_Main},
   {0xA8A148, YappingMaw_Init},
   {0xA8A211, YappingMaw_Main},
   {0xA8A799, YappingMaw_Touch},
@@ -11826,13 +19433,37 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA8AB46, Kago_Init},
   {0xA8AB75, Kago_Main},
   {0xA8AB83, Kago_Shot},
+  {0xA8AF8B, NorfairLavaMan_Init},
+  {0xA8B10A, NorfairLavaMan_Main},
+  {0xA8B400, NorfairLavaMan_Powerbomb},
+  {0xA8B406, NorfairLavaMan_Touch},
+  {0xA8B40C, NorfairLavaMan_Shot},
   {0xA8B776, Beetom_Init},
   {0xA8B80D, Beetom_Main},
   {0xA8BE2E, Beetom_Touch},
   {0xA8BEAC, Beetom_Shot},
+  {0xA8C1C9, MaridiaFloater_Init},
+  {0xA8C21C, MaridiaFloater_Main},
+  {0xA8C5BE, MaridiaFloater_Touch},
+  {0xA8C5EF, MaridiaFloater_Shot},
+  {0xA8C63F, MaridiaFloater_Powerbomb},
+  {0xA8CB77, WreckedShipRobot_Init},
+  {0xA8CBCC, WreckedShipRobotDeactivated_Init},
+  {0xA8CC36, WreckedShipRobot_Main},
   {0xA8CC66, port_nop_v},
+  {0xA8D174, WreckedShipRobotDeactivated_Touch},
+  {0xA8D18D, WreckedShipRobotDeactivated_Shot},
+  {0xA8D192, WreckedShipRobot_Shot},
+  {0xA8D8C9, MaridiaPuffer_Init},
+  {0xA8D90B, MaridiaPuffer_Main},
+  {0xA8DB14, MaridiaPuffer_Shot},
   {0xA8DCCD, WalkingLavaSeahorse_Init},
   {0xA8DD6B, WalkingLavaSeahorse_Main},
+  {0xA8E388, WreckedShipOrbs_Init},
+  {0xA8E3C3, WreckedShipOrbs_Main},
+  {0xA8E637, WreckedShipSpark_Init},
+  {0xA8E68E, WreckedShipSpark_Main},
+  {0xA8E70E, WreckedShipSpark_Shot},
   {0xA8E82E, BlueBrinstarFaceBlock_Init},
   {0xA8E8AE, BlueBrinstarFaceBlock_Main},
   {0xA8E91D, BlueBrinstarFaceBlock_Shot},
@@ -11844,6 +19475,24 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xA9804C, port_nop_v},
   {0xA9B5C5, port_nop_v},
   {0xA9B5C5, port_nop_v},
+  {0xA9D308, DeadTorizo_Init},
+  {0xA9D368, DeadTorizo_Main},
+  {0xA9D42A, DeadTorizo_Powerbomb},
+  {0xA9D433, DeadTorizo_Shot},
+  {0xA9D7B6, DeadSidehopper_Init},
+  {0xA9D849, DeadZoomer_Init},
+  {0xA9D876, DeadRipper_Init},
+  {0xA9D89F, DeadSkree_Init},
+  {0xA9D8CC, DeadSidehopper_Powerbomb},
+  {0xA9D8DB, DeadSidehopper_Main},
+  {0xA9DCED, DeadZoomer_Powerbomb},
+  {0xA9DCF8, DeadZoomer_Shot},
+  {0xA9DCFD, DeadRipper_Powerbomb},
+  {0xA9DD08, DeadRipper_Shot},
+  {0xA9DD0D, DeadSkree_Powerbomb},
+  {0xA9DD18, DeadSkree_Shot},
+  {0xA9DD1D, DeadSidehopper_Shot},
+  {0xA9DD44, DeadSidehopper_Touch},
   {0xAA8041, Enemy_NormalFrozenAI_AA},
   {0xAA804C, port_nop_v},
   {0xAAC67E, Torizo_Hurt},
@@ -11858,6 +19507,10 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xAAD667, GoldTorizo_Shot},
   {0xAAD7C7, port_nop_v},
   {0xAAD7C8, TourianEntranceStatue_Init},
+  {0xAADCA3, Shaktool_Hurt},
+  {0xAADE43, Shaktool_Init},
+  {0xAADF2F, Shaktool_Touch},
+  {0xAADF34, Shaktool_Shot},
   {0xAAE725, ChozoStatue_Init},
   {0xAAE7A7, ChozoStatue_Main},
   {0xAAE7DB, port_nop_v},
@@ -11884,6 +19537,8 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[188] = {
   {0xB3804C, port_nop_v},
   {0xB3883B, BrinstarPipeBug_Init},
   {0xB3887A, BrinstarPipeBug_Main},
+  {0xB38B61, NorfairPipeBug_Init},
+  {0xB38B9E, NorfairPipeBug_Main},
   {0xB38F4C, BrinstarYellowPipeBug_Init},
   {0xB38FAE, BrinstarYellowPipeBug_Main},
   {0xB3E655, EscapeEtecoon_Main},
@@ -11896,7 +19551,7 @@ PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las última
   uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 15;
   if (cea[h] == ea) return cf[h];
   PortFnV f = 0;
-  int lo = 0, hi = 187;
+  int lo = 0, hi = 324;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEnemyAi[m].ea;
@@ -11923,10 +19578,44 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xA2817D: return EnemyInstr_DisableOffScreenProcessing(k, jp);
   case 0xA288C5: return BouncingGoofball_Instr_88C5(k, jp);
   case 0xA288C6: return BouncingGoofball_Instr_88C6(k, jp);
+  case 0xA29381: return MaridiaBeybladeTurtle_Instr_9381(k, jp);
+  case 0xA29412: return MaridiaBeybladeTurtle_Instr_9412(k, jp);
+  case 0xA29447: return MaridiaBeybladeTurtle_Instr_9447(k, jp);
+  case 0xA29451: return MaridiaBeybladeTurtle_Instr_9451(k, jp);
+  case 0xA2946B: return MaridiaBeybladeTurtle_Instr_946B(k, jp);
+  case 0xA29485: return MaridiaBeybladeTurtle_Instr_9485(k, jp);
+  case 0xA294A1: return MaridiaBeybladeTurtle_Instr_94A1(k, jp);
+  case 0xA294C7: return MaridiaBeybladeTurtle_Instr_94C7(k, jp);
+  case 0xA294D1: return MaridiaBeybladeTurtle_Instr_94D1(k, jp);
   case 0xA29F2A: return SpikeShootingPlant_Instr_9F2A(k, jp);
   case 0xA2A095: return SpikeShootingPlant_Instr_A095(k, jp);
   case 0xA2A0A7: return SpikeShootingPlant_Instr_A0A7(k, jp);
+  case 0xA2A56D: return MaridiaSpikeyShell_Instr_A56D(k, jp);
+  case 0xA2A571: return MaridiaSpikeyShell_Instr_A571(k, jp);
+  case 0xA2B9B3: return Rinka_Instr_B9B3(k, jp);
+  case 0xA2B9BD: return Rinka_Instr_B9BD(k, jp);
+  case 0xA2B9C7: return Rinka_Instr_B9C7(k, jp);
   case 0xA2BBC3: return EnemyInstr_Rio_Instr_1(k, jp);
+  case 0xA2BE8E: return NorfairLavajumpingEnemy_Instr_BE8E(k, jp);
+  case 0xA2C1C9: return NorfairRio_Instr_C1C9(k, jp);
+  case 0xA2C1D4: return NorfairRio_Instr_C1D4(k, jp);
+  case 0xA2C1DF: return NorfairRio_Instr_C1DF(k, jp);
+  case 0xA2C1EA: return NorfairRio_Instr_C1EA(k, jp);
+  case 0xA2C1F5: return NorfairRio_Instr_C1F5(k, jp);
+  case 0xA2C200: return NorfairRio_Instr_C200(k, jp);
+  case 0xA2C20B: return NorfairRio_Instr_C20B(k, jp);
+  case 0xA2C216: return NorfairRio_Instr_C216(k, jp);
+  case 0xA2C221: return NorfairRio_Instr_C221(k, jp);
+  case 0xA2C22C: return NorfairRio_Instr_C22C(k, jp);
+  case 0xA2C237: return NorfairRio_Instr_C237(k, jp);
+  case 0xA2C6D2: return LowerNorfairRio_Instr_C6D2(k, jp);
+  case 0xA2C6DD: return LowerNorfairRio_Instr_C6DD(k, jp);
+  case 0xA2C6E8: return LowerNorfairRio_Instr_C6E8(k, jp);
+  case 0xA2CB6B: return MaridiaLargeSnail_Instr_CB6B(k, jp);
+  case 0xA2CCB3: return MaridiaLargeSnail_Instr_CCB3(k, jp);
+  case 0xA2CCBE: return MaridiaLargeSnail_Instr_CCBE(k, jp);
+  case 0xA2CCC9: return MaridiaLargeSnail_Instr_CCC9(k, jp);
+  case 0xA2E5FB: return LavaSeahorse_Instr_E5FB(k, jp);
   case 0xA380ED: return EnemyInstr_Goto(k, jp);
   case 0xA38173: return EnemyInstr_EnableOffScreenProcessing(k, jp);
   case 0xA3817D: return EnemyInstr_DisableOffScreenProcessing(k, jp);
@@ -11941,9 +19630,22 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xA39C8C: return PlatformThatFallsWithSamus_Instr_2(k, jp);
   case 0xA3AA68: return Sidehopper_Func_1(k, jp);
   case 0xA3AAFE: return Sidehopper_Instr_1(k, jp);
+  case 0xA3B429: return MaridiaRefillCandy_Instr_1(k, jp);
+  case 0xA3B434: return MaridiaRefillCandy_Instr_2(k, jp);
+  case 0xA3B43F: return MaridiaRefillCandy_Instr_3(k, jp);
+  case 0xA3BA78: return Bang_Instr_1(k, jp);
+  case 0xA3BAA8: return Bang_Instr_2(k, jp);
   case 0xA3C6A4: return Skree_Instr_1(k, jp);
+  case 0xA3CC36: return MaridiaSnail_Instr_1(k, jp);
+  case 0xA3CC3F: return MaridiaSnail_Instr_2(k, jp);
+  case 0xA3CC48: return MaridiaSnail_Instr_4(k, jp);
+  case 0xA3CC5F: return MaridiaSnail_Instr_3(k, jp);
+  case 0xA3CC78: return MaridiaSnail_Instr_5(k, jp);
+  case 0xA3DBC8: return Reflec_Instr_1(k, jp);
   case 0xA3DFC2: return WreckedShipOrangeZoomer_Func_1(k, jp);
   case 0xA3E660: return Zoomer_Instr_SetPreinstr(k, jp);
+  case 0xA3EAA5: return Metroid_Instr_2(k, jp);
+  case 0xA3EAB1: return Metroid_Instr_1(k, jp);
   case 0xA480ED: return EnemyInstr_Goto(k, jp);
   case 0xA5807C: return EnemyInstr_StopScript(k, jp);
   case 0xA580ED: return EnemyInstr_Goto(k, jp);
@@ -11980,6 +19682,30 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xA5E96E: return Draygon_Instr_28(k, jp);
   case 0xA5E9B1: return Draygon_Instr_26(k, jp);
   case 0xA680ED: return EnemyInstr_Goto(k, jp);
+  case 0xA68DAF: return FireGeyser_Instr_1(k, jp);
+  case 0xA68E13: return FireGeyser_Instr_2(k, jp);
+  case 0xA68E2D: return FireGeyser_Instr_3(k, jp);
+  case 0xA68E41: return FireGeyser_Instr_4(k, jp);
+  case 0xA68E55: return FireGeyser_Instr_5(k, jp);
+  case 0xA68E69: return FireGeyser_Instr_6(k, jp);
+  case 0xA68E7D: return FireGeyser_Instr_7(k, jp);
+  case 0xA68E91: return FireGeyser_Instr_8(k, jp);
+  case 0xA68EA5: return FireGeyser_Instr_9(k, jp);
+  case 0xA68EB9: return FireGeyser_Instr_10(k, jp);
+  case 0xA68ECD: return FireGeyser_Instr_11(k, jp);
+  case 0xA68EE1: return FireGeyser_Instr_12(k, jp);
+  case 0xA68EF5: return FireGeyser_Instr_13(k, jp);
+  case 0xA68F09: return FireGeyser_Instr_14(k, jp);
+  case 0xA68F1D: return FireGeyser_Instr_15(k, jp);
+  case 0xA68F31: return FireGeyser_Instr_16(k, jp);
+  case 0xA68F45: return FireGeyser_Instr_17(k, jp);
+  case 0xA68F59: return FireGeyser_Instr_18(k, jp);
+  case 0xA68F6D: return FireGeyser_Instr_19(k, jp);
+  case 0xA68F81: return FireGeyser_Instr_20(k, jp);
+  case 0xA68F95: return FireGeyser_Instr_21(k, jp);
+  case 0xA68FA9: return FireGeyser_Instr_22(k, jp);
+  case 0xA68FBD: return FireGeyser_Instr_23(k, jp);
+  case 0xA68FD1: return FireGeyser_Instr_24(k, jp);
   case 0xA69B26: return FakeKraid_Instr_2(k, jp);
   case 0xA69B74: return FakeKraid_Instr_1(k, jp);
   case 0xA69BB2: return FakeKraid_Instr_3(k, jp);
@@ -11993,6 +19719,17 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xA88123: return EnemyInstr_SetTimer(k, jp);
   case 0xA88173: return EnemyInstr_EnableOffScreenProcessing(k, jp);
   case 0xA8817D: return EnemyInstr_DisableOffScreenProcessing(k, jp);
+  case 0xA8878F: return MiniDraygon_Instr_2(k, jp);
+  case 0xA8879B: return MiniDraygon_Instr_1(k, jp);
+  case 0xA887B6: return MiniDraygon_Instr_3(k, jp);
+  case 0xA887CB: return MiniDraygon_Instr_4(k, jp);
+  case 0xA89625: return Fune_Instr_2(k, jp);
+  case 0xA89631: return Fune_Instr_6(k, jp);
+  case 0xA8964A: return Fune_Instr_7(k, jp);
+  case 0xA89663: return Fune_Instr_1(k, jp);
+  case 0xA8967C: return Fune_Instr_4(k, jp);
+  case 0xA89695: return Fune_Instr_3(k, jp);
+  case 0xA896B4: return Fune_Instr_5(k, jp);
   case 0xA8A0C7: return YappingMaw_Instr_2(k, jp);
   case 0xA8A0D9: return YappingMaw_Instr_4(k, jp);
   case 0xA8A0EB: return YappingMaw_Instr_5(k, jp);
@@ -12000,13 +19737,49 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xA8A10F: return YappingMaw_Instr_3(k, jp);
   case 0xA8A121: return YappingMaw_Instr_6(k, jp);
   case 0xA8A133: return YappingMaw_Instr_1(k, jp);
+  case 0xA8AE12: return NorfairLavaMan_Instr_1(k, jp);
+  case 0xA8AE26: return NorfairLavaMan_Instr_8(k, jp);
+  case 0xA8AE30: return NorfairLavaMan_Instr_14(k, jp);
+  case 0xA8AE3A: return NorfairLavaMan_Instr_2(k, jp);
+  case 0xA8AE45: return NorfairLavaMan_Instr_7(k, jp);
+  case 0xA8AE50: return NorfairLavaMan_Instr_10(k, jp);
+  case 0xA8AE5A: return NorfairLavaMan_Instr_12(k, jp);
+  case 0xA8AE64: return NorfairLavaMan_Instr_9(k, jp);
+  case 0xA8AE88: return NorfairLavaMan_Instr_11(k, jp);
+  case 0xA8AE96: return NorfairLavaMan_Instr_13(k, jp);
+  case 0xA8AEBA: return NorfairLavaMan_Instr_5(k, jp);
+  case 0xA8AECA: return NorfairLavaMan_Instr_15(k, jp);
+  case 0xA8AEE4: return NorfairLavaMan_Instr_4(k, jp);
+  case 0xA8AEFE: return NorfairLavaMan_Instr_16(k, jp);
+  case 0xA8AF18: return NorfairLavaMan_Instr_6(k, jp);
+  case 0xA8AF44: return NorfairLavaMan_Instr_3(k, jp);
   case 0xA8B75E: return Beetom_Instr_1(k, jp);
+  case 0xA8CD09: return WreckedShipRobot_Instr_4(k, jp);
+  case 0xA8CDA4: return WreckedShipRobot_Instr_9(k, jp);
+  case 0xA8CDEA: return WreckedShipRobot_Instr_6(k, jp);
+  case 0xA8CE85: return WreckedShipRobot_Instr_8(k, jp);
+  case 0xA8CECB: return WreckedShipRobot_Instr_7(k, jp);
+  case 0xA8CECF: return WreckedShipRobot_Instr_15(k, jp);
+  case 0xA8CF6A: return WreckedShipRobot_Instr_18(k, jp);
+  case 0xA8CFB0: return WreckedShipRobot_Instr_16(k, jp);
+  case 0xA8D04B: return WreckedShipRobot_Instr_17(k, jp);
+  case 0xA8D091: return WreckedShipRobot_Instr_3(k, jp);
+  case 0xA8D0C2: return WreckedShipRobot_Instr_10(k, jp);
+  case 0xA8D0C6: return WreckedShipRobot_Instr_14(k, jp);
+  case 0xA8D0D2: return WreckedShipRobot_Instr_2(k, jp);
+  case 0xA8D100: return WreckedShipRobot_Instr_13(k, jp);
+  case 0xA8D107: return WreckedShipRobot_Instr_1(k, jp);
+  case 0xA8D131: return WreckedShipRobot_Instr_12(k, jp);
+  case 0xA8D13D: return WreckedShipRobot_Instr_5(k, jp);
+  case 0xA8D16B: return WreckedShipRobot_Instr_11(k, jp);
   case 0xA8DF1C: return WalkingLavaSeahorse_Instr_4(k, jp);
   case 0xA8DF33: return WalkingLavaSeahorse_Instr_3(k, jp);
   case 0xA8DF39: return WalkingLavaSeahorse_Instr_5(k, jp);
   case 0xA8DF3F: return WalkingLavaSeahorse_Instr_6(k, jp);
   case 0xA8DF63: return WalkingLavaSeahorse_Instr_2(k, jp);
   case 0xA8DF71: return WalkingLavaSeahorse_Instr_1(k, jp);
+  case 0xA8E61D: return WreckedShipSpark_Instr_2(k, jp);
+  case 0xA8E62A: return WreckedShipSpark_Instr_1(k, jp);
   case 0xA8F526: return KiHunter_Instr_1(k, jp);
   case 0xA8F5E4: return KiHunter_Instr_2(k, jp);
   case 0xA8F67F: return KiHunter_Instr_3(k, jp);
@@ -12081,6 +19854,20 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xAAD4FD: return Torizo_Instr_51(k, jp);
   case 0xAAD526: return Torizo_Instr_45(k, jp);
   case 0xAAD54D: return Torizo_Instr_54(k, jp);
+  case 0xAAD931: return Shaktool_Instr_2(k, jp);
+  case 0xAAD93F: return Shaktool_Instr_3(k, jp);
+  case 0xAAD94A: return Shaktool_Instr_4(k, jp);
+  case 0xAAD953: return Shaktool_Instr_5(k, jp);
+  case 0xAAD99F: return Shaktool_Instr_6(k, jp);
+  case 0xAAD9BA: return Shaktool_Instr_1(k, jp);
+  case 0xAAE429: return Shaktool_Instr_9(k, jp);
+  case 0xAAE436: return Shaktool_Instr_11(k, jp);
+  case 0xAAE43D: return Shaktool_Instr_10(k, jp);
+  case 0xAAE57F: return Shaktool_Instr_8(k, jp);
+  case 0xAAE587: return Shaktool_Instr_13(k, jp);
+  case 0xAAE58F: return Shaktool_Instr_12(k, jp);
+  case 0xAAE5D8: return Shaktool_Instr_7(k, jp);
+  case 0xAAE6F0: return Shaktool_Instr_14(k, jp);
   case 0xB280ED: return EnemyInstr_Goto(k, jp);
   case 0xB28110: return EnemyInstr_DecTimerAndGoto(k, jp);
   case 0xB28123: return EnemyInstr_SetTimer(k, jp);
@@ -12121,7 +19908,7 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   return 0;
 }
 
-static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[76] = {
+static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[142] = {
   {0xA0807B, port_nop_k},
   {0xA2807B, port_nop_k},
   {0xA28A75, port_nop_k},
@@ -12133,8 +19920,47 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[76] = {
   {0xA2B17C, Flies_5},
   {0xA2B1AA, Flies_6},
   {0xA2B1D2, Flies_7},
+  {0xA2BEDC, NorfairLavajumpingEnemy_Func_1},
+  {0xA2BF1A, NorfairLavajumpingEnemy_Func_2},
+  {0xA2BF3E, NorfairLavajumpingEnemy_Func_3},
+  {0xA2BF7C, NorfairLavajumpingEnemy_Func_4},
+  {0xA2BFBC, NorfairLavajumpingEnemy_Func_5},
+  {0xA2C281, NorfairRio_Func_1},
+  {0xA2C2E7, NorfairRio_Func_2},
+  {0xA2C33F, NorfairRio_Func_3},
+  {0xA2C361, NorfairRio_Func_4},
+  {0xA2C3B1, NorfairRio_Func_5},
+  {0xA2C406, NorfairRio_Func_6},
+  {0xA2C72E, LowerNorfairRio_Func_1},
+  {0xA2C771, LowerNorfairRio_Func_2},
+  {0xA2C7BB, LowerNorfairRio_Func_3},
+  {0xA2C7D6, LowerNorfairRio_Func_4},
+  {0xA2C82D, LowerNorfairRio_Func_5},
+  {0xA2C888, LowerNorfairRio_Func_6},
+  {0xA2CF66, MaridiaLargeSnail_Func_7},
+  {0xA2CFA9, MaridiaLargeSnail_Func_8},
+  {0xA2E654, LavaSeahorse_Func_1},
+  {0xA2E6AD, LavaSeahorse_Func_2},
+  {0xA2E6F1, LavaSeahorse_Func_3},
+  {0xA2E734, LavaSeahorse_Func_4},
+  {0xA2E749, LavaSeahorse_Func_5},
   {0xA2E781, port_nop_k},
+  {0xA3BCA5, Bang_Func_6},
+  {0xA3BCC1, Bang_Func_7},
+  {0xA3BCC5, Bang_Func_8},
+  {0xA3BD1C, Bang_Func_10},
+  {0xA3BD2C, Bang_Func_11},
   {0xA3CF5F, port_nop_k},
+  {0xA3CF60, MaridiaSnail_Func_7},
+  {0xA3CFA6, MaridiaSnail_Func_9},
+  {0xA3CFB7, MaridiaSnail_CFB7},
+  {0xA3CFBD, MaridiaSnail_CFBD},
+  {0xA3CFCE, MaridiaSnail_CFCE},
+  {0xA3CFD4, MaridiaSnail_CFD4},
+  {0xA3CFE5, MaridiaSnail_CFE5},
+  {0xA3CFEB, MaridiaSnail_CFEB},
+  {0xA3CFFC, MaridiaSnail_CFFC},
+  {0xA3D1B3, MaridiaSnail_Func_15},
   {0xA3E08A, port_nop_k},
   {0xA3E091, WreckedShipOrangeZoomer_Func_2},
   {0xA3E168, sub_A3E168},
@@ -12176,7 +20002,30 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[76] = {
   {0xA89160, MorphBallEye_Func_3},
   {0xA891CE, MorphBallEye_Func_4},
   {0xA891DC, port_nop_k},
+  {0xA8B11A, NorfairLavaMan_Func_7},
+  {0xA8B175, NorfairLavaMan_Func_8},
+  {0xA8B193, sub_A8B193},
+  {0xA8B1B8, NorfairLavaMan_Func_9},
+  {0xA8B1DD, NorfairLavaMan_Func_10},
+  {0xA8B204, NorfairLavaMan_Func_11},
+  {0xA8B291, sub_A8B291},
+  {0xA8B295, NorfairLavaMan_Func_13},
+  {0xA8B30D, NorfairLavaMan_Func_15},
+  {0xA8B31F, NorfairLavaMan_Func_16},
+  {0xA8B356, NorfairLavaMan_Func_17},
+  {0xA8B3A7, NorfairLavaMan_Func_18},
+  {0xA8C283, MaridiaFloater_Func_3},
+  {0xA8C2A6, MaridiaFloater_Func_4},
+  {0xA8C2CF, MaridiaFloater_Func_5},
+  {0xA8C36B, MaridiaFloater_Func_6},
+  {0xA8C3E1, MaridiaFloater_Func_7},
+  {0xA8C469, MaridiaFloater_Func_8},
+  {0xA8C4DC, MaridiaFloater_Func_9},
+  {0xA8C500, MaridiaFloater_Func_10},
+  {0xA8C51D, MaridiaFloater_Func_11},
   {0xA8C568, port_nop_k},
+  {0xA8C569, MaridiaFloater_Func_12},
+  {0xA8C59F, MaridiaFloater_Func_13},
   {0xAA807B, port_nop_k},
   {0xAAC752, Torizo_Func_5},
   {0xAAC828, Torizo_Func_6},
@@ -12186,7 +20035,11 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[76] = {
   {0xAAD5F1, Torizo_D5F1},
   {0xAADCAA, port_nop_k},
   {0xAADCAB, port_nop_k},
+  {0xAADCAC, Shaktool_DCAC},
+  {0xAADCD7, Shaktool_DCD7},
+  {0xAADD25, Shaktool_DD25},
   {0xAAE7A6, port_nop_k},
+  {0xAAE7AE, Shaktool_PreInstr_0},
   {0xAAE7DA, port_nop_k},
   {0xB3807B, port_nop_k},
   {0xB38880, BrinstarPipeBug_PreInstr_1},
@@ -12204,7 +20057,7 @@ PortFnK port_FindCallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida; las �
   uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 15;
   if (cea[h] == ea) return cf[h];
   PortFnK f = 0;
-  int lo = 0, hi = 75;
+  int lo = 0, hi = 141;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEnemyPreInstr[m].ea;
@@ -12221,7 +20074,7 @@ uint8 port_CallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida */
   return 1;
 }
 
-static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[45] = {
+static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[58] = {
   {0x868ACD, Eproj_Init_0x8bc2_SkreeDownRight},
   {0x868AF1, Eproj_Init_0x8bd0_SkreeUpRight},
   {0x868B15, Eproj_Init_0x8bde_SkreeDownLeft},
@@ -12242,12 +20095,14 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[45] = {
   {0x86ABEB, EprojInit_BombTorizosChozoOrbs},
   {0x86AC7C, EprojInit_GoldenTorizosChozoOrbs},
   {0x86AE15, EprojInit_TorizoSonicBoom},
+  {0x86AEFC, EprojInit_WreckedShipChozoSpikeFootsteps},
   {0x86AF43, EprojInit_TourianStatueDustClouds},
   {0x86AF50, EprojInit_TourianLandingDustCloudsRightFoot},
   {0x86AFCD, EprojInit_TorizoLandingDustCloudLeftFoot},
   {0x86B001, EprojInit_GoldenTorizoEgg},
   {0x86B1CE, EprojInit_GoldenTorizoSuperMissile},
   {0x86B328, EprojInit_GoldenTorizoEyeBeam},
+  {0x86B4EF, EprojInit_LavaSeahorseFireball},
   {0x86B87A, EprojInit_TourianStatueUnlockingParticleWaterSplash},
   {0x86B88E, EprojInit_TourianStatueEyeGlow},
   {0x86B8B5, EprojInit_TourianStatueUnlockingParticle},
@@ -12255,25 +20110,36 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[45] = {
   {0x86B93E, EprojInit_TourianStatueBaseDecoration},
   {0x86B951, EprojInit_TourianStatueRidley},
   {0x86B964, EprojInit_TourianStatuePhantoon},
+  {0x86BB92, EprojInit_NuclearWaffleBody},
+  {0x86BBDB, EprojInit_NorfairLavaquakeRocks},
+  {0x86BD9C, EprojInit_ShaktoolAttackMiddleBackCircle},
+  {0x86BDA2, EprojInit_BDA2},
   {0x86C684, EprojInit_MotherBrainDeathBeemFired},
   {0x86CF90, EprojInit_KiHunterAcidSpitLeft},
   {0x86CFA6, EprojInit_KiHunterAcidSpitRight},
   {0x86D088, EprojInit_KagosBugs},
+  {0x86D23A, EprojInit_MaridiaFloatersSpikes},
+  {0x86D30C, EprojInit_WreckedShipRobotLaserDown},
+  {0x86D32E, EprojInit_WreckedShipRobotLaserHorizontal},
+  {0x86D341, EprojInit_WreckedShipRobotLaserUp},
   {0x86D992, sub_86D992},
   {0x86DC8D, EprojInit_Spores},
   {0x86DCA3, EprojInit_SporeSpawnStalk},
   {0x86DCD4, EprojInit_SporeSpawners},
+  {0x86DED6, EprojInit_NamiFuneFireball},
+  {0x86E000, EprojInit_LavaThrownByLavaman},
   {0x86E468, EprojInit_DustCloudOrExplosion},
   {0x86EC62, EprojInit_YappingMawsBody},
   {0x86EF29, EprojInit_F337},
-  {0x86EF89, EprojInit_EnemyDeathExplosion}
+  {0x86EF89, EprojInit_EnemyDeathExplosion},
+  {0x86F391, EprojInit_Sparks}
 };
 PortFnK port_FindCallEprojInit(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[16]; static PortFnK cf[16];
   uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 15;
   if (cea[h] == ea) return cf[h];
   PortFnK f = 0;
-  int lo = 0, hi = 44;
+  int lo = 0, hi = 57;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEprojInit[m].ea;
@@ -12290,7 +20156,7 @@ uint8 port_CallEprojInit(uint32 ea, uint16 j) {  /* 0: no está traducida */
   return 1;
 }
 
-static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[64] = {
+static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[74] = {
   {0x868170, port_nop_k},
   {0x8684FB, port_nop_k},
   {0x868B5D, Eproj_PreInstr_SkreeParticle},
@@ -12316,10 +20182,15 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[64] = {
   {0x86B20D, EprojPreInstr_GoldenTorizoSuperMissile},
   {0x86B38A, EprojPreInstr_GoldenTorizoEyeBeam},
   {0x86B4B0, port_nop_k},
+  {0x86B535, sub_86B535},
   {0x86BA37, EprojPreInstr_TourianStatueStuff},
   {0x86BA42, EprojPreInstr_BA42},
   {0x86BB4F, port_nop_k},
   {0x86BBC6, port_nop_k},
+  {0x86BC0F, EprojPreInstr_NorfairLavaquakeRocks},
+  {0x86BD1E, EprojPreInstr_NorfairLavaquakeRocks_Inner},
+  {0x86BD2A, EprojPreInstr_NorfairLavaquakeRocks_Inner2},
+  {0x86BE03, EprojInit_ShaktoolAttackFrontCircle},
   {0x86C76D, port_nop_k},
   {0x86CAA3, port_nop_k},
   {0x86CFD5, sub_86CFD5},
@@ -12332,6 +20203,8 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[64] = {
   {0x86D0EC, EprojPreInstr_D0EC},
   {0x86D128, EprojPreInstr_D128},
   {0x86D1E4, EprojPreInstr_KagosBugs_Func2},
+  {0x86D263, EprojPreInstr_MaridiaFloatersSpikes},
+  {0x86D3BF, EprojPreInstr_WreckedShipRobotLaser},
   {0x86D9DB, EprojPreInstr_SpikeShootingPlantSpikes},
   {0x86D9E6, EprojPreInstr_SpikeShootingPlantSpikes_MoveY1},
   {0x86DA10, EprojPreInstr_SpikeShootingPlantSpikes_MoveY2},
@@ -12348,20 +20221,23 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[64] = {
   {0x86DCEE, EprojPreInstr_Spores},
   {0x86DD44, port_nop_k},
   {0x86DD46, EprojPreInstr_SporeSpawners},
+  {0x86DF39, EprojPreInstr_NamiFuneFireball},
+  {0x86E049, sub_86E049},
   {0x86E4FE, EprojPreInstr_DustCloudOrExplosion},
   {0x86E508, port_nop_k},
   {0x86E604, port_nop_k},
   {0x86E6D1, port_nop_k},
   {0x86EC94, port_nop_k},
   {0x86EFDF, port_nop_k},
-  {0x86EFE0, EprojPreInstr_Pickup}
+  {0x86EFE0, EprojPreInstr_Pickup},
+  {0x86F3F0, EprojPreInstr_Sparks}
 };
 PortFnK port_FindCallEprojPreInstr(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[16]; static PortFnK cf[16];
   uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 15;
   if (cea[h] == ea) return cf[h];
   PortFnK f = 0;
-  int lo = 0, hi = 63;
+  int lo = 0, hi = 73;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEprojPreInstr[m].ea;
@@ -12457,6 +20333,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0x86F0E8: Eproj_Pickup_Missiles(); return 1;
   case 0x86F0F7: Eproj_Pickup_SuperMissiles(); return 1;
   case 0xA08046: CreateADudShot(); return 1;
+  case 0xA0922B: DeleteEnemyAndConnectedEnemies(); return 1;
   case 0xA0957E: NormalEnemyFrozenAI(); return 1;
   case 0xA0A477: NormalEnemyTouchAi(); return 1;
   case 0xA0A497: NormalEnemyTouchAiSkipDeathAnim_CurEnemy(); return 1;
@@ -12478,6 +20355,16 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA28850: BouncingGoofball_State1(); return 1;
   case 0xA2889F: BouncingGoofball_Func2(); return 1;
   case 0xA288B2: BouncingGoofball_Func3(); return 1;
+  case 0xA28D6C: MaridiaBeybladeTurtle_Init(); return 1;
+  case 0xA28D9D: MiniMaridiaBeybladeTurtle_Init(); return 1;
+  case 0xA28DD2: MaridiaBeybladeTurtle_Main(); return 1;
+  case 0xA2912E: MiniMaridiaBeybladeTurtle_Main(); return 1;
+  case 0xA2925E: MiniMaridiaBeybladeTurtle_Func7(); return 1;
+  case 0xA29281: MaridiaBeybladeTurtle_Touch(); return 1;
+  case 0xA2929F: MiniMaridiaBeybladeTurtle_Touch(); return 1;
+  case 0xA292FF: MaridiaBeybladeTurtle_Func21(); return 1;
+  case 0xA2930F: MiniMaridiaBeybladeTurtle_Shot(); return 1;
+  case 0xA29315: MaridiaBeybladeTurtle_Func4(); return 1;
   case 0xA29A3F: ThinHoppingBlobs_Init(); return 1;
   case 0xA29A7D: ThinHoppingBlobs_Main(); return 1;
   case 0xA29A9B: TwinHoppingBlobs_Func2(); return 1;
@@ -12500,10 +20387,45 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA2A05C: SpikeShootingPlant_6(); return 1;
   case 0xA2A06F: SpikeShootingPlant_7(); return 1;
   case 0xA2A082: SpikeShootingPlant_8(); return 1;
+  case 0xA2A47E: MaridiaSpikeyShell_Main(); return 1;
+  case 0xA2A48A: MaridiaSpikeyShell_1(); return 1;
+  case 0xA2A49D: MaridiaSpikeyShell_2(); return 1;
+  case 0xA2A4B0: MaridiaSpikeyShell_3(); return 1;
+  case 0xA2A4D9: MaridiaSpikeyShell_4(); return 1;
+  case 0xA2A502: MaridiaSpikeyShell_5(); return 1;
+  case 0xA2A517: MaridiaSpikeyShell_6(); return 1;
+  case 0xA2A53E: MaridiaSpikeyShell_7(); return 1;
+  case 0xA2A579: MaridiaSpikeyShell_Shot(); return 1;
   case 0xA2B06B: Flies_Init(); return 1;
   case 0xA2B11F: Flies_Main(); return 1;
+  case 0xA2B3E0: NorfairErraticFireball_Init(); return 1;
+  case 0xA2B40F: NorfairErraticFireball_Main(); return 1;
+  case 0xA2B570: LavaquakeRocks_Init(); return 1;
+  case 0xA2B58F: LavaquakeRocks_Main(); return 1;
+  case 0xA2B596: LavaquakeRocks_1(); return 1;
+  case 0xA2B5B2: LavaquakeRocks_2(); return 1;
+  case 0xA2B5EA: LavaquakeRocks_3(); return 1;
+  case 0xA2B602: Rinka_Init(); return 1;
+  case 0xA2B7C4: Rinka_Main(); return 1;
+  case 0xA2B947: Rinka_Touch(); return 1;
+  case 0xA2B94D: Rinka_Shot(); return 1;
   case 0xA2BBCD: Rio_Init(); return 1;
   case 0xA2BBE3: Rio_Main(); return 1;
+  case 0xA2BE99: NorfairLavajumpingEnemy_Init(); return 1;
+  case 0xA2BED2: NorfairLavajumpingEnemy_Main(); return 1;
+  case 0xA2C242: NorfairRio_Init(); return 1;
+  case 0xA2C277: NorfairRio_Main(); return 1;
+  case 0xA2C6F3: LowerNorfairRio_Init(); return 1;
+  case 0xA2C724: LowerNorfairRio_Main(); return 1;
+  case 0xA2CCD4: MaridiaLargeSnail_Init(); return 1;
+  case 0xA2CD13: MaridiaLargeSnail_Main(); return 1;
+  case 0xA2CDE6: MaridiaLargeSnail_Func_4(); return 1;
+  case 0xA2CE2B: MaridiaLargeSnail_Func_5(); return 1;
+  case 0xA2CF40: MaridiaLargeSnail_Func_6(); return 1;
+  case 0xA2CFD7: MaridiaLargeSnail_Func_9(); return 1;
+  case 0xA2CFFF: MaridiaLargeSnail_Func_11(); return 1;
+  case 0xA2D388: MaridiaLargeSnail_Func_12(); return 1;
+  case 0xA2D3B4: MaridiaLargeSnail_Shot(); return 1;
   case 0xA2DF76: HirisingSlowfalling_Init(); return 1;
   case 0xA2E02E: HirisingSlowfalling_Main(); return 1;
   case 0xA2E035: HirisingSlowfalling_Func_4(); return 1;
@@ -12520,6 +20442,14 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA2E3A9: JetPowerRipper_Shot(); return 1;
   case 0xA2E49F: Ripper_Init(); return 1;
   case 0xA2E4DA: Ripper_Main(); return 1;
+  case 0xA2E606: LavaSeahorse_Init(); return 1;
+  case 0xA2E64E: LavaSeahorse_Main(); return 1;
+  case 0xA2E782: LavaSeahorse_Func_6(); return 1;
+  case 0xA2E7A5: LavaSeahorse_Func_7(); return 1;
+  case 0xA2E7C8: LavaSeahorse_Touch(); return 1;
+  case 0xA2E7CE: LavaSeahorse_Shot(); return 1;
+  case 0xA2E7D4: LavaSeahorse_Powerbomb(); return 1;
+  case 0xA2E7DA: LavaSeahorse_E7DA(); return 1;
   case 0xA2E9DA: TimedShutter_Init(); return 1;
   case 0xA2EAB6: TimedShutter_Main(); return 1;
   case 0xA2EB25: TimedShutter_Func_6(); return 1;
@@ -12548,6 +20478,8 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA2F0A2: RisingFallingPlatform_Shot(); return 1;
   case 0xA2F0AA: ShootableShutter_Shot(); return 1;
   case 0xA2F0B6: RisingFallingPlatform_Powerbomb(); return 1;
+  case 0xA2F111: HorizontalShootableShutter_Init(); return 1;
+  case 0xA2F1DE: HorizontalShootableShutter_Main(); return 1;
   case 0xA2F230: HorizontalShootableShutter_Func_3(); return 1;
   case 0xA2F243: HorizontalShootableShutter_Func_4(); return 1;
   case 0xA2F254: HorizontalShootableShutter_Func_5(); return 1;
@@ -12557,6 +20489,9 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA2F38C: HorizontalShootableShutter_Func_12(); return 1;
   case 0xA2F3B0: HorizontalShootableShutter_Func_13(); return 1;
   case 0xA2F3D4: HorizontalShootableShutter_Func_14(); return 1;
+  case 0xA2F3D8: HorizontalShootableShutter_Touch(); return 1;
+  case 0xA2F40E: HorizontalShootableShutter_Shot(); return 1;
+  case 0xA2F41A: HorizontalShootableShutter_Powerbomb(); return 1;
   case 0xA38023: Enemy_NormalTouchAI_A3(); return 1;
   case 0xA3802D: Enemy_NormalShotAI_A3(); return 1;
   case 0xA38032: Enemy_NormalShotAI_SkipSomeParts_A3(); return 1;
@@ -12629,6 +20564,13 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA3A4B6: Roach_Func_26(); return 1;
   case 0xA3A4F0: Roach_Func_27(); return 1;
   case 0xA3A52A: Roach_Func_28(); return 1;
+  case 0xA3A77D: Mochtroid_Init(); return 1;
+  case 0xA3A790: Mochtroid_Main(); return 1;
+  case 0xA3A7AA: Mochtroid_Func_1(); return 1;
+  case 0xA3A88F: Mochtroid_Func_2(); return 1;
+  case 0xA3A8C8: Mochtroid_Func_3(); return 1;
+  case 0xA3A953: Mochtroid_Touch(); return 1;
+  case 0xA3A9A8: Mochtroid_Shot(); return 1;
   case 0xA3AB09: Sidehopper_Init(); return 1;
   case 0xA3ABBB: Sidehopper_Func_3(); return 1;
   case 0xA3ABCF: Sidehopper_Main(); return 1;
@@ -12650,6 +20592,27 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA3ADD4: Sidehopper_Func_20(); return 1;
   case 0xA3AE27: Sidehopper_Func_21(); return 1;
   case 0xA3AE8E: Sidehopper_Func_22(); return 1;
+  case 0xA3B44A: MaridiaRefillCandy_Init(); return 1;
+  case 0xA3B47C: MaridiaRefillCandy_Main(); return 1;
+  case 0xA3B482: MaridiaRefillCandy_Func_1(); return 1;
+  case 0xA3B537: MaridiaRefillCandy_Func_4(); return 1;
+  case 0xA3B557: MaridiaRefillCandy_Func_5(); return 1;
+  case 0xA3B55B: MaridiaRefillCandy_Func_6(); return 1;
+  case 0xA3B66F: NorfairSlowFireball_Init(); return 1;
+  case 0xA3B6F9: NorfairSlowFireball_Func_1(); return 1;
+  case 0xA3BAB3: Bang_Init(); return 1;
+  case 0xA3BB25: Bang_Main(); return 1;
+  case 0xA3BB2B: Bang_Func_1(); return 1;
+  case 0xA3BB4A: Bang_Func_2(); return 1;
+  case 0xA3BB66: Bang_Func_3(); return 1;
+  case 0xA3BC9E: Bang_Func_5(); return 1;
+  case 0xA3BCF1: Bang_Func_9(); return 1;
+  case 0xA3BD4F: Bang_Func_12(); return 1;
+  case 0xA3BD89: Bang_Func_13(); return 1;
+  case 0xA3BDB9: Bang_Func_14(); return 1;
+  case 0xA3BE1C: Bang_Func_15(); return 1;
+  case 0xA3BEDA: Bang_Func_18(); return 1;
+  case 0xA3BEFD: Bang_Shot(); return 1;
   case 0xA3C6AE: Skree_Init(); return 1;
   case 0xA3C6C7: Skree_Main(); return 1;
   case 0xA3C6D5: Skree_Func_1(); return 1;
@@ -12657,12 +20620,24 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA3C77F: Skree_Func_4(); return 1;
   case 0xA3C7D5: Skree_Func_5(); return 1;
   case 0xA3C7F5: Skree_Shot(); return 1;
+  case 0xA3CDE2: MaridiaSnail_Init(); return 1;
+  case 0xA3CE64: MaridiaSnail_Main(); return 1;
+  case 0xA3D3B0: MaridiaSnail_Touch(); return 1;
+  case 0xA3D469: MaridiaSnail_Shot(); return 1;
+  case 0xA3DB0C: Reflec_Func_1(); return 1;
+  case 0xA3DBD3: Reflec_Init(); return 1;
   case 0xA3E043: WreckedShipOrangeZoomer_Init(); return 1;
   case 0xA3E08B: WreckedShipOrangeZoomer_Main(); return 1;
   case 0xA3E2D4: BigEyeBugs_Init(); return 1;
   case 0xA3E59C: FireZoomer_Init(); return 1;
   case 0xA3E669: StoneZoomer_Init(); return 1;
   case 0xA3E6C2: StoneZoomer_Main(); return 1;
+  case 0xA3EA4F: Metroid_Init(); return 1;
+  case 0xA3EAE6: Metroid_Frozen(); return 1;
+  case 0xA3EB33: Metroid_Hurt(); return 1;
+  case 0xA3EB98: Metroid_Main(); return 1;
+  case 0xA3EDEB: Metroid_Touch(); return 1;
+  case 0xA3EF07: Metroid_Shot(); return 1;
   case 0xA5E9F5: sub_A5E9F5(); return 1;
   case 0xA5EA2A: SporeSpawn_Init(); return 1;
   case 0xA5EB13: SporeSpawn_Main(); return 1;
@@ -12681,11 +20656,35 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA6888B: Boulder_Func_4(); return 1;
   case 0xA68942: Boulder_Func_5(); return 1;
   case 0xA689FC: Boulder_Func_6(); return 1;
+  case 0xA68B2F: SpikeyPlatform_Init(); return 1;
+  case 0xA68B85: SpikeyPlatform2ndEnemy_Init(); return 1;
+  case 0xA68B99: SpikeyPlatform2ndEnemy_Main(); return 1;
+  case 0xA68BAD: SpikeyPlatform_Main(); return 1;
+  case 0xA68BB4: SpikeyPlatform_Func_1(); return 1;
+  case 0xA68BDC: SpikeyPlatform_Func_2(); return 1;
+  case 0xA68C5D: SpikeyPlatform_Func_4(); return 1;
+  case 0xA68FFC: FireGeyser_Init(); return 1;
+  case 0xA69023: FireGeyser_Main(); return 1;
+  case 0xA6902F: FireGeyser_Func_1(); return 1;
+  case 0xA69062: FireGeyser_Func_2(); return 1;
+  case 0xA694C4: NuclearWaffle_Init(); return 1;
+  case 0xA6960E: NuclearWaffle_Main(); return 1;
+  case 0xA69615: NuclearWaffle_Func_1(); return 1;
+  case 0xA69682: NuclearWaffle_Func_2(); return 1;
   case 0xA69A58: FakeKraid_Init(); return 1;
   case 0xA69AC2: FakeKraid_Main(); return 1;
   case 0xA69C22: FakeKraid_Touch(); return 1;
   case 0xA69C39: FakeKraid_Shot(); return 1;
   case 0xA69C50: FakeKraid_9C50(); return 1;
+  case 0xA6FB72: Zebetites_Init(); return 1;
+  case 0xA6FC33: Zebetites_Main(); return 1;
+  case 0xA6FC67: Zebetites_Func_3(); return 1;
+  case 0xA6FCAA: Zebetites_Func_6(); return 1;
+  case 0xA6FCD9: Zebetites_Func_8(); return 1;
+  case 0xA6FD09: Zebetites_Func_5(); return 1;
+  case 0xA6FD5E: Zebetites_Func_4(); return 1;
+  case 0xA6FDA7: Zebetites_Touch(); return 1;
+  case 0xA6FDAC: Zebetites_Shot(); return 1;
   case 0xA7803C: Enemy_NormalPowerBombAI_SkipDeathAnim_A7(); return 1;
   case 0xA7E912: Etecoon_Init(); return 1;
   case 0xA7E940: Etecoon_Main(); return 1;
@@ -12695,8 +20694,35 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA8802D: Enemy_NormalShotAI_A8(); return 1;
   case 0xA88037: Enemy_NormalPowerBombAI_A8(); return 1;
   case 0xA88041: Enemy_NormalFrozenAI_A8(); return 1;
+  case 0xA887E0: MiniDraygon_Init(); return 1;
+  case 0xA88838: MiniDraygon_Func_1(); return 1;
+  case 0xA88866: MiniDraygon_Func_2(); return 1;
+  case 0xA888B0: EvirProjectile_Init(); return 1;
+  case 0xA888E5: MiniDraygon_Func_3(); return 1;
+  case 0xA8891B: MiniDraygon_Main(); return 1;
+  case 0xA88922: MiniDraygon_Func_4(); return 1;
+  case 0xA88933: MiniDraygon_Func_5(); return 1;
+  case 0xA88997: MiniDraygon_Func_6(); return 1;
+  case 0xA8899E: EvirProjectile_Main(); return 1;
+  case 0xA889D4: MiniDraygon_Func_7(); return 1;
+  case 0xA88A34: MiniDraygon_Func_8(); return 1;
+  case 0xA88A3B: MiniDraygon_Func_9(); return 1;
+  case 0xA88A78: MiniDraygon_Func_10(); return 1;
+  case 0xA88AB1: MiniDraygon_Func_11(); return 1;
+  case 0xA88AE8: MiniDraygon_Func_12(); return 1;
+  case 0xA88B06: MiniDraygon_Touch(); return 1;
+  case 0xA88B0C: MiniDraygon_Powerbomb(); return 1;
+  case 0xA88B12: MiniDraygon_Shot(); return 1;
+  case 0xA88B16: MiniDraygon_Func_13(); return 1;
   case 0xA89058: MorphBallEye_Init(); return 1;
   case 0xA890E2: MorphBallEye_Main(); return 1;
+  case 0xA896E3: Fune_Init(); return 1;
+  case 0xA89730: Fune_Main(); return 1;
+  case 0xA89737: Fune_Func_1(); return 1;
+  case 0xA8975C: Fune_Func_2(); return 1;
+  case 0xA8979B: Fune_Func_4(); return 1;
+  case 0xA89AEE: WreckedShipGhost_Init(); return 1;
+  case 0xA89B3C: WreckedShipGhost_Main(); return 1;
   case 0xA8A148: YappingMaw_Init(); return 1;
   case 0xA8A211: YappingMaw_Main(); return 1;
   case 0xA8A235: YappingMaw_Func_1(); return 1;
@@ -12720,6 +20746,19 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA8AB46: Kago_Init(); return 1;
   case 0xA8AB75: Kago_Main(); return 1;
   case 0xA8AB83: Kago_Shot(); return 1;
+  case 0xA8AF8B: NorfairLavaMan_Init(); return 1;
+  case 0xA8AF9D: NorfairLavaMan_Func_1(); return 1;
+  case 0xA8AFE2: NorfairLavaMan_Func_2(); return 1;
+  case 0xA8B020: NorfairLavaMan_Func_3(); return 1;
+  case 0xA8B05E: NorfairLavaMan_Func_4(); return 1;
+  case 0xA8B0B2: NorfairLavaMan_Func_6(); return 1;
+  case 0xA8B10A: NorfairLavaMan_Main(); return 1;
+  case 0xA8B295: NorfairLavaMan_Func_13(); return 1;
+  case 0xA8B3E5: NorfairLavaMan_Func_20(); return 1;
+  case 0xA8B400: NorfairLavaMan_Powerbomb(); return 1;
+  case 0xA8B406: NorfairLavaMan_Touch(); return 1;
+  case 0xA8B40C: NorfairLavaMan_Shot(); return 1;
+  case 0xA8B410: NorfairLavaMan_Common(); return 1;
   case 0xA8B762: Beetom_Func_1(); return 1;
   case 0xA8B776: Beetom_Init(); return 1;
   case 0xA8B814: Beetom_Func_3(); return 1;
@@ -12753,9 +20792,42 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA8B80D: Beetom_Main(); return 1;
   case 0xA8BE2E: Beetom_Touch(); return 1;
   case 0xA8BEAC: Beetom_Shot(); return 1;
+  case 0xA8C1C9: MaridiaFloater_Init(); return 1;
+  case 0xA8C21C: MaridiaFloater_Main(); return 1;
+  case 0xA8C5BE: MaridiaFloater_Touch(); return 1;
+  case 0xA8C5EF: MaridiaFloater_Shot(); return 1;
+  case 0xA8C63F: MaridiaFloater_Powerbomb(); return 1;
+  case 0xA8CB77: WreckedShipRobot_Init(); return 1;
+  case 0xA8CBCC: WreckedShipRobotDeactivated_Init(); return 1;
+  case 0xA8CC36: WreckedShipRobot_Main(); return 1;
+  case 0xA8CC67: WreckedShipRobot_Func_1(); return 1;
+  case 0xA8D174: WreckedShipRobotDeactivated_Touch(); return 1;
+  case 0xA8D18D: WreckedShipRobotDeactivated_Shot(); return 1;
+  case 0xA8D192: WreckedShipRobot_Shot(); return 1;
+  case 0xA8D8C9: MaridiaPuffer_Init(); return 1;
+  case 0xA8D90B: MaridiaPuffer_Main(); return 1;
+  case 0xA8D92B: MaridiaPuffer_Func_1(); return 1;
+  case 0xA8D940: MaridiaPuffer_Func_2(); return 1;
+  case 0xA8D963: MaridiaPuffer_Func_3(); return 1;
+  case 0xA8D97C: MaridiaPuffer_Func_4(); return 1;
+  case 0xA8D9AA: MaridiaPuffer_Func_5(); return 1;
+  case 0xA8D9DB: MaridiaPuffer_Func_6(); return 1;
+  case 0xA8DA28: MaridiaPuffer_Func_7(); return 1;
+  case 0xA8DB14: MaridiaPuffer_Shot(); return 1;
   case 0xA8DCCD: WalkingLavaSeahorse_Init(); return 1;
   case 0xA8DD6B: WalkingLavaSeahorse_Main(); return 1;
   case 0xA8DF9D: WalkingLavaSeahorse_Func_10(); return 1;
+  case 0xA8E388: WreckedShipOrbs_Init(); return 1;
+  case 0xA8E3C3: WreckedShipOrbs_Main(); return 1;
+  case 0xA8E3D9: WreckedShipOrbs_Func_1(); return 1;
+  case 0xA8E3EF: WreckedShipOrbs_Func_2(); return 1;
+  case 0xA8E405: WreckedShipOrbs_Func_3(); return 1;
+  case 0xA8E424: WreckedShipOrbs_Func_4(); return 1;
+  case 0xA8E443: WreckedShipOrbs_Func_5(); return 1;
+  case 0xA8E462: WreckedShipOrbs_Func_6(); return 1;
+  case 0xA8E637: WreckedShipSpark_Init(); return 1;
+  case 0xA8E68E: WreckedShipSpark_Main(); return 1;
+  case 0xA8E70E: WreckedShipSpark_Shot(); return 1;
   case 0xA8E82E: BlueBrinstarFaceBlock_Init(); return 1;
   case 0xA8E86E: BlueBrinstarFaceBlock_Func_1(); return 1;
   case 0xA8E8AE: BlueBrinstarFaceBlock_Main(); return 1;
@@ -12770,6 +20842,31 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA8F87F: KiHunter_Func_13(); return 1;
   case 0xA8F8AD: KiHunter_Func_14(); return 1;
   case 0xA8F98D: KiHunter_Func_17(); return 1;
+  case 0xA9C3EF: MoveEnemyWithVelocity(); return 1;
+  case 0xA9D308: DeadTorizo_Init(); return 1;
+  case 0xA9D368: DeadTorizo_Main(); return 1;
+  case 0xA9D39A: DeadTorizo_MainGfxHook(); return 1;
+  case 0xA9D3C8: DeadTorizo_PreRotDelay(); return 1;
+  case 0xA9D3E6: DeadTorizo_Rotting(); return 1;
+  case 0xA9D42A: DeadTorizo_Powerbomb(); return 1;
+  case 0xA9D433: DeadTorizo_Shot(); return 1;
+  case 0xA9D7B6: DeadSidehopper_Init(); return 1;
+  case 0xA9D7C4: DeadSidehopper_Init_0(); return 1;
+  case 0xA9D825: DeadSidehopper_Init_1(); return 1;
+  case 0xA9D849: DeadZoomer_Init(); return 1;
+  case 0xA9D876: DeadRipper_Init(); return 1;
+  case 0xA9D89F: DeadSkree_Init(); return 1;
+  case 0xA9D8CC: DeadSidehopper_Powerbomb(); return 1;
+  case 0xA9D8DB: DeadSidehopper_Main(); return 1;
+  case 0xA9DCED: DeadZoomer_Powerbomb(); return 1;
+  case 0xA9DCF8: DeadZoomer_Shot(); return 1;
+  case 0xA9DCFD: DeadRipper_Powerbomb(); return 1;
+  case 0xA9DD08: DeadRipper_Shot(); return 1;
+  case 0xA9DD0D: DeadSkree_Powerbomb(); return 1;
+  case 0xA9DD18: DeadSkree_Shot(); return 1;
+  case 0xA9DD1D: DeadSidehopper_Shot(); return 1;
+  case 0xA9DD31: DeadSidehopper_DD31(); return 1;
+  case 0xA9DD44: DeadSidehopper_Touch(); return 1;
   case 0xAA8041: Enemy_NormalFrozenAI_AA(); return 1;
   case 0xAAC250: Torizo_C250(); return 1;
   case 0xAAC268: Torizo_C268(); return 1;
@@ -12786,6 +20883,10 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xAAD667: GoldTorizo_Shot(); return 1;
   case 0xAAD6A6: Torizo_D6A6(); return 1;
   case 0xAAD7C8: TourianEntranceStatue_Init(); return 1;
+  case 0xAADCA3: Shaktool_Hurt(); return 1;
+  case 0xAADE43: Shaktool_Init(); return 1;
+  case 0xAADF2F: Shaktool_Touch(); return 1;
+  case 0xAADF34: Shaktool_Shot(); return 1;
   case 0xAAE725: ChozoStatue_Init(); return 1;
   case 0xAAE784: sub_AAE784(); return 1;
   case 0xAAE7A7: ChozoStatue_Main(); return 1;
@@ -12813,6 +20914,9 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xB3883B: BrinstarPipeBug_Init(); return 1;
   case 0xB3887A: BrinstarPipeBug_Main(); return 1;
   case 0xB3898B: BrinstarPipeBug_Func_1(); return 1;
+  case 0xB38B61: NorfairPipeBug_Init(); return 1;
+  case 0xB38B9E: NorfairPipeBug_Main(); return 1;
+  case 0xB38BA8: NorfairPipeBug_8BA8(); return 1;
   case 0xB38BCD: NorfairPipeBug_Func_1(); return 1;
   case 0xB38BFF: NorfairPipeBug_Func_2(); return 1;
   case 0xB38CA6: NorfairPipeBug_Func_4(); return 1;
@@ -12849,10 +20953,12 @@ uint8 port_bank_word(uint8 bank, uint16 a, uint16 *w) {
   case 0xA6: *w = BW_A6(a); return 1;
   case 0xA7: *w = BW_A7(a); return 1;
   case 0xA8: *w = BW_A8(a); return 1;
+  case 0xA9: *w = BW_A9(a); return 1;
   case 0xAA: *w = BW_AA(a); return 1;
   case 0xB2: *w = BW_B2(a); return 1;
   case 0xB3: *w = BW_B3(a); return 1;
   case 0xB4: *w = BW_B4(a); return 1;
+  case 0xB7: *w = BW_B7(a); return 1;
   }
   return 0;
 }

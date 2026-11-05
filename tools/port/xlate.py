@@ -60,6 +60,28 @@ def parse_structs():
     return out
 
 
+def parse_rom_structs():
+    """estructuras de ida_types.h con todos los campos de 16 bits (VoidP o (u)int16): tablas de la ROM que el decomp
+    lee como arreglos de estructuras (MaridiaSnailData2 $A3:CD42) -> {tipo: ({campo: desplazamiento}, tamaño)}"""
+    txt = open(os.path.join(SRC, 'ida_types.h')).read()
+    out = {}
+    for m in re.finditer(r'typedef struct\s+(\w+) \{(.*?)\}\s*\1;', txt, re.S):
+        fields, off = {}, 0
+        for line in m.group(2).split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            fm = re.fullmatch(r'(VoidP|uint16|int16)\s+(\w+);', line)
+            if not fm:
+                break
+            fields[fm.group(2)] = off
+            off += 2
+        else:
+            if fields:
+                out[m.group(1)] = (fields, off)
+    return out
+
+
 def match_paren(s, i, o='(', c=')'):
     """s[i] == o: índice de su cierre"""
     d = 0
@@ -95,6 +117,10 @@ class Xlate:
             self.fnaddr[m.group(1)] = int(m.group(2), 16)
         self.g = Graph()
         self.structs = parse_structs()
+        self.rom_structs = parse_rom_structs()
+        # variables del SNES que no son arreglos: nombre -> dirección (lecturas con desplazamiento: nt_ram_w)
+        self.scalar_vars = {m.group(1): int(m.group(2), 16) for m in re.finditer(
+            r'^#define (\w+) \(\*\(u?int16\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read(), re.M)}
         self.rom = {}           # nombre -> (dirección, tipo)
         self.scalars = {}       # constante escalar de la ROM -> (dirección, tipo)
         for f in os.listdir(SRC):
@@ -161,6 +187,8 @@ class Xlate:
         sz = 2 if t in ('uint16', 'int16') else 1 if t in ('uint8', 'int8') else 4 if t in ('uint32', 'int32') else None
         if sz == 4:
             return '((%s)((uint32)BW_%02X(0x%04X + 4 * (%s)) | (uint32)BW_%02X(0x%04X + 4 * (%s) + 2) << 16))' % (t, bank, a, idx, bank, a, idx)
+        if sz is None and t in self.rom_structs:
+            return 'XROMS_%s(0x%06X, %s)' % (t, addr, idx)                 # campos: rom_struct_fields
         if sz is None:
             self.todo.append('tabla de %s en %06X' % (t, addr))
             return 'XLATE_TODO_ROM_%s(0x%06X, %s)' % (t, addr, idx)
@@ -176,9 +204,19 @@ class Xlate:
         binstr = re.match(r'(?:static )?const uint8 \*(\w+)\(uint16 k, const uint8 \*(\w+)\)', hdr)
         if binstr:
             hdr = 'uint16 %s(uint16 k, uint16 %s) {  // %s' % (binstr.group(1), binstr.group(2), hdr.split('//')[-1].strip() if '//' in hdr else '')
-        instr = re.match(r'const uint16 \*(\w+)\(uint16 k, const uint16 \*jp\)', hdr)
+        # instrucciones (y sus funciones auxiliares, con más argumentos después de jp: WreckedShipRobot_CommonInstr)
+        instr = re.match(r'const uint16 \*(\w+)\(uint16 k, const uint16 \*jp((?:, [^)]*)?)\)', hdr)
         if instr:
-            hdr = 'uint16 %s(uint16 k, uint16 jp) {  // %s' % (instr.group(1), hdr.split('//')[-1].strip() if '//' in hdr else '')
+            hdr = 'uint16 %s(uint16 k, uint16 jp%s) {  // %s' % (instr.group(1), instr.group(2), hdr.split('//')[-1].strip() if '//' in hdr else '')
+        # argumento const uint8 *j que apunta a la ROM del banco de la función (MaridiaSnail_D07E: GET_WORD(j + 6)):
+        # en el motor es una dirección del banco
+        romp = [] if binstr else re.findall(r'const uint8 \*(\w+)[,)]', hdr.split('{')[0])
+        for p_ in romp:
+            hdr = re.sub(r'const uint8 \*%s\b' % p_, 'uint16 %s' % p_, hdr)
+            body = re.sub(r'\bGET_WORD\(%s\)' % p_, 'BW_%02X(%s)' % (bank, p_), body)
+            body = re.sub(r'\bGET_WORD\(%s \+ (\d+)\)' % p_, lambda m: 'BW_%02X((uint16)(%s + %s))' % (bank, p_, m.group(1)), body)
+            body = re.sub(r'\b%s\[(\d+)\]' % p_, lambda m: 'BB_%02X((uint16)(%s + %s))' % (bank, p_, m.group(1)), body)
+            self.used_banks.add(bank)
         for mname, (params, mbody) in self.macros.items():
             rx = re.compile(r'\b%s\(' % mname)
             while True:
@@ -258,6 +296,10 @@ class Xlate:
                 if idx:
                     off = '%d * (%s) + %s' % (sz, idx[1:-1], off)
                 rep_ = self.rom_read(addr, m.group(1), '0').replace('(0)', '(%s)' % off).replace('2 * ', '')
+            elif m.group(1) in ('uint16', 'int16') and not idx and tname in self.scalar_vars:
+                # palabra de la RAM del SNES a un desplazamiento de una variable que no es arreglo (el fantasma de
+                # Wrecked Ship lee samus_y_pos + índice del enemigo): por su dirección (nt_ram_w, vars_ram.c)
+                rep_ = 'nt_ram_w((uint16)(0x%04X + (%s)))' % (self.scalar_vars[tname], off)
             elif m.group(1) in ('uint16', 'int16') and not idx:   # arreglo de la RAM (palabras): por índice
                 rep_ = '%s[(uint16)(%s) >> 1]' % (tname, off)
             else:
@@ -319,6 +361,9 @@ class Xlate:
         body = re.sub(r'\*\(\(uint16 \*\)RomPtr_([0-9A-F]{2})\(([^()]*(?:\([^()]*\))?[^()]*)\) \+ (\d+)\)', romw, body)
         body = re.sub(r'\*\(uint16 \*\)RomPtr_([0-9A-F]{2})\(([^()]*(?:\([^()]*\))?[^()]*)\)()', romw, body)
         body = body.replace('*(uint16 *)&enemy_gfx_drawn_hook.bank', 'nt_gfx_hook_bank').replace('enemy_gfx_drawn_hook.addr', 'nt_gfx_hook_addr')
+        body = body.replace('enemy_gfx_drawn_hook.bank', 'nt_gfx_hook_bank')
+        body = re.sub(r'\bmov24\(&enemy_gfx_drawn_hook, 0x([0-9A-Fa-f]{2})([0-9A-Fa-f]{4})\);',
+                      r'nt_gfx_hook_bank = 0x\1; nt_gfx_hook_addr = 0x\2;', body)
         body = re.sub(r'\bWriteReg\([^;]*\);', '(void)0;', body)
         for tname, (addr, t) in self.scalars.items():
             if re.search(r'\b%s\b' % tname, body):
@@ -386,12 +431,51 @@ class Xlate:
             nxt = chr(ord(f) + 1)
             return '((uint16)(HIBYTE(%s->ai_var_%s) | LOBYTE(%s->ai_var_%s) << 8))' % (v, f, v, nxt)
         body = re.sub(r'\*\(uint16 \*\)\(\(uint8 \*\)&(\w+)->ai_var_([A-E]) \+ 1\)', mid_word, body)
+        # RAM extra de los enemigos en 7E:8000 (Ram8000_Default: 32 palabras por elemento, Rinka) -> ERAM
+        rx = re.compile(r'gRam8000_Default\(')
+        while True:
+            m = rx.search(body)
+            if not m:
+                break
+            e = match_paren(body, m.end() - 1)
+            fm = re.match(r'\[(\d+)\]\.var_([0-9A-F]{2})', body[e + 1:])
+            if not fm:
+                self.todo.append('%s: gRam8000_Default sin campo' % name)
+                break
+            off = 64 * int(fm.group(1)) + 2 * (int(fm.group(2), 16) - 0x20)
+            body = body[:m.start()] + 'ERAM(0x%04X + (%s))' % (0x8000 + off, body[m.end():e]) + body[e + 1 + len(fm.group(0)):]
+        # ExtraEnemyRam8000 *v = gExtraEnemyRam8000(k); ... *(uint16 *)&v->pad[n] -> ERAM(0x8000 + n + k)
+        for m in list(re.finditer(r'\n\s*ExtraEnemyRam8000 \*(\w+) = gExtraEnemyRam8000\(([^;]+)\);', body)):
+            v, k = m.group(1), m.group(2)
+            body = body.replace(m.group(0), '', 1)
+            body = re.sub(r'\*\(uint16 \*\)&%s->pad\[(\d+)\]' % v, lambda mm: 'ERAM(0x8000 + %s + (%s))' % (mm.group(1), k), body)
+        rx = re.compile(r'gExtraEnemyRam7800\(')
+        while True:
+            m = rx.search(body)
+            if not m:
+                break
+            e = match_paren(body, m.end() - 1)
+            if not body[e + 1:].startswith('->kraid.kraid_next'):
+                break
+            body = body[:m.start()] + 'ERAM(0x7800 + (%s))' % body[m.end():e] + body[e + 1 + len('->kraid.kraid_next'):]
+        # la cola de escrituras a la VRAM del SNES (7E:00D0, 7 bytes por entrada): el motor no la tiene; se lee la RAM
+        body = re.sub(r'\*\(uint16 \*\)\(\(uint8 \*\)&gVramWriteEntry\(0\)\[(\d+)\]\.vram_dst \+ 1\)',
+                      lambda m: 'nt_ram_w(0x%04X)' % (0xD0 + 7 * int(m.group(1)) + 6), body)
+        # escritura en esa palabra (Metroid_Touch): los dos bytes por separado
+        body = re.sub(r'\(\(uint16\)\(HIBYTE\(([\w>-]+)\) \| LOBYTE\(([\w>-]+)\) << 8\)\) = ([^;]+);',
+                      r'{ uint16 mw_ = (\3); \1 = (uint16)((\1 & 0xFF) | mw_ << 8); \2 = (uint16)((\2 & 0xFF00) | mw_ >> 8); }', body)
         if re.search(r'\(uint8 \*\)&\w+->\w+ \+ 1\)', body):
             self.todo.append('%s: palabra a mitad de un campo' % name)
         if instr:
             body = self.instr_body(name, body, bank)
         if binstr:
             body = self.binstr_body(name, body, bank, binstr.group(2))
+        # avisos de depuración del decomp (printf("Possible bug...")): no hay printf en la Genesis
+        body = re.sub(r'\bprintf\("[^"]*"(?:, [^;]*)?\);', '; /* (aviso del decomp) */', body)
+        # *(uint16 *)RomPtrWithBank(banco, dirección): lectura de un banco que se sabe recién al correr
+        body = body.replace('*(uint16 *)RomPtrWithBank(', 'nt_bank_w(')
+        # RomPtr_XX(e) que queda como argumento (de una función como las de romp): la dirección
+        body = re.sub(r'\bRomPtr_[0-9A-F]{2}\(', '(uint16)(', body)
         body = body.replace('(int8)bts_get(cur_block_index) * room_width_in_blocks',
                             'Mul16((int8)bts_get(cur_block_index), room_width_in_blocks)')   # mulu.w, sin __mulsi3
         # byte bajo de una lectura de la ROM (no es un lugar): LOBYTE(BW_XX(...)) -> (uint8)(...)
@@ -399,10 +483,39 @@ class Xlate:
         # byte de una tabla de palabras: *((uint8 *)&g_word_XXXXXX + i) (ya traducida a BW_XX(dirección)) -> BB_XX
         body = re.sub(r'\*\(\(uint8 \*\)&\(\(uint16\)BW_([0-9A-F]{2})\((0x[0-9A-Fa-f]+) \+ 2 \* \(0\)\)\) \+ ([^)]+)\)',
                       r'BB_\1((uint16)(\2 + (\3)))', body)
+        body = self.rom_struct_fields(name, body)
         for tn in self.table_defs:
             if re.search(r'\b%s\b' % tn, body):
                 self.need_tables.add(tn)
         return hdr + '\n' + body
+
+    def rom_struct_fields(self, name, body):
+        """campos de las tablas de estructuras de la ROM (rom_read): XROMS_T(dir, i).campo -> BW(dir + tamaño * i +
+        desplazamiento) y *(T *)((uint8 *)&XROMS_T(dir, 0).campo + expr) -> BW(dir + desplazamiento + expr)"""
+        rx = re.compile(r'\*\((?:uint16|int16|VoidP) \*\)\(\(uint8 \*\)&XROMS_(\w+)\(0x([0-9A-F]{2})([0-9A-F]{4}), 0\)\.(\w+) \+ ')
+        while True:
+            m = rx.search(body)
+            if not m:
+                break
+            st = m.group(0).index('((uint8')
+            e = match_paren(body, m.start() + st)
+            expr = body[m.end():e]
+            fs, _ = self.rom_structs[m.group(1)]
+            body = body[:m.start()] + '((uint16)BW_%s(0x%s + %d + (%s)))' % (m.group(2), m.group(3), fs[m.group(4)], expr) + body[e + 1:]
+        rx = re.compile(r'XROMS_(\w+)\(0x([0-9A-F]{2})([0-9A-F]{4}), ')
+        while True:
+            m = rx.search(body)
+            if not m:
+                break
+            e = match_paren(body, m.end() - len('0x%s%s, ' % (m.group(2), m.group(3))) - 1)
+            idx = body[m.end():e]
+            fm = re.match(r'\.(\w+)', body[e + 1:])
+            fs, size = self.rom_structs[m.group(1)]
+            if not fm or fm.group(1) not in fs:
+                self.todo.append('%s: tabla de %s sin campo' % (name, m.group(1)))
+                break
+            body = body[:m.start()] + '((uint16)BW_%s(0x%s + %d + %d * (%s)))' % (m.group(2), m.group(3), fs[fm.group(1)], size, idx) + body[e + 1 + len(fm.group(0)):]
+        return body
 
     def binstr_body(self, name, b, bank, P):
         """instrucciones con puntero de bytes (proyectiles enemigos, $86): P es la dirección en el banco"""

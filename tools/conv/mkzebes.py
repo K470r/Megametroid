@@ -625,6 +625,10 @@ def boss_bg2_logs():
 
 ZT_BASE = 448                                    # primer tile de la sala en la Genesis (md_zebes.c)
 BOSS_HI_TILE, BOSS_HI_N = 1920, 123              # VRAM 0xF000: hasta el tile 2042 (2043-2047: el gancho, md_engine.c)
+# 7E:2000 cuando el fondo de biblioteca lo copia al BG2, comprobado contra el SNES: Phantoon y Draygon ya lo llenaron
+# con 0x338 (tile vacío). En la de Crocomire, no (con 0x338 se veía el color de fondo de la Genesis, rojo; sin
+# llenar, el tile 0 de su tileset: negro como en el SNES)
+BOSS_2000_FILL = {0xCD13: 0x338, 0xDA60: 0x338}
 # salas con el cuerpo en una caché (md_zebes.c): sus tiles no entran todos en la VRAM; se suben los que usa el mapa
 BOSS_BG2_CACHE = {0xA98D}                        # Crocomire: 312 tiles, ~155 a la vez
 # salas con el cuerpo dibujado
@@ -682,7 +686,7 @@ def main():
                     l2 = struct.unpack_from('<%dH' % n, d, 2 + size + n)
                     blocks |= {w & 0x3FF for w in l2}
                 elif l2x & 1:
-                    vram, bg2 = library_bg(gs, bg_ptr, 0x338 if ra in BOSS_BG2 and bg_copies_2000(bg_ptr) else None)
+                    vram, bg2 = library_bg(gs, bg_ptr, BOSS_2000_FILL.get(ra) if ra in BOSS_BG2 and bg_copies_2000(bg_ptr) else None)
                 setup = struct.unpack_from('<H', b, 24)[0]
                 sky_tab = {0x91C9: 0x88AD9C, 0x91BD: 0x88AD9C, 0x91CE: 0x88ADA6}.get(setup)
                 if sky_tab:                       # cielo de la superficie: el BG2 sale de los mapas de $8A por filas

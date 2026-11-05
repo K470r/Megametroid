@@ -46,9 +46,8 @@ static void viewer_place_samus(void) {
 
 uint8 viewer_keep_enemy(uint16 enemy_ptr) {
   /* la nave y los ascensores (Elevator, $A3:D73F) siempre: sin el ascensor Samus se queda arriba del cuarto al bajar
-     (Brinstar verde, 9AD9). Con los enemigos: todas las áreas, salvo las salas de los jefes sin portar (Kraid A59F,
-     Crocomire A98D, Ridley B32E, Phantoon CD13, Botwoon D95E, Draygon DA60, Mother Brain DD58) */
-  static const uint16 kBossRooms[] = { 0xA59F, 0xA98D, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDD58 };
+     (Brinstar verde, 9AD9). Con los enemigos: todas las áreas, salvo la sala de Kraid (A59F), sin portar */
+  static const uint16 kBossRooms[] = { 0xA59F };
   if (!nt_viewer || area_index == 6 || enemy_ptr == 0xD07F || enemy_ptr == 0xD0BF || enemy_ptr == 0xD73F)
     return 1;
   if (!nt_viewer_enemies || area_index > 5)

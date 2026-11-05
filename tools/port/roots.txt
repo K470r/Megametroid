@@ -164,8 +164,6 @@ WreckedShipRobot_*
 WreckedShipRobotDeactivated_*
 WreckedShipSpark_*
 Zebetites_*
-DeadSidehopper_*
-DeadTorizo_*
 Shaktool_*
 # pre-instrucción del banco $AA puesta por una lista (estatua Chozo de Lower Norfair) y el tubo de vidrio de Maridia
 sub_AAE445

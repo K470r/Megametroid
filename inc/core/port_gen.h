@@ -11,6 +11,15 @@
 #include "room.h"
 #include "nmath.h"
 #include "tables.h"
+/* código de los jefes: en la página 25 del SSF2, con los niveles de sus salas (en ellas la ventana 7 la muestra) */
+#ifdef NT_SSF2
+#define NT_BOSS __attribute__((section(".bank25")))
+/* (la Genesis) una función de la página de los jefes con la ventana 7 en otra página: no se llama (avisa) */
+extern uint8 md_cur_page;
+#define NT_BOSS_AWAY(f) ((uint32)(f) >= 0x380000 && md_cur_page != 25)
+#else
+#define NT_BOSS
+#endif
 static inline uint16 BW_86(uint16 a) { const uint8 *p = kBank86B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_86(uint16 a) { return kBank86B[(uint16)(a - 0x8000)]; }
 #define IW_86(a) BW_86(a)

@@ -347,7 +347,18 @@ class Xlate:
             pos = m.start() + len(rep_)
         # punteros a la ROM: *(T *)RomPtr_XX(e) -> lectura; const uint8 *v = RomPtr_XX(e) -> v es una dirección
         body = re.sub(r'\*\(u?int16 \*\)RomPtr_([0-9A-F]{2})\(', lambda m: 'BW_%s(' % m.group(1), body)
-        for m in list(re.finditer(r'const (uint8|uint16) \*(\w+) = (?:\(const uint16 \*\))?RomPtr_([0-9A-F]{2})\(', body)):
+        # (también sin const y asignados después: uint16 v3, *v4; ... v4 = (uint16 *)RomPtr_A6(i); Ridley_Func_118)
+        for m in list(re.finditer(r'\b([A-Za-z_]\w*) = \((?:const )?uint16 \*\)RomPtr_([0-9A-F]{2})\(', body)):
+            v, bk = m.group(1), m.group(2)
+            if not re.search(r'\buint16 [^;()]*\*%s\b' % v, body):
+                continue
+            body = re.sub(r'(\buint16 [^;()]*)\*%s\b' % v, r'\1%s' % v, body, count=1)
+            body = body.replace(m.group(0), 'const uint16 *%s = (const uint16 *)RomPtr_%s(' % (v, bk), 1) \
+                if False else body.replace(m.group(0), '%s = (' % v, 1)
+            body = re.sub(r'\b%s\[([^\]]+)\]' % v, lambda mm: 'BW_%s(%s + 2 * (%s))' % (bk, v, mm.group(1)), body)
+            body = re.sub(r'\*%s\b' % v, 'BW_%s(%s)' % (bk, v), body)
+            self.used_banks.add(int(bk, 16))
+        for m in list(re.finditer(r'(?:const )?(uint8|uint16) \*(\w+) = (?:\((?:const )?uint16 \*\))?RomPtr_([0-9A-F]{2})\(', body)):
             t_, v, bk = m.group(1), m.group(2), m.group(3)
             self.used_banks.add(int(bk, 16))
             body = body.replace(m.group(0), 'uint16 %s = (' % v, 1)
@@ -356,8 +367,9 @@ class Xlate:
             body = re.sub(r'\bGET_WORD\(%s \+ ([^)]*)\)' % v, lambda mm: 'BW_%s(%s + %s)' % (bk, v, mm.group(1)), body)
             body = re.sub(r'\b%s\[([^\]]+)\]' % v, lambda mm: '%s(%s + %d * (%s))' % ('BW_' + bk if sz == 2 else 'BB_' + bk, v, sz, mm.group(1)), body)
             body = re.sub(r'\*%s\b' % v, '%s(%s)' % ('BW_' + bk if sz == 2 else 'BB_' + bk, v), body)
-            if re.search(r'\b%s\s*(\+=|\+\+|=[^=])' % v, body.split('uint16 %s = (' % v, 1)[1]):
-                body = re.sub(r'\b%s \+= (\d+)' % v, lambda mm: '%s += %d' % (v, int(mm.group(1)) * (1 if sz == 1 else 2)) if sz == 1 else mm.group(0), body)
+            if sz == 2:                     # puntero a palabras: avanza de a 2 bytes (Ridley_Func_93: src++)
+                body = re.sub(r'\b%s\+\+' % v, '%s += 2' % v, body)
+                body = re.sub(r'\b%s \+= (\d+)\b' % v, lambda mm: '%s += %d' % (v, 2 * int(mm.group(1))), body)
         # variables del decomp en 7E:7800-97FF: la RAM extra de los enemigos (ERAM)
         def eram_var(m):
             ad = int(m.group(1), 16)
@@ -609,6 +621,19 @@ class Xlate:
         body = re.sub(r'\*\(uint16 \*\)&BB_([0-9A-F]{2})\(', r'BW_\1(', body)
         # *(uint16 *)RomPtrWithBank(banco, dirección): lectura de un banco que se sabe recién al correr
         body = body.replace('*(uint16 *)RomPtrWithBank(', 'nt_bank_w(')
+        # *((uint16 *)RomPtr_XX(e) + n) y *(uint16 *)RomPtr_XX(e) con paréntesis anidados en e (Phantoon_Func_7)
+        rx_ = re.compile(r'\*\(\(uint16 \*\)RomPtr_([0-9A-F]{2})\(')
+        while True:
+            m = rx_.search(body)
+            if not m:
+                break
+            e_ = match_paren(body, m.end() - 1)
+            tm = re.match(r'(?: \+ (\d+))?\)', body[e_ + 1:])
+            if not tm:
+                self.todo.append('%s: RomPtr con forma rara' % name)
+                break
+            off = 2 * int(tm.group(1) or 0)
+            body = body[:m.start()] + 'BW_%s((uint16)(%s + %d))' % (m.group(1), body[m.end():e_], off) + body[e_ + 1 + len(tm.group(0)):]
         # RomPtr_XX(e) que queda como argumento (de una función como las de romp): la dirección
         body = re.sub(r'\bRomPtr_[0-9A-F]{2}\(', '(uint16)(', body)
         body = body.replace('(int8)bts_get(cur_block_index) * room_width_in_blocks',

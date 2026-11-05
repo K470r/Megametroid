@@ -57,7 +57,10 @@ static const char *kNotCompared[] = {
   "hdma_table_1",
   /* cola de escrituras a la VRAM: el motor no la usa (la Genesis dibuja de otra forma); el SNES la deja llena en los
      cuadros sin NMI con actualización (caja de mensaje) */
-  "vram_write_queue_tail", 0
+  "vram_write_queue_tail",
+  /* tabla del HDMA del BG2 de Crocomire (solo imagen): en el motor comparte la RAM con cinematic_text_tilemap
+     (vars_extra.txt) */
+  "crocomire_bg2_scroll_hdma_data", 0
 };
 static int not_compared(const char *n) {
   /* en la pausa (estados 13-17) el scroll del BG1 es el del mapa: lo arma el motor y se compara */

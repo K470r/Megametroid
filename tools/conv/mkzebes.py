@@ -709,7 +709,7 @@ def main():
 
     def next_page(pg):
         pg += 1
-        assert pg <= int(os.environ.get("MM_LAST_PAGE", "25")), "zebes: no entra en las páginas del SSF2 (md_ssf2.ld llega a la 25)"
+        assert pg <= int(os.environ.get("MM_LAST_PAGE", "24")), "zebes: no entra en las páginas del SSF2 (la 25 es de los jefes: port.py, BOSS_PAGE)"
         return pg
     # primer hueco: cada bloque va a la primera página donde cabe (antes, una página tras otra: lo que sobraba al
     # final de cada página se perdía)

@@ -105,6 +105,10 @@ for n in list(ALIAS):
         b2, off2 = ALIAS[b]; b, off = b2, off + off2
     ALIAS[n] = (b, off)
 ramtab = []   # (dirección del SNES, tamaño del elemento, elementos, nombre) para nt_clear_ram
+# variables del decomp que vars_extra.txt pone en otro lugar con "alias" (crocomire_bg2_scroll_hdma_data: RAM): no se
+# declaran aquí, pero siguen en el mapa de direcciones (check) y en la tabla de la RAM
+EXTRA_ALIAS = {l[6:].partition('=')[0].strip() for l in (EXTRA.read_text().splitlines() if EXTRA.exists() else [])
+               if l.startswith('alias ')}
 for n in used:
     if n in ALIAS:
         b, off = ALIAS[n]
@@ -121,8 +125,9 @@ for n in used:
         ramtab.append((a, 2 if '16' in t else 1, 1, '&' + n))
     else:
         ln = arr_len(n, t, a)
-        h.append(f'extern {t} {n}[{ln}];  /* 7E:{a:04X} */')
-        c.append(f'{t} {n}[{ln}];')
+        if n not in EXTRA_ALIAS:
+            h.append(f'extern {t} {n}[{ln}];  /* 7E:{a:04X} */')
+            c.append(f'{t} {n}[{ln}];')
         m.append(f'  {{ "{n}", {n}, 0x{a:04X}, {2 if "16" in t else 1}, {ln} }},')
         ramtab.append((a, 2 if '16' in t else 1, ln, n))
 if EXTRA.exists():

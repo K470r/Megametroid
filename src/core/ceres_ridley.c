@@ -82,6 +82,15 @@ static void DrawBabyMetroid_0(void) {  // 0xA6BF1A
 }
 
 /* ------------------------------------------------------------------ utilidades de Ridley */
+#define B90BM(a) kBank90_BossMap[((uint16)(a) - BANK90_BOSSMAP_LO) >> 1]   /* $90:A83A-A8A5 (mkdata.py) */
+static void MarkMapTileAsExplored(uint16 r18, uint16 r24) {  // 0x90A8A6
+  uint8 v0 = (uint16)(r18 & 0xFF00) >> 8;
+  uint16 R34 = (room_x_coordinate_on_map + v0) & 0x20;
+  uint16 r20 = ((room_x_coordinate_on_map + v0) & 0x1F) >> 3;
+  uint16 R22 = room_y_coordinate_on_map + ((r24 & 0xFF00) >> 8) + 1;
+  map_tiles_explored[(uint16)(r20 + 4 * (R34 + R22))] |= 0x80 >> ((room_x_coordinate_on_map + v0) & 7);   // kShr0x80
+}
+
 void DisableMinimapAndMarkBossRoomAsExplored(void) {  // 0x90A7E2
   debug_disable_minimap = 1;
   for (int i = 0; i < 5; i++) {
@@ -89,9 +98,14 @@ void DisableMinimapAndMarkBossRoomAsExplored(void) {  // 0x90A7E2
     hud_tilemap[i + 58] = 11295;
     hud_tilemap[i + 90] = 11295;
   }
-  /* g_stru_90A83A no tiene la entrada del jefe 1 (Ridley de Ceres): no se marca nada en el mapa */
-  if (boss_id == 3 || boss_id == 5 || boss_id == 6 || boss_id == 7 || boss_id == 8 || boss_id == 10)
-    nt_unimpl("DisableMinimapAndMarkBossRoomAsExplored (mapa del jefe)");
+  /* (g_stru_90A83A no tiene la entrada del jefe 1, Ridley de Ceres: ahí no se marca nada en el mapa) */
+  uint16 v2 = 5;
+  while (boss_id != B90BM(0xA83A + 4 * v2)) {     // g_stru_90A83A[v2].boss_id_
+    if ((--v2 & 0x8000) != 0)
+      return;
+  }
+  for (uint16 i = B90BM(0xA83A + 4 * v2 + 2); !(B90BM(i) & 0x8000); i += 4)
+    MarkMapTileAsExplored(B90BM(i), B90BM(i + 2));
 }
 
 typedef struct { uint16 x, y, w, h; } RectN;
@@ -1578,7 +1592,30 @@ void CeresRidley_Init(void) {  // 0xA6A0F5 (rama de Ceres)
   earthquake_timer = 0;
   Ridley_Func_92();
   Ridley_Func_117();
-  if (area_index == 2) { nt_unimpl("CeresRidley_Init (Norfair)"); return; }
+  if (area_index == 2) {                          // Ridley en Norfair (lo demás: traducido, port_gen.c)
+    E->properties |= 0x1000 | 0x400;
+    E->x_pos = 96;
+    E->y_pos = 394;
+    E->ai_var_A = 0xA35B;                         // CeresRidley_Func_3
+    E->ai_var_B = 0;
+    E->ai_var_C = 0;
+    E->layer = 5;
+    RV(0x01) = 0;
+    RV(0x02) = 1;
+    RV(0x20) = 64;
+    RV(0x21) = 416;
+    RV(0x22) = 64;
+    RV(0x23) = 224;
+    RV(0x10) = 2;
+    RV(0x1C) = 120;
+    for (int i = 0; i < 0x20; i++)                // WriteColorsToTargetPalette($A6, 0x140, word_A6E1CF, 0x20)
+      target_palettes[160 + i] = A6W(0xE1CF + 2 * i);
+    for (int i = 0; i < 15; i++) {
+      target_palettes[113 + i] = 0;
+      target_palettes[241 + i] = 0;
+    }
+    return;
+  }
   E->properties |= 0x1000 | 0x400;
   E->x_pos = 186;
   E->y_pos = 169;

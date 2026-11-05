@@ -52,7 +52,7 @@ píxeles del SNES, tiles de Mother Brain por la cola, la larva en la cara de Mot
 Norfair, `DisableMinimapAndMarkBossRoomAsExplored` (tabla `kBank90_BossMap`), `ProcessExtendedTilemap` (los cuerpos en
 BG2 a `tilemap_stuff`), los objetos de HDMA de Phantoon y del agua de Draygon (`hdmaobj.c`).
 
-## Los cuerpos en el BG2 (Phantoon y Draygon; Crocomire no entra todavía)
+## Los cuerpos en el BG2 (Phantoon, Draygon y Crocomire)
 
 El SNES sube `tilemap_stuff` (hasta 1024 bytes: 16 filas de 32 celdas) al BG2 en $4800 (`QueueEnemyBG2TilemapTransfers`
 $A0:9726). En la Genesis:
@@ -69,7 +69,14 @@ $A0:9726). En la Genesis:
 - `md_zebes.c` (`nt_enemy_bg2_transfer`): convierte en el bucle principal a un buffer de 1 KB (el principio de
   `cinematic_text_tilemap`, libre en estas salas) y el vblank lo sube al plano B (en las filas y 32 filas más abajo).
   El plano B se mueve con BG2HOFS/VOFS (b_mode 1, como los fondos de biblioteca). Al volver de la pausa se rehace.
-- Crocomire suma 312 tiles: ni con 0xF000 entra con sus objetos. Idea: subir sus tiles según los use su mapa (caché).
+- Crocomire (312 tiles, ~155 a la vez, `bg2u` en el registro): caché (`BOSS_BG2_CACHE`). Todos sus tiles quedan en la
+  ROM (página de los jefes) y la tabla los marca (bit 15 + número). En cada subida del mapa `bb_convert` marca los
+  lugares que ya tienen tiles de esa subida y da a los que faltan otros (177 lugares: los 123 de 0xF000 y las 54
+  filas de la ventana que no usa el HUD); el vblank sube los tiles pendientes antes que las filas. La RAM de la
+  caché va en `cinematic_text_tilemap` + 1024..1743.
+- 7E:2000 lleno de 0x338 en las tres salas (`BOSS_2000_FILL`: en el SNES el inicio del jefe corre antes que la copia
+  del fondo, door.c). Los colores de la sala y del cuerpo se juntan pesando sus píxeles (en la de Crocomire el oscuro
+  del fondo se juntaba con un rojo).
 - Para la parte común: el banco $A5 (Draygon y Spore Spawn) pasó a la página 25 y la sala de Spore Spawn (9DC7)
   también (`BOSS_ROOMS`); probada en la Genesis sin avisos.
 
@@ -79,7 +86,7 @@ En el PC, cada sala sola contra el SNES (`tools/rooms/lote.sh`, Samus invencible
 
 | Sala | Jefe | Lógica | En la Genesis |
 |---|---|---|---|
-| A98D | Crocomire | 0 diferencias | corre sin avisos; sus objetos entran sin las copias del destello (`mkzobj.FLASH_DROP`: 592 tiles de 592; el destello blanco al recibir daño no se ve); cuerpo en BG2 sin dibujar; sin verlo todavía en pantalla (la prueba lado a lado no llega a la pelea) |
+| A98D | Crocomire | 0 diferencias | se ve como en el SNES (cuerpo en el plano B por la caché, sprites sin el destello); falta el ácido de fondo y la onda |
 | B283 | Golden Torizo | 0 | corre; sin ver todavía al jefe |
 | B32E | Ridley | 0 | se ve, con sus colores (claves de `mkmd.ridley_keys` sin las del destello: 624 tiles de 632; `BOSS_PALETTES`: su línea 7 de sprites se llena después de cargar la sala); falta la lava de fondo (efecto de la sala) |
 | CD13 | Phantoon | 0 | se ve, con el cuerpo en el plano B (sin la onda) |
@@ -92,8 +99,8 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
 
 ## Lo que falta
 
-- El dibujo: los cuerpos en BG2 (`tilemap_stuff`: Phantoon, Crocomire, Draygon, Mother Brain) necesitan en la Genesis
-  tiles, plano B y el desplazamiento por línea (la onda de Phantoon y de Crocomire); los colores propios de cada jefe (`mkzobj.BOSS_PALETTES`, como el Bomb Torizo); la lava/ácido de fondo de Crocomire y Ridley (efecto de la sala).
+- El dibujo: Mother Brain (su cuerpo no pasó por `tilemap_stuff` en la prueba); la onda de Phantoon y de Crocomire
+  (desplazamiento por línea); los colores propios de cada jefe (`mkzobj.BOSS_PALETTES`, como el Bomb Torizo); la lava/ácido de fondo de Crocomire y Ridley (efecto de la sala).
 - `LoadFxEntry` (Mother Brain), el pudrirse de los cadáveres (`InitializeEnemyCorpseRotting`, `ProcessCorpseRotting`:
   escriben tiles del SNES), `DeadTorizo_Func_1` y `MotherBrain_AddSpritemapToOam` (dibujo en la cola de VRAM y la OAM
   del SNES).

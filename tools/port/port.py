@@ -54,7 +54,7 @@ XLATE_BANKS = ENEMY_BANKS | {0xA0, 0x86}
 # hasta que se escriban a mano para la Genesis
 MANUAL_STUBS = {'EprojInstr_GotoIfFunc1', 'Torizo_CorpseRottingInitFunc', 'Torizo_CorpseRottingMoveFunc', 'Torizo_CorpseRottingCopyFunc',
                 # cadáveres de Tourian: escriben en la cola de VRAM y en la OAM del SNES (falta hacerlos para la Genesis)
-                'DeadTorizo_Func_1', 'MotherBrain_AddSpritemapToOam'}
+                'DeadTorizo_Func_1', 'MotherBrain_AddSpritemapToOam', 'DeadTorizo_CopyLineOfSandHeapTileData'}
 
 # estructuras de la ROM que lee el decomp con get_X(dirección): en el motor, una copia con los mismos campos
 ROM_STRUCTS = {'EnemyDef': 0xA0, 'Vulnerability': 0xB4}
@@ -189,7 +189,10 @@ def main():
     out = ['/* Generado por tools/port/port.py (docs/42): funciones del decomp (snesrev sm/src) traducidas al motor',
            '   nativo con tools/port/xlate.py. No editar: se cambia el traductor o se escribe la función a mano en otro',
            '   archivo (entonces deja de generarse). */',
-           '#include "port_gen.h"', '']
+           '#include "port_gen.h"',
+           '/* Os (no el -O3 -funroll-loops de lo demás): con los enemigos de todas las áreas, lo traducido no entraba en',
+           '   la parte común de la ROM (a O2 sin desenrollar tampoco; docs/48) */',
+           '#pragma GCC optimize("Os")', '']
     protos = []
     bodies = []
     for n in funcs:

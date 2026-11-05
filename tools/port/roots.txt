@@ -129,7 +129,9 @@ EnemyInstr_EnableOffScreenProcessing_*
 EnemyInstr_DisableOffScreenProcessing_*
 # instrucciones de los proyectiles enemigos ($86) que pide la pelea con Bomb Torizo
 EprojInstr_SpawnEnemyDrops
-# Norfair, Wrecked Ship, Maridia y Tourian: las familias de todas sus poblaciones (sin los jefes)
+# Norfair, Wrecked Ship, Maridia y Tourian: las familias de todas sus poblaciones (sin los jefes; no van las que no
+# aparecen en ninguna sala alcanzable: Bang, Reflec, HorizontalShootableShutter, NorfairSlowFireball, DeadZoomer,
+# DeadRipper, DeadSkree)
 EvirProjectile_*
 FireGeyser_*
 Fune_*
@@ -152,7 +154,6 @@ NorfairLavaMan_*
 NorfairLavajumpingEnemy_*
 NorfairPipeBug_*
 NorfairRio_*
-NorfairSlowFireball_*
 NuclearWaffle_*
 Rinka_*
 SpikeyPlatform_*
@@ -165,13 +166,7 @@ WreckedShipSpark_*
 Zebetites_*
 DeadSidehopper_*
 DeadTorizo_*
-DeadZoomer_*
-DeadRipper_*
-DeadSkree_*
 Shaktool_*
-Bang_*
-Reflec_*
-HorizontalShootableShutter_*
 # pre-instrucción del banco $AA puesta por una lista (estatua Chozo de Lower Norfair) y el tubo de vidrio de Maridia
 sub_AAE445
 N00bTubeCracks_*

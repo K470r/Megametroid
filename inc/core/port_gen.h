@@ -56,9 +56,6 @@ static inline uint8 BB_B3(uint16 a) { return kBankB3B[(uint16)(a - 0x8000)]; }
 static inline uint16 BW_B4(uint16 a) { const uint8 *p = kBankB4B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_B4(uint16 a) { return kBankB4B[(uint16)(a - 0x8000)]; }
 #define IW_B4(a) BW_B4(a)
-static inline uint16 BW_B7(uint16 a) { const uint8 *p = kBankB7B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
-static inline uint8 BB_B7(uint16 a) { return kBankB7B[(uint16)(a - 0x8000)]; }
-#define IW_B7(a) BW_B7(a)
 typedef struct EnemyDef {
   uint16 tile_data_size;
   uint16 palette_ptr;

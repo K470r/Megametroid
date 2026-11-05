@@ -669,7 +669,8 @@ def pcm_track(a, gain):
 
 
 # ---------------------------------------------------------------- páginas (docs/55)
-PAGES = [6, 24, 25, 26, 27, 28, 29, 30, 31]           # páginas de sonido del SSF2 (md_ssf2.ld: .snd6, .snd24...)
+PAGES = [6, 26, 27, 28, 29, 30, 31]                   # páginas de sonido del SSF2 (md_ssf2.ld: .snd6, .snd26...; la 24 y
+                                                       # la 25 son de Zebes: los enemigos de todas las áreas)
 PAGE_SIZE = 0x80000
 ANY_SET = 0xFF                                        # en las tablas: el efecto suena igual con cualquier conjunto
 

@@ -709,7 +709,7 @@ def main():
 
     def next_page(pg):
         pg += 1
-        assert pg <= int(os.environ.get("MM_LAST_PAGE", "23")), "zebes: no entra en las páginas del SSF2 (md_ssf2.ld llega a la 23)"
+        assert pg <= int(os.environ.get("MM_LAST_PAGE", "25")), "zebes: no entra en las páginas del SSF2 (md_ssf2.ld llega a la 25)"
         return pg
     # primer hueco: cada bloque va a la primera página donde cabe (antes, una página tras otra: lo que sobraba al
     # final de cada página se perdía)
@@ -719,6 +719,16 @@ def main():
             fill[pg] = u + 16384                    # margen
     for pg, u in pause_pages.items():
         fill[pg] = fill.get(pg, 0) + u + 4096
+    # el título va al final de la página 22 (md_ssf2.ld, .rodata_title): lo que miden sus archivos si ya se generaron
+    # (make_data.sh corre make_title_data.py después) y si no 420 KB; con los enemigos de todas las áreas Zebes llega
+    # a esa página
+    tdat = HERE.parent.parent / "res" / "gen" / "md" / "front" / "title_data.s"
+    title_sz = 420 * 1024
+    if tdat.exists():
+        fs_ = re.findall(r'incbin "([^"]+)"', tdat.read_text())
+        if fs_ and all((tdat.parent.parent / f_).exists() for f_ in fs_):
+            title_sz = sum((tdat.parent.parent / f_).stat().st_size for f_ in fs_) + 16384
+    fill[22] = fill.get(22, 0) + title_sz
 
     def place(need):
         for pg in sorted(fill):

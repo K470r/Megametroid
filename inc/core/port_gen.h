@@ -14,6 +14,9 @@
 static inline uint16 BW_86(uint16 a) { const uint8 *p = kBank86B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_86(uint16 a) { return kBank86B[(uint16)(a - 0x8000)]; }
 #define IW_86(a) BW_86(a)
+static inline uint16 BW_91(uint16 a) { const uint8 *p = kBank91B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_91(uint16 a) { return kBank91B[(uint16)(a - 0x8000)]; }
+#define IW_91(a) BW_91(a)
 static inline uint16 BW_94(uint16 a) { const uint8 *p = kBank94B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_94(uint16 a) { return kBank94B[(uint16)(a - 0x8000)]; }
 #define IW_94(a) BW_94(a)
@@ -29,6 +32,9 @@ static inline uint8 BB_A2(uint16 a) { return kBankA2B[(uint16)(a - 0x8000)]; }
 static inline uint16 BW_A3(uint16 a) { const uint8 *p = kBankA3B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_A3(uint16 a) { return kBankA3B[(uint16)(a - 0x8000)]; }
 #define IW_A3(a) BW_A3(a)
+static inline uint16 BW_A4(uint16 a) { const uint8 *p = kBankA4B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_A4(uint16 a) { return kBankA4B[(uint16)(a - 0x8000)]; }
+#define IW_A4(a) BW_A4(a)
 static inline uint16 BW_A5(uint16 a) { const uint8 *p = kBankA5B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_A5(uint16 a) { return kBankA5B[(uint16)(a - 0x8000)]; }
 #define IW_A5(a) BW_A5(a)
@@ -47,6 +53,9 @@ static inline uint8 BB_A9(uint16 a) { return kBankA9B[(uint16)(a - 0x8000)]; }
 static inline uint16 BW_AA(uint16 a) { const uint8 *p = kBankAAB + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_AA(uint16 a) { return kBankAAB[(uint16)(a - 0x8000)]; }
 #define IW_AA(a) BW_AA(a)
+static inline uint16 BW_AD(uint16 a) { const uint8 *p = kBankADB + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_AD(uint16 a) { return kBankADB[(uint16)(a - 0x8000)]; }
+#define IW_AD(a) BW_AD(a)
 static inline uint16 BW_B2(uint16 a) { const uint8 *p = kBankB2B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_B2(uint16 a) { return kBankB2B[(uint16)(a - 0x8000)]; }
 #define IW_B2(a) BW_B2(a)
@@ -187,7 +196,11 @@ typedef uint8 Func_U8(void);
 typedef void Func_Y_V(uint16 j);
 extern uint16 eproj_spawn_x, eproj_spawn_y, eproj_spawn_varE24;
 extern uint16 nt_gfx_hook_addr; extern uint8 nt_gfx_hook_bank;
+extern uint32 nt_pause_hook, nt_unpause_hook;
 uint16 nt_ram_w(uint16 a);
+void nt_ram_set_w(uint16 a, uint16 x);
+void nt_vwq_w8(uint16 o, uint8 v);
+void nt_vwq_w16(uint16 o, uint16 v);
 uint16 nt_bank_w(uint8 bank, uint16 a);
 uint8 port_call_void(uint32 ea);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);

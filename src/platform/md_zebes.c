@@ -397,6 +397,10 @@ static void block_changed(uint16 i) {
 /* ---------------------------------------------------------------- vblank */
 /* tiles animados ($87): el motor dice qué trozo va a qué VRAM del SNES; aquí se suben los tiles de la sala que
    salen de ese trozo (ya convertidos en el PC: mkzebes.py) */
+/* la cola de escrituras a la VRAM del SNES (game.c, NMI): tiles de los jefes que suben por la cola (Crocomire,
+   Phantoon, Mother Brain); falta convertirlos para la Genesis (docs/46) */
+void nt_vram_queue_flush(const uint8 *q, uint16 n) { (void)q; (void)n; }
+
 void nt_animtiles_transfer(uint16 src, uint16 size, uint16 vram) {
   (void)size;
   if (md_zebes && zg && zg->nanim && nlanim < QANIM) { lanim[nlanim][0] = src; lanim[nlanim][1] = vram; nlanim++; }

@@ -569,8 +569,13 @@ static void ContinueInitPauseMenu(void) {  // 0x829009
   SetupMapScrollingForPauseMenu(0x80);
 }
 
+/* pause_hook / unpause_hook ($82:1052, $82:1061): 0 = PauseHook_Empty; si no, la función de 24 bits que puso el
+   código del enemigo (Mother Brain: MotherBrainsBody_UnpauseHook) */
+uint32 nt_pause_hook, nt_unpause_hook;
+uint8 port_call_void(uint32 ea);
 static void CallPauseHook(void) {
-  /* pause_hook: PauseHook_Empty salvo en las salas de Kraid y Draygon (door.c todavía no los pone) */
+  if (nt_pause_hook && !port_call_void(nt_pause_hook))
+    nt_unimpl_v("CallPauseHook (gancho de pausa sin portar)", (uint16)nt_pause_hook);
 }
 
 static void QueueClearingOfFxTilemap(void) {  // 0x80A211
@@ -1591,7 +1596,8 @@ static uint8 GameState_17_Unpausing_Async(void) {  // 0x829367
   /* RestoreBG2TilemapFromPauseScreen ($82:8D96): la VRAM, la Genesis */
   screen_fade_delay = 1;
   screen_fade_counter = 1;
-  /* CallUnpauseHook_Async(unpause_hook): UnpauseHook vacío fuera de Kraid, Draygon y Mother Brain (sin portar) */
+  if (nt_unpause_hook && !port_call_void(nt_unpause_hook))   // CallUnpauseHook_Async(unpause_hook)
+    nt_unimpl_v("CallUnpauseHook (gancho de pausa sin portar)", (uint16)nt_unpause_hook);
   EnableHdmaObjects();
   EnableAnimtiles_();
   QueueSamusMovementSfx();

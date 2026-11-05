@@ -68,5 +68,6 @@ void nt_map_level_page(uint8 page) { (void)page; }
 
 void nt_block_changed(uint16_t i) { (void)i; }
 void nt_animtiles_transfer(uint16_t src, uint16_t size, uint16_t vram) { (void)src; (void)size; (void)vram; }
+void nt_vram_queue_flush(const uint8_t *q, uint16_t n) { (void)q; (void)n; }
 void DrawAtmosphericGfx(uint16_t type, uint16_t frame, int16_t x, int16_t y) { (void)type; (void)frame; (void)x; (void)y; }
 void DrawArmCannon(int16 x, int16 y, uint16 attr, uint16 src) { LOG("%04X armcannon %04X\n", room_ptr, src); (void)x; (void)y; (void)attr; }

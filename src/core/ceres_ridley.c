@@ -82,7 +82,7 @@ static void DrawBabyMetroid_0(void) {  // 0xA6BF1A
 }
 
 /* ------------------------------------------------------------------ utilidades de Ridley */
-static void DisableMinimapAndMarkBossRoomAsExplored(void) {  // 0x90A7E2
+void DisableMinimapAndMarkBossRoomAsExplored(void) {  // 0x90A7E2
   debug_disable_minimap = 1;
   for (int i = 0; i < 5; i++) {
     hud_tilemap[i + 26] = 11295;

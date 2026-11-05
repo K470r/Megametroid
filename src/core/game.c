@@ -362,6 +362,10 @@ void game_frame(uint16 joy) {
           nt_animtiles_transfer(animtiles_src_ptr[i], animtiles_sizes[i], animtiles_vram_ptr[i]);
           animtiles_src_ptr[i] = 0;
         }
+    if (vram_write_queue_tail) {           // NMI: la cola de VRAM ($80:9667) la sube la plataforma
+      nt_vram_queue_flush(nt_vwq, vram_write_queue_tail);
+      vram_write_queue_tail = 0;
+    }
     nmi_frames_missed = 0;
     ++nmi_frame_counter_byte;
     ++nmi_frame_counter_word;

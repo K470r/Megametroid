@@ -170,3 +170,23 @@ Shaktool_*
 # pre-instrucción del banco $AA puesta por una lista (estatua Chozo de Lower Norfair) y el tubo de vidrio de Maridia
 sub_AAE445
 N00bTubeCracks_*
+# jefes (docs/46): su código va en la página del SSF2 de los niveles de sus salas (port.py, BOSS_PAGES)
+Phantoon_*
+Phantoon2_*
+Draygon_*
+DraygonsEye_*
+DraygonsTail_*
+DraygonsArms_*
+Botwoon_*
+Crocomire_*
+CrocomireTongue_*
+Ridley_*
+RidleysExplosion_*
+GoldTorizo_*
+MotherBrain_*
+MotherBrainsBody_*
+MotherBrainsBrain_*
+MotherBrainsTubesFalling_*
+Shitroid_*
+ShitroidInCutscene_*
+CallBabyMetroidInstr

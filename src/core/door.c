@@ -666,7 +666,8 @@ void InitializeSpecialEffectsForNewRoom(void) {  // 0x8882C1
   layer2_x_pos = 0;
   layer2_y_pos = 0;
   room_loading_irq_handler = 0;
-  /* pause_hook / unpause_hook = PauseHook_Empty: la pausa la hace la Genesis a su manera.
+  { extern uint32 nt_pause_hook, nt_unpause_hook; nt_pause_hook = nt_unpause_hook = 0; }   // PauseHook_Empty ($88)
+  /* (la pausa en sí la hace la Genesis a su manera)
      Registros de vídeo del SNES: los que la capa de la Genesis lee para imitar el color math y los fondos */
   reg_BG3HOFS = 0;
   reg_BG3VOFS = 0;

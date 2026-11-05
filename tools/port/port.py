@@ -19,9 +19,15 @@ def native_names():
         if os.path.basename(f) == 'port_gen.c':
             continue
         for m in re.finditer(r'^([A-Za-z_][\w \*]*?\b([A-Za-z_]\w*)\(([^;{]*)\))\s*\{', open(f).read(), re.M):
+            if m.group(1).startswith('static'):
+                continue        # (static: lo traducido no la puede llamar; se traduce aparte: Ridley de Ceres y de Norfair)
             names.add(m.group(2))
             if not m.group(1).startswith(('static', 'inline')) and '\n' not in m.group(1):
                 NATIVE_PROTOS[m.group(2)] = m.group(1)
+    # funciones de los encabezados (static inline: lo traducido sí las ve: Mult8x8, SnesDivide...)
+    for f in glob.glob(os.path.join(NAT, '..', '..', 'inc', 'core', '*.h')):
+        for m in re.finditer(r'^static inline [\w \*]*?\b([A-Za-z_]\w*)\([^;{]*\)\s*\{', open(f).read(), re.M):
+            names.add(m.group(1))
     return names
 
 def fbank(g, n):
@@ -45,7 +51,7 @@ def roots_from(path, g):
             roots.append(line)
     return roots
 
-ENEMY_BANKS = {0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xB2, 0xB3}
+ENEMY_BANKS = {0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xAD, 0xB2, 0xB3}   # ($AD: Mother Brain)
 # bancos que se traducen enteros si hacen falta (enemigos, su núcleo $A0 y sus proyectiles $86); de los demás, lo que
 # no esté escrito a mano queda como función vacía que avisa (SIN PORTAR) para hacerla a mano
 XLATE_BANKS = ENEMY_BANKS | {0xA0, 0x86}
@@ -353,7 +359,7 @@ def main():
           'void CallEnemyPreInstr(uint32 ea);']
     h += ['typedef void Func_V(void);', 'typedef uint8 Func_U8(void);', 'typedef void Func_Y_V(uint16 j);',
           'extern uint16 eproj_spawn_x, eproj_spawn_y, eproj_spawn_varE24;',
-          'extern uint16 nt_gfx_hook_addr; extern uint8 nt_gfx_hook_bank;', 'uint16 nt_ram_w(uint16 a);', 'uint16 nt_bank_w(uint8 bank, uint16 a);', 'uint8 port_call_void(uint32 ea);']
+          'extern uint16 nt_gfx_hook_addr; extern uint8 nt_gfx_hook_bank;', 'extern uint32 nt_pause_hook, nt_unpause_hook;', 'uint16 nt_ram_w(uint16 a);', 'void nt_ram_set_w(uint16 a, uint16 x);', 'void nt_vwq_w8(uint16 o, uint8 v);', 'void nt_vwq_w16(uint16 o, uint16 v);', 'uint16 nt_bank_w(uint8 bank, uint16 a);', 'uint8 port_call_void(uint32 ea);']
     h += ['uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);', 'uint32 Multiply16x16(uint16 a, uint16 j);', 'void SpawnPalfxObject(uint16 j);',
           'void SpawnEprojWithGfx(uint16 a, uint16 k, uint16 j);', 'uint8 EprojBlockCollisition_Horiz(uint16 k);',
           'uint8 EprojBlockCollisition_Vertical(uint16 k);']

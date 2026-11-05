@@ -37,7 +37,7 @@ for m in re.finditer(r'#define fn(\w+) 0x([0-9A-Fa-f]{6})', (SRC / 'funcs.h').re
 
 # instrucciones traducidas: dirección -> (pasos, saltos_desde_argumento, se_detiene)
 instr = {}
-for m in re.finditer(r'^uint16 (\w+)\(uint16 k, uint16 jp\) \{  // 0x([0-9A-F]{6})\n(.*?)^\}', PORT, re.M | re.S):
+for m in re.finditer(r'^(?:static )?(?:NT_BOSS )?uint16 (\w+)\(uint16 k, uint16 jp\) \{  // 0x([0-9A-F]{6})\n(.*?)^\}', PORT, re.M | re.S):
     a, body = int(m.group(2), 16), m.group(3)
     steps, jumps, stop = set(), set(), False
     for r in re.findall(r'return ([^;]*);', body):
@@ -210,7 +210,7 @@ def room_states(ra):
 # proyectiles con los tiles comunes (gfx 0): explosiones de muerte de los enemigos (off_86EFD5) y lo que sueltan
 # (off_86EF04): los mismos en todas las salas
 einstr = {}
-for m in re.finditer(r'^uint16 (\w+)\(uint16 k, uint16 (\w+)\) \{  // 0x(86[0-9A-F]{4})\n(.*?)^\}', PORT, re.M | re.S):
+for m in re.finditer(r'^(?:static )?(?:NT_BOSS )?uint16 (\w+)\(uint16 k, uint16 (\w+)\) \{  // 0x(86[0-9A-F]{4})\n(.*?)^\}', PORT, re.M | re.S):
     P, a, body = m.group(2), int(m.group(3), 16), m.group(4)
     steps, jumps, stop = set(), set(), False
     for r in re.findall(r'return ([^;]*);', body):
@@ -234,7 +234,7 @@ for m in re.finditer(r'case 0x86([0-9A-F]{4}): \w+\(k\); return jp;', PORT):
 # funciones del banco $86 traducidas (port_gen.c): las listas que ponen en eproj_instr_list_ptr, las
 # pre-instrucciones que ponen y las funciones que llaman (para seguir un proyectil por todo su código)
 PFUN = {}
-for m in re.finditer(r'^(?:static )?[\w ]+?\*?\b(\w+)\([^)]*\) \{  // 0x86([0-9A-F]{4})\n(.*?)^\}', PORT, re.M | re.S):
+for m in re.finditer(r'^(?:static )?(?:NT_BOSS )?[\w ]+?\*?\b(\w+)\([^)]*\) \{  // 0x86([0-9A-F]{4})\n(.*?)^\}', PORT, re.M | re.S):
     PFUN[m.group(1)] = (int(m.group(2), 16), m.group(3))
 PADDR = {a: n for n, (a, _) in PFUN.items()}
 NAMES86 = {}

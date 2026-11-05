@@ -524,6 +524,16 @@ class Xlate:
             nxt = chr(ord(f) + 1)
             return '((uint16)(HIBYTE(%s->ai_var_%s) | LOBYTE(%s->ai_var_%s) << 8))' % (v, f, v, nxt)
         body = re.sub(r'\*\(uint16 \*\)\(\(uint8 \*\)&(\w+)->ai_var_([A-E]) \+ 1\)', mid_word, body)
+        # lo mismo con cualquier campo de EnemyData (Ridley_Func_114: *(int16 *)((uint8 *)&E->enemy_ptr + 1))
+        def mid_word2(m):
+            t_, v, f = m.group(1), m.group(2), m.group(3)
+            if f not in EFIELDS:
+                return m.group(0)
+            i_ = EFIELDS.index(f)
+            if i_ + 1 >= len(EFIELDS) or not EFIELDS[i_ + 1]:
+                return m.group(0)
+            return '((%s)(HIBYTE(%s->%s) | LOBYTE(%s->%s) << 8))' % (t_, v, f, v, EFIELDS[i_ + 1])
+        body = re.sub(r'\*\((u?int16) \*\)\(\(uint8 \*\)&(\w+)->(\w+) \+ 1\)', mid_word2, body)
         # objetos de HDMA con sus argumentos (DMAP, BBAD, lista): el motor solo usa la lista (hdmaobj.c)
         for m in list(re.finditer(r'(?m)^[ \t]*static const SpawnHdmaObject_Args (\w+) = \{ ?[^,]+, [^,]+, ([^}]+?) ?\};\n?', body)):
             body = body.replace(m.group(0), '', 1)

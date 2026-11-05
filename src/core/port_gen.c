@@ -3356,7 +3356,7 @@ static NT_BOSS void EprojInit_CrocomireSpikeWallPieces(uint16 j) {  // 0x8690CF
   eproj_y_vel[v1] = -5;
   eproj_F[v1] = -30720;
 }
-NT_BOSS void EprojPreInstr_CrocomireSpikeWallPieces(uint16 k) {
+NT_BOSS void EprojPreInstr_CrocomireSpikeWallPieces(uint16 k) {  // 0x869115
   int8 v3;
   int8 v6;
   int8 v7;
@@ -5279,7 +5279,7 @@ void EprojPreInstrHelper_SpikeShootingPlantSpikes_Func1(uint16 k) {  // 0x86DAC2
   if (EprojPreInstrHelper_SpikeShootingPlantSpikes_Func2(k))
     eproj_id[k >> 1] = 0;
 }
-void EprojPreInstr_SpikeShootingPlantSpikes(uint16 k) {
+void EprojPreInstr_SpikeShootingPlantSpikes(uint16 k) {  // 0x86D9DB
   kEprojPreInstr_SpikeShootingPlantSpikes[eproj_E[k >> 1] >> 1](k);
   EprojPreInstrHelper_SpikeShootingPlantSpikes_Func1(k);
 }
@@ -5717,7 +5717,7 @@ static void EprojInit_EnemyDeathExplosion(uint16 j) {  // 0x86EF89
   eproj_instr_list_ptr[v2] = ((uint16)BW_86(0xEFD5 + 2 * (eproj_init_param_1)));
   eproj_instr_timers[v2] = 1;
 }
-void EprojPreInstr_Pickup(uint16 k) {
+void EprojPreInstr_Pickup(uint16 k) {  // 0x86EFE0
   int v1 = k >> 1;
   if (!--eproj_F[v1])
     goto LABEL_7;
@@ -7787,7 +7787,7 @@ uint16 SpikeShootingPlant_Instr_A0A7(uint16 k, uint16 jp) {  // 0xA2A0A7
   SpawnEprojWithGfx(IW_A2(jp), cur_enemy_index, addr_kEproj_SpikeShootingPlantSpikes);
   return (uint16)(jp + 2);
 }
-void MaridiaSpikeyShell_Init(void) {
+void MaridiaSpikeyShell_Init(void) {  // 0xA2A3F9
 
   EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
   E->spritemap_pointer = addr_kSpritemap_Nothing_A2;
@@ -9574,7 +9574,7 @@ void TimedShutter_Func_9(void) {  // 0xA2EBE8
 void TimedShutter_Func_Null2(void) {
 
 }
-void TimedShutter_Func_10(uint16 k) {
+void TimedShutter_Func_10(uint16 k) {  // 0xA2EC13
   EnemyData *E = gEnemyData(k); uint16 E_k = (k);
   ERAM(0x8800 + E_k) = E->y_pos;
   uint16 v2 = 2 * E->ai_preinstr;
@@ -9708,7 +9708,7 @@ void RisingFallingPlatform_Main(void) {  // 0xA2EED1
       RisingFallingPlatform_Powerbomb();
   }
 }
-void RisingFallingPlatform_Func_2(void) {
+void RisingFallingPlatform_Func_2(void) {  // 0xA2EF09
 
   int v0 = ERAM(0x780E + (cur_enemy_index)) >> 1;
   off_A2EDFB[v0]();
@@ -9831,7 +9831,7 @@ LABEL_10:
     goto LABEL_10;
   }
 }
-void HorizontalShootableShutter_Func_2(void) {
+void HorizontalShootableShutter_Func_2(void) {  // 0xA2F224
 
   int v0 = ERAM(0x780E + (cur_enemy_index)) >> 1;
   off_A2F107[v0]();
@@ -12443,7 +12443,7 @@ NT_BOSS void Crocomire_Hurt(void) {  // 0xA48687
   Crocomire_Func_27(cur_enemy_index);
   Crocomire_Func_31();
 }
-NT_BOSS uint16 Crocomire_Instr_1(uint16 k, uint16 jp) {  // 
+NT_BOSS uint16 Crocomire_Instr_1(uint16 k, uint16 jp) {  // 0xA486A6
   uint16 crocom_var_C = gEnemyData(cur_enemy_index)->ai_var_C;
   return off_A486B3[crocom_var_C >> 1](crocom_var_C, jp);
 }
@@ -12817,7 +12817,7 @@ LABEL_3:;
 }
 NT_BOSS void nullsub_305(void) {
 }
-NT_BOSS void Crocomire_Main(void) {
+NT_BOSS void Crocomire_Main(void) {  // 0xA48C04
 
   int v0 = gEnemyData(0)->ai_var_A >> 1;
   off_A48C14[v0]();
@@ -18677,12 +18677,12 @@ void Ridley_Func_114(void) {  // 0xA6D955
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   uint16 ridley_var_10 = ERAM(0x7820 + E_k), v2;
   if (!ridley_var_10) {
-    if (*(int16 *)((uint8 *)&E->enemy_ptr + 1) < 0)
+    if (((int16)(HIBYTE(E->enemy_ptr) | LOBYTE(E->x_pos) << 8)) < 0)
       return;
     v2 = addr_kRidley_Ilist_E6F0;
     goto LABEL_7;
   }
-  if (ridley_var_10 != 1 && *(int16 *)((uint8 *)&E->enemy_ptr + 1) < 0) {
+  if (ridley_var_10 != 1 && ((int16)(HIBYTE(E->enemy_ptr) | LOBYTE(E->x_pos) << 8)) < 0) {
     v2 = addr_kRidley_Ilist_E706;
 LABEL_7:
     E->current_instruction = v2;
@@ -26567,7 +26567,7 @@ NT_BOSS void MotherBomb_FiringLaser_FinishAttack(void) {  // 0xA9B863
     MotherBrain_Body_Phase2_Thinking();
   }
 }
-NT_BOSS void MotherBomb_FiringDeathBeam(void) {
+NT_BOSS void MotherBomb_FiringDeathBeam(void) {  // 0xA9B87D
   int v0 = ERAM(0x782E + (0));
   off_A9B887[v0]();
 }
@@ -30614,7 +30614,7 @@ NT_BOSS void MotherBrain_CalcHdma(void) {  // 0xADDE00
   uint16 r18 = HIBYTE(ERAM(0x8026 + E_k)) >> 1;
   ERAM(0x8034 + E_k) = ERAM(0x8022 + E_k) - r18;
   ERAM(0x8036 + E_k) = r18 + ERAM(0x8022 + E_k);
-  uint16 v2 = (*(uint16 *)((uint8 *)&E1->enemy_ptr + 1) + 3584) & 0xFF00;
+  uint16 v2 = (((uint16)(HIBYTE(E1->enemy_ptr) | LOBYTE(E1->x_pos) << 8)) + 3584) & 0xFF00;
   ERAM(0x8038 + E_k) = v2;
   ERAM(0x803C + E_k) = v2;
   uint16 v3 = E1->y_pos + 5;

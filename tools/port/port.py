@@ -215,6 +215,8 @@ def main():
             todo = g.closure(roots, stop)
         return todo
     # jefes (docs/46): lo que solo alcanzan las raíces de los jefes va en la página del SSF2 de sus salas
+    fn_addr = {m.group(1): int(m.group(2), 16) for m in re.finditer(
+        r'#define fn(\w+) 0x([0-9A-Fa-f]{6})', open(os.path.join(os.path.dirname(__file__), '..', '..', 'sm', 'src', 'funcs.h')).read())}
     boss_roots = roots_from(rootsf, g, section="jefes")
     todo = expand(roots)
     common = expand([r_ for r_ in roots if r_ not in set(boss_roots)])
@@ -237,6 +239,9 @@ def main():
         a = g.funcs[n][3]
         bank = (a >> 16) if a else 0xA0
         t = x.translate(n, bank)
+        # dirección en el comentario de la cabecera si el decomp no la tiene (Crocomire_Instr_1: mkzkeys.py la usa)
+        if n in fn_addr and not re.match(r'[^\n]*//\s*0x[0-9A-Fa-f]{6}', t):
+            t = re.sub(r'^([^\n]*\{)[^\n]*', lambda m_: '%s  // 0x%06X' % (m_.group(1), fn_addr[n]), t, count=1)
         if n in boss_funcs:                       # en la página de los jefes (NT_BOSS, port_gen.h)
             t = re.sub(r'^(static )?', lambda m_: (m_.group(1) or '') + 'NT_BOSS ', t, count=1)
         # tabla local del decomp que ya se lee de la ROM (BW_XX): su declaración sobra

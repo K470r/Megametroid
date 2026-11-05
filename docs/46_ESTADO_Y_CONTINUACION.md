@@ -157,6 +157,10 @@ Reglas de Edwin (no negociables):
   la VRAM y la OAM del SNES. En los objetos de algunas salas se juntan colores (10 por sala; p. ej. la punta verde
   de los Cacatac). En la ROM de prueba con `MD_TEST_SETXY` la cámara de la Genesis se separa de la del SNES (en el
   PC, `check` da 0 diferencias con la misma prueba: es de la ROM de prueba, ya pasaba antes).
+- **Jefes** (2026-11-05, docs/59): IA traducida de Phantoon, Draygon, Botwoon, Crocomire, Ridley de Norfair, Golden
+  Torizo, Mother Brain, la bebé y los cadáveres de Tourian; su código va en la página 25 del SSF2, junto a los niveles
+  de sus salas (la ventana 7 la muestra en esas salas). Lógica igual al SNES en lo probado; en la Genesis corren sin
+  colgarse. Falta el dibujo (cuerpos en BG2, Ridley de Norfair, colores) y Kraid.
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 

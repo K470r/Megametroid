@@ -412,7 +412,7 @@ class Xlate:
                    'parameter_2']
         def other_enemy(m):
             arr, var, n = m.group(1), m.group(2), int(m.group(3))
-            dm = re.search(r'\bint %s = \(?([\w>()]+?)\)? >> 1;' % var, body)
+            dm = re.search(r'\b(?:int |uint16 )?%s = \(?([\w>()]+?)\)? >> 1;' % var, body)
             if not dm:
                 return m.group(0)
             base = 0x0E84 if arr == 'enemy_drawing_queue' else 0x0F68
@@ -423,6 +423,44 @@ class Xlate:
                 return m.group(0)
             return 'gEnemyData((uint16)(%s + (%d)))->%s' % (dm.group(1), d, f)
         body = re.sub(r'\b(enemy_drawing_queue(?:_sizes)?)\[(\w+) \+ (\d+)\]', other_enemy, body)
+        body = re.sub(r'\b(enemy_drawing_queue_sizes)\[(\w+)()\]', lambda m: other_enemy(re.match(
+            r'(\w+)\[(\w+) \+ (\d+)\]', '%s[%s + 0]' % (m.group(1), m.group(2)))) if re.search(
+            r'\b(?:int |uint16 )?%s = \(?[\w>()]+?\)? >> 1;' % m.group(2), body) else m.group(0), body)
+        # datos de aparición de otro enemigo o pasado su final (7E:7000 + k + 64 * n + campo): nt_spawn_p
+        SPF = ['some_flag', 'cause_of_death', 'field_4', 'vram_tiles_index', 'palette_index', 'field_A', 'field_C',
+               'field_E', 'xpos2', 'ypos2', 'field_14', 'field_16', 'field_18', 'field_1A', 'field_1C', 'id', 'x_pos',
+               'y_pos', 'init_param', 'properties', 'extra_properties', 'param_1', 'param_2']
+        def spawn_far(kexpr, n, f):
+            return '(*nt_spawn_p((uint16)(0x%04X + (%s))))' % (0x7000 + 64 * int(n) + 2 * SPF.index(f), kexpr)
+        rx = re.compile(r'gEnemySpawnData\(')
+        pos = 0
+        while True:
+            m = rx.search(body, pos)
+            if not m:
+                break
+            e = match_paren(body, m.end() - 1)
+            fm = re.match(r'\[(\d+)\]\.(\w+)', body[e + 1:])
+            if not fm or fm.group(2) not in SPF:
+                pos = e
+                continue
+            rep_ = spawn_far(body[m.end():e], fm.group(1), fm.group(2))
+            body = body[:m.start()] + rep_ + body[e + 1 + len(fm.group(0)):]
+            pos = m.start() + len(rep_)
+        for m in list(re.finditer(r'(?:EnemySpawnData \*)?\b(\w+) = gEnemySpawnData\(([^;]+)\);', body)):
+            v, kexpr = m.group(1), m.group(2)
+            body = re.sub(r'\b%s\[(\d+)\]\.(\w+)' % v, lambda mm: spawn_far(kexpr, mm.group(1), mm.group(2))
+                          if mm.group(2) in SPF else mm.group(0), body)
+        # la misma forma con el índice en línea: enemy_drawing_queue[(cur_enemy_index >> 1) + 87] (NorfairLavaMan)
+        def other_enemy2(m):
+            arr, var, n = m.group(1), m.group(2), int(m.group(3))
+            base = 0x0E84 if arr == 'enemy_drawing_queue' else 0x0F68
+            rel = base + 2 * n - 0x0F78
+            d, off = (rel // 64) * 64, rel % 64
+            f = EFIELDS[off // 2]
+            if f is None or off & 1:
+                return m.group(0)
+            return 'gEnemyData((uint16)(%s + (%d)))->%s' % (var, d, f)
+        body = re.sub(r'\b(enemy_drawing_queue(?:_sizes)?)\[\((\w+) >> 1\) \+ (\d+)\]', other_enemy2, body)
         body = re.sub(r'SpawnHardcodedPlm\(\(SpawnHardcodedPlmArgs\) ?\{ ?([^,]+), ([^,]+), ([^}]+?) ?\}\)', r'SpawnHardcodedPlm(\1, \2, \3)', body)
         # palabra que empieza en el byte alto de un campo (en el SNES, little-endian): byte alto de ese campo y byte
         # bajo del siguiente

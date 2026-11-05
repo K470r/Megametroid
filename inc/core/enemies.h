@@ -34,6 +34,13 @@ extern uint16 enemy_ram7800[0x1000];
    EprojPreInstr_SporeSpawners $86:DD46 la lee; check la compara como parte de enemy_ram7800) */
 #define kraid_unk9000 ERAM(0x9000)
 static inline EnemySpawnData *gEnemySpawnData(uint16 k) { return &enemy_spawn_data[k >> 6]; }
+/* palabra de 7E:7000-97FF por su dirección del SNES: el decomp lee gEnemySpawnData(k)[31].campo (otro enemigo, o
+   pasado el final de los datos de aparición, la RAM extra 7E:7800: NorfairRio, NorfairLavaMan, MiniDraygon) */
+static inline uint16 *nt_spawn_p(uint16 a) {
+  if (a < 0x7800)
+    return (uint16 *)((uint8 *)enemy_spawn_data + (uint16)(a - 0x7000));
+  return &enemy_ram7800[(uint16)(a - 0x7800) >> 1];
+}
 
 #include "tables.h"
 const EnemyDefN *enemy_def_slow(uint16 addr);

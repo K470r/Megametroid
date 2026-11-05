@@ -1622,11 +1622,13 @@ void Shaktool_Shot(void);
 uint16 Shaktool_Instr_9(uint16 k, uint16 jp);
 uint16 Shaktool_Instr_11(uint16 k, uint16 jp);
 uint16 Shaktool_Instr_10(uint16 k, uint16 jp);
+void sub_AAE445(uint16 k);
 uint16 Shaktool_Instr_8(uint16 k, uint16 jp);
 uint16 Shaktool_Instr_13(uint16 k, uint16 jp);
 uint16 Shaktool_Instr_12(uint16 k, uint16 jp);
 uint16 Shaktool_Instr_7(uint16 k, uint16 jp);
 uint16 Shaktool_Instr_14(uint16 k, uint16 jp);
+void N00bTubeCracks_Init(void);
 void ChozoStatue_Init(void);
 void sub_AAE784(void);
 void ChozoStatue_Main(void);
@@ -6332,17 +6334,17 @@ void NorfairRio_Func_1(uint16 k) {  // 0xA2C281
     E->frozen_timer = v3;
     if (v3
         || (E->properties &= ~kEnemyProps_Invisible,
-            gEnemySpawnData(k)[31].some_flag == addr_kNorfairRio_Ilist_C0F1)) {
+            (*nt_spawn_p((uint16)(0x77C0 + (k)))) == addr_kNorfairRio_Ilist_C0F1)) {
       E->properties |= kEnemyProps_Invisible;
     } else {
       uint16 r18 = addr_kNorfairRio_Ilist_C18F;
       v6 = gEnemySpawnData(k);
-      if ((v6[31].field_4 & 0x8000) != 0)
+      if (((*nt_spawn_p((uint16)(0x77C4 + (k)))) & 0x8000) != 0)
         r18 = addr_kNorfairRio_Ilist_C1A3;
       NorfairRio_Func_7(r18);
       E->properties &= ~kEnemyProps_Invisible;
       E->x_pos = gEnemyData((uint16)(k + (-64)))->x_pos;
-      E->y_pos = v6[31].field_4 + gEnemyData((uint16)(k + (-64)))->y_pos;
+      E->y_pos = (*nt_spawn_p((uint16)(0x77C4 + (k)))) + gEnemyData((uint16)(k + (-64)))->y_pos;
     }
   } else {
     E->properties |= kEnemyProps_Deleted;
@@ -6448,7 +6450,7 @@ void LowerNorfairRio_Func_1(uint16 k) {  // 0xA2C72E
   if (gEnemyData((uint16)(k + (-64)))->health) {
     uint16 v3 = gEnemyData((uint16)(k + (-64)))->frozen_timer;
     E->frozen_timer = v3;
-    if (!v3 && gEnemySpawnData(k)[31].field_4) {
+    if (!v3 && (*nt_spawn_p((uint16)(0x77C4 + (k))))) {
       E->properties &= ~kEnemyProps_Invisible;
       E->x_pos = gEnemyData((uint16)(k + (-64)))->x_pos;
       E->y_pos = gEnemyData((uint16)(k + (-64)))->y_pos + 12;
@@ -9194,7 +9196,7 @@ void Bang_Func_3(void) {  // 0xA3BB66
       uint16 v9 = cur_enemy_index;
       EnemyData *E = gEnemyData(cur_enemy_index + 64); const uint16 E_k = (cur_enemy_index + 64);
       E->properties |= 0x200;
-      enemy_drawing_queue[(v9 >> 1) + 97] |= 0x200;
+      gEnemyData((uint16)(v9 + (-64)))->properties |= 0x200;
     } else {
       ++ERAM(0x8000 + E0_k);
       Bang_Func_18();
@@ -12596,7 +12598,7 @@ uint16 MiniDraygon_Instr_2(uint16 k, uint16 jp) {  // 0xA8878F
   return jp;
 }
 uint16 MiniDraygon_Instr_1(uint16 k, uint16 jp) {  // 0xA8879B
-  if (gEnemySpawnData(cur_enemy_index)[30].cause_of_death == addr_kMiniDraygon_Ilist_870B)
+  if ((*nt_spawn_p((uint16)(0x7782 + (cur_enemy_index)))) == addr_kMiniDraygon_Ilist_870B)
     gEnemyData(cur_enemy_index)->ai_preinstr = -8;
   else
     gEnemyData(cur_enemy_index)->ai_preinstr = 8;
@@ -12604,7 +12606,7 @@ uint16 MiniDraygon_Instr_1(uint16 k, uint16 jp) {  // 0xA8879B
 }
 uint16 MiniDraygon_Instr_3(uint16 k, uint16 jp) {  // 0xA887B6
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
-  if (gEnemySpawnData(cur_enemy_index)[30].cause_of_death == addr_kMiniDraygon_Ilist_870B) {
+  if ((*nt_spawn_p((uint16)(0x7782 + (cur_enemy_index)))) == addr_kMiniDraygon_Ilist_870B) {
     ++E->ai_preinstr;
   } else {
     --E->ai_preinstr;
@@ -12759,7 +12761,7 @@ void MiniDraygon_Func_9(void) {  // 0xA88A3B
   AddToHiLo(&E->y_pos, &E->y_subpos, __PAIR32__(ERAM(0x7812 + E_k), ERAM(0x7814 + E_k)));
 }
 void MiniDraygon_Func_10(void) {  // 0xA88A78
-  if (!enemy_drawing_queue[(cur_enemy_index >> 1) + 77]) {
+  if (!gEnemyData((uint16)(cur_enemy_index + (-128)))->frozen_timer) {
     EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
     if (ERAM(0x7818 + E_k)) {
       MiniDraygon_Func_3();
@@ -12775,7 +12777,7 @@ void MiniDraygon_Func_10(void) {  // 0xA88A78
 }
 void MiniDraygon_Func_11(void) {  // 0xA88AB1
   if (EnemyFunc_ADA3(0x100)) {
-    if (!enemy_drawing_queue[(cur_enemy_index >> 1) + 77]) {
+    if (!gEnemyData((uint16)(cur_enemy_index + (-128)))->frozen_timer) {
       EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
       ERAM(0x7816 + E_k) = 0;
       ERAM(0x7818 + E_k) = 1;
@@ -13936,10 +13938,10 @@ void NorfairLavaMan_Func_11(uint16 k) {  // 0xA8B204
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
   EnemySpawnData *v3 = gEnemySpawnData(cur_enemy_index);
 
-  uint32 v = v3[31].ypos2 + E->y_subpos;
+  uint32 v = (*nt_spawn_p((uint16)(0x77D2 + (cur_enemy_index)))) + E->y_subpos;
   E->y_subpos = v;
-  E->y_pos += v3[31].field_14 + (v >> 16);
-  E->ai_var_E += v3[31].field_14 + (v >> 16);
+  E->y_pos += (*nt_spawn_p((uint16)(0x77D4 + (cur_enemy_index)))) + (v >> 16);
+  E->ai_var_E += (*nt_spawn_p((uint16)(0x77D4 + (cur_enemy_index)))) + (v >> 16);
   NorfairLavaMan_Func_12(cur_enemy_index);
 }
 void NorfairLavaMan_Func_12(uint16 k) {  // 0xA8B230
@@ -13976,10 +13978,10 @@ void NorfairLavaMan_Func_13(void) {  // 0xA8B295
 
   EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
   v2 = gEnemySpawnData(cur_enemy_index);
-  bool v4 = __CFADD__uint16(v2[31].field_E, E->y_subpos);
-  E->y_subpos = v2[31].field_E + E->y_subpos;
-  E->y_pos += v2[31].xpos2 + v4;
-  E->ai_var_E += v2[31].xpos2 + v4;
+  bool v4 = __CFADD__uint16((*nt_spawn_p((uint16)(0x77CE + (cur_enemy_index)))), E->y_subpos);
+  E->y_subpos = (*nt_spawn_p((uint16)(0x77CE + (cur_enemy_index)))) + E->y_subpos;
+  E->y_pos += (*nt_spawn_p((uint16)(0x77D0 + (cur_enemy_index)))) + v4;
+  E->ai_var_E += (*nt_spawn_p((uint16)(0x77D0 + (cur_enemy_index)))) + v4;
   NorfairLavaMan_Func_14(cur_enemy_index);
 }
 void NorfairLavaMan_Func_14(uint16 k) {  // 0xA8B2C5
@@ -13989,7 +13991,7 @@ void NorfairLavaMan_Func_14(uint16 k) {  // 0xA8B2C5
   nlmn_var_E = E->ai_var_E;
   if (nlmn_var_E >= 0) {
     ERAM(0x781A + E_k) = 1;
-    gEnemySpawnData(k)[31].field_4 = 0;
+    (*nt_spawn_p((uint16)(0x77C4 + (k)))) = 0;
     E->ai_preinstr = 0xB1DD /* NorfairLavaMan_Func_10 */;
   } else if ((int16)(-nlmn_var_E - ((uint16)BW_A8(0xAF55 + 2 * ((uint16)(E->ai_var_B - 2) >> 1)))) < 0) {
     E->ai_var_B -= 2;
@@ -13999,7 +14001,7 @@ void NorfairLavaMan_Func_14(uint16 k) {  // 0xA8B2C5
   }
 }
 void NorfairLavaMan_Func_15(uint16 k) {  // 0xA8B30D
-  if (enemy_drawing_queue[(cur_enemy_index >> 1) + 87] == 0xB175 /* NorfairLavaMan_Func_8 */)
+  if (gEnemyData((uint16)(cur_enemy_index + (-128)))->ai_preinstr == 0xB175 /* NorfairLavaMan_Func_8 */)
     gEnemyData(cur_enemy_index)->ai_preinstr = 0xB356 /* NorfairLavaMan_Func_17 */;
 }
 void NorfairLavaMan_Func_16(uint16 k) {  // 0xA8B31F
@@ -14007,16 +14009,16 @@ void NorfairLavaMan_Func_16(uint16 k) {  // 0xA8B31F
   if (!ERAM(0x7802 + E_k)) {
     E->ai_var_D = addr_kNorfairLavaMan_Ilist_AE0C;
     NorfairLavaMan_Func_20();
-    enemy_drawing_queue_sizes[(cur_enemy_index >> 1) + 5] = 0xB295 /* NorfairLavaMan_Func_13 */;
+    gEnemyData((uint16)(cur_enemy_index + (-64)))->ai_preinstr = 0xB295 /* NorfairLavaMan_Func_13 */;
     E->ai_preinstr = 0xB3A7 /* NorfairLavaMan_Func_18 */;
-    gEnemySpawnData(cur_enemy_index)[31].field_18 = 0;
+    (*nt_spawn_p((uint16)(0x77D8 + (cur_enemy_index)))) = 0;
     E->x_pos = ERAM(0x7824 + E_k);
     E->y_pos = ERAM(0x7826 + E_k);
   }
   NorfairLavaMan_Func_19(cur_enemy_index);
 }
 void NorfairLavaMan_Func_17(uint16 k) {  // 0xA8B356
-  if (gEnemySpawnData(cur_enemy_index)[31].field_18) {
+  if ((*nt_spawn_p((uint16)(0x77D8 + (cur_enemy_index))))) {
     EnemyData *E = gEnemyData(cur_enemy_index); const uint16 E_k = (cur_enemy_index);
     E->ai_var_D = addr_kNorfairLavaMan_Ilist_ACB0;
     E->ai_var_B = 0;
@@ -14029,8 +14031,8 @@ void NorfairLavaMan_Func_17(uint16 k) {  // 0xA8B356
     ERAM(0x7824 + E_k) = E->x_pos;
     ERAM(0x7826 + E_k) = E->y_pos;
   } else {
-    gEnemyData(cur_enemy_index)->y_pos = enemy_drawing_queue[(cur_enemy_index >> 1) + 93]
-      - ((uint16)BW_A8(0xAF79 + 2 * (enemy_drawing_queue_sizes[(cur_enemy_index >> 1) + 1] >> 1)));
+    gEnemyData(cur_enemy_index)->y_pos = gEnemyData((uint16)(cur_enemy_index + (-64)))->y_pos
+      - ((uint16)BW_A8(0xAF79 + 2 * (gEnemyData((uint16)(cur_enemy_index + (-64)))->ai_var_B >> 1)));
   }
   NorfairLavaMan_Func_19(cur_enemy_index);
 }
@@ -14620,7 +14622,7 @@ void MaridiaFloater_Func_5(uint16 k) {  // 0xA8C2CF
     if (v2 || v3) {
       E->ai_var_D = 5;
       int v4 = k >> 1;
-      uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + enemy_drawing_queue_sizes[v4];
+      uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + gEnemyData((uint16)(k + (-64)))->ai_var_A;
       gEnemyData((uint16)(k + (-64)))->x_pos = v5;
       E->x_pos = v5;
       uint16 v6 = E->ai_var_C + 1;
@@ -14630,7 +14632,7 @@ void MaridiaFloater_Func_5(uint16 k) {  // 0xA8C2CF
     }
     AddToHiLo(&E->ai_var_A, &E->ai_var_B, __PAIR32__(((uint16)BW_A8(0xC1B9 + 2 * (0))), ((uint16)BW_A8(0xC1BB + 2 * (0)))));
     if (Enemy_MoveDown(k, __PAIR32__(E->ai_var_A, E->ai_var_B))
-        || (int16)(enemy_drawing_queue_sizes[(k >> 1) + 1] - ((uint16)BW_A8(0xC19F + 2 * (0))) - E->y_pos) >= 0) {
+        || (int16)(gEnemyData((uint16)(k + (-64)))->ai_var_B - ((uint16)BW_A8(0xC19F + 2 * (0))) - E->y_pos) >= 0) {
       uint16 mfr_var_C = E->ai_var_C;
       if (!mfr_var_C || mfr_var_C == 6) {
         E->ai_preinstr = 0xC500 /* MaridiaFloater_Func_10 */;
@@ -14659,8 +14661,8 @@ LABEL_9:;
   int v4;
   v4 = k >> 1;
   {
-    uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + enemy_drawing_queue_sizes[v4];
-    enemy_drawing_queue[v4 + 91] = v5;
+    uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + gEnemyData((uint16)(k + (-64)))->ai_var_A;
+    gEnemyData((uint16)(k + (-64)))->x_pos = v5;
     E->x_pos = v5;
   }
   if (E->ai_var_C && E->ai_var_C != 6) {
@@ -14672,8 +14674,8 @@ LABEL_9:;
   }
   E->ai_preinstr = 0xC500 /* MaridiaFloater_Func_10 */;
   E->ai_var_E = 10;
-  enemy_drawing_queue[v4 + 104] = 1;
-  enemy_drawing_queue[v4 + 103] = addr_kMaridiaFloater_Ilist_C191;
+  gEnemyData((uint16)(k + (-64)))->instruction_timer = 1;
+  gEnemyData((uint16)(k + (-64)))->current_instruction = addr_kMaridiaFloater_Ilist_C191;
 LABEL_10:
   MaridiaFloater_Func_2(k);
 }
@@ -14685,7 +14687,7 @@ void MaridiaFloater_Func_7(uint16 k) {  // 0xA8C3E1
     if (v2 || v3) {
       E->ai_var_D = 5;
       int v4 = k >> 1;
-      uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + enemy_drawing_queue_sizes[v4];
+      uint16 v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + gEnemyData((uint16)(k + (-64)))->ai_var_A;
       gEnemyData((uint16)(k + (-64)))->x_pos = v5;
       E->x_pos = v5;
       uint16 v6 = E->ai_var_C + 1;
@@ -14695,7 +14697,7 @@ void MaridiaFloater_Func_7(uint16 k) {  // 0xA8C3E1
     }
     AddToHiLo(&E->ai_var_A, &E->ai_var_B, __PAIR32__(((uint16)BW_A8(0xC1B9 + 2 * (0))), ((uint16)BW_A8(0xC1BB + 2 * (0)))));
     if (Enemy_MoveDown(k, __PAIR32__(E->ai_var_A, E->ai_var_B))
-        || (int16)(enemy_drawing_queue_sizes[(k >> 1) + 1] - enemy_drawing_queue_sizes[(k >> 1) + 3] - E->y_pos) >= 0) {
+        || (int16)(gEnemyData((uint16)(k + (-64)))->ai_var_B - gEnemyData((uint16)(k + (-64)))->ai_var_D - E->y_pos) >= 0) {
       if (!E->ai_var_C || E->ai_var_C == 6)
         E->ai_preinstr = 0xC4DC /* MaridiaFloater_Func_9 */;
       else
@@ -14720,8 +14722,8 @@ void MaridiaFloater_Func_8(uint16 k) {  // 0xA8C469
   int v4;
   v4 = k >> 1;
   uint16 v5;
-  v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + enemy_drawing_queue_sizes[v4];
-  enemy_drawing_queue[v4 + 91] = v5;
+  v5 = ((uint16)BW_A8(0xC1A1 + 2 * (E->ai_var_C))) + gEnemyData((uint16)(k + (-64)))->ai_var_A;
+  gEnemyData((uint16)(k + (-64)))->x_pos = v5;
   E->x_pos = v5;
   if (E->ai_var_C && E->ai_var_C != 6) {
     {
@@ -14813,7 +14815,7 @@ void MaridiaFloater_Touch(void) {  // 0xA8C5BE
     uint16 palette_index = E->palette_index;
     NormalEnemyTouchAi();
     if (!E->health) {
-      enemy_drawing_queue[(cur_enemy_index >> 1) + 97] |= 0x200;
+      gEnemyData((uint16)(cur_enemy_index + (-64)))->properties |= 0x200;
       E->palette_index = palette_index;
       MaridiaFloater_Func_1(cur_enemy_index);
       E->palette_index = 2560;
@@ -14851,7 +14853,7 @@ void MaridiaFloater_Powerbomb(void) {  // 0xA8C63F
     gEnemyData((uint16)(cur_enemy_index + (-64)))->frozen_timer = E->frozen_timer;
     gEnemyData((uint16)(cur_enemy_index + (-64)))->ai_handler_bits = E->ai_handler_bits;
   } else {
-    enemy_drawing_queue[(cur_enemy_index >> 1) + 97] |= 0x200;
+    gEnemyData((uint16)(cur_enemy_index + (-64)))->properties |= 0x200;
   }
 }
 void WreckedShipRobot_Init(void) {  // 0xA8CB77
@@ -17855,6 +17857,13 @@ uint16 Shaktool_Instr_10(uint16 k, uint16 jp) {  // 0xAAE43D
   CallSomeSamusCode(1);
   return jp;
 }
+void sub_AAE445(uint16 k) {  // 0xAAE445
+  EnemyData *v1 = gEnemyData(k);
+  if (v1->parameter_1) {
+    v1->current_instruction = addr_kShaktool_Ilist_E3A7;
+    v1->instruction_timer = 1;
+  }
+}
 uint16 Shaktool_Instr_8(uint16 k, uint16 jp) {  // 0xAAE57F
   QueueSfx2_Max6(0x1C);
   return jp;
@@ -17893,6 +17902,10 @@ uint16 Shaktool_Instr_14(uint16 k, uint16 jp) {  // 0xAAE6F0
   *(uint16 *)&scrolls[13] = 1;
   SpawnHardcodedPlm(0x17, 0x1d, 0xd6fc);
   return jp;
+}
+void N00bTubeCracks_Init(void) {  // 0xAAE716
+  for (int i = 62; i >= 0; i -= 2)
+    target_palettes[(i >> 1) + 144] = ((uint16)BW_AA(0xE2DD + 2 * (i >> 1)));
 }
 void ChozoStatue_Init(void) {  // 0xAAE725
   EnemyData *v0 = gEnemyData(cur_enemy_index);
@@ -19219,7 +19232,7 @@ static void port_w_Rinka_Frozen(void) { Rinka_Frozen(cur_enemy_index); }
 static void port_w_Rinka_Powerbomb(void) { Rinka_Powerbomb(cur_enemy_index); }
 static void port_w_Fireflea_Touch(void) { Fireflea_Touch(cur_enemy_index); }
 static void port_w_Metroid_Powerbomb(void) { Metroid_Powerbomb(cur_enemy_index); }
-static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[325] = {
+static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[326] = {
   {0xA28023, Enemy_NormalTouchAI_A2},
   {0xA2802D, Enemy_NormalShotAI_A2},
   {0xA28041, Enemy_NormalFrozenAI_A2},
@@ -19511,6 +19524,7 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[325] = {
   {0xAADE43, Shaktool_Init},
   {0xAADF2F, Shaktool_Touch},
   {0xAADF34, Shaktool_Shot},
+  {0xAAE716, N00bTubeCracks_Init},
   {0xAAE725, ChozoStatue_Init},
   {0xAAE7A7, ChozoStatue_Main},
   {0xAAE7DB, port_nop_v},
@@ -19551,7 +19565,7 @@ PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las última
   uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 15;
   if (cea[h] == ea) return cf[h];
   PortFnV f = 0;
-  int lo = 0, hi = 324;
+  int lo = 0, hi = 325;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEnemyAi[m].ea;
@@ -19908,7 +19922,7 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   return 0;
 }
 
-static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[142] = {
+static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[143] = {
   {0xA0807B, port_nop_k},
   {0xA2807B, port_nop_k},
   {0xA28A75, port_nop_k},
@@ -20038,6 +20052,7 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[142] = {
   {0xAADCAC, Shaktool_DCAC},
   {0xAADCD7, Shaktool_DCD7},
   {0xAADD25, Shaktool_DD25},
+  {0xAAE445, sub_AAE445},
   {0xAAE7A6, port_nop_k},
   {0xAAE7AE, Shaktool_PreInstr_0},
   {0xAAE7DA, port_nop_k},
@@ -20057,7 +20072,7 @@ PortFnK port_FindCallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida; las �
   uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 15;
   if (cea[h] == ea) return cf[h];
   PortFnK f = 0;
-  int lo = 0, hi = 141;
+  int lo = 0, hi = 142;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEnemyPreInstr[m].ea;
@@ -20887,6 +20902,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xAADE43: Shaktool_Init(); return 1;
   case 0xAADF2F: Shaktool_Touch(); return 1;
   case 0xAADF34: Shaktool_Shot(); return 1;
+  case 0xAAE716: N00bTubeCracks_Init(); return 1;
   case 0xAAE725: ChozoStatue_Init(); return 1;
   case 0xAAE784: sub_AAE784(); return 1;
   case 0xAAE7A7: ChozoStatue_Main(); return 1;

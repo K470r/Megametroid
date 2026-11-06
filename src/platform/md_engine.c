@@ -365,14 +365,15 @@ static void lq_prepare(void) {
 #ifdef MD_NO_LQ
   return;
 #endif
-  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4 && fx_type != 6)) return;
-  uint16 ly = fx_type == 6 ? fx_y_pos : lava_acid_y_pos;    /* superficie: el agua usa fx_y_pos */
+  uint8 water = fx_type == 6 || fx_type == 0x26;  /* (0x26: el agua de la estatua de Tourian, el mismo tilemap) */
+  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4 && !water)) return;
+  uint16 ly = water ? fx_y_pos : lava_acid_y_pos;   /* superficie: el agua usa fx_y_pos */
   if (ly & 0x8000) return;
   int16 S = (int16)(ly - layer1_y_pos) - 2;     /* línea de la Genesis (medido contra el SNES: la interrupción y la escritura de colores llegan unas líneas tarde) */
   if (S >= 224) return;
   if (S < 66) S = 32;                           /* (con una interrupción menos: desde la primera línea del juego; 64-65: el intervalo daría 0 o menos) */
   int16 ar, ag, ab;
-  if (fx_type == 6) {                           /* agua: 74 % el color 26, 26 % el 25 (su tilemap del FX) */
+  if (water) {                                  /* agua: 74 % el color 26, 26 % el 25 (su tilemap del FX) */
     const uint16 *pb = palette_buffer;
     ar = (int16)((24 * (pb[26] & 31) + 8 * (pb[25] & 31)) >> 5);
     ag = (int16)((24 * ((pb[26] >> 5) & 31) + 8 * ((pb[25] >> 5) & 31)) >> 5);
@@ -2534,7 +2535,7 @@ void md_post(void) {
     rl_pal_dirty = 1;
   }
   if (md_zebes) { zebes_obj_colors(); boss_flash_post(); md_cone_color(); }
-  if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6)) lq_prepare(); else lq_on = 0;
+  if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6 || fx_type == 0x26)) lq_prepare(); else lq_on = 0;
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);

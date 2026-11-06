@@ -89,6 +89,19 @@ static u16 read_joy(void) {
       samus_y_pos = samus_prev_y_pos = MD_TEST_SETXY_Y;
     }
 #endif
+#ifdef MD_TEST_POKE_AT
+    /* como HL_POKE_AT de hlref (-DMD_TEST_POKE_AT=n -DMD_TEST_POKE_ADDR=0xF7A -DMD_TEST_POKE_VAL=0x640): una palabra
+       de la RAM del SNES en el cuadro n de la entrada (enemy_data: la misma disposición; si no, nt_ram_set_w) */
+    { static u8 poked;
+      if (!poked && test_pos >= MD_TEST_POKE_AT) {
+        extern uint16_t enemy_data[]; extern void nt_ram_set_w(uint16_t a, uint16_t x);
+        poked = 1;
+        if (MD_TEST_POKE_ADDR >= 0x0F78 && MD_TEST_POKE_ADDR < 0x0F78 + 0x800)
+          enemy_data[(MD_TEST_POKE_ADDR - 0x0F78) >> 1] = MD_TEST_POKE_VAL;
+        else
+          nt_ram_set_w(MD_TEST_POKE_ADDR, MD_TEST_POKE_VAL);
+      } }
+#endif
 #ifdef MD_TEST_GOD
     if (game_state == 8) samus_health = samus_max_health;   /* como HL_GOD de hlref: Samus no muere */
 #endif

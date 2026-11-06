@@ -1227,6 +1227,8 @@ static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   case FUNC16(HdmaobjPreInstr_DF94): HdmaobjPreInstr_DF94(k); break;
   case FUNC16(HdmaobjPreInstr_E449): HdmaobjPreInstr_E449(k); break;
   case FUNC16(HdmaobjPreInstr_E567): HdmaobjPreInstr_E567(k); break;
+  case 0x943C: break;                            // nullsub_309 ($A4:943C): el HDMA de Crocomire derritiéndose (la onda
+                                                 // la escribe su IA en crocomire_bg2_scroll_hdma_data)
   default: nt_unimpl_v("HdmaobjPreInstr (pre-instrucción sin portar)", f); break;
   }
 }

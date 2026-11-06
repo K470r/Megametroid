@@ -137,3 +137,13 @@ nuevas.
   (pesan poco al juntar colores, docs/46) y el magenta del SNES queda como el color más parecido de la sala (en 9D19,
   morado oscuro). Las de los tiles 0x38-0x3B (paleta 6) ya usan los colores fijos del rayo.
 - **El rayo de luz de los trajes** (`hdma_table_1` y la matemática de color, docs/56): no se hizo en esta rama.
+
+### 4. Explosión del rayo (2026-11-06)
+
+Al chocar un disparo del rayo (pared, techo, suelo, puerta) se veía un cuadro: `KillProjectileInner` ($93:80CF) usa
+la lista de $93:867B ($A007: spritemaps ABB3, ABBA, ABC1, ABD7, ABED, AC03) y no estaba en ninguna clave desde que los
+rayos pasaron al juego común (se quitó de `zebes_proj_keys` creyendo que iba con el rayo). Sus piezas son de 8x8 con
+los tiles comunes de los sprites 0x51, 0x53, 0x60-0x63 ($9A:D200 -> VRAM $6000) en la paleta 6 (la del rayo), colores
+0-4. Van en el juego común (`mkmd.beam_common`): 6 tiles fijos en `BEAM_EXPL_TILE` (VRAM 0xEB00-0xEBBF,
+`kBeamExplTiles`), que el vblank sube con los del rayo; el color es el del rayo equipado, como en el SNES. No ocupan
+nada en las salas (en las páginas de Zebes ya no cabía).

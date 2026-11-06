@@ -2861,7 +2861,9 @@ void md_vblank(uint16_t late) {
   }
   if (arm_dma) { vdp_dma_vram(arm_dma, ARM_TILE * 32, 16); arm_dma = 0; }
   if (gr_dirty) { vdp_dma_vram(&gr_tiles[0][0], GRAPPLE_TILE * 32, 80); gr_dirty = 0; }
-  if (beam_dma) { vdp_dma_vram(beam_dma, BEAM_TILE * 32, 128); beam_dma = 0; }
+  if (beam_dma) {                    /* (y los 6 de la explosión del rayo, fijos: mkmd.beam_common) */
+    vdp_dma_vram(beam_dma, BEAM_TILE * 32, 128); vdp_dma_vram(kBeamExplTiles, BEAM_EXPL_TILE * 32, 96); beam_dma = 0;
+  }
   if (intro_on) {
     intro_vblank();
     md_vdp_busy = 0;

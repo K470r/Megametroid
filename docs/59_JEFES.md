@@ -159,6 +159,16 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).
 4. **La sala vencida** (estado con el esqueleto y el puente roto): comprobar que se ve bien.
 
+## Pendiente: la sala de las estatuas de Tourian (A66A)
+
+Anotado a pedido de Edwin (2026-11-06): en la Genesis no se ven todas las estatuas de los jefes (Kraid, Phantoon,
+Draygon, Ridley) con su gema iluminada; en el SNES se ven las cuatro (comparar con `lado_a_lado.sh`, `DOOR=91F2`).
+Hay que revisar en el decomp (la biblia) qué hacen: las estatuas son enemigos `TourianEntranceStatue` ($AA, init
+$AA:D7C8: escribe las líneas 2 y 7 de los sprites; ya en `mkzobj.init_palettes`) y sus partes en el BG; con cada jefe
+vencido (eventos 6-9, `HdmaobjPreInstr_CheckLotsOfEventsHappened` $88:DBD7) la estatua de ese jefe se apaga, y con
+los cuatro el PLM ($84:B777) abre el paso (`FxTypeFunc_26`: el agua baja). Definir con eso qué falta: el dibujo de las
+estatuas y las gemas, y comprobar que al vencer a cada jefe pasa lo mismo que en el SNES.
+
 ## Lo que falta
 
 - El dibujo: Mother Brain (su cuerpo no pasó por `tilemap_stuff` en la prueba); la onda de Phantoon y de Crocomire

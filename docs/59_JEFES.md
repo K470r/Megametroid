@@ -147,7 +147,11 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    Ridley de Ceres y en la huida el atraso cae en otros cuadros (imágenes comparadas píxel a píxel: correctas, un
    cuadro antes o después). Ojo: **la sala de Crocomire corre a ~24 cuadros por segundo en la Genesis** (243 de cada
    600, con o sin líquido): rendimiento pendiente.
-   Falta: el agua y los demás efectos.
+   **Agua** (FX 6, 59 salas): mismo mecanismo con `fx_y_pos`, color de los índices 26 (74 %) y 25 (26 %) de su
+   tilemap; mezcla 0x14/0x16 (Maridia, 44 salas) **resta** (CGADSUB 0xB3/0xB1), 0x18 (15 salas: Crateria, Brinstar)
+   suma. Probado en CEFB y D017 (Maridia): el fondo toma el tono del SNES.
+   La regresión cuenta aparte los cuadros de ritmo (5124-5127 y 8034, ver regress.sh).
+   Falta: esporas (4 salas), lluvia (1), luciérnagas (3), las nubes de la niebla (3), agua de la estatua de Tourian.
 3. **La muerte**: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas
    verticales de los tiles por la cola de VRAM, `crocomire_bg2_scroll_hdma_data` mueve el BG2 por línea: la "onda") y
    el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).

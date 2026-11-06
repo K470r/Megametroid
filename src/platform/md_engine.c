@@ -365,15 +365,27 @@ static void lq_prepare(void) {
 #ifdef MD_NO_LQ
   return;
 #endif
-  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4) || (lava_acid_y_pos & 0x8000)) return;
-  int16 S = (int16)(lava_acid_y_pos - layer1_y_pos) - 2;     /* línea de la Genesis (medido contra el SNES: la interrupción y la escritura de colores llegan unas líneas tarde) */
+  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4 && fx_type != 6)) return;
+  uint16 ly = fx_type == 6 ? fx_y_pos : lava_acid_y_pos;    /* superficie: el agua usa fx_y_pos */
+  if (ly & 0x8000) return;
+  int16 S = (int16)(ly - layer1_y_pos) - 2;     /* línea de la Genesis (medido contra el SNES: la interrupción y la escritura de colores llegan unas líneas tarde) */
   if (S >= 224) return;
   if (S < 66) S = 32;                           /* (con una interrupción menos: desde la primera línea del juego; 64-65: el intervalo daría 0 o menos) */
-  const uint16 *pb = palette_buffer + (fx_type == 2 ? 24 : 0);
-  /* pesos sobre 32: 92 % el color 3, 5 % el 2, 3 % el 1 */
-  int16 ar = (int16)((29 * (pb[3] & 31) + 2 * (pb[2] & 31) + (pb[1] & 31)) >> 5);
-  int16 ag = (int16)((29 * ((pb[3] >> 5) & 31) + 2 * ((pb[2] >> 5) & 31) + ((pb[1] >> 5) & 31)) >> 5);
-  int16 ab = (int16)((29 * ((pb[3] >> 10) & 31) + 2 * ((pb[2] >> 10) & 31) + ((pb[1] >> 10) & 31)) >> 5);
+  int16 ar, ag, ab;
+  if (fx_type == 6) {                           /* agua: 74 % el color 26, 26 % el 25 (su tilemap del FX) */
+    const uint16 *pb = palette_buffer;
+    ar = (int16)((24 * (pb[26] & 31) + 8 * (pb[25] & 31)) >> 5);
+    ag = (int16)((24 * ((pb[26] >> 5) & 31) + 8 * ((pb[25] >> 5) & 31)) >> 5);
+    ab = (int16)((24 * ((pb[26] >> 10) & 31) + 8 * ((pb[25] >> 10) & 31)) >> 5);
+    uint8 bl = (uint8)fx_layer_blending_config_c;   /* LayerBlendFunc_14/16: se resta (Maridia); 18: se suma */
+    if (bl == 0x14 || bl == 0x16) { ar = -ar; ag = -ag; ab = -ab; }
+  } else {
+    const uint16 *pb = palette_buffer + (fx_type == 2 ? 24 : 0);
+    /* pesos sobre 32: 92 % el color 3, 5 % el 2, 3 % el 1 */
+    ar = (int16)((29 * (pb[3] & 31) + 2 * (pb[2] & 31) + (pb[1] & 31)) >> 5);
+    ag = (int16)((29 * ((pb[3] >> 5) & 31) + 2 * ((pb[2] >> 5) & 31) + ((pb[1] >> 5) & 31)) >> 5);
+    ab = (int16)((29 * ((pb[3] >> 10) & 31) + 2 * ((pb[2] >> 10) & 31) + ((pb[1] >> 10) & 31)) >> 5);
+  }
   if (tint_on) { ar += tint_r; ag += tint_g; ab += tint_b; }
   { extern uint8 nt_msgbox_active; if (nt_msgbox_active) lq_pal_dirty = 1; }   /* (la caja de mensaje usa la misma RAM) */
   uint8 again = lq_pal_dirty || ar != lq_last[0] || ag != lq_last[1] || ab != lq_last[2];
@@ -2522,7 +2534,7 @@ void md_post(void) {
     rl_pal_dirty = 1;
   }
   if (md_zebes) { zebes_obj_colors(); boss_flash_post(); md_cone_color(); }
-  if (md_zebes && (fx_type == 2 || fx_type == 4)) lq_prepare(); else lq_on = 0;
+  if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6)) lq_prepare(); else lq_on = 0;
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);

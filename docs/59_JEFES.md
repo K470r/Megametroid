@@ -182,6 +182,11 @@ Sala de Crocomire (quieto, 600 cuadros de la consola): **243 -> 462 cuadros del 
   de golpe de los spritemaps extendidos leen cientos de palabras por cuadro y el `switch` era el 12 %.
 Lo que queda caro: `DrawEnemyQueue` / `WriteEnemyOams` (las piezas de Crocomire) y la IA (`EnemyMain`).
 
+Las demás salas de jefes (quieto, cuadros del motor de cada 600): Phantoon 583, Draygon 593, Spore Spawn 591, Golden
+Torizo 542, Mother Brain 502, Ridley 454, Botwoon 340 -> **445** (`nt_ram_w` lee directo la RAM extra de los enemigos,
+7E:7800-97FF: Botwoon lee la historia de su cuerpo en 7E:9000 + índice y la búsqueda era el 25 %; en el PC sigue en
+0 diferencias). Pendiente: Ridley (`md_post`, `zebes_obj_draw`), Mother Brain (`EnemyMain`) y lo que queda de Crocomire.
+
 ## Pendiente: la sala de las estatuas de Tourian (A66A)
 
 Anotado a pedido de Edwin (2026-11-06): en la Genesis no se ven todas las estatuas de los jefes (Kraid, Phantoon,

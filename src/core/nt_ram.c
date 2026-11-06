@@ -66,7 +66,11 @@ void nt_ram_set_w(uint16 a, uint16 x) {
 
 /* una palabra de la RAM del SNES por su dirección: el decomp a veces lee una variable con un desplazamiento (el
    fantasma de Wrecked Ship, $A8:9D36: samus_y_pos + índice del enemigo) */
+extern uint16 enemy_ram7800[0x1000];
 uint16 nt_ram_w(uint16 a) {
+  /* (la RAM extra de los enemigos, 7E:7800-97FF, directo: Botwoon lee la historia de su cuerpo en 7E:9000 + índice y
+     la búsqueda era el 25 % del cuadro) */
+  if (!(a & 1) && (uint16)(a - 0x7800) < 0x2000) return enemy_ram7800[(uint16)(a - 0x7800) >> 1];
   return nt_ram_b(a) | nt_ram_b((uint16)(a + 1)) << 8;
 }
 

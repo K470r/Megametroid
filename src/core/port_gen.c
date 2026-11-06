@@ -12734,7 +12734,7 @@ NT_BOSS void Crocomire_Init(void) {  // 0xA48A5A
   } while ((int16)(v0 - 4096) < 0);
   if ((*(uint16 *)&boss_bits_for_area[area_index] & 2) != 0) {
     *(uint16 *)scrolls = 257;
-    *(uint16 *)&scrolls[2] = 257;
+    nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
     croco_target_0688 = 0;
     EnemyData *E = gEnemyData(0); uint16 E_k = (0);
     E->properties = E->properties & 0x7BFF | 0x400;
@@ -12826,9 +12826,9 @@ NT_BOSS void Crocomire_Main(void) {  // 0xA48C04
 }
 NT_BOSS void Crocomire_Func_28(void) {  // 0xA48C6E
   Crocomire_Func_37();
-  *(uint16 *)&scrolls[4] = 257;
+  nt_ram_set_w((uint16)(0xCD20 + (4)), (uint16)(257));
   if (!sign16(samus_x_pos - 1312))
-    *(uint16 *)&scrolls[4] = 256;
+    nt_ram_set_w((uint16)(0xCD20 + (4)), (uint16)(256));
   Crocomire_Func_27(cur_enemy_index);
 }
 NT_BOSS void Crocomire_Func_29(void) {  // 0xA48C90
@@ -13061,7 +13061,7 @@ NT_BOSS void Crocomire_Func_49(void) {  // 0xA49099
     QueueMusic_Delayed8(6);
     E->ai_var_A = 88;
     E->current_instruction = addr_kCrocomire_Ilist_E1D2;
-    *(uint16 *)&scrolls[4] = 257;
+    nt_ram_set_w((uint16)(0xCD20 + (4)), (uint16)(257));
     debug_disable_minimap = 0;
     gEnemyData(0x40)->properties |= 0x200;
     SpawnHardcodedPlm(0x4e, 0x03, 0xb753);
@@ -13349,7 +13349,7 @@ NT_BOSS void Crocomire_Func_60(void) {  // 0xA4943D
   croco_word_7E069A = i + 2;
   g_word_7E068A = i + 2;
   for (int j = 128; j >= 0; j -= 2)
-    *(uint16 *)&croco_vline_height[(uint16)j] = 0;
+    nt_ram_set_w((uint16)(0x069C + ((uint16)j)), (uint16)(0));
 }
 NT_BOSS void Crocomire_Func_61(void) {  // 0xA494B2
   Crocomire_Func_62();
@@ -13397,10 +13397,10 @@ NT_BOSS void Crocomire_950F(void) {  // 0xA4950F
   v4 = gEnemyData(0); v4_k = (0);
   gEnemyData(0x80)->ai_var_D = v4->x_pos;
   *(uint16 *)crocomire_bg2_scroll_hdma_indirect = 255;
-  *(uint16 *)&crocomire_bg2_scroll_hdma_indirect[1] = -13584;
-  *(uint16 *)&crocomire_bg2_scroll_hdma_indirect[3] = 225;
-  *(uint16 *)&crocomire_bg2_scroll_hdma_indirect[4] = -13330;
-  *(uint16 *)&crocomire_bg2_scroll_hdma_indirect[6] = 0;
+  nt_ram_set_w((uint16)(0xCAE0 + (1)), (uint16)(-13584));
+  nt_ram_set_w((uint16)(0xCAE0 + (3)), (uint16)(225));
+  nt_ram_set_w((uint16)(0xCAE0 + (4)), (uint16)(-13330));
+  nt_ram_set_w((uint16)(0xCAE0 + (6)), (uint16)(0));
   ERAM(0x783E + v4_k) = SpawnHdmaObject(0xa4, 0x9563);
 }
 NT_BOSS void Crocomire_Func_63(void) {  // 0xA49576
@@ -13484,7 +13484,7 @@ NT_BOSS void Crocomire_Func_66(void) {  // 0xA49653
 NT_BOSS void Crocomire_Func_68(void) {  // 0xA497D3
   if (sign16(samus_x_pos - 640)) {
     QueueMusic_Delayed8(5);
-    *(uint16 *)&scrolls[3] = 256;
+    nt_ram_set_w((uint16)(0xCD20 + (3)), (uint16)(256));
     SpawnHardcodedPlm(0x30, 0x03, 0xb757);
     camera_distance_index = 6;
     EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
@@ -13696,7 +13696,7 @@ NT_BOSS void Crocomire_Func_88(void) {  // 0xA49B06
 }
 NT_BOSS void Crocomire_9B65(void) {  // 0xA49B65
   *(uint16 *)scrolls = 257;
-  *(uint16 *)&scrolls[2] = 257;
+  nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
   SpawnHardcodedPlm(0x1e, 0x03, 0xb753);
   Crocomire_9BB3();
 }
@@ -28752,7 +28752,7 @@ NT_BOSS void Shitroid_Func_4(void) {  // 0xA9EFE6
   if (sign16(layer1_x_pos - 513)) {
     layer1_x_pos = 512;
     *(uint16 *)scrolls = scrolls[0];
-    *(uint16 *)&scrolls[2] = scrolls[2];
+    nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(scrolls[2]));
     SpawnHardcodedPlm(0x30, 0x03, 0xb767);
     SpawnHardcodedPlm(0x1f, 0x03, 0xb767);
     EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
@@ -28831,7 +28831,7 @@ NT_BOSS void Shitroid_Func_12(uint16 k) {  // 0xA9F138
     E->ai_var_A = 0xF180 /* Shitroid_Func_13 */;
     E->parameter_2 = 1;
     *(uint16 *)scrolls |= 0x100;
-    *(uint16 *)&scrolls[2] |= 0x100;
+    nt_ram_set_w((uint16)(0xCD20 + (2)), nt_ram_w((uint16)(0xCD20 + (2))) | (uint16)(0x100));
     SpawnHardcodedPlm(0x30, 0x03, 0xb763);
     SpawnHardcodedPlm(0x1f, 0x03, 0xb763);
   }
@@ -30548,10 +30548,10 @@ uint16 Shaktool_Instr_7(uint16 k, uint16 jp) {  // 0xAAE5D8
 }
 uint16 Shaktool_Instr_14(uint16 k, uint16 jp) {  // 0xAAE6F0
   CallSomeSamusCode(1);
-  *(uint16 *)&scrolls[6] = 0;
-  *(uint16 *)&scrolls[8] = 0;
-  *(uint16 *)&scrolls[9] = 0;
-  *(uint16 *)&scrolls[13] = 1;
+  nt_ram_set_w((uint16)(0xCD20 + (6)), (uint16)(0));
+  nt_ram_set_w((uint16)(0xCD20 + (8)), (uint16)(0));
+  nt_ram_set_w((uint16)(0xCD20 + (9)), (uint16)(0));
+  nt_ram_set_w((uint16)(0xCD20 + (13)), (uint16)(1));
   SpawnHardcodedPlm(0x17, 0x1d, 0xd6fc);
   return jp;
 }
@@ -30628,14 +30628,14 @@ NT_BOSS void MotherBrain_CalcHdma_BeamAimedRight2(void) {  // 0xADDE7F
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   MotherBrain_CalcHdma_BeamAimedRight(ERAM(0x8038 + E_k), ERAM(0x803C + E_k));
   *(uint16 *)mother_brain_indirect_hdma = 16;
-  *(uint16 *)&mother_brain_indirect_hdma[1] = -25600;
-  *(uint16 *)&mother_brain_indirect_hdma[3] = 16;
-  *(uint16 *)&mother_brain_indirect_hdma[4] = -25597;
-  *(uint16 *)&mother_brain_indirect_hdma[6] = 240;
-  *(uint16 *)&mother_brain_indirect_hdma[7] = -25340;
-  *(uint16 *)&mother_brain_indirect_hdma[9] = 244;
-  *(uint16 *)&mother_brain_indirect_hdma[10] = -25108;
-  *(uint16 *)&mother_brain_indirect_hdma[12] = 0;
+  nt_ram_set_w((uint16)(0x9C00 + (1)), (uint16)(-25600));
+  nt_ram_set_w((uint16)(0x9C00 + (3)), (uint16)(16));
+  nt_ram_set_w((uint16)(0x9C00 + (4)), (uint16)(-25597));
+  nt_ram_set_w((uint16)(0x9C00 + (6)), (uint16)(240));
+  nt_ram_set_w((uint16)(0x9C00 + (7)), (uint16)(-25340));
+  nt_ram_set_w((uint16)(0x9C00 + (9)), (uint16)(244));
+  nt_ram_set_w((uint16)(0x9C00 + (10)), (uint16)(-25108));
+  nt_ram_set_w((uint16)(0x9C00 + (12)), (uint16)(0));
 }
 NT_BOSS void MotherBrain_CalcHdma_BeamAimedRight(uint16 r22, uint16 r24) {  // 0xADDECE
   hdma_table_2[0] = 255;
@@ -30680,26 +30680,26 @@ NT_BOSS void MotherBrain_CalcHdma_BeamAimedUp(void) {
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   off_ADE024[(ERAM(0x8034 + E_k) >> 6) & 2 | (ERAM(0x8036 + E_k) >> 7) & 1](ERAM(0x8038 + E_k), ERAM(0x803C + E_k));
   *(uint16 *)mother_brain_indirect_hdma = 16;
-  *(uint16 *)&mother_brain_indirect_hdma[1] = -25344;
-  *(uint16 *)&mother_brain_indirect_hdma[3] = 16;
-  *(uint16 *)&mother_brain_indirect_hdma[4] = -25342;
+  nt_ram_set_w((uint16)(0x9C00 + (1)), (uint16)(-25344));
+  nt_ram_set_w((uint16)(0x9C00 + (3)), (uint16)(16));
+  nt_ram_set_w((uint16)(0x9C00 + (4)), (uint16)(-25342));
 
   uint16 v2 = ERAM(0x803A + E_k) - 32;
   ; /* (aviso del decomp) */
   if (v2 >= 0x80) {
-    *(uint16 *)&mother_brain_indirect_hdma[6] = (v2 - 127) | 0x80;
-    *(uint16 *)&mother_brain_indirect_hdma[7] = -25340;
-    *(uint16 *)&mother_brain_indirect_hdma[9] = 255;
-    *(uint16 *)&mother_brain_indirect_hdma[10] = 2 * (v2 - 127) - 25340;
-    *(uint16 *)&mother_brain_indirect_hdma[12] = 127;
-    *(uint16 *)&mother_brain_indirect_hdma[13] = 2 * (v2 - 127) - 25340 + 254;
-    *(uint16 *)&mother_brain_indirect_hdma[15] = 0;
+    nt_ram_set_w((uint16)(0x9C00 + (6)), (uint16)((v2 - 127) | 0x80));
+    nt_ram_set_w((uint16)(0x9C00 + (7)), (uint16)(-25340));
+    nt_ram_set_w((uint16)(0x9C00 + (9)), (uint16)(255));
+    nt_ram_set_w((uint16)(0x9C00 + (10)), (uint16)(2 * (v2 - 127) - 25340));
+    nt_ram_set_w((uint16)(0x9C00 + (12)), (uint16)(127));
+    nt_ram_set_w((uint16)(0x9C00 + (13)), (uint16)(2 * (v2 - 127) - 25340 + 254));
+    nt_ram_set_w((uint16)(0x9C00 + (15)), (uint16)(0));
   } else {
-    *(uint16 *)&mother_brain_indirect_hdma[6] = v2 | 0x80;
-    *(uint16 *)&mother_brain_indirect_hdma[7] = -25340;
-    *(uint16 *)&mother_brain_indirect_hdma[9] = 127;
-    *(uint16 *)&mother_brain_indirect_hdma[10] = 2 * v2 - 25340;
-    *(uint16 *)&mother_brain_indirect_hdma[12] = 0;
+    nt_ram_set_w((uint16)(0x9C00 + (6)), (uint16)(v2 | 0x80));
+    nt_ram_set_w((uint16)(0x9C00 + (7)), (uint16)(-25340));
+    nt_ram_set_w((uint16)(0x9C00 + (9)), (uint16)(127));
+    nt_ram_set_w((uint16)(0x9C00 + (10)), (uint16)(2 * v2 - 25340));
+    nt_ram_set_w((uint16)(0x9C00 + (12)), (uint16)(0));
   }
 }
 NT_BOSS void MotherBrain_CalcHdma_Up_UpRight(uint16 r22, uint16 r24) {  // 0xADE02C
@@ -30787,14 +30787,14 @@ NT_BOSS void MotherBrain_CalcHdma_Down(void) {  // 0xADE1A6
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   g_off_ADE20E[(ERAM(0x8034 + E_k) >> 6) & 2 | (ERAM(0x8036 + E_k) >> 7) & 1](ERAM(0x8038 + E_k), ERAM(0x803C + E_k));
   *(uint16 *)mother_brain_indirect_hdma = 16;
-  *(uint16 *)&mother_brain_indirect_hdma[1] = -25600;
-  *(uint16 *)&mother_brain_indirect_hdma[3] = 16;
-  *(uint16 *)&mother_brain_indirect_hdma[4] = -25597;
-  *(uint16 *)&mother_brain_indirect_hdma[6] = 240;
-  *(uint16 *)&mother_brain_indirect_hdma[7] = -25340;
-  *(uint16 *)&mother_brain_indirect_hdma[9] = 244;
-  *(uint16 *)&mother_brain_indirect_hdma[10] = -25114;
-  *(uint16 *)&mother_brain_indirect_hdma[12] = 0;
+  nt_ram_set_w((uint16)(0x9C00 + (1)), (uint16)(-25600));
+  nt_ram_set_w((uint16)(0x9C00 + (3)), (uint16)(16));
+  nt_ram_set_w((uint16)(0x9C00 + (4)), (uint16)(-25597));
+  nt_ram_set_w((uint16)(0x9C00 + (6)), (uint16)(240));
+  nt_ram_set_w((uint16)(0x9C00 + (7)), (uint16)(-25340));
+  nt_ram_set_w((uint16)(0x9C00 + (9)), (uint16)(244));
+  nt_ram_set_w((uint16)(0x9C00 + (10)), (uint16)(-25114));
+  nt_ram_set_w((uint16)(0x9C00 + (12)), (uint16)(0));
 }
 NT_BOSS void MotherBrain_CalcHdma_Down_DownRight(uint16 r22, uint16 r24) {  // 0xADE216
   hdma_table_2[0] = 255;

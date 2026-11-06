@@ -159,7 +159,13 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    Sin la bruma (suma G+1 B+2: casi nada en la Genesis, y en esa sala la paleta cambia casi cada cuadro: atrasaba).
    La regresión de Ceres y Zebes se aprobó de nuevo (la llegada a Zebes ahora tiene lluvia: comparada imagen a imagen).
    Esporas (4) y las nubes de la niebla (3) quedan así por ahora (acordado); luciérnagas (3) ya se ven casi igual.
-3. **La muerte**: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas
+3. **La muerte** (en curso, 2026-11-06): prueba con `HL_POKE_AT=800:F7A:640` (nuevo en hlref.c y check.c: una
+   palabra de la RAM antes del cuadro grabado n; Crocomire al puente, x = 0x640, `Crocomire_Func_37`) y lote.sh: la
+   muerte entera en 0 diferencias con el SNES (3000 cuadros). Hizo falta: el traductor pasa `*(uint16 *)&a[i] = v`
+   sobre arreglos de bytes de la RAM del SNES a `nt_ram_set_w(dirección + i, v)` (xlate.py, `U8_ARRAYS`): en el
+   68000 la palabra quedaba al revés (`scrolls[3] = 256` ponía el 1 en scrolls[3]: los bloqueos de la cámara de las
+   salas de jefes) y `Crocomire_Func_60` (borra croco_vline_height hasta el byte 129) pisaba `croco_target_0688` en el
+   PC. Falta: la preinstrucción de su objeto de HDMA (943C, la onda) y verlo en la Genesis. Antes: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas
    verticales de los tiles por la cola de VRAM, `crocomire_bg2_scroll_hdma_data` mueve el BG2 por línea: la "onda") y
    el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).
 4. **La sala vencida** (estado con el esqueleto y el puente roto): comprobar que se ve bien.

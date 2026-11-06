@@ -88,6 +88,11 @@ def parse_rom_structs():
     return out
 
 
+# arreglos de bytes de la RAM del SNES (decomp: #define nombre ((uint8*)(g_ram+0xDIR))): nombre -> dirección
+U8_ARRAYS = {m.group(1): int(m.group(2), 16) for m in re.finditer(
+    r'#define (\w+) \(\(uint8\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read())}
+
+
 def match_paren(s, i, o='(', c=')'):
     """s[i] == o: índice de su cierre"""
     d = 0
@@ -281,6 +286,18 @@ class Xlate:
         # dirección impar es un ADDRESS ERROR (SporeSpawn_Func_6: boss_bits_for_area[area_index] con area_index 1)
         body = re.sub(r'\*\(uint16 \*\)&(\w+\[[^\]]+\]) \|= ((?:0x)?[0-9A-Fa-f]+);',
                       lambda m: '%s |= %s;' % (m.group(1), m.group(2)) if int(m.group(2), 0) < 0x100 else m.group(0), body)
+        # *(uint16 *)&a[i] = v sobre un arreglo de bytes de la RAM del SNES: en el 68000 la palabra queda al revés
+        # (alto-bajo; scrolls[3] = 256 dejaba el 1 en scrolls[3]) y si i es el último byte se sale del arreglo nativo
+        # (Crocomire_Func_60 borra croco_vline_height hasta el byte 129: en el SNES, 7E:071C-071D; en el PC pisaba
+        # croco_target_0688): por su dirección del SNES, byte a byte (nt_ram_set_w)
+        def u8word(m):
+            if m.group(1) not in U8_ARRAYS:
+                return m.group(0)
+            a = '(uint16)(0x%04X + (%s))' % (U8_ARRAYS[m.group(1)], m.group(2))
+            if m.group(3) == '=':
+                return 'nt_ram_set_w(%s, (uint16)(%s));' % (a, m.group(4))
+            return 'nt_ram_set_w(%s, nt_ram_w(%s) %s (uint16)(%s));' % (a, a, m.group(3)[0], m.group(4))
+        body = re.sub(r'\*\(uint16 \*\)&(\w+)\[([^\]]+)\] (=|\|=|&=) ([^;]+);', u8word, body)
         # variables de tipo Enemy_X
         vars_ = {}
         def decl(m):

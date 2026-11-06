@@ -122,6 +122,16 @@ int main(int argc, char **argv) {
         fprintf(stderr, "salto %d en el cuadro grabado %ld: puerta %04X\n", iwarp, n, warp_door[iwarp]);
         iwarp++;
       }
+      /* HL_POKE_AT="n:dir:valor,...": una palabra de la RAM antes del cuadro grabado n (pruebas: llevar a un jefe a un
+         momento de la pelea, p. ej. Crocomire al puente; check.c hace lo mismo) */
+      { static long pa_n[32]; static unsigned pa_a[32], pa_v[32]; static int npa = -1, ipa = 0;
+        if (npa < 0) { npa = 0; if (getenv("HL_POKE_AT")) { char *ps = strdup(getenv("HL_POKE_AT"));
+          for (char *t = strtok(ps, ","); t && npa < 32; t = strtok(0, ",")) { sscanf(t, "%ld:%x:%x", &pa_n[npa], &pa_a[npa], &pa_v[npa]); npa++; } } }
+        while (started && ipa < npa && n >= pa_n[ipa]) {
+          g_ram[pa_a[ipa]] = pa_v[ipa]; g_ram[pa_a[ipa] + 1] = pa_v[ipa] >> 8;
+          fprintf(stderr, "poke %04X=%04X en el cuadro grabado %ld\n", pa_a[ipa], pa_v[ipa], n);
+          ipa++;
+        } }
       if (started && isxy < nsxy && n >= sxy_n[isxy] && w16(0x998) == 8) {
         g_ram[0xAF6] = sxy_x[isxy]; g_ram[0xAF7] = sxy_x[isxy] >> 8;
         g_ram[0xAFA] = sxy_y[isxy]; g_ram[0xAFB] = sxy_y[isxy] >> 8;

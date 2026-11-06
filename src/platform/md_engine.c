@@ -940,8 +940,37 @@ static uint8 flash_line(void) {
   return fl_line = (uint8)bl;
 }
 
+/* destello de los jefes (docs/59): el SNES los dibuja con la paleta 0 en los cuadros alternos de flash_timer
+   ($A0:9929); aquí se dibujan con su paleta y ese cuadro los colores de los objetos van a blanco (boss_flash_post) */
+static uint8 boss_flash_req, boss_flash_was;
+static uint8 room_is_boss(void) {
+  switch (room_ptr) {
+  case 0x9DC7: case 0xA59F: case 0xA98D: case 0xB283: case 0xB32E: case 0xCD13: case 0xD95E: case 0xDA60: case 0xDD58:
+    return 1;
+  }
+  return 0;
+}
+uint8 zebes_boss_line(void);
+static void boss_flash_post(void) {              /* (después de zebes_obj_colors) */
+  if (boss_flash_req) {
+    static const uint8 kSlots[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 13, 14 };   /* colores 1-8, 14, 15 (9-13: el rayo) */
+    for (uint16 i = 0; i < 10; i++) zobj_col[kSlots[i]] = 0x0EEE;
+    if (zebes_boss_line())
+      for (uint16 c = 17; c < 32; c++) if (cram[c] != 0x0EEE) { cram[c] = 0x0EEE; cram_dirty = 1; }
+    boss_flash_was = 1;
+  } else if (boss_flash_was) {                   /* la línea 1 vuelve a sus colores */
+    boss_flash_was = 0;
+    nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
+  }
+  boss_flash_req = 0;
+}
+
 void DrawEnemySpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, uint16 tiles) {  // 0x818AB8
   (void)bank;
+  if (md_zebes && !pal && room_is_boss()) {
+    uint16 base = gEnemyData(cur_enemy_index)->palette_index;
+    if (base && zebes_obj_draw(sm, base, tiles, (int16)x, (int16)y)) { boss_flash_req = 1; return; }
+  }
   if (md_zebes && !pal) {
     uint16 base = gEnemyData(cur_enemy_index)->palette_index;
     GenSpr *s0 = sp_ptr;
@@ -1180,6 +1209,8 @@ void md_draw_eprojs(uint16 prio, uint16 bx, uint16 by) {
 void DrawA6Spritemap(uint16 sm, uint16 x, uint16 y, uint16 a) {  // 0xA6DC13: posición en la sala
   /* Zebes (Ridley de Norfair): las claves de los objetos de la sala (mkzkeys.py: enemy A6 sm paleta 0000) */
   if (md_zebes && zebes_obj_draw(sm, a, 0, (int16)(x - layer1_x_pos), (int16)(y - layer1_y_pos))) return;
+  if (md_zebes && !a && room_is_boss() &&                       /* destello: con su paleta (la 7: 0x0E00) y en blanco */
+      zebes_obj_draw(sm, 0x0E00, 0, (int16)(x - layer1_x_pos), (int16)(y - layer1_y_pos))) { boss_flash_req = 1; return; }
   if (!drawkey(3, sm, a, 0, (int16)(x - layer1_x_pos), (int16)(y - layer1_y_pos))) missing(3, sm, a, 0);
 }
 
@@ -2366,7 +2397,7 @@ void md_post(void) {
     if (palette_buffer[0] != hz_last_c) hz_bd_dirty = 1;   /* el degradado sale solo del color de fondo */
     rl_pal_dirty = 1;
   }
-  if (md_zebes) { zebes_obj_colors(); md_cone_color(); }
+  if (md_zebes) { zebes_obj_colors(); boss_flash_post(); md_cone_color(); }
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);

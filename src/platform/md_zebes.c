@@ -683,6 +683,8 @@ void zebes_sky_lines(uint16 *h, uint16 ax, uint16 ay) {
 
 /* ---------------------------------------------------------------- objetos (enemigos) */
 uint8 zebes_obj_on(void) { return md_zebes; }   /* (el rayo va siempre en la línea 3 debajo del HUD) */
+/* jefe de colores propios (mkzobj.BOSS_LINE): sus objetos usan la línea 1 de la CRAM */
+uint8 zebes_boss_line(void) { return md_zebes && zo && zg && zg->npal == 1; }
 
 /* colores de los objetos: de palette_buffer, como los demás (cada cuadro: son 12) */
 static const uint16 *zobj_srcp[15];            /* de dónde sale cada color (zobj_src_prepare) */

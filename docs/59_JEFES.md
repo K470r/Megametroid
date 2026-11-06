@@ -120,8 +120,13 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
 
 ## Crocomire: lo que falta, paso a paso
 
-1. **El destello al recibir daño**: hoy se quitan las claves con la paleta 0000 (no entraban en la VRAM). Idea: dibujar
-   las mismas piezas de la paleta 0E00 con un color blanco (sin tiles nuevos).
+1. (Hecho, 2026-11-06) **El destello al recibir daño**: el SNES dibuja al jefe con la paleta 0 en los cuadros alternos
+   de `flash_timer` ($A0:9929). En las salas de jefes (`room_is_boss`, md_engine.c) la Genesis dibuja esas piezas con
+   su paleta normal y ese cuadro pone en blanco los colores de los objetos (línea 3 debajo del HUD: 1-8, 14, 15; y la
+   línea 1 en las salas con línea propia del jefe: Ridley, Golden Torizo); al cuadro siguiente vuelven
+   (`boss_flash_post`). Sin tiles ni sprites nuevos. Lo que comparte colores con el jefe en esa sala también parpadea.
+   Probado forzando `flash_timer` (retrorun `poke`) con Crocomire y Ridley. El cuerpo de fondo no parpadea (en el
+   SNES tampoco: el destello es de los sprites).
 2. **El ácido de fondo**: la capa 3 de efectos (lava, ácido, agua) no está hecha en la Genesis para ninguna sala; en la
    de Crocomire se ve el ácido abajo. Sirve también para Ridley y las salas de Norfair y Maridia.
 3. **La muerte**: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas

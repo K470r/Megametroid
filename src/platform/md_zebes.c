@@ -700,6 +700,17 @@ static void zobj_src_prepare(void) {           /* una vez por sala: los índices
   }
   map_page(lp);
 }
+/* colores 1-15 de los objetos (debajo del HUD) con un color sumado (canales de 5 bits, recortados): el líquido de la
+   capa 3 (md_engine.c, lq_prepare) */
+void zebes_obj_colors_add(int16 ar, int16 ag, int16 ab, uint16 *out) {
+  if (!zo || zobj_srcp_of != zo) { for (uint16 i = 0; i < 15; i++) out[i] = zobj_col[i]; return; }
+  for (uint16 i = 0; i < 15; i++) {
+    uint16 c = *zobj_srcp[i];
+    int16 r = (c & 31) + ar, g = ((c >> 5) & 31) + ag, b = ((c >> 10) & 31) + ab;
+    r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
+    out[i] = kCram555[r | g << 5 | b << 10];
+  }
+}
 uint8 zebes_cone_slot(uint16 c) {             /* md_cone.c: el color c (1-15) de la línea 3 no es de ningún enemigo */
   return zo && zobj_srcp_of == zo && zobj_srcp[c - 1] == &kZero;
 }

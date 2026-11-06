@@ -127,8 +127,16 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    (`boss_flash_post`). Sin tiles ni sprites nuevos. Lo que comparte colores con el jefe en esa sala también parpadea.
    Probado forzando `flash_timer` (retrorun `poke`) con Crocomire y Ridley. El cuerpo de fondo no parpadea (en el
    SNES tampoco: el destello es de los sprites).
-2. **El ácido de fondo**: la capa 3 de efectos (lava, ácido, agua) no está hecha en la Genesis para ninguna sala; en la
-   de Crocomire se ve el ácido abajo. Sirve también para Ridley y las salas de Norfair y Maridia.
+2. **El ácido de fondo** (en curso, 2026-11-06): la capa 3 de efectos (lava, ácido, agua) no estaba hecha en la
+   Genesis. Inventario (salas alcanzables): agua 59, lava 40, ácido 34, esporas 4, luciérnagas 3, niebla 3 (tinte, sin
+   nubes), lluvia 1, agua de la estatua de Tourian 1. En el SNES el líquido es el BG3 en la pantalla principal y la sala
+   en la subpantalla, sumados (`LayerBlendFunc_18`, CGADSUB 0x24); dos HDMA mueven la superficie (BG3VOFS) y el fondo
+   (BG2VOFS) por línea. Hecho: **lava y ácido como tinte** (md_engine.c, `lq_prepare`/`md_hint_lq`): desde la línea
+   de la superficie (`lava_acid_y_pos`) una interrupción horizontal pone una paleta con el color medio del líquido
+   sumado (de `palette_buffer` con los pesos de su tilemap: lava 27/26/25, ácido 3/2/1); `md_vint_top` repone la
+   normal y los pasos en cada vblank (también en los cuadros atrasados). Pasos dobles (`lq_next` -> `lq_steps`: el
+   bucle principal no los pisa mientras la interrupción los lee). La paleta va en `cinematic_text_tilemap` + 3200.
+   Falta: la superficie (línea brillante, onda), el agua y los demás.
 3. **La muerte**: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas
    verticales de los tiles por la cola de VRAM, `crocomire_bg2_scroll_hdma_data` mueve el BG2 por línea: la "onda") y
    el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).

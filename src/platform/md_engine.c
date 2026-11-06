@@ -288,6 +288,78 @@ static inline uint16 tint_cram(uint16 c) {
 }
 uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7FFF]; }   /* md_zebes.c */
 
+/* líquido de la capa 3 (lava, ácido: docs/59). En el SNES el BG3 va solo en la pantalla principal y la sala en la
+   subpantalla, sumados (LayerBlendFunc_18, CGADSUB 0x24): debajo de la superficie el color del líquido se suma a todo.
+   Aquí: desde la línea de la superficie, la interrupción horizontal pone una paleta con el color medio del líquido
+   sumado (lq_col: las 4 líneas, la 3 con los colores de los objetos); el vblank repone la normal. El color medio sale
+   de palette_buffer con los pesos de los píxeles del tilemap del FX ($8A, kFxTypeTilemapPtrs) sobre los tiles del BG3
+   ($9A:B200): lava 27/26/25, ácido 3/2/1 (92/5/3 %), así sigue el brillo de su paleta (palfx). */
+typedef struct __attribute__((packed)) { const uint16 *col; uint16 n; uint32 cmd; uint16 reg; } LqStep;
+static LqStep lq_steps[3], lq_next[3];          /* (lq_next: lo arma md_post; el vblank lo copia) */
+static const LqStep *volatile lq_hp;
+extern uint16 cinematic_text_tilemap[];
+/* (la RAM es justa: en cinematic_text_tilemap + 3200, después de lo que usan en estas salas la caché de los jefes,
+   md_zebes.c, y crocomire_bg2_scroll_hdma_data; la pausa y la caja de mensaje lo pisan: se rearma cada cuadro) */
+#define lq_col ((uint16 *)((uint8 *)cinematic_text_tilemap + 3200))
+static uint8 lq_on;                             /* este cuadro lleva líquido (lq_steps listos) */
+__asm__(
+  "    .text\n"
+  "    .global md_hint_lq\n"
+  "md_hint_lq:\n"
+  "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank: nada */
+  "    bcc.s 9f\n"
+  "    movem.l %d0/%a0-%a1,-(%sp)\n"
+  "    movea.l lq_hp,%a0\n"
+  "    move.l (%a0)+,%a1\n"
+  "    move.w (%a0)+,%d0\n"
+  "    cmpa.w #0,%a1\n"
+  "    beq.s 1f\n"
+  "    move.l (%a0),0xC00004\n"
+  "    subq.w #1,%d0\n"
+  "2:  move.w (%a1)+,0xC00000\n"
+  "    dbra %d0,2b\n"
+  "1:  addq.l #4,%a0\n"
+  "    move.w (%a0)+,0xC00004\n"
+  "    move.l %a0,lq_hp\n"
+  "    movem.l (%sp)+,%d0/%a0-%a1\n"
+  "9:  rte\n");
+void md_hint_lq(void);
+void zebes_obj_colors_add(int16 ar, int16 ag, int16 ab, uint16 *out);
+static void lq_prepare(void) {
+  lq_on = 0;
+  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4) || (lava_acid_y_pos & 0x8000)) return;
+  int16 S = (int16)(lava_acid_y_pos - layer1_y_pos) + 2;     /* línea de la Genesis (la imagen va 2 más abajo) */
+  if (S >= 224) return;
+  if (S < 66) S = 32;                           /* (con una interrupción menos: desde la primera línea del juego; 64-65: el intervalo daría 0 o menos) */
+  const uint16 *pb = palette_buffer + (fx_type == 2 ? 24 : 0);
+  /* pesos sobre 32: 92 % el color 3, 5 % el 2, 3 % el 1 */
+  int16 ar = (int16)((29 * (pb[3] & 31) + 2 * (pb[2] & 31) + (pb[1] & 31)) >> 5);
+  int16 ag = (int16)((29 * ((pb[3] >> 5) & 31) + 2 * ((pb[2] >> 5) & 31) + ((pb[1] >> 5) & 31)) >> 5);
+  int16 ab = (int16)((29 * ((pb[3] >> 10) & 31) + 2 * ((pb[2] >> 10) & 31) + ((pb[1] >> 10) & 31)) >> 5);
+  if (tint_on) { ar += tint_r; ag += tint_g; ab += tint_b; }
+  const uint8 *pbb = (const uint8 *)palette_buffer;
+  for (uint16 i = 0; i < 48; i++) {
+    uint16 o = cram_off[i];
+    if (o == 0xFFFE) { lq_col[i] = cram[i]; continue; }
+    uint16 c = o == 0xFFFF ? 0 : *(const uint16 *)(pbb + o);
+    int16 r = (c & 31) + ar, g = ((c >> 5) & 31) + ag, b = ((c >> 10) & 31) + ab;
+    r = r > 31 ? 31 : r; g = g > 31 ? 31 : g; b = b > 31 ? 31 : b;
+    r = r < 0 ? 0 : r; g = g < 0 ? 0 : g; b = b < 0 ? 0 : b;
+    lq_col[i] = kCram555[r | g << 5 | b << 10];
+  }
+  lq_col[48] = cram[48];
+  zebes_obj_colors_add(ar, ag, ab, lq_col + 49);
+  if (S == 32) {                                /* línea 31: todo de una vez */
+    lq_next[0] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8004 };   /* (0x8004: apaga la interrupción horizontal) */
+  } else {                                      /* 31: los objetos; 63: nada; S: el líquido (ver md_hint_msg) */
+    lq_next[0] = (LqStep){ zobj_col, 15, 0xC0620000u, (uint16)(0x8A00 | (uint16)(S - 1 - 64)) };
+    lq_next[1] = (LqStep){ 0, 0, 0, 0x8AFF };
+    lq_next[2] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8004 };
+  }
+  cram_dirty = 1;                               /* el vblank repone la paleta normal */
+  lq_on = 1;
+}
+
 /* caja de mensaje (src/msgbox.c): sprites con los tiles de sus celdas (kMsgTiles, mkmd.py) en la línea 3; en las
    líneas de la caja la línea 3 vuelve a tener los colores del HUD (interrupciones: 31 los de los enemigos, 63 nada,
    arriba de la caja los del HUD, abajo de la caja otra vez los de los enemigos) */
@@ -471,6 +543,11 @@ static void cv_point(uint16 line) {   /* la interrupción de la línea "line" es
 static volatile uint8 md_vdp_busy;
 static void md_vint_top(void) {
   if (zobj_hint == 2) mb_hp = mb_steps;
+  if (zobj_hint == 3 && !md_vdp_busy) {          /* líquido: los pasos desde el principio y arriba la paleta sin él */
+    lq_hp = lq_steps;
+    VDP_CTRL32 = VDP_CMD_CRAM_W(0);
+    for (uint16 i = 0; i < 48; i++) VDP_DATA = cram[i];
+  }
   if (zobj_hint && !md_vdp_busy) {             /* Zebes: aunque el cuadro se atrase, el HUD con sus colores arriba */
     VDP_CTRL32 = VDP_CMD_CRAM_W(0x62);
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];
@@ -2398,6 +2475,7 @@ void md_post(void) {
     rl_pal_dirty = 1;
   }
   if (md_zebes) { zebes_obj_colors(); boss_flash_post(); md_cone_color(); }
+  lq_prepare();
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);
@@ -2744,7 +2822,8 @@ void md_vblank(uint16_t late) {
       mb_steps[3].col = zobj_col; mb_steps[3].reg = 0x8004;
       mb_hp = mb_steps;
     }
-    if (zobj_hint != want) { SYS_setHIntCallback(want == 2 ? md_hint_msg : md_hint_obj); zobj_hint = want; }
+    if (want == 1 && lq_on) { want = 3; memcpy(lq_steps, lq_next, sizeof lq_steps); lq_hp = lq_steps; }   /* líquido (md_hint_lq) */
+    if (zobj_hint != want) { SYS_setHIntCallback(want == 2 ? md_hint_msg : want == 3 ? md_hint_lq : md_hint_obj); zobj_hint = want; }
     VDP_CTRL32 = VDP_CMD_CRAM_W(0x62);
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];
     vdp_reg(0x0A, 31);   /* cambio de colores en la línea 32 (la primera del juego): no en el HUD */

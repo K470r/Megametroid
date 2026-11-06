@@ -295,12 +295,16 @@ uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7
    de palette_buffer con los pesos de los píxeles del tilemap del FX ($8A, kFxTypeTilemapPtrs) sobre los tiles del BG3
    ($9A:B200): lava 27/26/25, ácido 3/2/1 (92/5/3 %), así sigue el brillo de su paleta (palfx). */
 typedef struct __attribute__((packed)) { const uint16 *col; uint16 n; uint32 cmd; uint16 reg; } LqStep;
-static LqStep lq_steps[3], lq_next[3];          /* (lq_next: lo arma md_post; el vblank lo copia) */
+static LqStep lq_steps[5];                        /* los que lee la interrupción (el vblank copia lq_next) */
 static const LqStep *volatile lq_hp;
 extern uint16 cinematic_text_tilemap[];
 /* (la RAM es justa: en cinematic_text_tilemap + 3200, después de lo que usan en estas salas la caché de los jefes,
    md_zebes.c, y crocomire_bg2_scroll_hdma_data; la pausa y la caja de mensaje lo pisan: se rearma cada cuadro) */
 #define lq_col ((uint16 *)((uint8 *)cinematic_text_tilemap + 3200))
+#define lq_cols ((uint16 *)((uint8 *)cinematic_text_tilemap + 3328))    /* la franja de la superficie */
+#define LQ_SURF 8                                 /* líneas de la superficie (escribir 64 colores toma ~3) */
+#define lq_next ((LqStep *)((uint8 *)cinematic_text_tilemap + 3456))   /* los que arma md_post */
+#define lq_norm ((uint16 *)((uint8 *)cinematic_text_tilemap + 3520))   /* línea 31: la paleta sin el líquido */
 static uint8 lq_on;                             /* este cuadro lleva líquido (lq_steps listos) */
 __asm__(
   "    .text\n"
@@ -310,7 +314,10 @@ __asm__(
   "    bcc.s 9f\n"
   "    movem.l %d0/%a0-%a1,-(%sp)\n"
   "    movea.l lq_hp,%a0\n"
-  "    move.l (%a0)+,%a1\n"
+  "    cmpi.b #40,0xC00008\n"             /* arriba (la primera del cuadro, línea 31): desde el primer paso */
+  "    bcc.s 3f\n"
+  "    lea lq_steps,%a0\n"
+  "3:  move.l (%a0)+,%a1\n"
   "    move.w (%a0)+,%d0\n"
   "    cmpa.w #0,%a1\n"
   "    beq.s 1f\n"
@@ -318,17 +325,48 @@ __asm__(
   "    subq.w #1,%d0\n"
   "2:  move.w (%a1)+,0xC00000\n"
   "    dbra %d0,2b\n"
-  "1:  addq.l #4,%a0\n"
+  "    bra.s 5f\n"
+  "1:  cmpi.w #0xFFFF,%d0\n"              /* paso final (sin colores, n 0xFFFF): se queda en él */
+  "    bne.s 5f\n"
+  "    move.w 4(%a0),0xC00004\n"
+  "    bra.s 4f\n"
+  "5:  addq.l #4,%a0\n"
   "    move.w (%a0)+,0xC00004\n"
   "    move.l %a0,lq_hp\n"
-  "    movem.l (%sp)+,%d0/%a0-%a1\n"
+  "4:  movem.l (%sp)+,%d0/%a0-%a1\n"
   "9:  rte\n");
 void md_hint_lq(void);
 void zebes_obj_colors_add(int16 ar, int16 ag, int16 ab, uint16 *out);
+/* tablas por canal (5 bits -> el canal de la Genesis, como tint_tables): cada color, tres lecturas */
+#define lq_tab ((uint8 *)cinematic_text_tilemap + 3648)       /* 2 x 96: el cuerpo y la superficie */
+void zebes_obj_colors_tab(const uint8 *t, uint16 *out);
+static void lq_tables(int16 ar, int16 ag, int16 ab, uint8 *t) {
+  for (int16 v = 0; v < 32; v++) {
+    int16 r = v + ar, g = v + ag, b = v + ab;
+    r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
+    t[v] = (uint8)kCram555[r]; t[32 + v] = (uint8)(kCram555[g << 5] >> 4); t[64 + v] = (uint8)(kCram555[b << 10] >> 8);
+  }
+}
+static void lq_palette(const uint8 *t, uint16 *out) {   /* las 64: con el color sumado (tabla t) */
+  const uint8 *pbb = (const uint8 *)palette_buffer;
+  for (uint16 i = 0; i < 48; i++) {
+    uint16 o = cram_off[i];
+    if (o == 0xFFFE) { out[i] = cram[i]; continue; }
+    uint16 c = o == 0xFFFF ? 0 : *(const uint16 *)(pbb + o);
+    out[i] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
+  }
+  out[48] = cram[48];
+  zebes_obj_colors_tab(t, out + 49);
+}
+static uint8 lq_pal_dirty = 1;                  /* la paleta cambió (md_post) o se pisó el lugar de las tablas */
+static int16 lq_last[3] = { 0x7FFF, 0, 0 };
 static void lq_prepare(void) {
   lq_on = 0;
+#ifdef MD_NO_LQ
+  return;
+#endif
   if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4) || (lava_acid_y_pos & 0x8000)) return;
-  int16 S = (int16)(lava_acid_y_pos - layer1_y_pos) + 2;     /* línea de la Genesis (la imagen va 2 más abajo) */
+  int16 S = (int16)(lava_acid_y_pos - layer1_y_pos) - 2;     /* línea de la Genesis (medido contra el SNES: la interrupción y la escritura de colores llegan unas líneas tarde) */
   if (S >= 224) return;
   if (S < 66) S = 32;                           /* (con una interrupción menos: desde la primera línea del juego; 64-65: el intervalo daría 0 o menos) */
   const uint16 *pb = palette_buffer + (fx_type == 2 ? 24 : 0);
@@ -337,26 +375,34 @@ static void lq_prepare(void) {
   int16 ag = (int16)((29 * ((pb[3] >> 5) & 31) + 2 * ((pb[2] >> 5) & 31) + ((pb[1] >> 5) & 31)) >> 5);
   int16 ab = (int16)((29 * ((pb[3] >> 10) & 31) + 2 * ((pb[2] >> 10) & 31) + ((pb[1] >> 10) & 31)) >> 5);
   if (tint_on) { ar += tint_r; ag += tint_g; ab += tint_b; }
-  const uint8 *pbb = (const uint8 *)palette_buffer;
-  for (uint16 i = 0; i < 48; i++) {
-    uint16 o = cram_off[i];
-    if (o == 0xFFFE) { lq_col[i] = cram[i]; continue; }
-    uint16 c = o == 0xFFFF ? 0 : *(const uint16 *)(pbb + o);
-    int16 r = (c & 31) + ar, g = ((c >> 5) & 31) + ag, b = ((c >> 10) & 31) + ab;
-    r = r > 31 ? 31 : r; g = g > 31 ? 31 : g; b = b > 31 ? 31 : b;
-    r = r < 0 ? 0 : r; g = g < 0 ? 0 : g; b = b < 0 ? 0 : b;
-    lq_col[i] = kCram555[r | g << 5 | b << 10];
+  { extern uint8 nt_msgbox_active; if (nt_msgbox_active) lq_pal_dirty = 1; }   /* (la caja de mensaje usa la misma RAM) */
+  uint8 again = lq_pal_dirty || ar != lq_last[0] || ag != lq_last[1] || ab != lq_last[2];
+  if (again) {                                  /* solo si cambió la paleta o el color del líquido */
+    lq_pal_dirty = 0; lq_last[0] = ar; lq_last[1] = ag; lq_last[2] = ab;
+    lq_tables(ar, ag, ab, lq_tab);
+    lq_tables(ar + (ar >> 1), ag + (ag >> 1), ab + (ab >> 1), lq_tab + 96);   /* superficie: ~1,5 veces (SNES) */
+    lq_palette(lq_tab, lq_col);
+    lq_palette(lq_tab + 96, lq_cols);
   }
-  lq_col[48] = cram[48];
-  zebes_obj_colors_add(ar, ag, ab, lq_col + 49);
-  if (S == 32) {                                /* línea 31: todo de una vez */
-    lq_next[0] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8004 };   /* (0x8004: apaga la interrupción horizontal) */
-  } else {                                      /* 31: los objetos; 63: nada; S: el líquido (ver md_hint_msg) */
-    lq_next[0] = (LqStep){ zobj_col, 15, 0xC0620000u, (uint16)(0x8A00 | (uint16)(S - 1 - 64)) };
-    lq_next[1] = (LqStep){ 0, 0, 0, 0x8AFF };
-    lq_next[2] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8004 };
+  /* sin apagar la interrupción: después del último paso salta cada 32 líneas sin hacer nada (paso final, n 0xFFFF)
+     y en el cuadro siguiente vuelve a la línea 31, que empieza otra vez (md_hint_lq); así un cuadro atrasado en que
+     el vblank no la reprograma (VDP ocupada) también lleva el líquido */
+  static const LqStep kEnd = { 0, 0xFFFF, 0, 0x8A1F };
+  if (S == 32) {                                /* línea 31: todo de una vez (sin franja) */
+    lq_next[0] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8A1F };
+    lq_next[1] = kEnd;
+  } else {                                      /* 31: la paleta normal y los objetos; 63: nada; S: la superficie;
+                                                   S+LQ_SURF: el líquido (el intervalo de cada paso vale después del
+                                                   siguiente) */
+    memcpy(lq_norm, cram, 49 * 2);
+    memcpy(lq_norm + 49, zobj_col, 15 * 2);
+    lq_next[0] = (LqStep){ lq_norm, 64, 0xC0000000u, (uint16)(0x8A00 | (uint16)(S - 1 - 64)) };
+    lq_next[1] = (LqStep){ 0, 0, 0, 0x8A00 | (LQ_SURF - 1) };
+    lq_next[2] = (LqStep){ lq_cols, 64, 0xC0000000u, 0x8A1F };
+    lq_next[3] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8A1F };
+    lq_next[4] = kEnd;
   }
-  cram_dirty = 1;                               /* el vblank repone la paleta normal */
+  /* (la paleta normal la repone md_vint_top, líneas 0-2; y el primer paso, línea 31) */
   lq_on = 1;
 }
 
@@ -543,12 +589,12 @@ static void cv_point(uint16 line) {   /* la interrupción de la línea "line" es
 static volatile uint8 md_vdp_busy;
 static void md_vint_top(void) {
   if (zobj_hint == 2) mb_hp = mb_steps;
-  if (zobj_hint == 3 && !md_vdp_busy) {          /* líquido: los pasos desde el principio y arriba la paleta sin él */
-    lq_hp = lq_steps;
-    VDP_CTRL32 = VDP_CMD_CRAM_W(0);
-    for (uint16 i = 0; i < 48; i++) VDP_DATA = cram[i];
-  }
   if (zobj_hint && !md_vdp_busy) {             /* Zebes: aunque el cuadro se atrase, el HUD con sus colores arriba */
+    if (zobj_hint == 3) {                       /* líquido: los pasos desde el principio y arriba la paleta sin él */
+      lq_hp = lq_steps;
+      VDP_CTRL32 = VDP_CMD_CRAM_W(0);
+      for (uint16 i = 0; i < 48; i++) VDP_DATA = cram[i];
+    }
     VDP_CTRL32 = VDP_CMD_CRAM_W(0x62);
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];
     vdp_reg(0x0A, 31);   /* cambio de colores en la línea 32 (la primera del juego): no en el HUD */
@@ -2445,6 +2491,7 @@ void md_post(void) {
   /* colores: cada uno sale de un índice de palette_buffer (tabla de la sala), solo si la paleta cambió */
   if (nt_palette_changed) {
     nt_palette_changed = 0;
+    lq_pal_dirty = 1;
     const uint8 *pb = (const uint8 *)palette_buffer;
     const uint8 *lut = (const uint8 *)kCram555;
     if (nt_palette_hi - nt_palette_lo < 32) {
@@ -2475,7 +2522,7 @@ void md_post(void) {
     rl_pal_dirty = 1;
   }
   if (md_zebes) { zebes_obj_colors(); boss_flash_post(); md_cone_color(); }
-  lq_prepare();
+  if (md_zebes && (fx_type == 2 || fx_type == 4)) lq_prepare(); else lq_on = 0;
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);

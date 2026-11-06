@@ -136,7 +136,18 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    sumado (de `palette_buffer` con los pesos de su tilemap: lava 27/26/25, ácido 3/2/1); `md_vint_top` repone la
    normal y los pasos en cada vblank (también en los cuadros atrasados). Pasos dobles (`lq_next` -> `lq_steps`: el
    bucle principal no los pisa mientras la interrupción los lee). La paleta va en `cinematic_text_tilemap` + 3200.
-   Falta: la superficie (línea brillante, onda), el agua y los demás.
+   Superficie: una franja de 8 líneas con 1,5 veces el color (medido en el SNES; una fila de sprites ondulada no
+   entra: 8 sprites de 32 llenan el límite de 16 por línea y Samus y los enemigos desaparecerían). La interrupción no
+   se apaga: después del último paso salta cada 32 líneas sin hacer nada y en el cuadro siguiente vuelve a empezar
+   sola en la línea 31 (así los cuadros atrasados también lo llevan); el primer paso repone la paleta normal. La
+   línea: `lava_acid_y_pos - layer1_y_pos - 2` (medido contra el SNES: coincide a una línea). Costo: medido con el
+   juego quieto (sin entradas), el mismo ritmo con y sin líquido (`-DMD_NO_LQ`). Queda: el primer cuadro después de
+   una racha de atraso puede salir sin el líquido (el vblank llega tarde a la línea 31); sin la onda horizontal.
+   La regresión de Zebes se volvió a aprobar (2026-11-06): con el código nuevo cambian unos ciclos y en la pelea con
+   Ridley de Ceres y en la huida el atraso cae en otros cuadros (imágenes comparadas píxel a píxel: correctas, un
+   cuadro antes o después). Ojo: **la sala de Crocomire corre a ~24 cuadros por segundo en la Genesis** (243 de cada
+   600, con o sin líquido): rendimiento pendiente.
+   Falta: el agua y los demás efectos.
 3. **La muerte**: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas
    verticales de los tiles por la cola de VRAM, `crocomire_bg2_scroll_hdma_data` mueve el BG2 por línea: la "onda") y
    el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).

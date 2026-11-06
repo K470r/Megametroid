@@ -152,8 +152,13 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    suma. Probado en CEFB y D017 (Maridia): el fondo toma el tono del SNES.
    La regresión cuenta aparte los cuadros de ritmo (5124-5127 y 8034, ver regress.sh).
    Agua de la estatua de Tourian (FX 0x26, A66A): el mismo tilemap y la mezcla 18 (suma): como el agua. Probado.
-   Falta: lluvia (1 sala, con sprites); esporas (4) y las nubes de la niebla (3) quedan así por ahora (acordado);
-   luciérnagas (3) ya se ven casi igual.
+   **Lluvia** (FX 0x0A, la sala de aterrizaje): 16 sprites de 8x32 con los tiles de las motas del BG3 ($9A:B700,
+   tiles 0x50-0x53, `kRainSnesTiles` en mkdata) en lugares fijos de un dibujo de 256x256 que cae 6 píxeles por cuadro
+   y deriva (como `HdmaobjPreInstr_RainBg3Scroll`); tiles en 0xF000 (2039-2042). Color: uno libre de la línea 3 o, si
+   no hay (la nave los usa todos), el más parecido de la CRAM (como el gancho), buscado como mucho cada 16 cuadros.
+   Sin la bruma (suma G+1 B+2: casi nada en la Genesis, y en esa sala la paleta cambia casi cada cuadro: atrasaba).
+   La regresión de Ceres y Zebes se aprobó de nuevo (la llegada a Zebes ahora tiene lluvia: comparada imagen a imagen).
+   Esporas (4) y las nubes de la niebla (3) quedan así por ahora (acordado); luciérnagas (3) ya se ven casi igual.
 3. **La muerte**: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas
    verticales de los tiles por la cola de VRAM, `crocomire_bg2_scroll_hdma_data` mueve el BG2 por línea: la "onda") y
    el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).

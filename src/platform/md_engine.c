@@ -366,8 +366,9 @@ static void lq_prepare(void) {
   return;
 #endif
   uint8 water = fx_type == 6 || fx_type == 0x26;  /* (0x26: el agua de la estatua de Tourian, el mismo tilemap) */
-  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4 && !water)) return;
-  uint16 ly = water ? fx_y_pos : lava_acid_y_pos;   /* superficie: el agua usa fx_y_pos */
+  uint8 rain = fx_type == 0xA;                  /* lluvia: su bruma (línea 6 del BG3, como la lava) en toda la imagen */
+  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4 && !water && !rain)) return;
+  uint16 ly = rain ? layer1_y_pos : water ? fx_y_pos : lava_acid_y_pos;   /* superficie: el agua usa fx_y_pos */
   if (ly & 0x8000) return;
   int16 S = (int16)(ly - layer1_y_pos) - 2;     /* línea de la Genesis (medido contra el SNES: la interrupción y la escritura de colores llegan unas líneas tarde) */
   if (S >= 224) return;
@@ -381,7 +382,7 @@ static void lq_prepare(void) {
     uint8 bl = (uint8)fx_layer_blending_config_c;   /* LayerBlendFunc_14/16: se resta (Maridia); 18: se suma */
     if (bl == 0x14 || bl == 0x16) { ar = -ar; ag = -ag; ab = -ab; }
   } else {
-    const uint16 *pb = palette_buffer + (fx_type == 2 ? 24 : 0);
+    const uint16 *pb = palette_buffer + (fx_type == 4 ? 0 : 24);   /* lava y lluvia: línea 6; ácido: 0 */
     /* pesos sobre 32: 92 % el color 3, 5 % el 2, 3 % el 1 */
     ar = (int16)((29 * (pb[3] & 31) + 2 * (pb[2] & 31) + (pb[1] & 31)) >> 5);
     ag = (int16)((29 * ((pb[3] >> 5) & 31) + 2 * ((pb[2] >> 5) & 31) + ((pb[1] >> 5) & 31)) >> 5);
@@ -2438,13 +2439,85 @@ const void *md_cone_sat(uint8 bank);
 void md_cone_color(void);
 void md_cone_vblank(void);
 void md_cone_room(void);
+/* lluvia (FX 0x0A, la sala de aterrizaje: docs/59). En el SNES el BG3 lleva una bruma (el tinte, lq_prepare) y motas
+   sueltas (colores 1-2 de los tiles 0x50-0x53 del BG3) que caen ~6 píxeles por cuadro y se mueven con la cámara
+   (HdmaobjPreInstr_RainBg3Scroll $88:D9A1). Aquí: 16 sprites de 8x32 con esos 4 tiles apilados (las motas en un
+   color libre de la línea 3: zebes_cone_slot), en lugares fijos de un dibujo de 256x256 que cae y deriva. */
+#define RAIN_TILE 2039                          /* 4 tiles en 0xF000 (sin el ojo; el gancho desde el 2043) */
+static const uint8 kRainPos[16][2] = {
+  { 12, 20 }, { 71, 140 }, { 133, 60 }, { 197, 200 }, { 40, 95 }, { 101, 230 }, { 166, 10 }, { 228, 120 },
+  { 25, 175 }, { 88, 45 }, { 150, 150 }, { 212, 75 }, { 55, 250 }, { 118, 110 }, { 182, 35 }, { 244, 185 } };
+static uint16 rain_ox, rain_oy;
+static uint8 rain_slot, rain_up, rain_line, rain_fixed, rain_slot_k = 0xFF, rain_pal_dirty = 1;   /* color de las motas (línea, índice) */
+#define rain_tiles ((uint16 *)((uint8 *)cinematic_text_tilemap + 3776))   /* los 4 tiles ya convertidos (128 bytes) */
+extern volatile uint16 md_frame_count;
+uint8 zebes_cone_slot(uint16 c);
+static void rain_post(void) {
+  rain_slot = 0;
+  if (!md_zebes || cine_stage || fx_type != 0xA || nt_msgbox_active) return;
+  if (rain_pal_dirty && (rain_slot_k == 0xFF || !(md_frame_count & 15))) {   /* el color de las motas: si cambió la
+                                                   paleta, como mucho cada 16 cuadros (en la sala de aterrizaje cambia casi siempre) */
+    rain_pal_dirty = 0;
+    static const uint8 kTry[5] = { 15, 14, 8, 7, 6 };
+    uint8 sl = 0, ln = 3, fx = 0;
+    for (uint16 i = 0; i < 5 && !sl; i++) if (zebes_cone_slot(kTry[i])) sl = kTry[i];
+    if (!sl) {                                  /* sin lugar libre: el color más parecido de la CRAM (como el gancho) */
+      uint16 want = kCram555[palette_buffer[25] & 0x7FFF], best = 0xFFFF;
+      for (uint16 i = 1; i < 64; i++) {
+        if (!(i & 15)) continue;
+        uint16 v = i >= 48 ? zobj_col[i - 49] : cram[i];
+        int16 dr = (int16)(v & 0xE) - (int16)(want & 0xE), dg = (int16)((v >> 4) & 0xE) - (int16)((want >> 4) & 0xE);
+        int16 db = (int16)((v >> 8) & 0xE) - (int16)((want >> 8) & 0xE);
+        uint16 d = (uint16)(dr * dr + dg * dg + db * db);
+        if (d < best) { best = d; sl = i & 15; ln = (uint8)(i >> 4); }
+      }
+      fx = 1;                                   /* (no se pinta: se usa como está) */
+    }
+    rain_line = ln; rain_fixed = fx;
+    if (sl != rain_slot_k) {                    /* los 4 tiles (2 bpp del SNES -> el índice sl), para el vblank */
+      rain_slot_k = sl;
+      uint16 *o = rain_tiles;
+      for (uint16 t = 0; t < 4; t++)
+        for (uint16 y = 0; y < 8; y++) {
+          uint8 a = kRainSnesTiles[t * 16 + 2 * y], b = kRainSnesTiles[t * 16 + 2 * y + 1];
+          uint32 row = 0;
+          for (uint16 x = 0; x < 8; x++) {
+            uint8 v = ((a >> (7 - x)) & 1) | (((b >> (7 - x)) & 1) << 1);
+            row = row << 4 | ((v == 1 || v == 2) ? sl : 0);
+          }
+          *o++ = (uint16)(row >> 16); *o++ = (uint16)row;
+        }
+      rain_up = 1;
+    }
+  }
+  rain_slot = rain_slot_k == 0xFF ? 0 : rain_slot_k;
+  if (!rain_slot) return;
+  rain_oy += 6; rain_ox -= 1;
+  for (uint16 i = 0; i < 16 && sp_ptr < spr + MAX_SPR; i++) {
+    int16 x = (int16)((kRainPos[i][0] + rain_ox - layer1_x_pos) & 255);
+    int16 y = (int16)((kRainPos[i][1] + rain_oy - layer1_y_pos) & 255);
+    if (y >= 224 || y < 32 || x >= 256) continue;   /* (no sobre el HUD: líneas 0-31) */
+    GenSpr *s = sp_ptr++;
+    s->y = y + 129;
+    s->size_link = 0x0300 | (uint16)(s - spr + 1);   /* 8x32 */
+    s->attr = 0x8000 | ((uint16)rain_line << 13) | RAIN_TILE;
+    s->x = x + 128;
+  }
+  if (!(md_frame_count & 63)) rain_up = 1;      /* (la bomba de poder o la caja de mensaje pueden pisar 0xF000) */
+}
+static void rain_vblank(void) {                 /* los 4 tiles (rain_post los convirtió) */
+  rain_up = 0;
+  vdp_dma_vram(rain_tiles, RAIN_TILE * 32, 64);
+}
+
 void md_post(void) {
-  if (pz_dim) { md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c */
+  if (pz_dim) { rain_slot_k = 0xFF; rain_pal_dirty = 1; md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c (pisa la RAM de los tiles de la lluvia) */
   pipe_take();
   md_haze_read();
   ncone = (md_zebes && !cine_stage && !nt_msgbox_active && !mb_shown) ? md_cone_frame() : 0;
   if (md_zebes) md_msgbox_post();
   /* conos de luz (md_cone.c): al final de la lista de sprites */
+  rain_post();
   nspr = (uint16)(sp_ptr - spr);
 #ifdef MD_SPRSUM
   { uint16 sum = nspr; const uint16 *w = (const uint16 *)spr; for (uint16 i = 0; i < nspr * 4; i++) sum = (sum << 1 | sum >> 15) ^ w[i];
@@ -2504,7 +2577,7 @@ void md_post(void) {
   /* colores: cada uno sale de un índice de palette_buffer (tabla de la sala), solo si la paleta cambió */
   if (nt_palette_changed) {
     nt_palette_changed = 0;
-    lq_pal_dirty = 1;
+    lq_pal_dirty = 1; rain_pal_dirty = 1;
     const uint8 *pb = (const uint8 *)palette_buffer;
     const uint8 *lut = (const uint8 *)kCram555;
     if (nt_palette_hi - nt_palette_lo < 32) {
@@ -2536,6 +2609,13 @@ void md_post(void) {
   }
   if (md_zebes) { zebes_obj_colors(); boss_flash_post(); md_cone_color(); }
   if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6 || fx_type == 0x26)) lq_prepare(); else lq_on = 0;
+  /* (la bruma de la lluvia, FX 0x0A, no: suma G+1 B+2 de 5 bits, en la Genesis casi nada, y en la sala de aterrizaje
+     la paleta cambia casi cada cuadro: rehacer las paletas atrasaba el juego) */
+  if (rain_slot && !rain_fixed) {               /* el color de las motas de la lluvia (rain_post) */
+    uint16 c = kCram555[palette_buffer[25] & 0x7FFF];
+    zobj_col[rain_slot - 1] = c;
+    if (lq_on) lq_col[48 + rain_slot] = c;
+  }
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);
@@ -2800,6 +2880,7 @@ void md_vblank(uint16_t late) {
   }
   text_n = 0;
   if (md_zebes && !cine_stage && !room_pending) zebes_vblank();
+  if (rain_up && rain_slot && md_zebes && !room_pending) rain_vblank();
   /* puerta del pozo (modo 7): dos versiones de unas celdas */
   uint8 repatch = 0;
   if (ring_n) {                                 /* pozo de modo 7: filas nuevas del anillo (desde la ROM: versión 0) */

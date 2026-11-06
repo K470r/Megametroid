@@ -1,6 +1,6 @@
 # 59 — Jefes: dónde va su código y cómo se prueban
 
-Rama `claude/trusting-galileo-ct4zjp` (2026-11-05). Jefes: Phantoon, Draygon, Botwoon, Crocomire, Ridley de
+Rama `claude/trusting-galileo-ct4zjp` (2026-11-05, al día el 2026-11-06). Jefes: Phantoon, Draygon, Botwoon, Crocomire, Ridley de
 Norfair, Golden Torizo, Mother Brain y la bebé metroide (Kraid no: queda para después). También los cadáveres de
 Tourian (DC65, DCB1).
 
@@ -99,6 +99,35 @@ En el PC, cada sala sola contra el SNES (`tools/rooms/lote.sh`, Samus invencible
 | DD58 | Mother Brain | 0 (lo que alcanza el patrón de prueba) | corre; `LoadFxEntry` y el pudrirse avisan |
 
 Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobre todo).
+
+## Estado al 2026-11-06
+
+- **Lógica**: todos los jefes de la lista corren en el PC igual que el SNES en lo que alcanzan las pruebas (lote.sh,
+  3000 cuadros); en la Genesis corren sin avisos (salvo lo del final de esta página).
+- **Dibujo en la Genesis**:
+  - Botwoon: se ve.
+  - Ridley de Norfair: se ve con sus colores (sin el destello).
+  - Phantoon y Draygon: el cuerpo en el plano B con sus colores y su desplazamiento.
+  - Crocomire: se ve como en el SNES en la pelea (cuerpo por la caché de tiles, sprites sin el destello; la boca
+    comparada cuadro a cuadro).
+  - Golden Torizo y Mother Brain: corren, sin revisar todavía el dibujo.
+- **Arreglos de paso que valen para todo**: tipos de las tablas de funciones (`CrocomireFunc`: a0/d0 en el 68000),
+  fondo de biblioteca en la clave de los gráficos de la sala, colores juntados por peso de píxeles en las salas con
+  cuerpo, banco $A5 y la sala de Spore Spawn en la página 25.
+- **Cómo probar** (Genesis contra SNES): `tools/compare/lado_a_lado.sh` con `DOOR`, `X`, `Y` (para Crocomire:
+  `DOOR=93D2 X=1150 Y=160`); los avisos con `aviso.py` (lee `md_unimpl_*` de la RAM). Tras cambiar `mkzebes.py` o el
+  registro hay que regenerar (`make full`, o `mkzebes.py` + `make rom`).
+
+## Crocomire: lo que falta, paso a paso
+
+1. **El destello al recibir daño**: hoy se quitan las claves con la paleta 0000 (no entraban en la VRAM). Idea: dibujar
+   las mismas piezas de la paleta 0E00 con un color blanco (sin tiles nuevos).
+2. **El ácido de fondo**: la capa 3 de efectos (lava, ácido, agua) no está hecha en la Genesis para ninguna sala; en la
+   de Crocomire se ve el ácido abajo. Sirve también para Ridley y las salas de Norfair y Maridia.
+3. **La muerte**: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas
+   verticales de los tiles por la cola de VRAM, `crocomire_bg2_scroll_hdma_data` mueve el BG2 por línea: la "onda") y
+   el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).
+4. **La sala vencida** (estado con el esqueleto y el puente roto): comprobar que se ve bien.
 
 ## Lo que falta
 

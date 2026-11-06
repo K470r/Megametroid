@@ -160,7 +160,10 @@ Reglas de Edwin (no negociables):
 - **Jefes** (2026-11-05, docs/59): IA traducida de Phantoon, Draygon, Botwoon, Crocomire, Ridley de Norfair, Golden
   Torizo, Mother Brain, la bebé y los cadáveres de Tourian; su código va en la página 25 del SSF2, junto a los niveles
   de sus salas (la ventana 7 la muestra en esas salas). Lógica igual al SNES en lo probado; en la Genesis corren sin
-  colgarse. Falta el dibujo (cuerpos en BG2, Ridley de Norfair, colores) y Kraid.
+  colgarse. Dibujo (2026-11-06): Botwoon, Ridley de Norfair, Phantoon, Draygon y Crocomire se ven en la Genesis (los
+  cuerpos en BG2 pasan al plano B; Crocomire con una caché de tiles). Falta: el destello de los jefes, la capa 3 de
+  efectos (lava/ácido/agua) en todas las salas, la muerte de Crocomire, Golden Torizo y Mother Brain por revisar,
+  y Kraid. Detalle y orden: docs/59.
 - Pruebas: regresión de imagen (intro, Ceres, Zebes: 0 diferencias), comparación cuadro a cuadro con el SNES en el
   PC (`host/check`), 41 salas con Samus invencible (docs/41, 44).
 

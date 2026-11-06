@@ -164,6 +164,24 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).
 4. **La sala vencida** (estado con el esqueleto y el puente roto): comprobar que se ve bien.
 
+## Rendimiento de las salas de jefes (2026-11-06)
+
+Perfil del 68000: núcleo GPGX con el parche `tools/emu_harness/gpgx_mm_profile.patch` (solo la parte de
+`m68kcpu.c`: lo demás ya está en `third_party/gpgx`; se compila con `make -f Makefile.libretro`) y `MM_PROF`; dos
+corridas (hasta 13600 y hasta 14200 con el juego quieto: sin entradas el juego hace lo mismo por cuadro del motor y se
+puede comparar) y la diferencia por función (`prof_report.py`, `tools/perf/salas/hot.py`). Ojo: las interrupciones
+escritas en ensamblador no tienen tamaño en la tabla de símbolos; usar `nm` (no `objdump -t` filtrado por `F`).
+
+Sala de Crocomire (quieto, 600 cuadros de la consola): **243 -> 462 cuadros del motor** (con disparos: 424).
+- El mapa del cuerpo: no se reconvierte si no cambió, y solo las filas que cambiaron (suma por fila, `bb_rsum`); el
+  vblank sube solo esas filas.
+- El líquido: sus paletas solo se rehacen enteras si cambió su color o muchos índices; si cambiaron pocos
+  (`nt_palette_lo/hi`), solo los colores que salen de ellos (`cram_rev`). La interrupción escribe menos colores (127
+  en vez de 192: escribir en la CRAM durante la imagen frena al 68000).
+- `BankW` (enemy_main.c) recuerda el comienzo de la copia del banco (`port_bank_base`, generado por port.py): las cajas
+  de golpe de los spritemaps extendidos leen cientos de palabras por cuadro y el `switch` era el 12 %.
+Lo que queda caro: `DrawEnemyQueue` / `WriteEnemyOams` (las piezas de Crocomire) y la IA (`EnemyMain`).
+
 ## Pendiente: la sala de las estatuas de Tourian (A66A)
 
 Anotado a pedido de Edwin (2026-11-06): en la Genesis no se ven todas las estatuas de los jefes (Kraid, Phantoon,

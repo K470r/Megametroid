@@ -35488,3 +35488,27 @@ uint8 port_bank_word(uint8 bank, uint16 a, uint16 *w) {
   }
   return 0;
 }
+
+const uint8 *port_bank_base(uint8 bank) {
+  switch (bank) {
+  case 0x86: return kBank86B;
+  case 0x91: return kBank91B;
+  case 0x94: return kBank94B;
+  case 0xA0: return kBankA0B;
+  case 0xA1: return kBankA1B;
+  case 0xA2: return kBankA2B;
+  case 0xA3: return kBankA3B;
+  case 0xA4: return kBankA4B;
+  case 0xA5: return kBankA5B;
+  case 0xA6: return kBankA6B;
+  case 0xA7: return kBankA7B;
+  case 0xA8: return kBankA8B;
+  case 0xA9: return kBankA9B;
+  case 0xAA: return kBankAAB;
+  case 0xAD: return kBankADB;
+  case 0xB2: return kBankB2B;
+  case 0xB3: return kBankB3B;
+  case 0xB4: return kBankB4B;
+  }
+  return 0;
+}

@@ -432,6 +432,11 @@ def main():
     out2 += ['uint8 port_bank_word(uint8 bank, uint16 a, uint16 *w) {', '  switch (bank) {']
     for b in banks:
         out2.append('  case 0x%02X: *w = BW_%02X(a); return 1;' % (b, b))
+    out2 += ['  }', '  return 0;', '}', '']
+    # (el comienzo de la copia del banco: BankW, enemy_main.c, lo recuerda para no pasar por el switch en cada palabra)
+    out2 += ['const uint8 *port_bank_base(uint8 bank) {', '  switch (bank) {']
+    for b in banks:
+        out2.append('  case 0x%02X: return kBank%02XB;' % (b, b))
     out2 += ['  }', '  return 0;', '}']
     open(OUT, 'a').write('\n'.join(out2) + '\n')
     print('%d funciones, %d arreglos; bancos de ROM %s' % (len(funcs), len(arrays), ' '.join('%02X' % b for b in sorted(x.used_banks))))

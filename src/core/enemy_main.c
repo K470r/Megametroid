@@ -16,11 +16,18 @@ uint16 enemy_ram7800[0x1000];
 static inline uint16 abs16(uint16 t) { return sign16(t) ? (uint16)-t : t; }
 
 /* palabra de un banco de datos de enemigos (punteros de 16 bits del SNES, palabras ya nativas) */
+/* (el comienzo de la copia del banco se recuerda: las cajas de golpe de los spritemaps extendidos, Crocomire, leen
+   cientos de palabras por cuadro y el switch de port_bank_word era el 12 % del cuadro) */
+static uint8 bw_bank;
+static const uint8 *bw_base;
 static inline uint16 BankW(uint8 bank, uint16 a) {
-  if (bank == 0xA6) return A6W(a);
-  { extern uint8 port_bank_word(uint8 bank, uint16 a, uint16 *w); uint16 w; if (port_bank_word(bank, a, &w)) return w; }
-  nt_unimpl_v("BankW (banco sin preparar)", bank);
-  return 0;
+  if (bank != bw_bank || !bw_base) {
+    extern const uint8 *port_bank_base(uint8 bank);
+    const uint8 *b = bank == 0xA6 ? kBankA6B : port_bank_base(bank);
+    if (!b) { nt_unimpl_v("BankW (banco sin preparar)", bank); return 0; }
+    bw_bank = bank; bw_base = b;
+  }
+  return BANKB_W(bw_base, a);
 }
 
 /* palabra de cualquier banco de datos ya preparado (RomPtrWithBank del decomp: WriteColorsToPalette $A9:D2E4) */

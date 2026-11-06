@@ -359,7 +359,9 @@ static void lq_palette(const uint8 *t, uint16 *out) {   /* las 64: con el color 
   zebes_obj_colors_tab(t, out + 49);
 }
 static uint8 lq_pal_dirty = 1;                  /* la paleta cambió (md_post) o se pisó el lugar de las tablas */
-static int16 lq_last[3] = { 0x7FFF, 0, 0 };
+static uint8 lq_lo = 255, lq_hi;                 /* índices de palette_buffer que cambiaron (pocos) desde la última vez
+                                                   (lq_lo > lq_hi: ninguno) */
+static int8 lq_last[3] = { 127, 0, 0 };
 static void lq_prepare(void) {
   lq_on = 0;
 #ifdef MD_NO_LQ
@@ -397,7 +399,22 @@ static void lq_prepare(void) {
     lq_tables(ar + (ar >> 1), ag + (ag >> 1), ab + (ab >> 1), lq_tab + 96);   /* superficie: ~1,5 veces (SNES) */
     lq_palette(lq_tab, lq_col);
     lq_palette(lq_tab + 96, lq_cols);
+  } else if (lq_lo <= lq_hi) {                  /* solo los colores que salen de los índices que cambiaron */
+    const uint8 *pbb = (const uint8 *)palette_buffer;
+    const uint8 *t = lq_tab, *u = lq_tab + 96;
+    for (uint16 i = lq_lo; i <= (uint16)lq_hi; i++)
+      for (uint8 sl = cram_rev[i]; sl != 0xFF; sl = cram_next[sl]) {
+        if (sl >= 48) continue;
+        uint16 c = *(const uint16 *)(pbb + cram_off[sl]);
+        lq_col[sl] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
+        lq_cols[sl] = u[c & 31] | (uint16)u[32 + ((c >> 5) & 31)] << 4 | (uint16)u[64 + ((c >> 10) & 31)] << 8;
+      }
+    if (lq_hi >= 128) {                         /* (índices de los sprites: los colores de los objetos) */
+      zebes_obj_colors_tab(t, lq_col + 49);
+      zebes_obj_colors_tab(u, lq_cols + 49);
+    }
   }
+  lq_lo = 255; lq_hi = 0;
   /* sin apagar la interrupción: después del último paso salta cada 32 líneas sin hacer nada (paso final, n 0xFFFF)
      y en el cuadro siguiente vuelve a la línea 31, que empieza otra vez (md_hint_lq); así un cuadro atrasado en que
      el vblank no la reprograma (VDP ocupada) también lleva el líquido */
@@ -408,11 +425,11 @@ static void lq_prepare(void) {
   } else {                                      /* 31: la paleta normal y los objetos; 63: nada; S: la superficie;
                                                    S+LQ_SURF: el líquido (el intervalo de cada paso vale después del
                                                    siguiente) */
-    memcpy(lq_norm, cram, 49 * 2);
-    memcpy(lq_norm + 49, zobj_col, 15 * 2);
-    lq_next[0] = (LqStep){ lq_norm, 64, 0xC0000000u, (uint16)(0x8A00 | (uint16)(S - 1 - 64)) };
+    /* (escribir colores durante la imagen frena al 68000: lo justo. La línea 31 solo los objetos: las líneas 0-2 las
+       repone md_vint_top; la franja, solo las líneas 0-2) */
+    lq_next[0] = (LqStep){ zobj_col, 15, 0xC0620000u, (uint16)(0x8A00 | (uint16)(S - 1 - 64)) };
     lq_next[1] = (LqStep){ 0, 0, 0, 0x8A00 | (LQ_SURF - 1) };
-    lq_next[2] = (LqStep){ lq_cols, 64, 0xC0000000u, 0x8A1F };
+    lq_next[2] = (LqStep){ lq_cols, 48, 0xC0000000u, 0x8A1F };
     lq_next[3] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8A1F };
     lq_next[4] = kEnd;
   }
@@ -2447,7 +2464,7 @@ void md_cone_room(void);
 static const uint8 kRainPos[16][2] = {
   { 12, 20 }, { 71, 140 }, { 133, 60 }, { 197, 200 }, { 40, 95 }, { 101, 230 }, { 166, 10 }, { 228, 120 },
   { 25, 175 }, { 88, 45 }, { 150, 150 }, { 212, 75 }, { 55, 250 }, { 118, 110 }, { 182, 35 }, { 244, 185 } };
-static uint16 rain_ox, rain_oy;
+static uint8 rain_ox, rain_oy;
 static uint8 rain_slot, rain_up, rain_line, rain_fixed, rain_slot_k = 0xFF, rain_pal_dirty = 1;   /* color de las motas (línea, índice) */
 #define rain_tiles ((uint16 *)((uint8 *)cinematic_text_tilemap + 3776))   /* los 4 tiles ya convertidos (128 bytes) */
 extern volatile uint16 md_frame_count;
@@ -2577,7 +2594,11 @@ void md_post(void) {
   /* colores: cada uno sale de un índice de palette_buffer (tabla de la sala), solo si la paleta cambió */
   if (nt_palette_changed) {
     nt_palette_changed = 0;
-    lq_pal_dirty = 1; rain_pal_dirty = 1;
+    rain_pal_dirty = 1;
+    if (nt_palette_hi - nt_palette_lo < 32) {   /* pocos índices: el líquido rehace solo sus colores (lq_prepare) */
+      if (nt_palette_lo < lq_lo) lq_lo = (uint8)nt_palette_lo;
+      if (nt_palette_hi > lq_hi) lq_hi = (uint8)nt_palette_hi;
+    } else lq_pal_dirty = 1;
     const uint8 *pb = (const uint8 *)palette_buffer;
     const uint8 *lut = (const uint8 *)kCram555;
     if (nt_palette_hi - nt_palette_lo < 32) {

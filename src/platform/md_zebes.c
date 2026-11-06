@@ -35,7 +35,10 @@ extern uint16 cinematic_text_tilemap[];
 static const ZebesBossBg2 *zbb;
 static uint16 bb_n;                               /* palabras convertidas que esperan al vblank */
 static uint8 bb_ever;                             /* el jefe ya subió algo en esta sala */
-static void bb_convert(uint16 n);
+static uint16 bb_sum;                             /* largo del último mapa convertido (las sumas por fila: bb_rsum) */
+static void bb_convert(uint16 n, uint16 rows);
+#define bb_rsum ((uint32 *)((uint8 *)cinematic_text_tilemap + 3904))   /* suma de cada fila del último mapa (16) */
+static uint16 bb_rows;                            /* filas convertidas que esperan al vblank (bits) */
 static void bb_vblank(void);
 static uint8 bt_pending;                          /* volver a subir los tiles del cuerpo (0xF000) en el vblank */
 static void bt_dma(void);
@@ -272,7 +275,7 @@ const MdRoom *zebes_use(void) {
   if (f < 0) { md_zebes = 0; return 0; }
   zg = &kZebesGfx[kZebesStates[f].gfx];
   zo = kZebesStates[f].obj != 0xFFFF ? &kZebesObj[kZebesStates[f].obj] : 0;
-  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0;
+  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0; bb_rows = 0;
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
   frz_reset();
@@ -386,9 +389,9 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
     if (zbb && bb_ever) {                     /* (vuelta de la pausa) el cuerpo del jefe, desde tilemap_stuff */
       uint16 n = enemy_bg2_tilemap_size >> 1;
       if (n > BB_MAX) n = BB_MAX;
-      bb_convert(n);
+      bb_convert(n, 0xFFFF);
       if (zbb->cache) bc_vblank(BC_N);
-      bb_n = n & ~31;
+      bb_n = n & ~31; bb_rows = 0xFFFF;
       bb_vblank();
     }
   }
@@ -449,7 +452,7 @@ static void prio_sweep(void) {
   }
 }
 void zebes_frame(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
-  if (bb_redo && zbb && bb_ever) { bb_redo = 0; nt_enemy_bg2_transfer(); }   /* la caché se vació: el cuerpo otra vez */
+  if (bb_redo && zbb && bb_ever) { nt_enemy_bg2_transfer(); bb_redo = 0; }   /* la caché se vació: el cuerpo otra vez */
   if (drawn[0]) { follow(0, ax, ay); if (psweep < ZW) prio_sweep(); }
   if (drawn[1]) follow(1, bx, zg->sky ? ay : by);   /* el cielo baja con la capa 1 (BG2VOFS = layer1_y_pos) */
 }
@@ -491,7 +494,7 @@ void nt_vram_queue_flush(const uint8 *q, uint16 n) { (void)q; (void)n; }
    Buffer: los primeros 1 KB de cinematic_text_tilemap (en estas salas solo los usan la pausa y los mensajes; al
    volver de la pausa el plano B se rehace desde tilemap_stuff, zebes_load_vram). */
 
-static void bb_convert(uint16 n) {
+static void bb_convert(uint16 n, uint16 rows) {   /* rows: filas (de 32) que cambiaron */
   uint8 lp = md_cur_page;
   map_page(ZEBES_BOSS_PAGE);
   const uint16 *tab = zbb->tab;
@@ -508,6 +511,7 @@ static void bb_convert(uint16 n) {
     }
   }
   for (uint16 i = 0; i < n; i++) {
+    if (!(rows & (1 << (i >> 5)))) { i |= 31; continue; }   /* fila sin cambios: ya convertida */
     uint16 w = tilemap_stuff[i];
     uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
     if (c & 0x8000) {                             /* tile de la caché */
@@ -561,19 +565,34 @@ void nt_enemy_bg2_transfer(void) {
   if (!md_zebes || !zbb) return;
   uint16 n = enemy_bg2_tilemap_size >> 1;
   if (n > BB_MAX) n = BB_MAX;
+  /* suma por fila (32 palabras): solo se convierten y se suben las filas que cambiaron (la boca, los brazos) */
+  uint16 rows = 0;
+  {
+    const uint16 *t = tilemap_stuff;
+    uint8 all = !bb_ever || bb_redo || bb_sum != n;
+    for (uint16 r = 0; r < (n >> 5); r++) {
+      uint32 sum = r;
+      for (uint16 i = 0; i < 32; i++) sum = (sum << 1 | sum >> 31) + *t++;
+      if (all || sum != bb_rsum[r]) { rows |= 1 << r; bb_rsum[r] = sum; }
+    }
+    if (!rows) return;
+    bb_sum = n;
+  }
   bb_n = 0;                                       /* (el vblank no sube un buffer a medias) */
-  bb_convert(n);
+  bb_convert(n, rows);
+  bb_rows |= rows;
   bb_n = n & ~31;
   bb_ever = 1;
 }
 
 static void bb_vblank(void) {
   for (uint16 r = 0; r < bb_n >> 5; r++) {
+    if (!(bb_rows & (1 << r))) continue;
     vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + r * 128, 32);
     vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + (r + 32) * 128, 32);
   }
   if (zbb && zbb->cache) memcpy(bc_shown, bc_next, BC_B);   /* ahora se ve este mapa */
-  bb_n = 0;
+  bb_n = 0; bb_rows = 0;
 }
 
 void nt_animtiles_transfer(uint16 src, uint16 size, uint16 vram) {

@@ -91,6 +91,9 @@ def parse_rom_structs():
 # arreglos de bytes de la RAM del SNES (decomp: #define nombre ((uint8*)(g_ram+0xDIR))): nombre -> dirección
 U8_ARRAYS = {m.group(1): int(m.group(2), 16) for m in re.finditer(
     r'#define (\w+) \(\(uint8\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read())}
+# variables de un byte de la RAM del SNES (#define nombre (*(uint8*)(g_ram+0xDIR))): nombre -> dirección
+U8_SCALARS = {m.group(1): int(m.group(2), 16) for m in re.finditer(
+    r'#define (\w+) \(\*\(uint8\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read())}
 
 
 def match_paren(s, i, o='(', c=')'):
@@ -298,6 +301,22 @@ class Xlate:
                 return 'nt_ram_set_w(%s, (uint16)(%s));' % (a, m.group(4))
             return 'nt_ram_set_w(%s, nt_ram_w(%s) %s (uint16)(%s));' % (a, a, m.group(3)[0], m.group(4))
         body = re.sub(r'\*\(uint16 \*\)&(\w+)\[([^\]]+)\] (=|\|=|&=) ([^;]+);', u8word, body)
+        # lo mismo al leer (*(uint16 *)&boss_bits_for_area[area_index] & 2, Crocomire_Init: en el 68000 miraba el byte
+        # de al lado y la sala vencida tenía a Crocomire vivo) y con variables sueltas de un byte
+        # (*(uint16 *)&reg_TM |= 2, wrecked_ship_robot_palanim_table_index): por su dirección del SNES
+        body = re.sub(r'\*\(uint16 \*\)&(\w+)\[([^\]]+)\]',
+                      lambda m: 'nt_ram_w((uint16)(0x%04X + (%s)))' % (U8_ARRAYS[m.group(1)], m.group(2))
+                      if m.group(1) in U8_ARRAYS else m.group(0), body)
+        def u8scalar(m):
+            if m.group(1) not in U8_SCALARS:
+                return m.group(0)
+            a = '0x%04X' % U8_SCALARS[m.group(1)]
+            if m.group(2) == '=':
+                return 'nt_ram_set_w(%s, (uint16)(%s));' % (a, m.group(3))
+            return 'nt_ram_set_w(%s, nt_ram_w(%s) %s (uint16)(%s));' % (a, a, m.group(2)[0], m.group(3))
+        body = re.sub(r'\*\(uint16 \*\)&(\w+) (=|\|=|&=) ([^;]+);', u8scalar, body)
+        body = re.sub(r'\*\(uint16 \*\)&(\w+)\b(?!\[)',
+                      lambda m: 'nt_ram_w(0x%04X)' % U8_SCALARS[m.group(1)] if m.group(1) in U8_SCALARS else m.group(0), body)
         # variables de tipo Enemy_X
         vars_ = {}
         def decl(m):

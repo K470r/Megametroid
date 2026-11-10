@@ -12732,7 +12732,7 @@ NT_BOSS void Crocomire_Init(void) {  // 0xA48A5A
     tilemap_stuff[v0 >> 1] = 824;
     v0 += 2;
   } while ((int16)(v0 - 4096) < 0);
-  if ((*(uint16 *)&boss_bits_for_area[area_index] & 2) != 0) {
+  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 2) != 0) {
     *(uint16 *)scrolls = 257;
     nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
     croco_target_0688 = 0;
@@ -13832,7 +13832,7 @@ NT_BOSS void Crocomire_Func_1(void) {  // 0xA4BAB4
 }
 NT_BOSS void CrocomireTongue_Init(void) {  // 0xA4F67A
   EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
-  if ((*(uint16 *)&boss_bits_for_area[area_index] & 2) != 0) {
+  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 2) != 0) {
     E->properties = E->properties & 0xDCFF | 0x300;
   } else {
     E->current_instruction = addr_kCrocomire_Ilist_BE56;
@@ -23242,7 +23242,7 @@ void MaridiaFloater_Powerbomb(void) {  // 0xA8C63F
   }
 }
 void WreckedShipRobot_Init(void) {  // 0xA8CB77
-  if ((*(uint16 *)&boss_bits_for_area[area_index] & 1) != 0) {
+  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
     nt_gfx_hook_bank = -88;
     nt_gfx_hook_addr = 0xCC67 /* WreckedShipRobot_Func_1 */;
     EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
@@ -23252,7 +23252,7 @@ void WreckedShipRobot_Init(void) {  // 0xA8CB77
     E->current_instruction = addr_kWreckedShipRobot_Ilist_C6E5;
     E->ai_var_A = -512;
     wrecked_ship_robot_palanim_timer = 1;
-    *(uint16 *)&wrecked_ship_robot_palanim_table_index = 0;
+    nt_ram_set_w(0xD656, (uint16)(0));
     E->ai_var_B = 0;
     wrecked_ship_robot_palanim_palindex = E->palette_index;
   } else {
@@ -23293,7 +23293,7 @@ void WreckedShipRobot_Func_1(void) {  // 0xA8CC67
     if (wrecked_ship_robot_palanim_timer) {
       if (!--wrecked_ship_robot_palanim_timer) {
         int v1;
-        for (i = *(uint16 *)&wrecked_ship_robot_palanim_table_index; ; i = 0) {
+        for (i = nt_ram_w(0xD656); ; i = 0) {
           v1 = i >> 1;
           v2 = ((int16)BW_A8(0xCCC1 + 2 * (v1)));
           if (v2 >= 0)
@@ -23305,7 +23305,7 @@ void WreckedShipRobot_Func_1(void) {  // 0xA8CC67
         { palette_buffer[v3 + 139] = ((int16)BW_A8(0xCCC1 + 2 * (v1 + 2))); nt_pal_dirty((uint8)(v3 + 139), (uint8)(v3 + 139)); }
         { palette_buffer[v3 + 140] = ((int16)BW_A8(0xCCC1 + 2 * (v1 + 3))); nt_pal_dirty((uint8)(v3 + 140), (uint8)(v3 + 140)); }
         wrecked_ship_robot_palanim_timer = ((int16)BW_A8(0xCCC1 + 2 * (v1 + 4)));
-        *(uint16 *)&wrecked_ship_robot_palanim_table_index = i + 10;
+        nt_ram_set_w(0xD656, (uint16)(i + 10));
       }
     }
   }
@@ -23572,7 +23572,7 @@ void WreckedShipRobotDeactivated_Shot(void) {  // 0xA8D18D
   NormalEnemyShotAi();
 }
 void WreckedShipRobot_Shot(void) {  // 0xA8D192
-  if ((*(uint16 *)&boss_bits_for_area[area_index] & 1) != 0) {
+  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
     NormalEnemyShotAi();
     EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
     if (E->health) {
@@ -25164,8 +25164,8 @@ NT_BOSS void MotherBrainBody_FakeDeath_Ascent_5_DrawBG1RowCD(void) {  // 0xA98CF
   gEnemyData(0)->ai_var_A = 0x8D11 /* MotherBrainBody_FakeDeath_Ascent_6_SetupPhase2Gfx */;
 }
 NT_BOSS void MotherBrainBody_FakeDeath_Ascent_6_SetupPhase2Gfx(void) {  // 0xA98D11
-  *(uint16 *)&layer2_scroll_x = 257;
-  *(uint16 *)&reg_BG2SC &= 0xFFFC;
+  nt_ram_set_w(0x091B, (uint16)(257));
+  nt_ram_set_w(0x0059, nt_ram_w(0x0059) & (uint16)(0xFFFC));
   WriteColorsToPalette(0x142, 0xa9, addr_kMotherBrainPalette_1 + 2, 0xF);
   WriteColorsToPalette(0x162, 0xa9, addr_kMotherBrainPalette_0 + 2, 0xF);
   gEnemyData(0)->ai_var_A = 0x8D49 /* MotherBrainBody_FakeDeath_Ascent_7_SetupPhase2Brain */;
@@ -30596,7 +30596,7 @@ void ChozoStatue_Main(void) {  // 0xAAE7A7
   CallEnemyPreInstr(v0->ai_preinstr | 0xAA0000);
 }
 void Shaktool_PreInstr_0(uint16 k) {  // 0xAAE7AE
-  if ((*(uint16 *)&boss_bits_for_area[area_index] & 1) != 0) {
+  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
     EnemyData *E = gEnemyData(k); uint16 E_k = (k);
     if (E->parameter_1) {
       E->current_instruction = addr_kShaktool_Ilist_E461;
@@ -30988,10 +30988,10 @@ NT_BOSS void EnableEarthquakeAframes(uint16 a) {  // 0xADF40B
 NT_BOSS void HandleMotherBrainBodyFlickering(void) {  // 0xADF41C
   EnemyData *v0 = gEnemyData(0);
   if (v0->frame_counter & 1) {
-    *(uint16 *)&reg_TM |= 2;
+    nt_ram_set_w(0x0069, nt_ram_w(0x0069) | (uint16)(2));
     v0->properties &= ~kEnemyProps_Invisible;
   } else {
-    *(uint16 *)&reg_TM &= ~2;
+    nt_ram_set_w(0x0069, nt_ram_w(0x0069) & (uint16)(~2));
     v0->properties |= kEnemyProps_Invisible;
   }
 }

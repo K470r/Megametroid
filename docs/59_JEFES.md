@@ -181,7 +181,15 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
      Genesis redibuja la ventana: allí la diferencia es de la prueba.
    - Pendiente: el humo sale marrón o azulado (el SNES: gris): sus colores se funden con otros (42 colores de la sala
      en 25 lugares); y el ritmo de la Genesis en la muerte.
-4. **La sala vencida** (estado con el esqueleto y el puente roto): comprobar que se ve bien.
+4. **La sala vencida** (2026-11-10): con `boss_bits_for_area[2] |= 2` (poke a 7E:D82A antes del salto) la Genesis
+   elegía bien el estado (A9B9) pero Crocomire salía vivo: `Crocomire_Init` lee `*(uint16 *)&boss_bits_for_area[area_index]`
+   y en el 68000 esa palabra mira el byte de al lado. xlate.py ahora pasa también las **lecturas** de palabras sobre
+   arreglos de bytes de la RAM del SNES a `nt_ram_w(dirección)`, y las escrituras, RMW y lecturas sobre variables de un
+   byte (`U8_SCALARS`: `reg_TM |= 2`, `reg_BG2SC &= 0xFFFC`, `wrecked_ship_robot_palanim_table_index`) a
+   `nt_ram_w`/`nt_ram_set_w`. Arregla también los otros jefes que miran su bit así (`& 1`: Phantoon y otros, 3 lugares).
+   Ahora la sala vencida se ve como en el SNES (el esqueleto en x = 576, con sus colores). PC: la muerte (3000 cuadros)
+   y la sala vencida (2000) en 0 diferencias. Regresión: sin cambios.
+5. **(antes) La sala vencida** (estado con el esqueleto y el puente roto): comprobar que se ve bien.
 
 ## Rendimiento de las salas de jefes (2026-11-06)
 

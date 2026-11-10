@@ -345,3 +345,31 @@ Pasos:
 Redibujar tiles: con los volteos no hace falta. Fusionar tiles parecidos casi no ahorra (8 de 287 difieren en 6
 píxeles o menos). Si alguna vez hiciera falta, la reducción se hace en el generador con la ROM de cada uno (nada del
 juego en el repositorio, docs/43), no a mano.
+
+### Kraid, paso 1: capas y fases en el SNES (2026-11-10)
+
+Medido con hlref (`HL_POKE_AT=1100:F8C:35C` para que se haga grande, `2000:F8C:0,2000:FA8:C360` para la muerte;
+`tools/compare/fases_snes.py` lista los cambios de estado y de registros).
+
+Registros en la pelea: `BG1SC = 0x51` (BG1: mapa 64x32 en $5000), `BG2SC = 0x43` (BG2: 64x64 en $4000), `BG12NBA =
+0x0200` (tiles del BG1 desde 0, del BG2 desde la palabra 0x2000), `TM = 0x13` (BG1, BG2 y sprites; sin BG3).
+
+| Fase | Estados (`kraid_var_A`) | Qué se ve |
+|---|---|---|
+| Espera | `RestrictSamusXtoFirstScreen` (300 cuadros) | la sala; detrás **negro**: el mapa del BG1 ya tiene la pared de la cueva (tiles 1008-1023, paleta 6) pero la paleta 6 está en negro |
+| Sube | `RaiseKraidThroughFloor`, `Raise_LoadTilemapBottomAndShake`, `Raise_SpawnRandomEarthquakeProjs16/8`, `Raise_Handler` | el cuerpo es el BG2 (paleta 7): sube con su scroll vertical (`BG2VOFS`), el horizontal sigue a Kraid; temblor y rocas |
+| Primera fase | `KraidFoot_FirstPhase_*`, `KraidsFoot_PrepareToLungeForward` | el pie embiste; la boca y el ojo: 4 cuadros de 352 palabras ($A7:97C8, 9AC8, 9DC8, A0C8) por la cola de VRAM a $4000 (las 11 filas de arriba del mapa del BG2) |
+| Se hace grande (vida < 7/8) | `GetsBig_ReleaseCamera`, `GetsBig_BreakCeilingPlatforms` (PLMs rompen las plataformas del techo, rocas), `GetsBig_SetBG2TilemapPrioBits` (prioridad alta en todo el BG2, sube la mitad de arriba), `GetsBig_FinishUpdateBg2Tilemap` (la de abajo), `GetsBig_DrawRoomBg` (`kKraidsRoomBg`: 16 tiles a los 1008-1023 del BG1; paleta 6 = `kKraid_Palette2`), `GetsBig_FadeInRoomBg` (fundido de la paleta 6) | el BG2 sube 160 píxeles (`BG2VOFS` 0xFFD0 -> 0x0070): el cuerpo entero; la cámara se suelta; aparece la pared de la cueva |
+| Pelea | `GetsBig_Thinking`, `Mainloop_Thinking`, `Main_AttackWithMouthOpen`, `Shot_*` (el ojo), pelusas, uñas, `KraidsFoot_SecondPhase_*` | camina (el BG2 sigue a Kraid), boca y ojo por la cola de VRAM |
+| Muerte | `Death_Init` (paleta 7 = `kKraid_BgPalette7_KraidDeath`, la 6 a negro), `Death_Fadeout` (al terminar: 512 bytes de ceros a los tiles 1008-1023), `Death_UpdateBG2Tilemap{Top,Bottom}Half`, `Death_SinkThroughFloor` (se hunde: `kKraidSinkEntry` borra filas del mapa del BG2 por la cola de VRAM) | la pared se apaga; Kraid se hunde |
+| Sala vencida | `FadeInBg_ClearBg2Tilemap{Top,Bottom}Half` (0x338), `FadeInBg_LoadBg3Tiles1..4of4`, `FadeInBg_FadeInBp6`, `FadeInBg_SetEnemyDead_*` | el BG2 vuelve a 64x32 en $4800 (`BG2SC = 0x48`); la pared de la cueva otra vez, fundida. `Kraid_Init` con Kraid muerto lleva directo a este estado |
+
+Lo que implica para la Genesis (pasos 2 y 3):
+- El **"fondo roto"** de hoy: la Genesis dibuja la pared de la cueva desde el principio (sus colores se juntan con otros
+  y no siguen la paleta 6 en negro). Los tiles 1008-1023 del BG1 son de Kraid (`kKraidsRoomBg`) y se cargan, se
+  borran y se funden por fases: en la Genesis, sus colores tienen que salir de la paleta 6 en vivo (fundidos) y sus
+  tiles tienen que cambiar cuando el SNES los sube.
+- El **cuerpo** es todo el BG2 de 64x64 (paleta 7), movido con su scroll: en la Genesis, el plano B (también de 64x64)
+  con sus tiles; la boca y el ojo son reescrituras del mapa (filas de arriba) por la cola de VRAM; al hundirse, filas
+  borradas por la cola; al final el BG2 vuelve a ser el fondo de biblioteca (64x32).
+- La prioridad de todo el BG2 cambia a alta al hacerse grande (`SetBG2TilemapPrioBits`).

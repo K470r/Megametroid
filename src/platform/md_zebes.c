@@ -89,7 +89,10 @@ static uint8 nlanim;
 static void bt_dma(void) {                        /* los tiles que solo usa el cuerpo (mkzebes.py: BOSS_HI_TILE) */
   uint8 lp = md_cur_page;
   map_page(ZEBES_BOSS_PAGE);
-  vdp_dma_vram(zbb->tiles, ZEBES_BOSS_HI_TILE * 32, zbb->ntiles * 16);
+  uint16 n = zbb->ntiles, n1 = n > 123 ? 123 : n;   /* 0xF000: hasta el tile 2042; lo que sigue (Kraid), en las filas
+                                                      libres de la Window (1802: mkzebes.py BOSS_WIN_TILE) */
+  vdp_dma_vram(zbb->tiles, ZEBES_BOSS_HI_TILE * 32, n1 * 16);
+  if (n > n1) vdp_dma_vram(zbb->tiles + n1 * 16, 1802 * 32, (n - n1) * 16);
   map_page(lp);
 }
 /* caché de los tiles del cuerpo (zbb->cache: Crocomire, 312 tiles, ~155 a la vez): BC_N lugares de la VRAM (los 123
@@ -449,7 +452,7 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
     map_page(zg->page);
     for (uint16 h = 0; h < 2; h++) {
       vdp_set_vram_write(MD_VRAM_PLANE_B + h * 32 * 128);
-      const uint16 *c = zg->bg2;
+      const uint16 *c = zg->bg2 + (zg->bg2h ? h * 64 * 32 : 0);   /* (Kraid: 64x64; las demás, 64x32 dos veces) */
       for (uint16 i = 0; i < 64 * 32; i++) VDP_DATA = tile_fix_b(*c++);
     }
     map_page(lp);

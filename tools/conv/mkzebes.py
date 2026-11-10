@@ -554,7 +554,7 @@ def bg_copies_2000(bg_ptr):
     return False
 
 
-def library_bg(gs, bg_ptr, ram_2000=None):
+def library_bg(gs, bg_ptr, ram_2000=None, full64=False):
     """VRAM (con los tiles que cargue el fondo) y las 64x32 palabras del tilemap del BG2 (VRAM $4800, BG2SC 0x49).
     ram_2000: la palabra con que el inicio del jefe llenó 7E:2000 (tilemap_stuff) antes de que el fondo la copie
     (Phantoon, Draygon, Crocomire: 0x338, un tile vacío; sin ella la copia daba el tile 0)"""
@@ -603,6 +603,12 @@ def library_bg(gs, bg_ptr, ram_2000=None):
             else:
                 break
     words = []
+    if full64:                                    # Kraid (BG2SC 0x43: 64x64 en $4000): las cuatro pantallas
+        for y in range(64):
+            for x in range(64):
+                wa = 0x4000 + (0x800 if y >= 32 else 0) + (0x400 if x >= 32 else 0) + (y & 31) * 32 + (x & 31)
+                words.append(vram[wa * 2] | vram[wa * 2 + 1] << 8)
+        return bytes(vram), words
     for y in range(32):
         for x in range(64):
             wa = 0x4800 + (0x400 if x >= 32 else 0) + y * 32 + (x & 31)
@@ -632,6 +638,7 @@ def boss_bg2_logs():
 
 
 ZT_BASE = 448                                    # primer tile de la sala en la Genesis (md_zebes.c)
+BOSS_WIN_TILE, BOSS_WIN_N = 1802, 54             # filas 5-31 de la Window (no se ven: el HUD son 4 filas; md_cone.c, docs/59)
 BOSS_HI_TILE, BOSS_HI_N = 1920, 123              # VRAM 0xF000: hasta el tile 2042 (2043-2047: el gancho, md_engine.c)
 # 7E:2000 cuando el fondo de biblioteca lo copia al BG2, comprobado contra el SNES: Phantoon y Draygon ya lo llenaron
 # con 0x338 (tile vacío). En la de Crocomire, no (con 0x338 se veía el color de fondo de la Genesis, rojo; sin
@@ -666,7 +673,43 @@ def croco_melt_phases():
     return phases
 
 
+# Kraid (A59F, docs/59): su BG2 es de 64x64 en $4000 (Kraid_Init: reg_BG2SC = 0x43) con los tiles desde 0 como el BG1
+# (BG12NBA = 0x00; su cuerpo está en el tileset de la sala), lo llena el fondo de biblioteca
+# (copia de 7E:4000 a $4000 y $4800) y su código lo reescribe (sus dos mitades desde 7E:2000/2800, la boca y el ojo
+# desde $A7:97C8-A0C8). Sus tiles se copian a números de tile que la sala no usa (como el derretido de Crocomire) y la
+# tabla del cuerpo se arma con los números del SNES: el motor no cambia
+BOSS_BG2_64 = {0xA59F: 0}                        # sala: byte de la VRAM del tile 0 de su BG2
+KRAID_MOUTH = (0xA797C8, 0xA79AC8, 0xA79DC8, 0xA7A0C8)   # 352 palabras cada uno (filas de arriba del mapa)
+
+
+def bg_loads_4000(bg_ptr):
+    """el fondo de biblioteca copia al mapa de $4000 (el de 64x64 de Kraid vivo)"""
+    j = bg_ptr
+    if not j & 0x8000:
+        return False
+    for _ in range(64):
+        cmd = w16(0x8F0000 | j)
+        j += 2
+        if cmd == 0:
+            return False
+        if cmd in (2, 8):
+            if w16(0x8F0000 | j + 3) == 0x4000:
+                return True
+            j += 7
+        elif cmd == 4:
+            j += 5
+        elif cmd == 0xE:
+            j += 9
+        elif cmd in (6, 0xA, 0xC):
+            continue
+        else:
+            return False
+    return False
+
+
 # salas con el cuerpo dibujado
+# (Kraid, A59F: en curso, docs/59: su cuerpo y sus sprites no entran juntos en la VRAM; se prueba con
+# MM_BOSS_BG2_ROOMS=CD13,DA60,A98D,A59F)
 BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60,A98D").split(",") if x}
 
 
@@ -721,7 +764,9 @@ def main():
                     l2 = struct.unpack_from('<%dH' % n, d, 2 + size + n)
                     blocks |= {w & 0x3FF for w in l2}
                 elif l2x & 1:
-                    vram, bg2 = library_bg(gs, bg_ptr, BOSS_2000_FILL.get(ra) if ra in BOSS_BG2 and bg_copies_2000(bg_ptr) else None)
+                    full64 = ra in BOSS_BG2_64 and ra in BOSS_BG2_ROOMS and bg_loads_4000(bg_ptr)
+                    vram, bg2 = library_bg(gs, bg_ptr, BOSS_2000_FILL.get(ra) if ra in BOSS_BG2 and bg_copies_2000(bg_ptr) else None,
+                                           full64=full64)
                 setup = struct.unpack_from('<H', b, 24)[0]
                 sky_tab = {0x91C9: 0x88AD9C, 0x91BD: 0x88AD9C, 0x91CE: 0x88ADA6}.get(setup)
                 if sky_tab:                       # cielo de la superficie: el BG2 sale de los mapas de $8A por filas
@@ -742,7 +787,31 @@ def main():
                 usage = {}
                 for w_ in list(l1) + list(l2 or []):
                     usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1
-                bb = BOSS_BG2.get(ra) if (l2x & 1) and bg_copies_2000(bg_ptr) else None
+                full64 = ra in BOSS_BG2_64 and ra in BOSS_BG2_ROOMS and (l2x & 1) and bg_loads_4000(bg_ptr)
+                bb = BOSS_BG2.get(ra) if (l2x & 1) and (bg_copies_2000(bg_ptr) or full64) else None
+                bb_orig = None
+                if bb and full64:                 # Kraid: los tiles de su BG2 a números libres (BOSS_BG2_64)
+                    cb = BOSS_BG2_64[ra]
+                    mouth = [w16(a + 2 * i) for a in KRAID_MOUTH for i in range(352)]
+                    words_k = sorted(set(w & 0x1FFF for w in list(bb[0]) + mouth))
+                    ts_ = tileset(gs)["table"]
+                    used = set()
+                    for mt in blocks:
+                        used |= {struct.unpack_from('<H', ts_, mt * 8 + 2 * k)[0] & 0x3FF for k in range(4)}
+                    free = [t for t in range(1023, 0, -1) if t not in used]
+                    tiles_k = sorted({w & 0x3FF for w in words_k} | {w & 0x3FF for w in bg2})
+                    assert len(free) >= len(tiles_k), "Kraid: no hay números de tile libres para su BG2"
+                    remap = {t: free[i] for i, t in enumerate(tiles_k)}
+                    vram = bytearray(vram)
+                    for t, v in remap.items():
+                        vram[v * 32:v * 32 + 32] = vram[cb + t * 32:cb + t * 32 + 32]
+                    vram = bytes(vram)
+                    rw = lambda w: (w & ~0x3FF) | remap[w & 0x3FF]
+                    # el mapa inicial (el de la biblioteca: su cuerpo) también es del cuerpo: sus tiles van con los
+                    # del cuerpo (BOSS_HI_N + la Window) y el plano B de 64x64 se rearma con sus celdas
+                    bb_orig = list(bg2) + words_k
+                    bb = ([rw(w) for w in bg2] + [rw(w) for w in words_k], bb[1])
+                    bg2 = []
                 nbg2 = len(bg2) if bg2 else 0
                 if bb and ra == 0xA98D:           # los tiles del derretido (MELT_FAKE), con la paleta del cuerpo
                     global MELT_FAKE
@@ -777,7 +846,8 @@ def main():
                     # (BOSS_HI_TILE: libre en estas salas, sin el ojo ni cajas de mensaje): no ocupan la de los objetos
                     nt_ = res["ntiles"]
                     cache = ra in BOSS_BG2_CACHE
-                    hi = nt_ - res["n_before_extra"] if cache else min(nt_ - res["n_before_extra"], BOSS_HI_N)
+                    hi_n = BOSS_HI_N + (BOSS_WIN_N if full64 else 0)   # (Kraid: también las filas libres de la Window)
+                    hi = nt_ - res["n_before_extra"] if cache else min(nt_ - res["n_before_extra"], hi_n)
                     keep = nt_ - hi
                     hi_tiles = res["tiles"][keep * 32:]
                     res["tiles"] = res["tiles"][:keep * 32]
@@ -786,14 +856,18 @@ def main():
                         cells_b = [(c_ & 0x7800) | 0x8000 | ((c_ & 0x7FF) - keep) if (c_ & 0x7FF) >= keep else c_
                                    for c_ in cells_b]
                     else:
-                        cells_b = [(c_ & ~0x7FF) | (BOSS_HI_TILE - ZT_BASE + (c_ & 0x7FF) - keep)
+                        def hi_cell(i):           # 0xF000 (BOSS_HI_N) y después las filas de la Window (BOSS_WIN_TILE)
+                            return BOSS_HI_TILE - ZT_BASE + i if i < BOSS_HI_N else BOSS_WIN_TILE - ZT_BASE + i - BOSS_HI_N
+                        cells_b = [(c_ & ~0x7FF) | hi_cell((c_ & 0x7FF) - keep)
                                    if (c_ & 0x7FF) >= keep else c_ for c_ in cells_b]
                     res["bg2"] = res["bg2"][:nbg2] or None
+                    if full64:                    # Kraid: el plano B (64x64) con las celdas de su mapa inicial
+                        res["bg2"] = cells_b[:4096]
                     pals = sorted({(w >> 10) & 7 for w in bb[0]})
                     assert len(pals) <= 2, "jefe con más de dos líneas en el BG2"
                     slot_of = [pals.index(p_) if p_ in pals else 0 for p_ in range(8)]
                     tab = [0] * 2048
-                    for w_, c_ in zip(bb[0], cells_b):
+                    for w_, c_ in zip(bb_orig or bb[0], cells_b):   # (Kraid: con los números de tile del SNES)
                         tab[slot_of[(w_ >> 10) & 7] << 10 | (w_ & 0x3FF)] = c_
                     if cache and r(0x8F0000 | (ra + 5), 1)[0] == 1:
                         cache = 3                 # sala de una pantalla de alto: también las filas 36-61 del plano A
@@ -829,12 +903,12 @@ def main():
          'typedef struct { const uint8 *tiles; uint8 page; } ZebesPool;   /* un trozo del depósito de tiles */',
          '/* runs: nruns tramos (índice en el depósito de tiles kZebesPool, cantidad): los tiles de la sala en orden */',
          'typedef struct { uint8 page, npal; uint16 ntiles, nmeta, nruns; const uint16 *runs; const uint16 *src;',
-         '                 const uint16 *ids; const uint16 *cells; const uint16 *l2; const uint16 *bg2; uint8 sky, eye;',
+         '                 const uint16 *ids; const uint16 *cells; const uint16 *l2; const uint16 *bg2; uint8 sky, eye, bg2h;',
          '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; } ZebesGfx;',
          '/* anim: tiles animados, nanim x (origen en $87, VRAM del SNES, desplazamiento en anim_data, cantidad) ordenados;',
          '   anim_data: por tile (tile de la sala, 16 palabras del tile de la Genesis) */',
          '/* src: npal * 16 índices de palette_buffer; l2: capa 2 propia de la sala (bloques, como el nivel) o NULL;',
-         '   bg2: fondo de biblioteca ya convertido (64x32 celdas) o NULL; con sky, el cielo de la superficie: 160 filas',
+         '   bg2: fondo de biblioteca ya convertido (64x32 celdas; con bg2h, 64x64: Kraid) o NULL; con sky, el cielo de la superficie: 160 filas',
          '   de 32 celdas (la fila R, píxel R * 8 de la sala) */',
          'typedef struct { uint16 state; uint16 gfx; uint16 obj; } ZebesState;   /* obj: 0xFFFF sin objetos */',
          'typedef struct { uint8 page; uint16 ntiles, nkeys, nruns; const uint16 *runs; const uint16 *src; const uint16 *keys;',
@@ -1062,7 +1136,7 @@ def main():
     for i, e in enumerate(entries):
         C.append(f'  {{ {pages[i]}, {e["npal"]}, {e["ntiles"]}, {len(e["ids"])}, {len(e["runs"]) // 2}, kZG{i}_runs, kZG{i}_src, '
                  f'kZG{i}_ids, kZG{i}_cells, {"kZG%d_l2" % i if e["l2"] else "0"}, '
-                 f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {len(e["anims"])}, '
+                 f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {1 if e["bg2"] and len(e["bg2"]) == 4096 else 0}, {len(e["anims"])}, '
                  f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"} }},  /* sala {e["key"][3]:04X} */')
     C.append('};')
     sts = sorted((k[1], v, obj_of[id(objs[k[1]])] if k[1] in objs else 0xFFFF) for k, v in gfx_keys.items() if k[0] == "st")

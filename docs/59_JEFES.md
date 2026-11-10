@@ -373,3 +373,32 @@ Lo que implica para la Genesis (pasos 2 y 3):
   con sus tiles; la boca y el ojo son reescrituras del mapa (filas de arriba) por la cola de VRAM; al hundirse, filas
   borradas por la cola; al final el BG2 vuelve a ser el fondo de biblioteca (64x32).
 - La prioridad de todo el BG2 cambia a alta al hacerse grande (`SetBG2TilemapPrioBits`).
+
+### Kraid, paso 2: corrección de las cuentas (2026-11-11)
+
+**Error en el plan**: leí `BG12NBA` (7E:005D) junto con el byte siguiente (`BG34NBA` = 0x02). En verdad `BG12NBA =
+0x00`: el BG2 de Kraid toma los tiles desde 0, como la sala (su cuerpo está en el tileset de la sala; en la palabra
+0x2000 está la fuente del BG3). Medido de nuevo: el cuerpo son **~445 tiles de la Genesis** (los volteos casi no
+ahorran) y casi no comparte con la sala.
+
+| | tiles |
+|---|---|
+| comunes (Samus, HUD, rayo) | 448 |
+| sala | 209 |
+| cuerpo | ~445 |
+| sprites de Kraid, todos sus cuadros | 458 |
+| total | ~1560 |
+| lugar (0-1279, 0xF000, Window) | ~1457 |
+
+Faltan ~100. Opciones:
+- **Sprites de Kraid subidos por cuadro** (como Samus): a la vez usa ~150-180 tiles (brazo ~34, pie ~34, Kraid ~27,
+  pelusas y uñas ~45, rocas y polvo ~30) en vez de 458. Sin pérdida; sirve también para Ridley, Mother Brain y
+  Draygon. Trabajo: una caché de tiles de sprites (como la del cuerpo de Crocomire) y subirlos en el vblank.
+- **Juntar tiles parecidos del cuerpo** (~100 de 445): en el generador, más rápido, pero con pérdida visible en sus
+  escamas.
+
+Ya hecho (desactivado: A59F fuera de `MM_BOSS_BG2_ROOMS` por omisión): el BG2 de 64x64 en $4000 (`library_bg`
+full64, `bg_loads_4000`), las palabras de la boca y del ojo ($A7:97C8-A0C8) en la tabla del cuerpo, el mapa inicial
+como parte del cuerpo, los tiles del cuerpo en 0xF000 y en las filas libres de la Window (`BOSS_WIN_TILE`,
+`bt_dma` en dos partes) y el plano B de 64x64 (`ZebesGfx.bg2h`). Con A59F activado el cuerpo ya aparece en su lugar
+(falta lugar para los sprites).

@@ -168,6 +168,19 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    PC. Falta: la preinstrucción de su objeto de HDMA (943C, la onda) y verlo en la Genesis. Antes: el puente que se rompe, la caída al ácido, el derretirse (`Crocomire_Func_67` borra líneas
    verticales de los tiles por la cola de VRAM, `crocomire_bg2_scroll_hdma_data` mueve el BG2 por línea: la "onda") y
    el esqueleto (claves con la paleta 0A00). Hace falta una prueba que llegue ahí (bajarle la vida al empezar).
+   **Vista en la Genesis (2026-11-10)**: `MD_TEST_POKES` (md_main.c: varios pokes, como HL_POKE_AT) con Crocomire al
+   puente, `scrolls[4..7]` en azul, Samus en x = 1480 y la cámara (`layer1_x_pos`) en 1360: si no, la cámara queda a la
+   izquierda (la muerte pasa fuera de la pantalla). Encontrado y arreglado:
+   - `crocomire_bg2_scroll_hdma_data` (vars_extra.txt) estaba en `cinematic_text_tilemap + 0x6E0` **palabras** (byte
+     3520), no bytes: al morir, la tabla de la onda pisaba las tablas del líquido (`lq_tab`, `lq_norm`: colores cian y
+     blancos bajo el ácido) y `bb_rsum` (el cuerpo se reconvertía de más: la muerte iba más lenta). Ahora en + 0x370
+     palabras (bytes 1760-2319), el hueco que dejan las tablas de la caché (md_zebes.c).
+   - claves de la muerte en `zdraw.log` (registradas en el PC con `MM_DRAWLOG` y la misma prueba, 0 diferencias con
+     el SNES): la nube de polvo (`DustCloudExplosion`, $8D:AC9B-AD08, g = 0) y el humo (objetos de sprite $B4:C838-C8A5).
+   - el fondo del SNES en esa prueba queda viejo (dibuja una columna por cuadro y la cámara salta 500 píxeles); la
+     Genesis redibuja la ventana: allí la diferencia es de la prueba.
+   - Pendiente: el humo sale marrón o azulado (el SNES: gris): sus colores se funden con otros (42 colores de la sala
+     en 25 lugares); y el ritmo de la Genesis en la muerte.
 4. **La sala vencida** (estado con el esqueleto y el puente roto): comprobar que se ve bien.
 
 ## Rendimiento de las salas de jefes (2026-11-06)

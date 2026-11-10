@@ -295,16 +295,22 @@ uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7
    de palette_buffer con los pesos de los píxeles del tilemap del FX ($8A, kFxTypeTilemapPtrs) sobre los tiles del BG3
    ($9A:B200): lava 27/26/25, ácido 3/2/1 (92/5/3 %), así sigue el brillo de su paleta (palfx). */
 typedef struct __attribute__((packed)) { const uint16 *col; uint16 n; uint32 cmd; uint16 reg; } LqStep;
-static LqStep lq_steps[5];                        /* los que lee la interrupción (el vblank copia lq_next) */
 static const LqStep *volatile lq_hp;
 extern uint16 cinematic_text_tilemap[];
+#define LQ_MAXSTEP 10                             /* pasos de la interrupción: el líquido (hasta 5) y la onda de Crocomire */
+#define lq_steps ((LqStep *)((uint8 *)cinematic_text_tilemap + 3968))  /* los que lee la interrupción (el vblank copia
+                                                                         lq_next; md_hint_lq: la misma dirección) */
 /* (la RAM es justa: en cinematic_text_tilemap + 3200, después de lo que usan en estas salas la caché de los jefes,
    md_zebes.c, y crocomire_bg2_scroll_hdma_data; la pausa y la caja de mensaje lo pisan: se rearma cada cuadro) */
 #define lq_col ((uint16 *)((uint8 *)cinematic_text_tilemap + 3200))
 #define lq_cols ((uint16 *)((uint8 *)cinematic_text_tilemap + 3328))    /* la franja de la superficie */
 #define LQ_SURF 8                                 /* líneas de la superficie (escribir 64 colores toma ~3) */
-#define lq_next ((LqStep *)((uint8 *)cinematic_text_tilemap + 3456))   /* los que arma md_post */
-#define lq_norm ((uint16 *)((uint8 *)cinematic_text_tilemap + 3520))   /* línea 31: la paleta sin el líquido */
+#define lq_next ((LqStep *)((uint8 *)cinematic_text_tilemap + 3520))   /* los que arma md_post (LQ_MAXSTEP) */
+/* onda de Crocomire (HDMA $A4:943C: el BG2VOFS de cada línea desde crocomire_bg2_scroll_hdma_data): los valores de
+   la VSRAM del plano B de sus pasos; [15]: el de arriba (md_vint_top), [14]: 1 si hay onda */
+#define lq_wv_next ((uint16 *)((uint8 *)cinematic_text_tilemap + 3456))
+#define lq_wv ((uint16 *)((uint8 *)cinematic_text_tilemap + 3488))
+static uint8 lq_wn;                               /* pasos de la onda en lq_wv_next (md_post les suma scroll_by) */
 static uint8 lq_on;                             /* este cuadro lleva líquido (lq_steps listos) */
 __asm__(
   "    .text\n"
@@ -316,7 +322,7 @@ __asm__(
   "    movea.l lq_hp,%a0\n"
   "    cmpi.b #40,0xC00008\n"             /* arriba (la primera del cuadro, línea 31): desde el primer paso */
   "    bcc.s 3f\n"
-  "    lea lq_steps,%a0\n"
+  "    lea cinematic_text_tilemap+3968,%a0\n"   /* (lq_steps) */
   "3:  move.l (%a0)+,%a1\n"
   "    move.w (%a0)+,%d0\n"
   "    cmpa.w #0,%a1\n"
@@ -357,6 +363,14 @@ static void lq_palette(const uint8 *t, uint16 *out) {   /* las 64: con el color 
   }
   out[48] = cram[48];
   zebes_obj_colors_tab(t, out + 49);
+}
+/* el HDMA de Crocomire derritiéndose (Crocomire_950F $A4:950F: pre-instrucción $A4:943C, tabla indirecta
+   {0xFF -> 7E:CAF0, 0xE1 -> 7E:CBEE}: una palabra por línea desde la 0) está activo */
+uint8 md_croco_wave(void) {
+  if (room_ptr != 0xA98D) return 0;
+  for (uint16 i = 0; i < 6; i++)
+    if (hdma_object_channels_bitmask[i] && hdma_object_pre_instructions[i] == 0x943C) return 1;
+  return 0;
 }
 static uint8 lq_pal_dirty = 1;                  /* la paleta cambió (md_post) o se pisó el lugar de las tablas */
 static uint8 lq_lo = 255, lq_hi;                 /* índices de palette_buffer que cambiaron (pocos) desde la última vez
@@ -419,20 +433,55 @@ static void lq_prepare(void) {
      y en el cuadro siguiente vuelve a la línea 31, que empieza otra vez (md_hint_lq); así un cuadro atrasado en que
      el vblank no la reprograma (VDP ocupada) también lleva el líquido */
   static const LqStep kEnd = { 0, 0xFFFF, 0, 0x8A1F };
+  /* los pasos con su línea: 31 (la primera), 63 (fija: el intervalo de la 31 lo da el vblank), la superficie (S - 1)
+     y el cuerpo del líquido (+ LQ_SURF); el registro de cada paso es el intervalo entre los dos siguientes */
+  LqStep st[LQ_MAXSTEP];
+  int16 ln[LQ_MAXSTEP];
+  uint16 n = 0;
   if (S == 32) {                                /* línea 31: todo de una vez (sin franja) */
-    lq_next[0] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8A1F };
-    lq_next[1] = kEnd;
-  } else {                                      /* 31: la paleta normal y los objetos; 63: nada; S: la superficie;
-                                                   S+LQ_SURF: el líquido (el intervalo de cada paso vale después del
-                                                   siguiente) */
+    st[n] = (LqStep){ lq_col, 64, 0xC0000000u, 0 }; ln[n++] = 31;
+    st[n] = (LqStep){ 0, 0, 0, 0 }; ln[n++] = 63;
+  } else {
     /* (escribir colores durante la imagen frena al 68000: lo justo. La línea 31 solo los objetos: las líneas 0-2 las
        repone md_vint_top; la franja, solo las líneas 0-2) */
-    lq_next[0] = (LqStep){ zobj_col, 15, 0xC0620000u, (uint16)(0x8A00 | (uint16)(S - 1 - 64)) };
-    lq_next[1] = (LqStep){ 0, 0, 0, 0x8A00 | (LQ_SURF - 1) };
-    lq_next[2] = (LqStep){ lq_cols, 48, 0xC0000000u, 0x8A1F };
-    lq_next[3] = (LqStep){ lq_col, 64, 0xC0000000u, 0x8A1F };
-    lq_next[4] = kEnd;
+    st[n] = (LqStep){ zobj_col, 15, 0xC0620000u, 0 }; ln[n++] = 31;
+    st[n] = (LqStep){ 0, 0, 0, 0 }; ln[n++] = 63;
+    st[n] = (LqStep){ lq_cols, 48, 0xC0000000u, 0 }; ln[n++] = S - 1;
+    st[n] = (LqStep){ lq_col, 64, 0xC0000000u, 0 }; ln[n++] = S - 1 + LQ_SURF;
   }
+  lq_wn = 0;
+  lq_wv_next[14] = 0;
+  { /* onda de Crocomire: las líneas en que cambia el BG2VOFS de la tabla (línea del SNES + 2 en la Genesis), las que
+       quepan (repartidas); cada una escribe la VSRAM del plano B (md_post suma scroll_by) */
+    extern uint8 md_croco_wave(void);
+    if (md_croco_wave()) {
+      const uint16 *t = crocomire_bg2_scroll_hdma_data;
+      uint16 room = LQ_MAXSTEP - 1 - n;           /* (uno para el final) */
+      uint8 ch[112]; uint16 nc = 0;
+      for (uint16 i = 31; i < 222 && nc < sizeof ch; i++) if (t[i] != t[i - 1]) ch[nc++] = (uint8)i;
+      lq_wv_next[14] = 1;
+      for (uint16 j = 0; j < room && j < nc; j++) {
+        uint16 k = nc <= room ? j : (uint16)((2 * j + 1) * nc / (2 * room));
+        int16 L = ch[k] + 2;
+        /* lugar en la lista (ordenada por línea), con aire: 4 líneas después de un paso de colores, 2 de los demás */
+        uint16 p = n;
+        while (p > 0 && ln[p - 1] >= L) p--;
+        if (p > 0) { int16 g = ln[p - 1] + (st[p - 1].n > 1 ? 4 : 2); if (L < g) L = g; }
+        if (p < n && ln[p] < L + (int16)2) continue;   /* (no cabe antes del siguiente: se salta) */
+        if (L > 222) continue;
+        for (uint16 q = n; q > p; q--) { st[q] = st[q - 1]; ln[q] = ln[q - 1]; }
+        lq_wv_next[lq_wn] = (uint16)(t[ch[k]] - t[0]);
+        st[p] = (LqStep){ &lq_wv[lq_wn], 1, 0x40020010u, 0 }; ln[p] = L;
+        lq_wn++;
+        n++;
+      }
+    }
+  }
+  for (uint16 k = 0; k < n; k++) {
+    st[k].reg = k + 2 < n ? (uint16)(0x8A00 | (uint16)(ln[k + 2] - ln[k + 1] - 1)) : 0x8A1F;
+    lq_next[k] = st[k];
+  }
+  lq_next[n] = kEnd;
   /* (la paleta normal la repone md_vint_top, líneas 0-2; y el primer paso, línea 31) */
   lq_on = 1;
 }
@@ -625,6 +674,7 @@ static void md_vint_top(void) {
       lq_hp = lq_steps;
       VDP_CTRL32 = VDP_CMD_CRAM_W(0);
       for (uint16 i = 0; i < 48; i++) VDP_DATA = cram[i];
+      if (lq_wv[14]) { VDP_CTRL32 = 0x40020010u; VDP_DATA = lq_wv[15]; }   /* onda: arriba, el scroll sin ella */
     }
     VDP_CTRL32 = VDP_CMD_CRAM_W(0x62);
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];
@@ -2706,6 +2756,11 @@ void md_post(void) {
   scroll_ay = layer1_y_pos + nt_shake_bg1y;
   if (g_room->b_mode == 1) { scroll_bx = reg_BG2HOFS; scroll_by = reg_BG2VOFS; }
   else { scroll_bx = layer2_x_pos + nt_shake_bg2x; scroll_by = layer2_y_pos + nt_shake_bg2y; }
+  if (lq_on && lq_wv_next[14]) {               /* onda de Crocomire: el HDMA reemplaza al BG2VOFS en todas las líneas */
+    scroll_by += (uint16)(crocomire_bg2_scroll_hdma_data[0] - reg_BG2VOFS);
+    for (uint16 k = 0; k < lq_wn; k++) lq_wv_next[k] += scroll_by;
+  }
+  lq_wv_next[15] = scroll_by;
   if (cine_stage) cine_frame(); else hud_prepare();
   if (md_zebes && !cine_stage) {
     zebes_frame(scroll_ax, scroll_ay, scroll_bx, scroll_by);
@@ -2994,7 +3049,9 @@ void md_vblank(uint16_t late) {
       mb_steps[3].col = zobj_col; mb_steps[3].reg = 0x8004;
       mb_hp = mb_steps;
     }
-    if (want == 1 && lq_on) { want = 3; memcpy(lq_steps, lq_next, sizeof lq_steps); lq_hp = lq_steps; }   /* líquido (md_hint_lq) */
+    if (want == 1 && lq_on) {                   /* líquido (md_hint_lq) y la onda de Crocomire */
+      want = 3; memcpy(lq_steps, lq_next, LQ_MAXSTEP * sizeof(LqStep)); memcpy(lq_wv, lq_wv_next, 32); lq_hp = lq_steps;
+    }   /* líquido (md_hint_lq) */
     if (zobj_hint != want) { SYS_setHIntCallback(want == 2 ? md_hint_msg : want == 3 ? md_hint_lq : md_hint_obj); zobj_hint = want; }
     VDP_CTRL32 = VDP_CMD_CRAM_W(0x62);
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];

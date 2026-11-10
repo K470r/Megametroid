@@ -94,13 +94,14 @@ static void bt_dma(void) {                        /* los tiles que solo usa el c
 }
 /* caché de los tiles del cuerpo (zbb->cache: Crocomire, 312 tiles, ~155 a la vez): BC_N lugares de la VRAM (los 123
    de 0xF000 y las 54 filas de la ventana que no usa el HUD, como la caja de mensaje: md_engine.c); en la RAM, después
-   del buffer de las filas (cinematic_text_tilemap + 1024..1743: antes de crocomire_bg2_scroll_hdma_data, +0x6E0) */
+   del buffer de las filas (cinematic_text_tilemap + 1024..1823: antes de crocomire_bg2_scroll_hdma_data, bytes 1840-2399) */
 #define BC_N_MAX 281                              /* 177 + las filas 36-61 del plano A (104 tiles) en salas de una pantalla */
-#define BC_K 320                                  /* tiles del cuerpo como mucho (mkzebes.py lo comprueba) */
+#define BC_K 400                                  /* tiles del cuerpo como mucho (mkzebes.py lo comprueba; Crocomire con el
+                                                     derretido: 387) */
 #define BC_B ((BC_N_MAX + 7) / 8)
 #define bc_k2s ((uint16 *)((uint8 *)cinematic_text_tilemap + 1024))  /* tile del cuerpo -> 1 + lugar (0: no está; 16 bits:
                                                                         hay más de 255 lugares) */
-/* (lo que sigue, después de crocomire_bg2_scroll_hdma_data, +0x6E0..0x90F: en estas salas el resto de
+/* (lo que sigue, después de crocomire_bg2_scroll_hdma_data, bytes 1840-2399: en estas salas el resto de
    cinematic_text_tilemap está libre) */
 #define bc_used ((uint8 *)cinematic_text_tilemap + 2400)              /* lugares que usa la subida en curso (bits) */
 /* lugares que usa el mapa que se ve y los del que espera al vblank: no se reemplazan mientras haya otros (si no, las
@@ -137,6 +138,72 @@ static void bc_vblank(uint16 max) {               /* tiles pendientes de la cach
     }
   map_page(lp);
 }
+/* Crocomire derritiéndose (Crocomire_Func_67 $A4:96C8): en el SNES borra, columna por columna (v = 0..127, en orden
+   aleatorio), los píxeles de arriba hasta croco_vline_height[v] en las copias de los tiles del BG2 (7E:4000: 6 filas de
+   16 tiles; se suben 11 por fila, los tiles r * 16 + c del BG2) y los sube por la cola de VRAM, una fila por cuadro.
+   Aquí, mientras dura (el HDMA $A4:943C activo: md_croco_wave), cada cuadro se arman MELT_N de esos 66 tiles desde la
+   ROM con las columnas borradas (con el volteo de su clave de la caché) y el vblank los sube al lugar de la caché.
+   RAM: en cinematic_text_tilemap, huecos de esta sala (3128, 3840: 64 bytes cada uno). */
+#define MELT_N 4
+static uint8 melt_cur, melt_n;
+static uint16 melt_dst[MELT_N];
+static inline uint32 *melt_buf(uint16 j) {
+  static const uint16 kOff[2] = { 3128, 3840 };
+  return (uint32 *)((uint8 *)cinematic_text_tilemap + kOff[j >> 1] + 32 * (j & 1));
+}
+uint8 md_croco_wave(void);
+static uint8 melt_phase(void);
+static void melt_frame(void) {
+  melt_n = 0;
+  uint8 mph = melt_phase();
+  static uint8 melt_last = 0xFF;
+  if (mph != melt_last) {                         /* otra fase: los mismos números de tile son otros tiles (el mapa no
+                                                     cambia): todo el cuerpo otra vez */
+    melt_last = mph;
+    if (zbb && zbb->cache) bb_redo = 1;
+  }
+  if (!zbb || !zbb->cache || mph == 0xFF || !md_croco_wave()) { melt_cur = 0; return; }
+  uint16 n = enemy_bg2_tilemap_size >> 1;
+  if (n > BB_MAX) n = BB_MAX;
+  uint16 pal = 0xFFFF;                            /* la paleta del cuerpo en el mapa (la de la primera palabra del bloque) */
+  for (uint16 i = 0; i < n; i++) {
+    uint16 w = tilemap_stuff[i], t = w & 0x3FF;
+    if (t < CROCO_MELT_ROWS * 16 && (t & 15) < 11) { pal = (w >> 10) & 7; break; }
+  }
+  if (pal == 0xFFFF) return;
+  uint8 lp = md_cur_page;
+  map_page(ZEBES_BOSS_PAGE);
+  uint16 sl = (uint16)zbb->slot[pal] << 10;
+  for (uint16 tries = 0; tries < CROCO_MELT_ROWS * 11 && melt_n < MELT_N; tries++) {
+    uint16 i = melt_cur;
+    if (++melt_cur >= CROCO_MELT_ROWS * 11) melt_cur = 0;
+    uint16 r = i / 11, c = i - r * 11;
+    uint16 f = kCrocoMelt[mph][i];
+    if (f == 0xFFFF) continue;
+    uint16 key = zbb->tab[sl | f];
+    if (!(key & 0x8000)) continue;
+    uint16 s = bc_k2s[key & 0x7FF];
+    if (!s) continue;                             /* (no está en la VRAM: al subirlo la caché lo trae de la ROM) */
+    uint32 *b = melt_buf(melt_n);
+    memcpy(b, zbb->tiles + (key & 0x7FF) * 16, 32);
+    uint8 hf = (key & 0x0800) != 0, vf = (key & 0x1000) != 0;
+    for (uint16 x = 0; x < 8; x++) {
+      int16 h = (int16)croco_vline_height[c * 8 + x] - (int16)(r * 8);
+      if (h <= 0) continue;
+      if (h > 8) h = 8;
+      uint16 xs = hf ? 7 - x : x;
+      uint32 m = ~(0xF0000000u >> (4 * xs));
+      for (uint16 y = 0; y < (uint16)h; y++) b[vf ? 7 - y : y] &= m;
+    }
+    melt_dst[melt_n++] = bc_tile(s - 1);
+  }
+  map_page(lp);
+}
+static void melt_vblank(void) {
+  for (uint16 j = 0; j < melt_n; j++) vdp_dma_vram(melt_buf(j), melt_dst[j] * 32, 16);
+  melt_n = 0;
+}
+
 /* md_cone.c, md_engine.c: la bomba de poder o la caja de mensaje usaron 0xF000 */
 void zebes_boss_tiles_again(void) {
   if (!md_zebes || !zbb) return;
@@ -452,6 +519,7 @@ static void prio_sweep(void) {
   }
 }
 void zebes_frame(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
+  melt_frame();
   if (bb_redo && zbb && bb_ever) { nt_enemy_bg2_transfer(); bb_redo = 0; }   /* la caché se vació: el cuerpo otra vez */
   if (drawn[0]) { follow(0, ax, ay); if (psweep < ZW) prio_sweep(); }
   if (drawn[1]) follow(1, bx, zg->sky ? ay : by);   /* el cielo baja con la capa 1 (BG2VOFS = layer1_y_pos) */
@@ -494,7 +562,22 @@ void nt_vram_queue_flush(const uint8 *q, uint16 n) { (void)q; (void)n; }
    Buffer: los primeros 1 KB de cinematic_text_tilemap (en estas salas solo los usan la pausa y los mensajes; al
    volver de la pausa el plano B se rehace desde tilemap_stuff, zebes_load_vram). */
 
+/* fase del derretido de Crocomire (0xFF: no): Crocomire_Func_60 dejó en croco_word_7E069A la lista de la cola de VRAM
+   de esa fase ($A4:9BC5 + 0x22 o + 0x7A; 0x54 entre las dos, con los tiles de la primera todavía en la VRAM) */
+static uint8 melt_phase(void) {
+  if (room_ptr != 0xA98D || !croco_word_7E069A) return 0xFF;
+  return croco_word_7E069A >= 0x7A ? 1 : 0;
+}
+static inline uint16 bb_tile(uint16 w, uint8 mph) {   /* el tile de la palabra (los del derretido: kCrocoMelt) */
+  uint16 t = w & 0x3FF;
+  if (mph != 0xFF && t < CROCO_MELT_ROWS * 16 && (t & 15) < 11) {
+    uint16 f = kCrocoMelt[mph][(t >> 4) * 11 + (t & 15)];
+    if (f != 0xFFFF) t = f;
+  }
+  return t;
+}
 static void bb_convert(uint16 n, uint16 rows) {   /* rows: filas (de 32) que cambiaron */
+  uint8 mph = melt_phase();
   uint8 lp = md_cur_page;
   map_page(ZEBES_BOSS_PAGE);
   const uint16 *tab = zbb->tab;
@@ -503,7 +586,7 @@ static void bb_convert(uint16 n, uint16 rows) {   /* rows: filas (de 32) que cam
     memset(bc_used, 0, BC_B);
     for (uint16 i = 0; i < n; i++) {
       uint16 w = tilemap_stuff[i];
-      uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
+      uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | bb_tile(w, mph)];
       if (c & 0x8000) {
         uint16 s = bc_k2s[c & 0x7FF];
         if (s) { s--; bc_used[s >> 3] |= 1 << (s & 7); }
@@ -513,7 +596,7 @@ static void bb_convert(uint16 n, uint16 rows) {   /* rows: filas (de 32) que cam
   for (uint16 i = 0; i < n; i++) {
     if (!(rows & (1 << (i >> 5)))) { i |= 31; continue; }   /* fila sin cambios: ya convertida */
     uint16 w = tilemap_stuff[i];
-    uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
+    uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | bb_tile(w, mph)];
     if (c & 0x8000) {                             /* tile de la caché */
       uint16 k = c & 0x7FF, s = bc_k2s[k];
       if (!s) {                                   /* lugar libre o de un tile que esta subida no usa */
@@ -642,6 +725,7 @@ void zebes_vblank(void) {
     else bc_vblank(96);
   }
   if (bb_n && !bc_npend) bb_vblank();
+  if (melt_n) melt_vblank();                    /* (después de la caché: los tiles de Crocomire derritiéndose) */
   if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();
   if (full_redraw) {                          /* salto grande: toda la ventana (rara vez: puertas, temblores) */

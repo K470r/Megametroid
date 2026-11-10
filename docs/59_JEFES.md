@@ -181,6 +181,25 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
      Genesis redibuja la ventana: allí la diferencia es de la prueba.
    - Pendiente: el humo sale marrón o azulado (el SNES: gris): sus colores se funden con otros (42 colores de la sala
      en 25 lugares); y el ritmo de la Genesis en la muerte.
+   **El derretido y la onda (2026-11-10)**:
+   - Derretido: `Crocomire_Func_60` copia a 7E:4000 filas de tiles del banco $A4 (fase 1: 6 filas desde $A4:A07D; fase
+     2: 7 desde $A4:AC7D; listas de $A4:9BC5) y `Crocomire_Func_67` las sube como tiles r * 16 + c (c < 11) del BG2,
+     borrando cada vez píxeles de columnas al azar hasta `croco_vline_height`. mkzebes pone esos 143 tiles en la caché
+     del cuerpo con números de tile que la sala no usa (`kCrocoMelt[fase][r * 11 + c]`; la caché pasa a 400 tiles,
+     `BC_K`); md_zebes.c los usa en vez de los de la VRAM según la fase (`croco_word_7E069A`), reconvierte el cuerpo
+     al cambiar de fase y, mientras dura (HDMA $A4:943C activo), arma 4 de esos tiles por cuadro desde la ROM con las
+     columnas borradas y los sube (`melt_frame`/`melt_vblank`). Antes se veían los tiles normales del cuerpo en esos
+     números: un rompecabezas.
+   - Onda: el HDMA $A4:943C (tabla indirecta {0xFF -> 7E:CAF0, 0xE1 -> 7E:CBEE}: el BG2VOFS de cada línea) es el
+     estirón del cuerpo al hundirse (1 a ~25 píxeles desde la línea ~145). Va en la interrupción horizontal del
+     líquido: `lq_prepare` mezcla, ordenados por línea, los pasos del líquido y los de la onda (una palabra a la VSRAM
+     del plano B en cada línea en que cambia la tabla, las que quepan; línea del SNES + 2). Las listas pasaron a
+     `cinematic_text_tilemap` (10 pasos: `lq_steps` + 3968, `lq_next` + 3520) y `md_vint_top` repone el scroll de
+     arriba. El HDMA reemplaza al BG2VOFS en todas las líneas: `scroll_by` usa la tabla.
+   - RAM (cinematic_text_tilemap, sala de Crocomire): 0-1023 filas del cuerpo, 1024-1823 `bc_k2s`, 1840-2399
+     `crocomire_bg2_scroll_hdma_data` (vars_extra.txt: + 0x398 palabras), 2400-3121 tablas de la caché, 3128 y 3840
+     tiles del derretido, 3200-3455 colores del líquido, 3456-3519 valores de la onda, 3520 `lq_next`, 3648 `lq_tab`,
+     3904 `bb_rsum`, 3968 `lq_steps`.
 4. **La sala vencida** (2026-11-10): con `boss_bits_for_area[2] |= 2` (poke a 7E:D82A antes del salto) la Genesis
    elegía bien el estado (A9B9) pero Crocomire salía vivo: `Crocomire_Init` lee `*(uint16 *)&boss_bits_for_area[area_index]`
    y en el 68000 esa palabra mira el byte de al lado. xlate.py ahora pasa también las **lecturas** de palabras sobre

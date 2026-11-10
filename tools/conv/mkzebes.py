@@ -639,6 +639,33 @@ BOSS_HI_TILE, BOSS_HI_N = 1920, 123              # VRAM 0xF000: hasta el tile 20
 BOSS_2000_FILL = {0xCD13: 0x338, 0xDA60: 0x338, 0xA98D: 0x338}
 # salas con el cuerpo en una caché (md_zebes.c): sus tiles no entran todos en la VRAM; se suben los que usa el mapa
 BOSS_BG2_CACHE = {0xA98D}                        # Crocomire: 312 tiles, ~155 a la vez
+# Crocomire derritiéndose (docs/59): Crocomire_Func_60 ($A4:943D) copia a 7E:4000 filas de tiles del banco $A4 (listas
+# de $A4:9BC5: cabecera de 4 palabras y pares (origen, destino) hasta 0xFFFF; después la lista de la cola de VRAM) y
+# Crocomire_Func_67 las sube como tiles r * 16 + c (c < 11) del BG2. Esos tiles van en la caché del cuerpo con números
+# que la sala no usa (MELT_FAKE): kCrocoMelt[fase][r * 11 + c] (md_zebes.c los usa en vez de los de la VRAM)
+MELT_ROWS = 7
+MELT_FAKE = None
+
+
+def croco_melt_phases():
+    """[[origen de la fila r en $A4, ...] por fase]"""
+    phases, i = [], 0
+    while len(phases) < 2:
+        hdr = [w16(0xA49BC5 + i + 2 * k) for k in range(4)]
+        assert hdr[3] == 0xA4, "Crocomire: lista de copia sin el banco $A4"
+        i += 8
+        rows = []
+        while w16(0xA49BC5 + i) != 0xFFFF:
+            rows.append(w16(0xA49BC5 + i))
+            i += 4
+        i += 2
+        while w16(0xA49BC5 + i) != 0xFFFF:       # (la lista de la cola de VRAM)
+            i += 8
+        i += 2
+        phases.append(rows)
+    return phases
+
+
 # salas con el cuerpo dibujado
 BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60,A98D").split(",") if x}
 
@@ -717,6 +744,29 @@ def main():
                     usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1
                 bb = BOSS_BG2.get(ra) if (l2x & 1) and bg_copies_2000(bg_ptr) else None
                 nbg2 = len(bg2) if bg2 else 0
+                if bb and ra == 0xA98D:           # los tiles del derretido (MELT_FAKE), con la paleta del cuerpo
+                    global MELT_FAKE
+                    phases = croco_melt_phases()
+                    bpal = max({(w >> 10) & 7 for w in bb[0]}, key=lambda p_: sum(1 for w in bb[0] if (w >> 10) & 7 == p_))
+                    used = {w & 0x3FF for w in bb[0]} | {w & 0x3FF for w in (bg2 or [])}
+                    ts_ = tileset(gs)["table"]
+                    for mt in blocks:
+                        used |= {struct.unpack_from('<H', ts_, mt * 8 + 2 * k)[0] & 0x3FF for k in range(4)}
+                    if MELT_FAKE is None:
+                        free = [t for t in range(1023, 0, -1) if t not in used]
+                        MELT_FAKE = [[free.pop(0) if r_ < len(ph) else None for r_ in range(MELT_ROWS) for c_ in range(11)]
+                                     for ph in phases]
+                    vram = bytearray(vram)
+                    extra_w = []
+                    for pi, ph in enumerate(phases):
+                        for r_, src_ in enumerate(ph):
+                            for c_ in range(11):
+                                f_ = MELT_FAKE[pi][r_ * 11 + c_]
+                                assert f_ not in used, "Crocomire: número de tile del derretido en uso"
+                                vram[f_ * 32:f_ * 32 + 32] = r(0xA40000 | (src_ + 32 * c_), 32)
+                                extra_w.append(bpal << 10 | f_)
+                    vram = bytes(vram)
+                    bb = (bb[0] + extra_w, bb[1])
                 res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items,
                               max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
                               pal_over=bb[1] if bb else None, nbg2=nbg2 if bb else None)
@@ -749,7 +799,7 @@ def main():
                         cache = 3                 # sala de una pantalla de alto: también las filas 36-61 del plano A
                     res["boss"] = (slot_of, tab, hi_tiles, cache)
                     if cache:
-                        assert len(hi_tiles) // 32 <= 320, "caché del cuerpo: más de 320 tiles (md_zebes.c, BC_K)"
+                        assert len(hi_tiles) // 32 <= 400, "caché del cuerpo: %d tiles, más de 400 (md_zebes.c, BC_K)" % (len(hi_tiles) // 32)
                 if eye:
                     res["cells"] = [c | 0x8000 for c in res["cells"]]
                     if res["bg2"]:
@@ -977,6 +1027,12 @@ def main():
     H.append(f'#define NT_ZEBES_NBOSSBG2 {len(bosses)}')
     H.append(f'#define ZEBES_BOSS_PAGE {BOSS_PAGE}')
     H.append(f'extern const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}];')
+    H.append(f'#define CROCO_MELT_ROWS {MELT_ROWS}')
+    H.append('extern const uint16 kCrocoMelt[2][CROCO_MELT_ROWS * 11];   /* tiles del derretido de Crocomire (0xFFFF: sin) */')
+    C.append('const uint16 kCrocoMelt[2][CROCO_MELT_ROWS * 11] = {')
+    for ph_ in (MELT_FAKE or [[None] * (MELT_ROWS * 11)] * 2):
+        C.append('  { ' + ', '.join('0x%04X' % (0xFFFF if f_ is None else f_) for f_ in ph_) + ' },')
+    C.append('};')
     C.append(f'const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}] = {{')
     for i, (slot_of, tab, ht, cache) in bosses:
         C.append(f'  {{ {i}, {{ {", ".join(str(x) for x in slot_of)} }}, kZG{i}_boss, kZG{i}_bosst, {len(ht) // 32}, {int(cache)} }},')

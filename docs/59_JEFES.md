@@ -294,5 +294,17 @@ estatuas y las gemas, y comprobar que al vencer a cada jefe pasa lo mismo que en
   BOSS_ROOMS. viewer.c sacaba a propósito los enemigos de la sala de Kraid (sin portar): ya no.
   PC contra el SNES (3000 cuadros): 3 cuadros distintos (la uña mala, enemigo 7, se dispara un cuadro antes: pendiente).
   La ROM de prueba no entraba en la parte común: su entrada va por tramos (tools/conv/rle_test_input.py, md_main.c).
-- Pendiente: el cuerpo en el plano B (ahora salen tiles de la sala), el fondo de la sala distinto, claves de las rocas
-  ($8D:8268/826F, g = 0x0600), el polvo ($B4:C838-C8A5) y una pieza ($8D:804D, 0E00).
+- **Paso 2**: claves de la sala de Kraid (zcover en A59F, 12000 cuadros; y mkzkeys ya con Kraid traducido): las rocas
+  ($8D:8268/826F, g = 0x0600), el polvo ($B4:C838-C8A5) y $A7:804D (vacío). Ya se ven en la Genesis. Quedan fuera
+  $A7:9608/9632/965C (mkzkeys las encuentra en las listas; 32 tiles cada una): con ellas los objetos del estado con
+  Kraid vivo (A5B1, la sala ya usa 304 tiles) no entran en la VRAM.
+  PC (host/pc_stubs.c): la cola de VRAM de Kraid (sus dos mitades de 7E:2000/2800) se registra como el BG2 de los
+  otros jefes; zbg2.log tiene sus 509 palabras y colores (zcover). mkzebes todavía no las usa.
+- **El cuerpo (pendiente, el paso grande)**: su BG2 es de 64x64 (`reg_BG2SC = 0x43`), el fondo de biblioteca llena las
+  cuatro pantallas desde $B9:FA38 y $B9:FE3E y Kraid sube su cuerpo a la columna izquierda (VRAM $4000 y $4800). Con
+  el cuerpo convertido como los otros jefes la sala más el cuerpo dan 680 tiles y los objetos de Kraid (brazo, pies,
+  uñas, pelusas: ~460) ya no entran: hace falta un reparto de la VRAM propio de esta sala (el cuerpo en una caché como
+  Crocomire, el fondo de biblioteca aparte, o menos tiles de la sala). Borrador del generador en
+  tools/conv/wip/mkzebes_kraid_bg2.py (library_bg de 64x64, BOSS_BG2_64).
+- El fondo de la sala (plano A) se ve distinto del SNES ya en la ROM anterior: en esta sala las capas no son las de
+  siempre (en el BG1 del SNES aparece textura del cuerpo); revisar cómo las reparte antes de comparar.

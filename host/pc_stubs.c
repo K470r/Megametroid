@@ -100,8 +100,18 @@ void nt_enemy_bg2_transfer(void) {
 }
 void nt_vram_queue_flush(const uint8_t *q, uint16_t n) {
   if (!dl()) return;
-  for (unsigned i = 0; i + 7 <= n; i += 7)
-    LOG("%04X vwq %04X %02X%04X %04X\n", room_ptr, q[i] | q[i + 1] << 8, q[i + 4], q[i + 2] | q[i + 3] << 8, q[i + 5] | q[i + 6] << 8);
+  for (unsigned i = 0; i + 7 <= n; i += 7) {
+    unsigned size = q[i] | q[i + 1] << 8, src = q[i + 2] | q[i + 3] << 8, bank = q[i + 4];
+    LOG("%04X vwq %04X %02X%04X %04X\n", room_ptr, size, bank, src, q[i + 5] | q[i + 6] << 8);
+    /* Kraid (A59F): sube su BG2 en dos mitades de 7E:2000/2800 por la cola (Kraid_UpdateBg2TilemapTopHalf $A7:C874
+       y BottomHalf): sus palabras como las de los otros jefes (los colores también: nt_enemy_bg2_transfer) */
+    if (room_ptr == 0xA59F && bank == 0x7E && (src == 0x2000 || src == 0x2800) && size == 2048) {
+      uint16 keep = enemy_bg2_tilemap_size;
+      enemy_bg2_tilemap_size = 0x1000;
+      nt_enemy_bg2_transfer();
+      enemy_bg2_tilemap_size = keep;
+    }
+  }
 }
 void DrawAtmosphericGfx(uint16_t type, uint16_t frame, int16_t x, int16_t y) { (void)type; (void)frame; (void)x; (void)y; }
 void DrawArmCannon(int16 x, int16 y, uint16 attr, uint16 src) { LOG("%04X armcannon %04X\n", room_ptr, src); (void)x; (void)y; (void)attr; }

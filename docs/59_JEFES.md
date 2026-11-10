@@ -227,3 +227,10 @@ estatuas y las gemas, y comprobar que al vencer a cada jefe pasa lo mismo que en
   (`palette_buffer` 249-252), que llena `SporeSpawn_Init` desde `kSporeSpawn_Palette` ($A5:E359). `mkzobj.init_palettes`
   ahora reconoce los arreglos con `#define kX ((uint16*)RomFixedPtr(0x...))` y el índice `(i >> 1) + N`.
 - Pendiente: la "sombra" del cuerpo (plano B) bajo el HUD que se ve al subir el jefe.
+
+## Pendientes reportados (2026-11-10)
+
+- Probado por el usuario hasta vencer a Spore Spawn: esporas y HUD bien en todo el juego.
+- Bomb Torizo (sala 9804): durante la pelea nunca abrió los ojos (en el SNES los abre: brillo de los ojos, paleta /
+  piezas de la cara) y al terminar quedaron dos círculos marrones cerca de la puerta (¿restos de proyectiles u
+  objetos de sprite que no se borran, o tiles de la explosión con los colores de la sala?). Revisar contra la biblia.

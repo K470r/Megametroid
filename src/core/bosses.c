@@ -144,3 +144,50 @@ NT_BOSS void ShitroidInCutscene_GetIntoFace(uint16 k) {  // 0xA9C811
     SomeMotherBrainScripts(1);
   }
 }
+
+/* ---------------------------------------------------------------- Kraid (sala A59F, docs/59) */
+/* el cuerpo en el BG2: el SNES descomprime $B9:FE3E en 7E:2000 (tilemap_stuff) y $B9:FA38 en 7E:4000 (las primeras
+   1024 palabras son el mapa del que sale la mitad de arriba); aquí ya descomprimidos (mkdata.py: kKraidMap2000/4000) */
+NT_BOSS void Kraid_SetupGfxWithTilePrioClear(uint16 r18) {  // 0xA7AAC6
+  for (uint16 i = 0; i < 2048; i++) tilemap_stuff[i] = kKraidMap2000[i];
+  ERAM(0x782A) = 0;                                // kraid_hurt_frame
+  ERAM(0x782C) = 0;                                // kraid_hurt_frame_timer
+  for (uint16 i = 0; i < 768; i++) tilemap_stuff[i + 1024] = tilemap_stuff[i] & 0xDFFF;
+  for (uint16 i = 0; i < 1024; i++) tilemap_stuff[i] = r18 & kKraidMap4000[i];
+}
+
+/* muerte: el fundido; al terminar el SNES borra 512 bytes de 7E:4000 y los sube a la VRAM (tiles del fondo): aquí
+   solo la entrada de la cola (la Genesis no la usa) */
+NT_BOSS void Kraid_Death_Fadeout(void) {  // 0xA7C3F9
+  Kraid_ProcessKraidInstr();
+  if (AdvancePaletteFade_BgPalette6() & 1) {
+    EnemyData *E = gEnemyData(0);
+    E->ai_var_A = 0xC4A4;                          // Kraid_Death_UpdateBG2TilemapTopHalf
+    ERAM(0x782C) = 1;
+    ERAM(0x782A) = 1;
+    Kraid_Palette_Handling();
+    uint16 v = vram_write_queue_tail;
+    nt_vwq_w16(v, 512);
+    nt_vwq_w16((uint16)(v + 2), 0x4000);
+    nt_vwq_w8((uint16)(v + 4), 0x7E);
+    nt_vwq_w16((uint16)(v + 5), ((reg_BG12NBA & 0xF) << 8) + 16128);
+    vram_write_queue_tail = v + 7;
+  }
+}
+
+/* la mitad de arriba del cuerpo (7E:2000) por DMA al mapa del BG2 (al salir de la pausa): la Genesis rehace el
+   plano B a su manera */
+NT_BOSS void Kraid_TransferTopHalfToVram(void) {  // 0xA7C278
+}
+/* ganchos de la pausa: solo copian VRAM del SNES (a la RAM y de vuelta); la Genesis rehace la VRAM al volver */
+NT_BOSS void PauseHook_Kraid(void) {  // 0xA7C325
+}
+NT_BOSS CoroutineRet UnpauseHook_Kraid_IsDead(void) {  // 0xA7C1FB
+  return 0;
+}
+NT_BOSS CoroutineRet UnpauseHook_Kraid_IsAlive(void) {  // 0xA7C24E
+  return 0;
+}
+NT_BOSS CoroutineRet Kraid_UnpauseHook_IsSinking(void) {  // 0xA7C2A0
+  return 0;
+}

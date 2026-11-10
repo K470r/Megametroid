@@ -285,4 +285,14 @@ estatuas y las gemas, y comprobar que al vencer a cada jefe pasa lo mismo que en
   ganchos de pausa (`pause_hook`/`unpause_hook`), la cola de lectura de VRAM y copias por DMA (`PauseHook_Kraid`,
   `UnpauseHook_Kraid_*`), `ram4000`/`g_ram` (`Kraid_SetupGfxWithTilePrioClear`: mapas descomprimidos a 7E:4000 y
   7E:2000) y `Kraid_Instr_9`. Hay que escribirlos a mano (bosses.c) y dibujar su cuerpo en el plano B (como
-  Crocomire: BOSS_BG2_ROOMS, zbg2.log). Pendiente.
+  Crocomire: BOSS_BG2_ROOMS, zbg2.log).
+- **Portado (paso 1)**: roots.txt con Kraid y sus partes; el traductor ahora resuelve los ganchos de la pausa puestos por
+  partes (`.bank`/`.addr`), los punteros a la ROM declarados aparte (`Kraid_Shot_Mouth`), `ERAM_ARR` (definida en
+  enemies.h) y el despacho de disparo con `j` (`Kraid_Arm_Shot(j)`: `collision_detection_index * 2`). A mano en bosses.c:
+  `Kraid_SetupGfxWithTilePrioClear` (mapas ya descomprimidos: mkdata `kKraidMap2000`/`kKraidMap4000`, página de los
+  jefes), `Kraid_Death_Fadeout`, `Kraid_TransferTopHalfToVram` y los ganchos de la pausa (solo VRAM: vacíos). A59F en
+  BOSS_ROOMS. viewer.c sacaba a propósito los enemigos de la sala de Kraid (sin portar): ya no.
+  PC contra el SNES (3000 cuadros): 3 cuadros distintos (la uña mala, enemigo 7, se dispara un cuadro antes: pendiente).
+  La ROM de prueba no entraba en la parte común: su entrada va por tramos (tools/conv/rle_test_input.py, md_main.c).
+- Pendiente: el cuerpo en el plano B (ahora salen tiles de la sala), el fondo de la sala distinto, claves de las rocas
+  ($8D:8268/826F, g = 0x0600), el polvo ($B4:C838-C8A5) y una pieza ($8D:804D, 0E00).

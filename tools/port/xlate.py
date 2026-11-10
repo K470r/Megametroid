@@ -381,6 +381,8 @@ class Xlate:
                 continue
             body = body[:m.start()] + rep_ + body[e + 1:]
             pos = m.start() + len(rep_)
+        # (declarados y asignados aparte: const uint8 *v5; v5 = RomPtr_A7(v4); Kraid_Shot_Mouth $A7:AFAA): juntos
+        body = re.sub(r'const uint8 \*(\w+);\n(\s*)\1 = (RomPtr_[0-9A-F]{2}\()', r'\2const uint8 *\1 = \3', body)
         # punteros a la ROM: *(T *)RomPtr_XX(e) -> lectura; const uint8 *v = RomPtr_XX(e) -> v es una dirección
         body = re.sub(r'\*\(u?int16 \*\)RomPtr_([0-9A-F]{2})\(', lambda m: 'BW_%s(' % m.group(1), body)
         # (también sin const y asignados después: uint16 v3, *v4; ... v4 = (uint16 *)RomPtr_A6(i); Ridley_Func_118)
@@ -450,6 +452,14 @@ class Xlate:
         # ganchos de la pausa (pause.c): la dirección de 24 bits
         body = re.sub(r'\bmov24\(&(un)?pause_hook, (fn)?(\w+)\);', lambda m: 'nt_%spause_hook = 0x%06X;' % (
             m.group(1) or '', self.g.funcs[m.group(3)][3] if m.group(2) else int(m.group(3), 0)), body)
+        # (Kraid_Init $A7:A959 los pone por partes: .bank = -89 y .addr = 0xC24E: el banco es el de la función)
+        body = re.sub(r'\b(un)?pause_hook\.bank = [^;]+;\n?\s*', '', body)
+        def hook_addr(m):
+            v = m.group(2)
+            f = re.fullmatch(r'FUNC16\((\w+)\)', v)
+            a = (self.g.funcs[f.group(1)][3] & 0xFFFF) if f else int(v, 16)
+            return 'nt_%spause_hook = 0x%02X%04X;' % (m.group(1) or '', bank, a)
+        body = re.sub(r'\b(un)?pause_hook\.addr = (0x[0-9A-Fa-f]+|FUNC16\(\w+\))[^;]*;', hook_addr, body)
         # corrutinas que no esperan (MotherBrainsBody_UnpauseHook): void
         body = body.replace('return kCoroutineNone;', 'return;')
         body = re.sub(r'\bmov24\(&enemy_gfx_drawn_hook, 0x([0-9A-Fa-f]{2})([0-9A-Fa-f]{4})\);',

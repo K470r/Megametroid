@@ -221,6 +221,7 @@ uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 port_CallEprojInit(uint32 ea, uint16 j);
 uint8 port_CallEprojPreInstr(uint32 ea, uint16 k);
 uint16 port_CallEprojInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok);
+typedef uint8 CoroutineRet;   /* (ganchos de la pausa escritos a mano: bosses.c) */
 typedef void (*PortFnV)(void);
 typedef void (*PortFnK)(uint16);
 void port_nop_v(void);

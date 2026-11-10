@@ -329,10 +329,18 @@ def main():
         else:
             # tabla ordenada (dirección -> función) y búsqueda: quien llama guarda el puntero (eproj.c, enemy_main.c)
             # f(cur_enemy_index) en un despacho sin argumentos: una función de paso
-            if all(not args or args == 'cur_enemy_index' for a, t, args in cases if t) and any(args == 'cur_enemy_index' for a, t, args in cases if t):
+            # (CallHitboxShot: f(j), j = el proyectil * 2: el motor deja collision_detection_index en el proyectil antes
+            # de llamar (enemy_main.c); Kraid_Arm_Shot $A7:94B6)
+            if all(not args or args in ('cur_enemy_index', 'j') for a, t, args in cases if t) and \
+                    any(args in ('cur_enemy_index', 'j') for a, t, args in cases if t) and d == 'CallEnemyAi' or \
+                    all(not args or args == 'cur_enemy_index' for a, t, args in cases if t) and \
+                    any(args == 'cur_enemy_index' for a, t, args in cases if t):
                 nc = []
                 for a, t, args in cases:
-                    if t and args == 'cur_enemy_index':
+                    if t and args == 'j':
+                        out.append('static void port_w_%s(void) { %s(collision_detection_index * 2); }' % (t, t))
+                        nc.append((a, 'port_w_' + t, ''))
+                    elif t and args == 'cur_enemy_index':
                         out.append('static void port_w_%s(void) { %s(cur_enemy_index); }' % (t, t))
                         nc.append((a, 'port_w_' + t, ''))
                     else:
@@ -415,7 +423,7 @@ def main():
           'uint8 EprojBlockCollisition_Vertical(uint16 k);']
     h += ['uint8 port_CallEprojInit(uint32 ea, uint16 j);', 'uint8 port_CallEprojPreInstr(uint32 ea, uint16 k);',
           'uint16 port_CallEprojInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok);']
-    h += ['typedef void (*PortFnV)(void);', 'typedef void (*PortFnK)(uint16);', 'void port_nop_v(void);', 'void port_nop_k(uint16 k);',
+    h += ['typedef uint8 CoroutineRet;   /* (ganchos de la pausa escritos a mano: bosses.c) */', 'typedef void (*PortFnV)(void);', 'typedef void (*PortFnK)(uint16);', 'void port_nop_v(void);', 'void port_nop_k(uint16 k);',
           'PortFnV port_FindCallEnemyAi(uint32 ea);', 'PortFnK port_FindCallEnemyPreInstr(uint32 ea);',
           'PortFnK port_FindCallEprojInit(uint32 ea);', 'PortFnK port_FindCallEprojPreInstr(uint32 ea);']
     h += ['uint8 port_CallEnemyAi(uint32 ea);', 'uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok);',

@@ -350,7 +350,7 @@ ceres_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if hb[1] == 6 for 
 # los niveles de las salas de los jefes van en la página de su código (tools/port/port.py, BOSS_PAGE: en esas salas la
 # ventana 7 muestra el nivel, así que el código del jefe está siempre a mano; docs/46)
 BOSS_PAGE = 25
-BOSS_ROOMS = {0x9DC7, 0xA98D, 0xB283, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDC65, 0xDCB1, 0xDD58}   # (DC65: cadáveres de Tourian)
+BOSS_ROOMS = {0x9DC7, 0xA59F, 0xA98D, 0xB283, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDC65, 0xDCB1, 0xDD58}   # (DC65: cadáveres de Tourian)
 boss_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if ra in BOSS_ROOMS for _, _, st in sels}
 page, used, lvl_page = LEVEL_PAGE0, 0, {}
 for i, lvl in enumerate(sorted(levels)):
@@ -635,6 +635,12 @@ for _b in _bl:
     _b = int(_b, 16)
     arr('uint8', 'kBank%02XB' % _b, list(r((_b << 16) | 0x8000, 0x8000) + r(((_b + 1) << 16) | 0x8000, 1)), per=32,
         attr='NT_BANK(%d) ' % BOSS_PAGE if _b in BOSS_BANKS else '')
+# Kraid (Kraid_SetupGfxWithTilePrioClear $A7:AAC6): DecompressToMem($B9:FE3E) a 7E:2000 (tilemap_stuff, 2048 palabras) y
+# DecompressToMem($B9:FA38) a 7E:4000, del que lee las primeras 1024 palabras: ya descomprimidos, en la página de los jefes
+_k2 = decompress(0xB9FE3E)
+_k4 = decompress(0xB9FA38)
+arr('uint16', 'kKraidMap2000', [_k2[2 * i] | _k2[2 * i + 1] << 8 for i in range(2048)], fmt='0x{:04X}', attr='NT_BANK(%d) ' % BOSS_PAGE)
+arr('uint16', 'kKraidMap4000', [_k4[2 * i] | _k4[2 * i + 1] << 8 for i in range(1024)], fmt='0x{:04X}', attr='NT_BANK(%d) ' % BOSS_PAGE)
 # bancos poco usados: bytes (la mitad de ROM que las palabras; nmath.h los lee de a dos)
 def bankbytes(name, bank):
     arr('uint8', name, list(r((bank << 16) | 0x8000, 0x8000) + r(((bank + 1) << 16) | 0x8000, 1)), per=32)

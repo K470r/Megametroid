@@ -49,6 +49,8 @@ NT_BOSS void sub_A6DC13(uint16 j, uint16 r18, uint16 r20, uint16 r22);
 void sub_88E487(uint16 v0, uint16 r22);
 void sub_88DF34(void);
 uint8 sub_82DAF7(uint16 a);
+NT_BOSS CoroutineRet UnpauseHook_Kraid_IsDead(void);
+NT_BOSS CoroutineRet UnpauseHook_Kraid_IsAlive(void);
 uint16 SuitDamageDivision(uint16 a);
 void SpawnPalfxObject(uint16 j);
 uint8 SpawnPLM(uint16 a);
@@ -90,6 +92,7 @@ void QueueMusic_Delayed8(uint16 a);
 void ProjectileReflection(uint16 r20);
 NT_BOSS uint8 ProcessSpriteTilesTransfers(uint8 db, uint16 k);
 NT_BOSS void Phantoon_Func_2(uint16 k);
+NT_BOSS void PauseHook_Kraid(void);
 void NormalEnemyTouchAiSkipDeathAnim(void);
 uint16 NextRandom(void);
 uint32 Multiply16x16(uint16 a, uint16 j);
@@ -99,6 +102,9 @@ uint16 MoveEprojWithVelocity(uint16 k);
 uint16 Math_MultBySin(uint16 a, uint16 ang);
 uint16 Math_MultByCos(uint16 a, uint16 ang);
 PairU16 MakePairU16(uint16 k, uint16 j);
+NT_BOSS CoroutineRet Kraid_UnpauseHook_IsSinking(void);
+NT_BOSS void Kraid_SetupGfxWithTilePrioClear(uint16 r18);
+NT_BOSS void Kraid_Death_Fadeout(void);
 NT_BOSS uint16 HandleMotherBrainInstructionList(uint16 a);
 void GrappleBeam_Func2(void);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
@@ -201,6 +207,11 @@ NT_BOSS void EprojPreInstr_PhantoonStartingFireballsB(uint16 k);
 NT_BOSS void EprojPreInstr_PhantoonStartingFireballsB_2(uint16 k);
 Point16U Eproj_PhantomFireballs_Func1(uint16 j, uint16 a);
 uint16 Eproj_PhantomFireballs_Func2(uint16 k, uint16 r24);
+static NT_BOSS void EprojInit_RocksKraidSpits(uint16 j);
+static NT_BOSS void EprojInit_RocksFallingKraidCeiling(uint16 j);
+static NT_BOSS void EprojInit_RocksWhenKraidRises(uint16 j);
+NT_BOSS void EprojPreInstr_KraidRocks(uint16 k);
+NT_BOSS void EprojPreInstr_RocksFallingKraidCeiling(uint16 k);
 static void EprojInit_MiniKraidSpit(uint16 j);
 void EprojPreInit_MiniKraidSpit(uint16 k);
 static void EprojInit_MiniKraidSpikes(uint16 j, uint16 a);
@@ -476,6 +487,7 @@ NT_BOSS void Enemy_ItemDrop_Ridley(uint16 k);
 NT_BOSS void Enemy_ItemDrop_Crocomire(uint16 k);
 void Enemy_ItemDrop_Phantoon(uint16 k);
 NT_BOSS void Enemy_ItemDrop_Botwoon(uint16 k);
+NT_BOSS void Enemy_ItemDrop_Kraid(uint16 k);
 void Enemy_ItemDrop_BombTorizo(uint16 k);
 void Enemy_ItemDrop_GoldenTorizo(uint16 k);
 NT_BOSS void Enemy_ItemDrop_SporeSpawn(uint16 k);
@@ -1579,6 +1591,131 @@ uint16 EnemyInstr_Call_A7(uint16 k, uint16 jp);
 void Enemy_NormalShotAI_A7(void);
 void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void);
 void Enemy_NormalFrozenAI_A7(void);
+NT_BOSS uint16 Kraid_Instr_9(uint16 k, uint16 jp);
+NT_BOSS void Kraid_Touch_ArmFoot(void);
+NT_BOSS void Kraid_Func_1(void);
+NT_BOSS void Kraid_Touch(void);
+NT_BOSS void Kraid_Shot(void);
+NT_BOSS void KraidsArm_Touch(void);
+NT_BOSS void Kraid_Arm_Shot(uint16 j);
+NT_BOSS uint16 Kraid_CheckIfDead(void);
+NT_BOSS void Kraid_SetEnemyPropsToDead(void);
+NT_BOSS void Kraid_Init(void);
+NT_BOSS void KraidsArm_Init(void);
+NT_BOSS void KraidsTopLint_Init(void);
+NT_BOSS void KraidsMiddleLint_Init(void);
+NT_BOSS void KraidsBottomLint_Init(void);
+NT_BOSS void KraidsFoot_Init(void);
+NT_BOSS void Kraid_Main(void);
+NT_BOSS void Kraid_GetsBig_BreakCeilingPlatforms(void);
+NT_BOSS void Kraid_GetsBig_SetBG2TilemapPrioBits(void);
+NT_BOSS void Kraid_GetsBig_FinishUpdateBg2Tilemap(void);
+NT_BOSS void Kraid_DrawRoomBg(void);
+NT_BOSS void Kraid_GetsBig_DrawRoomBg(void);
+NT_BOSS void Kraid_SetLintYAndRandomThinkTimer(void);
+NT_BOSS void Kraid_GetsBig_Thinking_Setup(void);
+NT_BOSS void Kraid_Mainloop_Thinking_Setup(void);
+NT_BOSS void Kraid_Lints_Enable(uint16 k, uint16 a);
+NT_BOSS void Kraid_GetsBig_FadeInRoomBg(void);
+NT_BOSS void Kraid_Mainloop_Thinking(void);
+NT_BOSS void Kraid_GetsBig_Thinking(void);
+NT_BOSS void Kraid_Shot_MouthIsOpen(void);
+NT_BOSS uint16 Kraid_ProcessKraidInstr(void);
+NT_BOSS void KraidInstr_PlayRoarSfx(void);
+NT_BOSS void KraidInstr_PlayDyingSfx(void);
+NT_BOSS void CallKraidInstr(uint32 ea);
+NT_BOSS uint16 Kraid_ExecuteInstr(void);
+NT_BOSS void Kraid_Shot_Mouth(void);
+NT_BOSS void Kraid_SpawnExplosionEproj(uint16 k);
+NT_BOSS void Kraid_Enemy_Touch(void);
+NT_BOSS void Kraid_Shot_Body(void);
+NT_BOSS void Kraid_Palette_Handling(void);
+NT_BOSS void Kraid_HurtFlash_Handling(void);
+NT_BOSS void Kraid_HealthBasedPaletteHandling(void);
+NT_BOSS uint16 Kraid_Instr_1(uint16 k, uint16 jp);
+NT_BOSS uint16 Kraid_Instr_DecYpos(uint16 k, uint16 jp);
+NT_BOSS uint16 Kraid_Instr_IncrYpos_Shake(uint16 k, uint16 jp);
+NT_BOSS uint16 Kraid_Instr_PlaySound_0x76(uint16 k, uint16 jp);
+NT_BOSS uint16 Kraid_Instr_XposMinus3(uint16 k, uint16 jp);
+NT_BOSS uint16 Kraid_Instr_XposMinus3b(uint16 k, uint16 jp);
+NT_BOSS uint16 Kraid_Instr_XposPlus3(uint16 k, uint16 jp);
+NT_BOSS uint16 Kraid_Instr_MoveHimRight(uint16 k, uint16 jp);
+NT_BOSS void Kraid_InitEyeGlowing(void);
+NT_BOSS void Kraid_Shot_GlowHisEye(void);
+NT_BOSS void Kraid_Shot_UnglowEye(void);
+NT_BOSS void KraidsArm_Main(void);
+NT_BOSS void KraidLintCommon_Main(uint16 k);
+NT_BOSS void KraidsTopLint_Main(void);
+NT_BOSS void KraidsMiddleLint_Main(void);
+NT_BOSS void KraidsBottomLint_Main(void);
+NT_BOSS void KraidLint_ProduceLint(uint16 k);
+NT_BOSS void KraidLint_ChargeLint(uint16 k);
+NT_BOSS void KraidLint_FireLint(uint16 k);
+NT_BOSS void KraidFingernail_WaitForLintXpos(uint16 k);
+NT_BOSS void KraidEnemy_HandleFunctionTimer(uint16 k);
+NT_BOSS void Kraid_AlignEnemyToKraid(uint16 k);
+NT_BOSS void KraidEnemy_DecrementEnemyFunctionTimer(void);
+NT_BOSS void KraidFoot_FirstPhase_Thinking(uint16 k);
+NT_BOSS void KraidEnemy_ProcessInstrEnemyTimer(uint16 k);
+NT_BOSS void Kraid_EnemyTouch_Lint(uint16 k);
+NT_BOSS void KraidsFoot_Main(void);
+NT_BOSS void Kraid_SetWalkingBackwards(uint16 j, uint16 a);
+NT_BOSS void Kraid_SetWalkingForwards(uint16 j, uint16 a);
+NT_BOSS void KraidsFoot_SecondPhase_Thinking(void);
+NT_BOSS void KraidsFoot_SecondPhase_WalkingBackwards(void);
+NT_BOSS void KraidsFoot_SecondPhaseSetup_WalkToStartPt(void);
+NT_BOSS void KraidsFoot_SecondPhase_Init(void);
+NT_BOSS void KraidsFoot_SecondPhase_WalkForward(void);
+NT_BOSS void Kraid_Main_AttackWithMouthOpen(void);
+NT_BOSS void KraidsGoodFingernail_Touch(void);
+NT_BOSS void KraidsBadFingernail_Touch(void);
+NT_BOSS void KraidFingernailInit(uint16 k);
+NT_BOSS void KraidsGoodFingernail_Init(void);
+NT_BOSS void KraidsBadFingernail_Init(void);
+NT_BOSS void KraidsGoodFingernail_Main(void);
+NT_BOSS void KraidsBadFingernail_Main(void);
+NT_BOSS void KraidsFingernail_Init(void);
+NT_BOSS void KraidsFingernail_Fire(uint16 k);
+NT_BOSS void KraidsFoot_PrepareToLungeForward(void);
+NT_BOSS void KraidsFoot_FirstPhase_LungeForward(void);
+NT_BOSS void KraidsFoot_FirstPhase_RetreatFromLunge(void);
+NT_BOSS void Kraid_HandleFirstPhase(void);
+NT_BOSS void Kraid_GetsBig_ReleaseCamera(void);
+NT_BOSS void Kraid_SpawnPlmToClearCeiling(void);
+NT_BOSS void Kraid_ClearSomeSpikes(void);
+NT_BOSS void Kraid_Death_Init(void);
+NT_BOSS void Kraid_Death_UpdateBG2TilemapTopHalf(void);
+NT_BOSS void Kraid_Death_UpdateBG2TilemapBottomHalf(void);
+NT_BOSS void Kraid_PlaySoundEveryHalfSecond(void);
+NT_BOSS void Kraid_HandleSinking(void);
+NT_BOSS void Kraid_Death_SinkThroughFloor(void);
+NT_BOSS void Kraid_CrumbleLeftPlatform_Left(void);
+NT_BOSS void Kraid_CrumbleRightPlatform_Middle(void);
+NT_BOSS void Kraid_CrumbleRightPlatform_Left(void);
+NT_BOSS void Kraid_CrumbleLeftPlatform_Right(void);
+NT_BOSS void Kraid_CrumbleLeftPlatform_Middle(void);
+NT_BOSS void Kraid_CrumbleRightPlatform_Right(void);
+NT_BOSS void CallKraidSinkTableFunc(uint32 ea);
+NT_BOSS void Kraid_FadeInBg_ClearBg2TilemapTopHalf(void);
+NT_BOSS void Kraid_FadeInBg_ClearBg2TilemapBottomHalf(void);
+NT_BOSS void Kraid_FadeInBg_LoadBg3Tiles1of4(void);
+NT_BOSS void Kraid_FadeInBg_LoadBg3Tiles2of4(void);
+NT_BOSS void Kraid_FadeInBg_LoadBg3Tiles3of4(void);
+NT_BOSS void Kraid_FadeInBg_LoadBg3Tiles4of4(void);
+NT_BOSS void Kraid_FadeInBg_FadeInBp6(void);
+NT_BOSS void Kraid_FadeInBg_SetEnemyDead_KraidWasAlive(void);
+NT_BOSS void Kraid_FadeInBg_SetEnemyDead_KraidWasDead(void);
+NT_BOSS void Kraid_RestrictSamusXtoFirstScreen(uint16 k);
+NT_BOSS void Kraid_UpdateBg2TilemapTopHalf(void);
+NT_BOSS void Kraid_UpdateBG2TilemapBottomHalf(void);
+NT_BOSS void Kraid_RaiseKraidThroughFloor(uint16 k);
+NT_BOSS void Kraid_Raise_LoadTilemapBottomAndShake(void);
+NT_BOSS void Kraid_Raise_SpawnRandomEarthquakeProjs16(void);
+NT_BOSS void Kraid_Raise_SpawnRandomEarthquakeProjs8(void);
+NT_BOSS void Kraid_Raise_Handler(void);
+NT_BOSS void Kraid_SpawnRandomQuakeProjs(void);
+NT_BOSS void Kraid_RestrictSamusXtoFirstScreen_2(void);
+NT_BOSS void CallKraidFunc(uint32 ea);
 NT_BOSS void Phantoon_Init(void);
 NT_BOSS void Phantoon2_Init(void);
 NT_BOSS void Phantoon_Main(void);
@@ -2824,6 +2961,7 @@ static Func_V *const off_A48C14[45];
 static Func_V *const off_A6CB21[9];
 static Func_V *const off_A9B887[4];
 static Func_CalcHdma *const off_ADE024[4];
+uint8 AdvancePaletteFade_BgPalette6(void);
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
 void DeadTorizo_Func_1(void);
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
@@ -2846,6 +2984,7 @@ void Torizo_CorpseRottingInitFunc(void);
 void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
 void WriteReg(uint16 reg, uint8 value);
 
+uint8 AdvancePaletteFade_BgPalette6(void) { nt_unimpl("AdvancePaletteFade_BgPalette6"); return 0; }
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) { nt_unimpl("DeadTorizo_CopyLineOfSandHeapTileData"); }
 void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22) { nt_unimpl("DrawSpritemap"); }
@@ -3751,6 +3890,62 @@ Point16U Eproj_PhantomFireballs_Func1(uint16 j, uint16 a) {  // 0x869BA2
 uint16 Eproj_PhantomFireballs_Func2(uint16 k, uint16 r24) {  // 0x869BF3
   uint16 r18 = Mult8x8(*((uint8 *)&kSinCosTable8bit_Sext[64] + k), r24) >> 8;
   return r18 + Mult8x8(*((uint8 *)&kSinCosTable8bit_Sext[64] + k + 1), r24);
+}
+static NT_BOSS void EprojInit_RocksKraidSpits(uint16 j) {  // 0x869CA3
+  EnemyData *v1 = gEnemyData(cur_enemy_index);
+  int v2 = j >> 1;
+  eproj_x_pos[v2] = v1->x_pos + 16;
+  eproj_y_pos[v2] = v1->y_pos - 96;
+  eproj_y_subpos[v2] = 0;
+  eproj_x_subpos[v2] = 0;
+  eproj_x_vel[v2] = eproj_init_param_1;
+  eproj_y_vel[v2] = -1024;
+  eproj_gfx_idx[v2] = 1536;
+}
+static NT_BOSS void EprojInit_RocksFallingKraidCeiling(uint16 j) {  // 0x869CD8
+  int v1 = j >> 1;
+  eproj_x_pos[v1] = eproj_init_param_1;
+  eproj_y_pos[v1] = 312;
+  eproj_y_subpos[v1] = 0;
+  eproj_x_subpos[v1] = 0;
+  eproj_x_vel[v1] = 0;
+  eproj_y_vel[v1] = (random_number & 0x3F) + 64;
+  eproj_gfx_idx[v1] = 1536;
+}
+static NT_BOSS void EprojInit_RocksWhenKraidRises(uint16 j) {  // 0x869D0C
+  int16 v1;
+
+  v1 = random_number & 0x3F;
+  if ((random_number & 1) == 0)
+    v1 = ~v1;
+  int v2 = j >> 1;
+  eproj_x_pos[v2] = gEnemyData(cur_enemy_index)->x_pos + v1;
+  eproj_y_pos[v2] = 432;
+  eproj_y_subpos[v2] = 0;
+  eproj_x_subpos[v2] = 0;
+  eproj_x_vel[v2] = eproj_init_param_1;
+  eproj_y_vel[v2] = -1280;
+  eproj_gfx_idx[v2] = 1536;
+  QueueSfx3_Max6(0x1E);
+}
+NT_BOSS void EprojPreInstr_KraidRocks(uint16 k) {  // 0x869D56
+  if (EprojBlockCollisition_Horiz(k) & 1 || EprojBlockCollisition_Vertical(k) & 1) {
+    eproj_id[k >> 1] = 0;
+  } else {
+    int v1 = k >> 1;
+    uint16 v2 = eproj_x_vel[v1] + 8;
+    eproj_x_vel[v1] = v2;
+    if (!sign16(v2 - 256))
+      v2 = -256;
+    eproj_x_vel[v1] = v2;
+    eproj_y_vel[v1] += 64;
+  }
+}
+NT_BOSS void EprojPreInstr_RocksFallingKraidCeiling(uint16 k) {  // 0x869D89
+  if (EprojBlockCollisition_Vertical(k) & 1)
+    eproj_id[k >> 1] = 0;
+  else
+    eproj_y_vel[k >> 1] = (eproj_y_vel[k >> 1] + 24) & 0x3FFF;
 }
 static void EprojInit_MiniKraidSpit(uint16 j) {  // 0x869DEC
 
@@ -6467,6 +6662,14 @@ NT_BOSS void Enemy_ItemDrop_Botwoon(uint16 k) {  // 0xA0BA3E
     eproj_spawn_x = (NextRandom() & 0x7F) + 64;
     eproj_spawn_y = ((random_number & 0x3F00) >> 8) + 128;
     SpawnEnemyDrops(addr_kEnemyDef_F293, k, 0);
+  } while (--n);
+}
+NT_BOSS void Enemy_ItemDrop_Kraid(uint16 k) {  // 0xA0BA71
+  int n = 16;
+  do {
+    eproj_spawn_x = (uint8)NextRandom() + 128;
+    eproj_spawn_y = ((random_number & 0x3F00) >> 8) + 352;
+    SpawnEnemyDrops(addr_kEnemyDef_E2BF, k, 0);
   } while (--n);
 }
 void Enemy_ItemDrop_BombTorizo(uint16 k) {  // 0xA0BAA4
@@ -19257,6 +19460,1688 @@ void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void) {  // 0xA7803C
 }
 void Enemy_NormalFrozenAI_A7(void) {  // 0xA78041
   NormalEnemyFrozenAI();
+}
+NT_BOSS uint16 Kraid_Instr_9(uint16 k, uint16 jp) {  // 0xA78A8F
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if ((int16)(E->health - ERAM_ARR(0x780C + E_k)[3]) < 0) {
+    EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+    if (sign16(E1->current_instruction + 0x75BF))
+      return (uint16)(addr_kKraid_Ilist_8A41);
+  }
+  return jp;
+}
+NT_BOSS void Kraid_Touch_ArmFoot(void) {  // 0xA7948B
+  NormalEnemyTouchAi();
+}
+NT_BOSS void Kraid_Func_1(void) {  // 0xA794A4
+  extra_samus_x_displacement = 4;
+  extra_samus_y_displacement = -8;
+}
+NT_BOSS void Kraid_Touch(void) {  // 0xA7949F
+  NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
+}
+NT_BOSS void Kraid_Shot(void) {  // 0xA794B1
+  NormalEnemyShotAi();
+}
+NT_BOSS void KraidsArm_Touch(void) {  // 0xA79490
+  if (!samus_invincibility_timer) {
+    Kraid_Func_1();
+    gEnemyData(0)[4].ai_var_A = 0xB89B /* KraidLint_FireLint */;
+    Kraid_Touch();
+  }
+}
+NT_BOSS void Kraid_Arm_Shot(uint16 j) {  // 0xA794B6
+  Kraid_SpawnExplosionEproj(j);
+  projectile_dir[j >> 1] |= 0x10;
+}
+NT_BOSS uint16 Kraid_CheckIfDead(void) {  // 0xA7A92C
+  return (nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0;
+}
+NT_BOSS void Kraid_SetEnemyPropsToDead(void) {  // 0xA7A943
+  EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+  E->properties = E->properties & 0x50FF | 0x700;
+}
+NT_BOSS void Kraid_Init(void) {  // 0xA7A959
+  uint16 v5;
+  uint16 j;
+
+  nt_unpause_hook = 0xA7C24E;
+  nt_pause_hook = 0xA7C325;
+  if (Kraid_CheckIfDead()) {
+    uint16 v0 = 192;
+    uint16 v1 = 0;
+    do {
+      target_palettes[v0 >> 1] = ((uint16)BW_A7(0x86C7 + 2 * (v1 >> 1)));
+      v0 += 2;
+      v1 += 2;
+    } while ((int16)(v1 - 32) < 0);
+    for (int i = 2046; i >= 0; i -= 2)
+      tilemap_stuff[i >> 1] = 824;
+    EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+    ERAM(0x7804 + E_k) = 0;
+    uint16 v4 = vram_write_queue_tail;
+    v5 = (vram_write_queue_tail);
+    nt_vwq_w16((uint16)(v5 + 0), 512);
+    nt_vwq_w16((uint16)(v5 + 2), addr_kKraidsRoomBg);
+    nt_vwq_w8((uint16)(v5 + 4), -89);
+    nt_vwq_w16((uint16)(v5 + 5), ((reg_BG12NBA & 0xF) << 8) + 16128);
+    vram_write_queue_tail = v4 + 7;
+    Kraid_SpawnPlmToClearCeiling();
+    Kraid_ClearSomeSpikes();
+    E->ai_var_A = 0xC715 /* Kraid_FadeInBg_ClearBg2TilemapTopHalf */;
+  } else {
+    reg_BG2SC = 67;
+    camera_distance_index = 2;
+    *(uint16 *)scrolls = 0;
+    nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(1));
+    EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+    ERAM(0x7808 + E_k) = 324;
+    uint16 v7 = 0;
+    uint16 v8 = E->health >> 3;
+    uint16 r18 = v8;
+    do {
+      ERAM_ARR(0x780C + (v7))[0] = v8;
+      v8 += r18;
+      v7 += 2;
+    } while ((int16)(v7 - 16) < 0);
+    Kraid_SetupGfxWithTilePrioClear(0xDFFF);
+    uint16 v10 = E->health >> 2;
+    ERAM_ARR(0x7820 + E_k)[0] = v10;
+    uint16 v11 = ERAM_ARR(0x7820 + E_k)[0] + v10;
+    ERAM_ARR(0x7820 + E_k)[1] = v11;
+    uint16 v12 = ERAM_ARR(0x7820 + E_k)[0] + v11;
+    ERAM_ARR(0x7820 + E_k)[2] = v12;
+    ERAM_ARR(0x7820 + E_k)[3] = ERAM_ARR(0x7820 + E_k)[0] + v12;
+    ERAM_ARR(0x782E + E_k)[8] = 0;
+    E->x_pos = 176;
+    E->y_pos = 592;
+    E->properties |= kEnemyProps_Tangible;
+    E->ai_var_A = 0xC865 /* Kraid_RestrictSamusXtoFirstScreen */;
+    E->ai_preinstr = 300;
+    ERAM(0x7800 + E_k) = 0xC86B /* Kraid_RaiseKraidThroughFloor */;
+    E->ai_var_C = 64;
+    DisableMinimapAndMarkBossRoomAsExplored();
+    for (j = 62; (j & 0x8000) == 0; j -= 2)
+      tilemap_stuff[(j >> 1) + 2016] = 824;
+    earthquake_type = 5;
+    uint16 v14 = 0;
+    do {
+      target_palettes[(v14 >> 1) + 176] = ((uint16)BW_A7(0xAAA6 + 2 * (v14 >> 1)));
+      v14 += 2;
+    } while ((int16)(v14 - 32) < 0);
+  }
+}
+NT_BOSS void KraidsArm_Init(void) {  // 0xA7AB43
+  if (Kraid_CheckIfDead()) {
+    Kraid_SetEnemyPropsToDead();
+  } else {
+    EnemyData *v0 = gEnemyData(0);
+    v0[1].palette_index = v0->palette_index;
+    v0[1].ai_var_A = 0xBA2D /* nullsub_234 */;
+    v0[1].current_instruction = addr_kKraid_Ilist_8AA4;
+    v0[1].instruction_timer = 1;
+    v0[1].ai_var_B = 0;
+  }
+}
+NT_BOSS void KraidsTopLint_Init(void) {  // 0xA7AB68
+  if (Kraid_CheckIfDead()) {
+    Kraid_SetEnemyPropsToDead();
+  } else {
+    EnemyData *v0 = gEnemyData(0);
+    v0[2].palette_index = v0->palette_index;
+    v0[2].instruction_timer = 0x7FFF;
+    v0[2].current_instruction = addr_kKraid_Ilist_8AFE;
+    v0[2].spritemap_pointer = addr_kKraid_Sprmap_A5DF;
+    v0[2].ai_var_A = addr_locret_A7B831;
+    v0[2].ai_preinstr = 0x7FFF;
+    v0[2].ai_var_C = 0;
+  }
+}
+NT_BOSS void KraidsMiddleLint_Init(void) {  // 0xA7AB9C
+  if (Kraid_CheckIfDead()) {
+    Kraid_SetEnemyPropsToDead();
+  } else {
+    EnemyData *v0 = gEnemyData(0);
+    v0[3].palette_index = v0->palette_index;
+    v0[3].instruction_timer = 0x7FFF;
+    v0[3].current_instruction = addr_kKraid_Ilist_8AFE;
+    v0[3].spritemap_pointer = addr_kKraid_Sprmap_A5DF;
+    v0[3].ai_var_A = addr_locret_A7B831;
+    v0[3].ai_var_C = -16;
+  }
+}
+NT_BOSS void KraidsBottomLint_Init(void) {  // 0xA7ABCA
+  if (Kraid_CheckIfDead()) {
+    Kraid_SetEnemyPropsToDead();
+  } else {
+    EnemyData *v0 = gEnemyData(0);
+    v0[4].palette_index = v0->palette_index;
+    v0[4].instruction_timer = 0x7FFF;
+    v0[4].current_instruction = addr_kKraid_Ilist_8AFE;
+    v0[4].spritemap_pointer = addr_kKraid_Sprmap_A5DF;
+    v0[4].ai_var_A = addr_locret_A7B831;
+    v0[4].ai_var_C = -16;
+  }
+}
+NT_BOSS void KraidsFoot_Init(void) {  // 0xA7ABF8
+  if (Kraid_CheckIfDead()) {
+    Kraid_SetEnemyPropsToDead();
+  } else {
+    uint16 palette_index = gEnemyData(0)->palette_index;
+    EnemyData *E = gEnemyData(0x140); uint16 E_k = (0x140);
+    E->palette_index = palette_index;
+    E->current_instruction = addr_kKraid_Ilist_86E7;
+    E->instruction_timer = 1;
+    E->ai_var_A = 0xBA2D /* nullsub_234 */;
+    ERAM(0x7800 + E_k) = 0;
+  }
+}
+NT_BOSS void Kraid_Main(void) {  // 0xA7AC21
+  Kraid_Shot_Mouth();
+  Kraid_Palette_Handling();
+  Kraid_Shot_Body();
+  Kraid_Enemy_Touch();
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  reg_BG2HOFS = E->x_width + reg_BG1HOFS - bg1_x_offset - E->x_pos;
+  reg_BG2VOFS = layer1_y_pos - E->y_pos + 152;
+  CallKraidFunc(E->ai_var_A | 0xA70000);
+}
+NT_BOSS void Kraid_GetsBig_BreakCeilingPlatforms(void) {  // 0xA7AC4D
+  uint16 kraid_var_F;
+
+  if ((nmi_frame_counter_word & 7) == 0)
+    Kraid_SpawnRandomQuakeProjs();
+  uint16 v0 = 1;
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if ((E->y_pos & 2) != 0)
+    v0 = -1;
+  E->x_pos += v0;
+  --E->y_pos;
+  if ((E->y_pos & 3) != 0 || (kraid_var_F = E->ai_preinstr, (int16)(kraid_var_F - 18) >= 0)) {
+
+  } else {
+    SpawnEprojWithGfx(((uint16)BW_A7(0xACB3 + 2 * (kraid_var_F >> 1))), cur_enemy_index, addr_kEproj_RocksFallingKraidCeiling);
+    switch (E->ai_preinstr >> 1) {
+    case 0:
+      SpawnHardcodedPlm(0x06, 0x12, 0xb7b3);
+      break;
+    case 1:
+      SpawnHardcodedPlm(0x0d, 0x12, 0xb7ab);
+      break;
+    case 2:
+      SpawnHardcodedPlm(0x02, 0x12, 0xb7a3);
+      break;
+    case 3:
+      SpawnHardcodedPlm(0x0a, 0x12, 0xb7b3);
+      break;
+    case 4:
+      SpawnHardcodedPlm(0x05, 0x12, 0xb7ab);
+      break;
+    case 5:
+      SpawnHardcodedPlm(0x0c, 0x12, 0xb7b3);
+      break;
+    case 6:
+      SpawnHardcodedPlm(0x03, 0x12, 0xb7ab);
+      break;
+    case 7:
+      SpawnHardcodedPlm(0x0b, 0x12, 0xb7ab);
+      break;
+    case 8:
+      SpawnHardcodedPlm(0x04, 0x12, 0xb7b3);
+      break;
+    }
+    E->ai_preinstr += 2;
+  }
+  if (sign16(E->y_pos - 296))
+    E->ai_var_A = 0xAD3A /* Kraid_GetsBig_SetBG2TilemapPrioBits */;
+}
+NT_BOSS void Kraid_GetsBig_SetBG2TilemapPrioBits(void) {  // 0xA7AD3A
+  uint16 v0 = 0;
+  do {
+    tilemap_stuff[v0 >> 1] |= 0x2000;
+    v0 += 2;
+  } while ((int16)(v0 - 4096) < 0);
+  EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
+  E->properties &= ~0x400;
+  gEnemyData(0)->ai_var_A = 0xAD61 /* Kraid_GetsBig_FinishUpdateBg2Tilemap */;
+  Kraid_UpdateBg2TilemapTopHalf();
+}
+NT_BOSS void Kraid_GetsBig_FinishUpdateBg2Tilemap(void) {  // 0xA7AD61
+  gEnemyData(0)->ai_var_A = 0xAD8E /* Kraid_GetsBig_DrawRoomBg */;
+  EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+  E5->instruction_timer = 1;
+  E5->current_instruction = addr_kKraid_Ilist_86ED;
+  EnemyData *E2 = gEnemyData(0x80); uint16 E2_k = (0x80);
+  E2->current_instruction = addr_kKraid_Ilist_8B04;
+  EnemyData *E3 = gEnemyData(0xC0); uint16 E3_k = (0xC0);
+  E3->current_instruction = addr_kKraid_Ilist_8B04;
+  EnemyData *E = gEnemyData(0x100); uint16 E_k = (0x100);
+  E->current_instruction = addr_kKraid_Ilist_8B04;
+  E2->spritemap_pointer = addr_kKraid_Sprmap_8C6C;
+  E3->spritemap_pointer = addr_kKraid_Sprmap_8C6C;
+  E->spritemap_pointer = addr_kKraid_Sprmap_8C6C;
+  Kraid_UpdateBG2TilemapBottomHalf();
+}
+NT_BOSS void Kraid_DrawRoomBg(void) {  // 0xA7AD9A
+  uint16 v3;
+
+  uint16 v0 = 192;
+  uint16 v1 = 0;
+  do {
+    target_palettes[v0 >> 1] = ((uint16)BW_A7(0x86C7 + 2 * (v1 >> 1)));
+    v0 += 2;
+    v1 += 2;
+  } while ((int16)(v1 - 32) < 0);
+  palette_change_num = 0;
+  uint16 v2 = vram_write_queue_tail;
+  v3 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v3 + 0), 512);
+  nt_vwq_w16((uint16)(v3 + 2), addr_kKraidsRoomBg);
+  nt_vwq_w8((uint16)(v3 + 4), -89);
+  nt_vwq_w16((uint16)(v3 + 5), ((reg_BG12NBA & 0xF) << 8) + 16128);
+  vram_write_queue_tail = v2 + 7;
+}
+NT_BOSS void Kraid_GetsBig_DrawRoomBg(void) {  // 0xA7AD8E
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->ai_var_A = 0xAE23 /* Kraid_GetsBig_FadeInRoomBg */;
+  E->ai_var_E = 0;
+  E->ai_preinstr = 0;
+  Kraid_DrawRoomBg();
+}
+NT_BOSS void Kraid_SetLintYAndRandomThinkTimer(void) {  // 0xA7ADEF
+  int16 v1;
+
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  gEnemyData(0x80)->y_pos = E->y_pos - 20;
+  gEnemyData(0xC0)->y_pos = E->y_pos + 46;
+  gEnemyData(0x100)->y_pos = E->y_pos + 112;
+  v1 = random_number & 7;
+  if ((random_number & 7) == 0)
+    v1 = 2;
+  ERAM(0x7806 + E_k) = v1 << 6;
+}
+NT_BOSS void Kraid_GetsBig_Thinking_Setup(void) {  // 0xA7ADE1
+  gEnemyData(0)->ai_var_A = 0xAEC4 /* Kraid_GetsBig_Thinking */;
+  Kraid_SetLintYAndRandomThinkTimer();
+}
+NT_BOSS void Kraid_Mainloop_Thinking_Setup(void) {  // 0xA7ADE9
+  gEnemyData(0)->ai_var_A = 0xAEA4 /* Kraid_Mainloop_Thinking */;
+  Kraid_SetLintYAndRandomThinkTimer();
+}
+NT_BOSS void Kraid_Lints_Enable(uint16 k, uint16 a) {  // 0xA7AE90
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  E->ai_preinstr = a;
+  E->ai_var_A = 0xB923 /* Kraid_AlignEnemyToKraid */;
+  ERAM(0x7800 + E_k) = 0xB832 /* KraidLint_ProduceLint */;
+  E->ai_var_B = 0;
+}
+NT_BOSS void Kraid_GetsBig_FadeInRoomBg(void) {  // 0xA7AE23
+  if (AdvancePaletteFade_BgPalette6() & 1) {
+    Kraid_GetsBig_Thinking_Setup();
+    Kraid_Lints_Enable(0x80, ((uint16)BW_A7(0xA916 + 2 * (0))));
+    Kraid_Lints_Enable(0xc0, ((uint16)BW_A7(0xA918 + 2 * (0))));
+    Kraid_Lints_Enable(0x100, ((uint16)BW_A7(0xA91A + 2 * (0))));
+    EnemyData *E6 = gEnemyData(0x180); uint16 E6_k = (0x180);
+    ERAM(0x7800 + E6_k) = 0xBD60 /* KraidsFingernail_Init */;
+    EnemyData *E7 = gEnemyData(0x1C0); uint16 E7_k = (0x1C0);
+    ERAM(0x7800 + E7_k) = 0xBD60 /* KraidsFingernail_Init */;
+    E6->ai_var_A = 0xB92D /* KraidEnemy_HandleFunctionTimer */;
+    E7->ai_var_A = 0xB92D /* KraidEnemy_HandleFunctionTimer */;
+    E6->ai_preinstr = 64;
+    E7->ai_preinstr = 128;
+    gEnemyData(0x40)->ai_var_C = 1;
+    EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+    E0->ai_var_B = addr_stru_A796DA;
+    ERAM(0x781E + E0_k) = 288;
+    EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+    E5->ai_var_A = 0xBB6E /* KraidsFoot_SecondPhaseSetup_WalkToStartPt */;
+    E5->instruction_timer = 1;
+    E5->current_instruction = addr_kKraid_Ilist_8887;
+  }
+}
+NT_BOSS void Kraid_Mainloop_Thinking(void) {  // 0xA7AEA4
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 kraid_thinking = ERAM(0x7806 + E_k);
+  if (kraid_thinking) {
+    uint16 v2 = kraid_thinking - 1;
+    ERAM(0x7806 + E_k) = v2;
+    if (!v2) {
+      E->ai_var_A = 0xBBEA /* Kraid_Main_AttackWithMouthOpen */;
+      E->ai_var_B = addr_stru_A796DA;
+      E->ai_var_C = ((uint16)BW_A7(0x96D2 + 0 + 8 * (0)));
+    }
+  }
+}
+NT_BOSS void Kraid_GetsBig_Thinking(void) {  // 0xA7AEC4
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 kraid_thinking = ERAM(0x7806 + E_k);
+  if (kraid_thinking) {
+    uint16 v2 = kraid_thinking - 1;
+    ERAM(0x7806 + E_k) = v2;
+    if (!v2) {
+      E->ai_var_A = 0xAEE4 /* Kraid_Shot_MouthIsOpen */;
+      E->ai_var_B = addr_stru_A796DA;
+      E->ai_var_C = ((uint16)BW_A7(0x96D2 + 0 + 8 * (0)));
+    }
+  }
+}
+NT_BOSS void Kraid_Shot_MouthIsOpen(void) {  // 0xA7AEE4
+  uint16 v2;
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+
+  if (Kraid_ProcessKraidInstr() == 0xFFFF) {
+    E->ai_var_A = 0xAEA4 /* Kraid_Mainloop_Thinking */;
+    E->ai_var_C = 90;
+    uint16 kraid_mouth_flags = ERAM(0x780A + E_k);
+    if ((kraid_mouth_flags & 4) != 0
+        && (v2 = kraid_mouth_flags - 256, ERAM(0x780A + E_k) = v2, (v2 & 0xFF00) != 0)) {
+      E->ai_var_A = 0xB92D /* KraidEnemy_HandleFunctionTimer */;
+      E->ai_preinstr = 64;
+      ERAM(0x7800 + E_k) = 0xB6BF /* Kraid_InitEyeGlowing */;
+      ERAM(0x7802 + E_k) = 2;
+    } else {
+      ERAM(0x780A + E_k) = 0;
+    }
+  }
+}
+NT_BOSS uint16 Kraid_ProcessKraidInstr(void) {  // 0xA7AF32
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 result = E->ai_var_C;
+  if (result) {
+    if (E->ai_var_C-- == 1)
+      return Kraid_ExecuteInstr();
+  }
+  return result;
+}
+NT_BOSS void KraidInstr_PlayRoarSfx(void) {  // 0xA7AF94
+  QueueSfx2_Max6(0x2D);
+}
+NT_BOSS void KraidInstr_PlayDyingSfx(void) {  // 0xA7AF9F
+  QueueSfx2_Max15(0x2E);
+}
+NT_BOSS void CallKraidInstr(uint32 ea) {
+  switch (ea) {
+  case 0xA7AF94: KraidInstr_PlayRoarSfx(); return;
+  case 0xA7AF9F: KraidInstr_PlayDyingSfx(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+NT_BOSS uint16 Kraid_ExecuteInstr(void) {  // 0xA7AF3D
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+RESTART:;
+  uint16 kraid_var_B = E->ai_var_B;
+  const uint16 v2 = (kraid_var_B);
+  uint16 result = BW_A7(v2);
+  if (BW_A7(v2) != 0xFFFF) {
+    if ((int16)(BW_A7(v2) + 1) < 0) {
+      CallKraidInstr(result | 0xA70000);
+      E->ai_var_B += 2;
+      goto RESTART;
+    } else {
+      E->ai_var_C = result;
+      E->ai_var_B = kraid_var_B + 8;
+      uint16 v4 = BW_A7(v2 + 2 * (1));
+      uint16 v5 = vram_write_queue_tail;
+      nt_vwq_w16((uint16)((vram_write_queue_tail) + 0), 704);
+      v5 += 2;
+      nt_vwq_w16((uint16)((v5) + 0), v4);
+      v5 += 2;
+      nt_vwq_w8((uint16)((v5++)), -89);
+      nt_vwq_w16((uint16)((v5) + 0), (reg_BG2SC & 0xFC) << 8);
+      vram_write_queue_tail = v5 + 2;
+      return 1;
+    }
+  }
+  return result;
+}
+NT_BOSS void Kraid_Shot_Mouth(void) {  // 0xA7AFAA
+  int16 v3;
+
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if (!sign16(E->ai_var_A + 0x3AC9))
+    return;
+  uint16 v2 = (E->ai_var_B - 8);
+  if (BW_A7(v2 + 6) == 0xFFFF) {
+    v3 = 0;
+    goto LABEL_14;
+  }
+  uint16 v4;
+  v4 = BW_A7(v2 + 6);
+  E->ai_var_E = 1;
+  v3 = 0;
+    uint16 v5 = (v4);
+  uint16 r22 = E->x_pos + BW_A7(v5);
+  uint16 r20 = E->y_pos + BW_A7(v5 + 2);
+  uint16 r18 = E->y_pos + BW_A7(v5 + 6);
+  if (projectile_counter) {
+    uint16 v6 = 2 * projectile_counter;
+    while (1) {
+      int v7;
+      v7 = v6 >> 1;
+      if (!sign16(projectile_y_pos[v7] - projectile_y_radius[v7] - 1 - r18)
+          || sign16(projectile_y_radius[v7] + projectile_y_pos[v7] - r20)
+          || sign16(projectile_x_radius[v7] + projectile_x_pos[v7] - r22)) {
+        goto LABEL_13;
+      }
+      uint16 v8;
+      v8 = projectile_type[v7];
+      if ((v8 & 0xF00) != 0)
+        goto LABEL_12;
+      if ((v8 & 0x10) != 0)
+        break;
+LABEL_13:
+      v6 -= 2;
+      if ((v6 & 0x8000) != 0)
+        goto LABEL_14;
+    }
+    ERAM(0x780A + E_k) |= 1;
+LABEL_12:
+    collision_detection_index = v6 >> 1;
+    NormalEnemyShotAiSkipDeathAnim_CurEnemy();
+    projectile_dir[v6 >> 1] |= 0x10;
+    v3 = 1;
+    // The real game doesn't preserve R18, R20 so they're junk at this point.
+    // Force getting out of the loop.
+    v6 = 0; 
+    goto LABEL_13;
+  }
+LABEL_14:
+  if (v3) {
+    ERAM(0x782A + E_k) = 6;
+    ERAM(0x782C + E_k) = 2;
+    uint16 kraid_mouth_flags = ERAM(0x780A + E_k);
+    if ((kraid_mouth_flags & 2) != 0)
+      ERAM(0x780A + E_k) = kraid_mouth_flags | 4;
+    if (sign16(E->health - 1) && sign16(E->ai_var_A + 0x3CA0)) {
+      E->ai_var_A = 0xC360 /* Kraid_Death_Init */;
+      ERAM(0x780A + E_k) = 0;
+      E->properties |= kEnemyProps_Tangible;
+      Kraid_SetupGfxWithTilePrioClear(~0x2000);
+      uint16 v12 = 0;
+      do {
+        EnemyData *EL = gEnemyData(v12); uint16 EL_k = (v12);
+        EL->properties |= kEnemyProps_Tangible;
+        v12 += 64;
+      } while ((int16)(v12 - 384) < 0);
+      if (sign16(E->ai_var_B + 0x68F2))
+        E->ai_var_B += 60;
+    }
+  }
+}
+NT_BOSS void Kraid_SpawnExplosionEproj(uint16 k) {  // 0xA7B0CB
+  int v1 = k >> 1;
+  eproj_spawn_x = projectile_x_pos[v1]; eproj_spawn_y = projectile_y_pos[v1];
+  uint16 v2 = ((projectile_type[v1] & 0x200) == 0) ? 6 : 29;
+  SpawnEprojWithRoomGfx(addr_kEproj_DustCloudExplosion, v2);
+  QueueSfx1_Max6(0x3D);
+}
+NT_BOSS void Kraid_Enemy_Touch(void) {  // 0xA7B0F3
+  int16 v1;
+
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if (sign16(E->ai_var_A + 0x3CA0)) {
+    uint16 r18 = samus_x_radius + samus_x_pos;
+    v1 = samus_y_pos - E->y_pos;
+    int i;
+    for (i = 0; ; i += 4) {
+      int v3 = i >> 1;
+      if ((int16)(v1 - ((uint16)BW_A7(0xB161 + 2 * (v3)))) >= 0 || (int16)(v1 - ((uint16)BW_A7(0xB161 + 2 * (v3 + 2)))) >= 0)
+        break;
+    }
+    if ((int16)(E->x_pos + ((uint16)BW_A7(0xB161 + 2 * ((i >> 1) + 1))) - r18) < 0) {
+      if (!sign16(samus_x_pos - 40)) {
+        samus_x_pos -= 8;
+        samus_prev_x_pos = samus_x_pos;
+      }
+      uint16 kraid_min_y_pos_eject = samus_y_pos - 8;
+      if ((int16)(samus_y_pos - 8 - ERAM(0x7808 + E_k)) < 0)
+        kraid_min_y_pos_eject = ERAM(0x7808 + E_k);
+      samus_y_pos = kraid_min_y_pos_eject;
+      samus_prev_y_pos = kraid_min_y_pos_eject;
+      Kraid_Func_1();
+      if (!samus_invincibility_timer)
+        NormalEnemyTouchAi();
+    }
+  }
+}
+NT_BOSS void Kraid_Shot_Body(void) {  // 0xA7B181
+  int16 v11;
+  uint16 j;
+
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if (sign16(E->ai_var_A + 0x3AC9)) {
+    E->ai_var_E = 0;
+    ERAM(0x780A + E_k) &= ~1;
+    uint16 R48 = 0;
+    uint16 v2 = (E->ai_var_B - 8);
+    uint16 v3 = (BW_A7(v2 + 4));
+    uint16 r22 = E->x_pos + BW_A7(v3);
+    uint16 r20 = E->y_pos + BW_A7(v3 + 2);
+    uint16 r18 = E->y_pos + BW_A7(v3 + 6);
+    if (projectile_counter) {
+      for (int i = 2 * projectile_counter; i >= 0; i -= 2) {
+        int v5 = i >> 1;
+        if (sign16(projectile_y_pos[v5] - projectile_y_radius[v5] - 1 - r18)) {
+          if (!sign16(projectile_y_radius[v5] + projectile_y_pos[v5] - r20)
+              && !sign16(projectile_x_radius[v5] + projectile_x_pos[v5] - r22)) {
+            goto LABEL_7;
+          }
+        } else {
+          int v10;
+          v10 = i >> 1;
+          r18 = projectile_x_radius[v10] + projectile_x_pos[v10];
+          v11 = projectile_y_pos[v10] - E->y_pos;
+          for (j = 0; ; j += 4) {
+            int v13 = j >> 1;
+            if ((int16)(v11 - ((uint16)BW_A7(0xB161 + 2 * (v13)))) >= 0 || (int16)(v11 - ((uint16)BW_A7(0xB161 + 2 * (v13 + 2)))) >= 0)
+              break;
+          }
+          if ((int16)(E->x_pos + ((uint16)BW_A7(0xB161 + 2 * ((j >> 1) + 1))) - r18) < 0) {
+LABEL_7:
+            Kraid_SpawnExplosionEproj(i);
+            int v6 = i >> 1;
+            projectile_dir[v6] |= 0x10;
+            if ((projectile_type[v6] & 0x10) != 0) {
+              ERAM(0x780A + E_k) |= 1;
+            }
+            ++R48;
+          }
+        }
+      }
+    }
+    if (R48) {
+      if (E->ai_var_A == 0xAEA4 /* Kraid_Mainloop_Thinking */) {
+        E->ai_var_A = 0xB6BF /* Kraid_InitEyeGlowing */;
+        uint16 kraid_mouth_flags = ERAM(0x780A + E_k);
+        if ((kraid_mouth_flags & 1) != 0)
+          ERAM(0x780A + E_k) = kraid_mouth_flags | 0x302;
+      }
+    }
+  }
+}
+NT_BOSS void Kraid_Palette_Handling(void) {  // 0xA7B337
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if (sign16(E->health - 1)) {
+    ERAM(0x782A + E_k) = E->health;
+LABEL_6:
+    Kraid_HurtFlash_Handling();
+    Kraid_HealthBasedPaletteHandling();
+    return;
+  }
+  if (ERAM(0x782A + E_k)) {
+    uint16 v1 = ERAM(0x782C + E_k) - 1;
+    ERAM(0x782C + E_k) = v1;
+    if (!v1) {
+      ERAM(0x782C + E_k) = 2;
+      --ERAM(0x782A + E_k);
+      goto LABEL_6;
+    }
+  }
+}
+NT_BOSS void Kraid_HurtFlash_Handling(void) {  // 0xA7B371
+  uint16 v0 = 0;
+  if ((ERAM(0x782A + (0)) & 1) == 0)
+    v0 = 32;
+  uint16 v1 = 0;
+  do {
+    { palette_buffer[(v1 >> 1) + 240] = ((uint16)BW_A7(0xB513 + 2 * (v0 >> 1))); nt_pal_dirty((uint8)((v1 >> 1) + 240), (uint8)((v1 >> 1) + 240)); }
+    v1 += 2;
+    v0 += 2;
+  } while ((int16)(v1 - 32) < 0);
+}
+NT_BOSS void Kraid_HealthBasedPaletteHandling(void) {  // 0xA7B394
+  uint16 v0 = 0;
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if ((ERAM(0x782A + E_k) & 1) == 0) {
+    uint16 v2 = 14;
+    uint16 health = E->health;
+    do {
+      if ((int16)(health - ERAM_ARR(0x780C + (v2))[0]) >= 0)
+        break;
+      v2 -= 2;
+    } while (v2);
+    v0 = 16 * (v2 + 2);
+  }
+  uint16 v4 = 0;
+  do {
+    int v5 = v0 >> 1;
+    int v6 = v4 >> 1;
+    { palette_buffer[v6 + 112] = ((uint16)BW_A7(0xB3D3 + 2 * (v5))); nt_pal_dirty((uint8)(v6 + 112), (uint8)(v6 + 112)); }
+    { palette_buffer[v6 + 240] = ((uint16)BW_A7(0xB513 + 2 * (v5))); nt_pal_dirty((uint8)(v6 + 240), (uint8)(v6 + 240)); }
+    v0 += 2;
+    v4 += 2;
+  } while ((int16)(v4 - 32) < 0);
+}
+NT_BOSS uint16 Kraid_Instr_1(uint16 k, uint16 jp) {  // 0xA7B633
+  return jp;
+}
+NT_BOSS uint16 Kraid_Instr_DecYpos(uint16 k, uint16 jp) {  // 0xA7B636
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  --E->y_pos;
+  return jp;
+}
+NT_BOSS uint16 Kraid_Instr_IncrYpos_Shake(uint16 k, uint16 jp) {  // 0xA7B63C
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  ++E->y_pos;
+  earthquake_type = 1;
+  earthquake_timer = 10;
+  return jp;
+}
+NT_BOSS uint16 Kraid_Instr_PlaySound_0x76(uint16 k, uint16 jp) {  // 0xA7B64E
+  QueueSfx2_Max6(0x76);
+  return jp;
+}
+NT_BOSS uint16 Kraid_Instr_XposMinus3(uint16 k, uint16 jp) {  // 0xA7B65A
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->x_pos -= ((uint16)BW_A7(0xA91C + 2 * (0)));
+  return jp;
+}
+NT_BOSS uint16 Kraid_Instr_XposMinus3b(uint16 k, uint16 jp) {  // 0xA7B667
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->x_pos -= ((uint16)BW_A7(0xA91C + 2 * (0)));
+  return jp;
+}
+NT_BOSS uint16 Kraid_Instr_XposPlus3(uint16 k, uint16 jp) {  // 0xA7B674
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->x_pos += ((uint16)BW_A7(0xA920 + 2 * (0)));
+  return jp;
+}
+NT_BOSS uint16 Kraid_Instr_MoveHimRight(uint16 k, uint16 jp) {  // 0xA7B683
+  uint16 v3;
+
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if (sign16(E->x_pos - 320) || (v3 = ERAM(0x781E + E_k) - 1, (ERAM(0x781E + E_k) = v3) == 0)) {
+    if (Enemy_MoveRight_IgnoreSlopes(0, INT16_SHL16(((uint16)BW_A7(0xA922 + 2 * (0)))))) {
+      earthquake_type = 0;
+      earthquake_timer = 7;
+      uint16 x_pos = gEnemyData(0)->x_pos;
+      gEnemyData(0x140)->x_pos = x_pos;
+    }
+  }
+  return jp;
+}
+NT_BOSS void Kraid_InitEyeGlowing(void) {  // 0xA7B6BF
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->ai_var_A = 0xAEE4 /* Kraid_Shot_MouthIsOpen */;
+  E->ai_var_A = 0xB6D7 /* Kraid_Shot_GlowHisEye */;
+  E->ai_var_B = addr_stru_A7974A + 8;
+  E->ai_var_C = ((uint16)BW_A7(0x974A + 0 + 8 * (0)));
+  Kraid_Shot_GlowHisEye();
+}
+NT_BOSS void Kraid_Shot_GlowHisEye(void) {  // 0xA7B6D7
+  int16 v1;
+
+  Kraid_ProcessKraidInstr();
+  uint16 v0 = 226;
+  v1 = 0;
+  do {
+    int v2 = v0 >> 1;
+    uint16 v3 = (palette_buffer[v2] & 0x1F) + 1;
+    if (!sign16((palette_buffer[v2] & 0x1F) - 30)) {
+      ++v1;
+      v3 = 31;
+    }
+    uint16 v4 = (palette_buffer[v2] & 0x3E0) + 32;
+    if (!sign16((palette_buffer[v2] & 0x3E0) - 960)) {
+      ++v1;
+      v4 = 992;
+    }
+    { palette_buffer[v2] = v4 | v3 | palette_buffer[v2] & 0xFC00; nt_pal_dirty((uint8)(v2), (uint8)(v2)); }
+    v0 += 2;
+  } while ((int16)(v0 - 232) < 0);
+  if ((int16)(v1 - 6) >= 0)
+    gEnemyData(0)->ai_var_A = 0xB73D /* Kraid_Shot_UnglowEye */;
+}
+NT_BOSS void Kraid_Shot_UnglowEye(void) {  // 0xA7B73D
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 v0 = 14;
+  uint16 health = E->health;
+  do {
+    if ((int16)(health - ERAM_ARR(0x780C + (v0))[0]) >= 0)
+      break;
+    v0 -= 2;
+  } while (v0);
+  uint16 v2 = 16 * (v0 + 2);
+  uint16 v3 = 226;
+  uint16 r20 = 0, r18;
+  do {
+    int v4 = v3 >> 1;
+    r18 = palette_buffer[v4] & 0x1F;
+    int v5 = v2 >> 1;
+    if ((((uint16)BW_A7(0xB3D3 + 2 * (v5 + 1))) & 0x1F) != r18) {
+      ++r20;
+      --palette_buffer[v4];
+    }
+    r18 = palette_buffer[v4] & 0x3E0;
+    if ((((uint16)BW_A7(0xB3D3 + 2 * (v5 + 1))) & 0x3E0) != r18) {
+      ++r20;
+      palette_buffer[v4] -= 32;
+    }
+    v3 += 2;
+    v2 += 2;
+  } while ((int16)(v3 - 232) < 0);
+  if (!r20) {
+    E->ai_var_A = 0xAEE4 /* Kraid_Shot_MouthIsOpen */;
+    E->ai_var_B = addr_stru_A796DA;
+    E->ai_var_C = ((uint16)BW_A7(0x96D2 + 0 + 8 * (0)));
+  }
+}
+NT_BOSS void KraidsArm_Main(void) {  // 0xA7B7BD
+  uint16 r18 = layer1_y_pos + 224;
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 v1 = E->y_pos - 44;
+  EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+  E1->y_pos = v1;
+  uint16 v3 = v1;
+  uint16 v4 = E1->properties | 0x100;
+  if ((int16)(v3 - layer1_y_pos) >= 0 && (int16)(v3 - r18) < 0)
+    v4 = E1->properties & 0xFEFF;
+  E1->properties = v4;
+  E1->x_pos = E->x_pos;
+  if (HIBYTE(ERAM(0x780A + E_k)))
+    ++E1->instruction_timer;
+}
+NT_BOSS void KraidLintCommon_Main(uint16 k) {  // 0xA7B822
+  Kraid_EnemyTouch_Lint(k);
+  // r18 = layer1_y_pos + 224;
+  EnemyData *v1 = gEnemyData(k);
+  CallKraidFunc(v1->ai_var_A | 0xA70000);
+}
+NT_BOSS void KraidsTopLint_Main(void) {  // 0xA7B801
+  gEnemyData(0x80)->instruction_timer = 0x7FFF;
+  KraidLintCommon_Main(0x80);
+}
+NT_BOSS void KraidsMiddleLint_Main(void) {  // 0xA7B80D
+  gEnemyData(0xC0)->instruction_timer = 0x7FFF;
+  KraidLintCommon_Main(0xC0);
+}
+NT_BOSS void KraidsBottomLint_Main(void) {  // 0xA7B819
+  gEnemyData(0x100)->instruction_timer = 0x7FFF;
+  KraidLintCommon_Main(0x100);
+}
+NT_BOSS void KraidLint_ProduceLint(uint16 k) {  // 0xA7B832
+  EnemyData *v1 = gEnemyData(k);
+  v1->properties &= 0xFAFF;
+  v1->x_pos = v1->ai_var_C + gEnemyData(0)->x_pos - v1->ai_var_B;
+  uint16 v2 = v1->ai_var_B + 1;
+  v1->ai_var_B = v2;
+  if (!sign16(v2 - 32)) {
+    v1->ai_var_A = 0xB868 /* KraidLint_ChargeLint */;
+    v1->ai_preinstr = 30;
+  }
+}
+NT_BOSS void KraidLint_ChargeLint(uint16 k) {  // 0xA7B868
+  EnemyData *E = gEnemyData(k);
+  int16 v1 = 0;
+  if ((E->ai_preinstr & 1) != 0)
+    v1 = 3584;
+  E->palette_index = v1;
+  E->x_pos = E->ai_var_C + gEnemyData(0)->x_pos - E->ai_var_B;
+  if (E->ai_preinstr-- == 1) {
+    E->ai_var_A = 0xB89B /* KraidLint_FireLint */;
+    QueueSfx3_Max6(0x1F);
+  }
+}
+NT_BOSS void KraidLint_FireLint(uint16 k) {  // 0xA7B89B
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  AddToHiLo(&E->x_pos, &E->x_subpos, -IPAIR32(((uint16)BW_A7(0xA928 + 2 * (0))), ((uint16)BW_A7(0xA926 + 2 * (0)))));
+  if (sign16(E->x_pos - 56))
+    E->properties |= kEnemyProps_Tangible;
+  if (sign16(E->x_pos - 32)) {
+    E->properties |= kEnemyProps_Invisible;
+    E->ai_var_A = 0xB923 /* Kraid_AlignEnemyToKraid */;
+    E->ai_preinstr = 300;
+    ERAM(0x7800 + E_k) = 0xB832 /* KraidLint_ProduceLint */;
+    E->ai_var_B = 0;
+  }
+  if (CheckIfEnemyTouchesSamus(k)) {
+    AddToHiLo(&extra_samus_x_displacement, &extra_samus_x_subdisplacement, -IPAIR32(((uint16)BW_A7(0xA928 + 2 * (0))), ((uint16)BW_A7(0xA926 + 2 * (0)))));
+    if (sign16(extra_samus_x_displacement + 16))
+      extra_samus_x_displacement = -16;
+  }
+}
+NT_BOSS void KraidFingernail_WaitForLintXpos(uint16 k) {  // 0xA7B907
+  EnemyData *E2 = gEnemyData(0x80); uint16 E2_k = (0x80);
+  if (!sign16(E2->x_pos - 256)) {
+    EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+    E->ai_var_A = ERAM(0x7800 + E_k);
+    E->properties &= 0xFAFF;
+  }
+}
+NT_BOSS void KraidEnemy_HandleFunctionTimer(uint16 k) {  // 0xA7B92D
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  if (E->ai_preinstr && E->ai_preinstr-- == 1)
+    E->ai_var_A = ERAM(0x7800 + E_k);
+}
+NT_BOSS void Kraid_AlignEnemyToKraid(uint16 k) {  // 0xA7B923
+  uint16 x_pos = gEnemyData(0)->x_pos;
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  E->x_pos = x_pos - E->x_width;
+  KraidEnemy_HandleFunctionTimer(k);
+}
+NT_BOSS void KraidEnemy_DecrementEnemyFunctionTimer(void) {  // 0xA7B93F
+  EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+  if (E->ai_preinstr) {
+    if (E->ai_preinstr-- == 1) {
+      E->ai_var_A = ERAM(0x7800 + E_k);
+      E->current_instruction = addr_kKraid_Ilist_8887;
+      E->instruction_timer = 1;
+    }
+  }
+}
+NT_BOSS void KraidFoot_FirstPhase_Thinking(uint16 k) {  // 0xA7B960
+  Kraid_HandleFirstPhase();
+  KraidEnemy_HandleFunctionTimer(k);
+}
+NT_BOSS void KraidEnemy_ProcessInstrEnemyTimer(uint16 k) {  // 0xA7B965
+  Kraid_ProcessKraidInstr();
+  KraidEnemy_HandleFunctionTimer(k);
+}
+NT_BOSS void Kraid_EnemyTouch_Lint(uint16 k) {  // 0xA7B96A
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  if ((E->properties & kEnemyProps_Tangible) == 0 && !samus_invincibility_timer) {
+    uint16 r18 = ((uint16)BW_A7(0x92B7 + 0 + 12 * (0))) + E->x_pos - 2;
+    if (!sign16(samus_x_radius + samus_x_pos - r18)) {
+      if (sign16(samus_x_pos - samus_x_radius - r18)) {
+        uint16 r22 = ((uint16)BW_A7(0x92B7 + 2 + 12 * (0))) + E->y_pos + 2;
+        if (!sign16(samus_y_radius + samus_y_pos - r22)) {
+          uint16 r24 = ((uint16)BW_A7(0x92B7 + 6 + 12 * (0))) + E->y_pos - 2;
+          if (sign16(samus_y_pos - samus_y_radius - r24)) {
+            uint16 v2 = extra_samus_x_displacement + ~(samus_x_radius + 16);
+            if (!sign16(v2 - 16))
+              v2 = 16;
+            extra_samus_x_displacement = v2;
+            NormalEnemyTouchAi();
+            E->properties |= kEnemyProps_Tangible;
+          }
+        }
+      }
+    }
+  }
+}
+NT_BOSS void KraidsFoot_Main(void) {  // 0xA7B9F6
+  int16 v3;
+
+  EnemyData *v0 = gEnemyData(0);
+  v0[5].x_pos = v0->x_pos;
+  uint16 v1 = v0->y_pos + 100;
+  v0[5].y_pos = v1;
+  uint16 v2 = v1;
+  v3 = v1 - 224;
+  uint16 v4 = v0[5].properties & 0xFEFF;
+  if ((int16)(v2 - layer1_y_pos) >= 0) {
+    if ((int16)(v3 - layer1_y_pos) >= 0)
+      v4 |= 0x100;
+  } else {
+    v4 |= 0x100;
+  }
+  v0[5].properties = v4;
+  CallKraidFunc(v0[5].ai_var_A | 0xA70000);
+}
+NT_BOSS void Kraid_SetWalkingBackwards(uint16 j, uint16 a) {  // 0xA7BB0D
+  ERAM(0x781E + (0)) = a;
+  EnemyData *E = gEnemyData(0x140); uint16 E_k = (0x140);
+  ERAM(0x7800 + E_k) = j;
+  E->ai_var_A = 0xBB45 /* KraidsFoot_SecondPhase_WalkingBackwards */;
+  E->instruction_timer = 1;
+  E->current_instruction = addr_kKraid_Ilist_8887;
+}
+NT_BOSS void Kraid_SetWalkingForwards(uint16 j, uint16 a) {  // 0xA7BB29
+  ERAM(0x781E + (0)) = a;
+  EnemyData *E = gEnemyData(0x140); uint16 E_k = (0x140);
+  ERAM(0x7800 + E_k) = j;
+  E->ai_var_A = 0xBBAE /* KraidsFoot_SecondPhase_WalkForward */;
+  E->instruction_timer = 1;
+  E->current_instruction = addr_kKraid_Ilist_86F3;
+}
+NT_BOSS void KraidsFoot_SecondPhase_Thinking(void) {  // 0xA7BA2E
+  int16 v4;
+
+  EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+  uint16 v1 = ERAM(0x7800 + E5_k) - 1;
+  ERAM(0x7800 + E5_k) = v1;
+  if (!v1) {
+    uint16 v2 = 0;
+    EnemyData *E0; uint16 E0_k;
+    while (1) {
+      E0 = gEnemyData(0); E0_k = (0);
+      if (E0->x_pos == ((uint16)BW_A7(0xBA7D + 2 * (v2 >> 1))))
+        break;
+      v2 += 4;
+      if ((int16)(v2 - 24) >= 0) {
+        v2 = 4;
+        break;
+      }
+    }
+    v4 = random_number & 0x1C;
+    if (!sign16(v4 - 16))
+      v4 = 16;
+    const uint16 v5 = (((uint16)BW_A7(0xBA7D + 2 * ((v2 >> 1) + 1))) + v4);
+    uint16 v6 = BW_A7(v5 + 2 * (1));
+    if ((int16)(BW_A7(v5) - E0->x_pos) >= 0)
+      Kraid_SetWalkingBackwards(v6, BW_A7(v5));
+    else
+      Kraid_SetWalkingForwards(v6, BW_A7(v5));
+  }
+}
+NT_BOSS void KraidsFoot_SecondPhase_WalkingBackwards(void) {  // 0xA7BB45
+  EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+  uint16 kraid_target_x = ERAM(0x781E + E0_k);
+  if (kraid_target_x != E0->x_pos) {
+    if ((int16)(kraid_target_x - E0->x_pos) >= 0)
+      return;
+    E0->x_pos = kraid_target_x;
+  }
+  EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+  if (!sign16(E5->current_instruction + 0x76C7)) {
+    E5->ai_var_A = 0xBA2E /* KraidsFoot_SecondPhase_Thinking */;
+    E5->instruction_timer = 1;
+    E5->current_instruction = addr_kKraid_Ilist_86ED;
+  }
+}
+NT_BOSS void KraidsFoot_SecondPhaseSetup_WalkToStartPt(void) {  // 0xA7BB6E
+  EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+  uint16 kraid_target_x = ERAM(0x781E + E0_k);
+  if (kraid_target_x != E0->x_pos) {
+    if ((int16)(kraid_target_x - E0->x_pos) >= 0)
+      return;
+    E0->x_pos = kraid_target_x;
+  }
+  EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+  if (!sign16(E5->current_instruction + 0x76C7)) {
+    E5->ai_var_A = 0xB92D /* KraidEnemy_HandleFunctionTimer */;
+    E5->ai_preinstr = 180;
+    ERAM(0x7800 + E5_k) = 0xBBA4 /* KraidsFoot_SecondPhase_Init */;
+    E5->instruction_timer = 1;
+    E5->current_instruction = addr_kKraid_Ilist_86ED;
+  }
+}
+NT_BOSS void KraidsFoot_SecondPhase_Init(void) {  // 0xA7BBA4
+  Kraid_SetWalkingBackwards(0xB4, 0x160);
+}
+NT_BOSS void KraidsFoot_SecondPhase_WalkForward(void) {  // 0xA7BBAE
+  EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+  uint16 kraid_target_x = ERAM(0x781E + E0_k);
+  if ((int16)(kraid_target_x - E0->x_pos) < 0) {
+    EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+    if (E5->current_instruction == (uint16)addr_off_A787BB) {
+      E5->current_instruction = addr_kKraid_Ilist_86F3;
+      E5->instruction_timer = 1;
+    }
+  } else {
+    E0->x_pos = kraid_target_x;
+    EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+    if (E5->current_instruction == (uint16)addr_off_A787BB) {
+      E5->ai_var_A = 0xBA2E /* KraidsFoot_SecondPhase_Thinking */;
+      E5->instruction_timer = 1;
+      E5->current_instruction = addr_kKraid_Ilist_86ED;
+    }
+  }
+}
+NT_BOSS void Kraid_Main_AttackWithMouthOpen(void) {  // 0xA7BBEA
+  uint16 v3;
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+
+  if (Kraid_ProcessKraidInstr() == 0xFFFF) {
+    Kraid_Mainloop_Thinking_Setup();
+    E->ai_var_C = 90;
+    uint16 kraid_mouth_flags = ERAM(0x780A + E_k);
+    if ((kraid_mouth_flags & 4) != 0 && (v3 = kraid_mouth_flags - 256, ERAM(0x780A + E_k) = v3, (v3 & 0xFF00) != 0)) {
+      E->ai_var_A = 0xB92D /* KraidEnemy_HandleFunctionTimer */;
+      E->ai_preinstr = 64;
+      ERAM(0x7800 + E_k) = 0xB6BF /* Kraid_InitEyeGlowing */;
+      ERAM(0x7802 + E_k) = 2;
+    } else {
+      ERAM(0x780A + E_k) = 0;
+    }
+  } else {
+    if (BW_A7((uint16)((E->ai_var_B - 8) + 2)) == addr_kKraidTilemaps_3 && (E->ai_var_C & 0xF) == 0) {
+      SpawnEprojWithGfx(((uint16)BW_A7(0xBC65 + 2 * ((random_number & 0xE) >> 1))), random_number & 0xE, addr_kEproj_RocksKraidSpits);
+      QueueSfx3_Max6(0x1E);
+    }
+  }
+}
+NT_BOSS void KraidsGoodFingernail_Touch(void) {  // 0xA7BCCF
+  uint16 v0 = 0;
+  ; /* (aviso del decomp) */
+  NormalEnemyTouchAi();
+  EnemyDeathAnimation(cur_enemy_index, v0);
+}
+NT_BOSS void KraidsBadFingernail_Touch(void) {  // 0xA7BCDE
+  uint16 v0 = 0;
+
+  ; /* (aviso del decomp) */
+  NormalEnemyTouchAi();
+  EnemyDeathAnimation(cur_enemy_index, v0);
+}
+NT_BOSS void KraidFingernailInit(uint16 k) {  // 0xA7BCF2
+  uint16 palette_index = gEnemyData(0)->palette_index;
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  E->palette_index = palette_index;
+  E->ai_var_B = 40;
+  E->properties |= kEnemyProps_Invisible;
+  E->instruction_timer = 0x7FFF;
+  E->current_instruction = addr_kKraid_Ilist_8B0A;
+  E->spritemap_pointer = ((uint16)BW_A7(0x8B0A + 2 + 4 * (0)));
+  ERAM(0x7800 + E_k) = 0xBD60 /* KraidsFingernail_Init */;
+  E->ai_var_A = 0xB92D /* KraidEnemy_HandleFunctionTimer */;
+  E->ai_preinstr = 64;
+}
+NT_BOSS void KraidsGoodFingernail_Init(void) {  // 0xA7BCEF
+  KraidFingernailInit(cur_enemy_index);
+}
+NT_BOSS void KraidsBadFingernail_Init(void) {  // 0xA7BD2D
+  KraidFingernailInit(cur_enemy_index);
+}
+NT_BOSS void KraidsGoodFingernail_Main(void) {  // 0xA7BD32
+  EnemyData *v0 = gEnemyData(0);
+  if (sign16(v0->health - 1)) {
+    EnemyData *v1 = gEnemyData(0);
+    v1[6].properties |= kEnemyProps_Deleted | kEnemyProps_Invisible;
+  } else {
+    CallKraidFunc(v0[6].ai_var_A | 0xA70000);
+  }
+}
+NT_BOSS void KraidsBadFingernail_Main(void) {  // 0xA7BD49
+  EnemyData *v0 = gEnemyData(0);
+  if (sign16(v0->health - 1)) {
+    EnemyData *v1 = gEnemyData(0);
+    v1[7].properties |= kEnemyProps_Deleted | kEnemyProps_Invisible;
+  } else {
+    CallKraidFunc(v0[7].ai_var_A | 0xA70000);
+  }
+}
+NT_BOSS void KraidsFingernail_Init(void) {  // 0xA7BD60
+  uint16 v2;
+
+  uint16 kraid_var_E = gEnemyData(0x180)->ai_var_E;
+  if (cur_enemy_index == 384)
+    kraid_var_E = gEnemyData(0x1C0)->ai_var_E;
+  if (sign16(kraid_var_E))
+    v2 = ((uint16)BW_A7(0xBE3E + 2 * ((random_number & 6) >> 1)));
+  else
+    v2 = ((uint16)BW_A7(0xBE46 + 2 * ((random_number & 6) >> 1)));
+  uint16 v3 = (v2);
+  EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+  E->ai_var_B = BW_A7(v3);
+  E->ai_var_C = BW_A7(v3 + 2);
+  E->ai_var_D = BW_A7(v3 + 4);
+  E->ai_var_E = BW_A7(v3 + 6);
+  E->parameter_1 = 1;
+  E->properties &= ~(kEnemyProps_Tangible | kEnemyProps_Invisible);
+  E->instruction_timer = 1;
+  E->current_instruction = addr_kKraid_Ilist_8B0A;
+  E->ai_var_A = 0xBE8E /* KraidsFingernail_Fire */;
+  if ((random_number & 1) == 0)
+    goto LABEL_7;
+  uint16 v7;
+  v7 = ERAM_ARR(0x780C + (0x180))[1];
+  if (cur_enemy_index != 448)
+    v7 = ERAM_ARR(0x780C + (0x1C0))[1];
+  if (v7 == 1) {
+LABEL_7:
+    ERAM_ARR(0x780C + E_k)[1] = 0;
+    EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+    E->x_pos = (E0->x_pos - E0->x_width - E->x_width) & 0xFFF0;
+    E->y_pos = gEnemyData(0x40)->y_pos + 128;
+  } else {
+    ERAM_ARR(0x780C + E_k)[1] = 1;
+    E->x_pos = 50;
+    E->y_pos = 240;
+    E->ai_var_B = 0;
+    E->ai_var_C = 1;
+    E->ai_var_D = 0;
+    E->ai_var_E = 0;
+    E->ai_var_A = 0xB907 /* KraidFingernail_WaitForLintXpos */;
+    ERAM(0x7800 + E_k) = 0xBE8E /* KraidsFingernail_Fire */;
+    E->properties |= kEnemyProps_Tangible | kEnemyProps_Invisible;
+  }
+}
+NT_BOSS void KraidsFingernail_Fire(uint16 k) {  // 0xA7BE8E
+  EnemyData *v1 = gEnemyData(k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, __PAIR32__(v1->ai_var_C, v1->ai_var_B))) {
+    v1->ai_var_B = -v1->ai_var_B;
+    v1->ai_var_C = -v1->ai_var_C;
+  } else {
+    int i;
+    EnemyData *v3, *v4;
+    for (i = 0; ; i += 4) {
+      v3 = gEnemyData(0);
+      v4 = gEnemyData(k);
+      if ((int16)(((uint16)BW_A7(0xBF1D + 2 * ((i >> 1) + 1))) + v3->y_pos - v4->y_pos) < 0)
+        break;
+    }
+    uint16 r18 = ((uint16)BW_A7(0xBF1D + 2 * (i >> 1))) + v3->x_pos;
+    if (!sign16(v4->x_width + v4->x_pos - r18) && (v4->ai_var_C & 0x8000) == 0) {
+      v4->ai_var_B = -v4->ai_var_B;
+      v4->ai_var_C = -v4->ai_var_C;
+    }
+  }
+  EnemyData *v5 = gEnemyData(k);
+  if (Enemy_MoveDown(k, __PAIR32__(v5->ai_var_E, v5->ai_var_D)))
+    SetHiLo(&v5->ai_var_E, &v5->ai_var_D, -IPAIR32(v5->ai_var_E, v5->ai_var_D));
+}
+NT_BOSS void KraidsFoot_PrepareToLungeForward(void) {  // 0xA7BF2D
+  Kraid_HandleFirstPhase();
+  EnemyData *v0 = gEnemyData(0);
+  if (!sign16(v0[1].current_instruction + 0x75C9)) {
+    v0[1].current_instruction = addr_kKraid_Ilist_8AF0;
+    v0[1].instruction_timer = 1;
+    v0[5].instruction_timer = 1;
+    v0[5].current_instruction = addr_kKraid_Ilist_87BD;
+    v0[5].ai_var_A = 0xBF5D /* KraidsFoot_FirstPhase_LungeForward */;
+    v0[5].ai_preinstr = 0;
+  }
+}
+NT_BOSS void KraidsFoot_FirstPhase_LungeForward(void) {  // 0xA7BF5D
+  Kraid_HandleFirstPhase();
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  if (sign16(E->x_pos - 92))
+    E->x_pos = 92;
+  EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+  if (E5->current_instruction == (uint16)addr_off_A78885) {
+    if (E->x_pos == 92) {
+      ERAM(0x7800 + E5_k) = 0xBFAB /* KraidsFoot_FirstPhase_RetreatFromLunge */;
+      E5->ai_var_A = 0xB93F /* KraidEnemy_DecrementEnemyFunctionTimer */;
+      E5->ai_preinstr = 1;
+      E5->instruction_timer = 1;
+      E5->current_instruction = addr_kKraid_Ilist_86ED;
+    } else {
+      E5->instruction_timer = 1;
+      E5->current_instruction = addr_kKraid_Ilist_87BD;
+    }
+  }
+}
+NT_BOSS void KraidsFoot_FirstPhase_RetreatFromLunge(void) {  // 0xA7BFAB
+  Kraid_HandleFirstPhase();
+  EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+  if (!sign16(E0->x_pos - 176))
+    E0->x_pos = 176;
+  EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+  if (!sign16(E5->current_instruction + 0x76C7)) {
+    if (E0->x_pos == 176) {
+      EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+      E1->current_instruction = addr_kKraid_Ilist_89F3;
+      E1->instruction_timer = 1;
+      E5->instruction_timer = 1;
+      E5->current_instruction = addr_kKraid_Ilist_86ED;
+      E5->ai_var_A = 0xB960 /* KraidFoot_FirstPhase_Thinking */;
+      E5->ai_preinstr = 300;
+      ERAM(0x7800 + E5_k) = 0xBF2D /* KraidsFoot_PrepareToLungeForward */;
+    } else {
+      ; /* (aviso del decomp) */
+      EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
+      E->current_instruction = addr_kKraid_Ilist_8887;
+      E->instruction_timer = 1;
+    }
+  }
+}
+NT_BOSS void Kraid_HandleFirstPhase(void) {  // 0xA7C005
+  EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+  if ((int16)(E0->health - ERAM_ARR(0x780C + E0_k)[6]) < 0) {
+    E0->ai_var_A = 0xB965 /* KraidEnemy_ProcessInstrEnemyTimer */;
+    E0->ai_preinstr = 180;
+    ERAM(0x7800 + E0_k) = 0xC0A1 /* Kraid_GetsBig_ReleaseCamera */;
+    uint16 v2 = BW_A7((uint16)((E0->ai_var_B) + 2));
+    uint16 v3 = 50;
+    if (v2 != addr_kKraidTilemaps_0) {
+      v3 = 42;
+      if (v2 != addr_kKraidTilemaps_1) {
+        v3 = 34;
+        if (v2 != addr_kKraidTilemaps_2)
+          v3 = 26;
+      }
+    }
+    E0->ai_var_B = v3 - 26918;
+    E0->ai_var_C = ((uint16)BW_A7(0x96D2 + 0 + (v3)));
+    earthquake_type = 4;
+    earthquake_timer = 340;
+    EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+    E5->current_instruction = addr_kKraid_Ilist_86E7;
+    E5->instruction_timer = 1;
+    E5->ai_var_A = 0xBA2D /* nullsub_234 */;
+    EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+    E1->current_instruction = addr_kKraid_Ilist_89F3;
+    E1->instruction_timer = 1;
+    EnemyData *E2 = gEnemyData(0x80); uint16 E2_k = (0x80);
+    E2->properties |= 0x100;
+    EnemyData *E3 = gEnemyData(0xC0); uint16 E3_k = (0xC0);
+    E3->properties |= 0x100;
+    EnemyData *E4 = gEnemyData(0x100); uint16 E4_k = (0x100);
+    E4->properties |= 0x100;
+    E1->properties |= 0x400;
+  }
+}
+NT_BOSS void Kraid_GetsBig_ReleaseCamera(void) {  // 0xA7C0A1
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->ai_var_A = 0xAC4D /* Kraid_GetsBig_BreakCeilingPlatforms */;
+  *(uint16 *)scrolls = 514;
+  nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
+  ERAM(0x7808 + E_k) = 164;
+}
+NT_BOSS void Kraid_SpawnPlmToClearCeiling(void) {  // 0xA7C168
+  SpawnHardcodedPlm(0x02, 0x12, 0xb7b7);
+}
+NT_BOSS void Kraid_ClearSomeSpikes(void) {  // 0xA7C171
+  SpawnHardcodedPlm(0x05, 0x1b, 0xb7bb);
+}
+NT_BOSS void Kraid_Death_Init(void) {  // 0xA7C360
+  EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+  if (!ERAM(0x782A + E0_k)) {
+    uint16 v0 = 192;
+    do {
+      target_palettes[v0 >> 1] = 0;
+      v0 += 2;
+    } while ((int16)(v0 - 224) < 0);
+    for (int i = 30; i >= 0; i -= 2)
+      { palette_buffer[(i >> 1) + 112] = ((uint16)BW_A7(0xB4F3 + 2 * (i >> 1))); nt_pal_dirty((uint8)((i >> 1) + 112), (uint8)((i >> 1) + 112)); }
+    EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+    E1->current_instruction = addr_kKraid_Ilist_8AF0;
+    E1->instruction_timer = 1;
+    E0->ai_var_A = 0xC3F9 /* Kraid_Death_Fadeout */;
+    E0->ai_var_B = addr_stru_A79764 + 8;
+    E0->ai_var_C = ((uint16)BW_A7(0x9764 + 0 + 8 * (0)));
+    uint16 v4 = cur_enemy_index;
+    uint16 v7 = cur_enemy_index;
+    EnemyData *E6 = gEnemyData(0x180); uint16 E6_k = (0x180);
+    E6->properties &= ~0x4000;
+    cur_enemy_index = 384;
+    EnemyDeathAnimation(v4, 0x180);
+    EnemyData *E7 = gEnemyData(0x1C0); uint16 E7_k = (0x1C0);
+    E7->properties &= ~0x4000;
+    cur_enemy_index = 448;
+    EnemyDeathAnimation(v4, 0x1C0);
+    cur_enemy_index = 128;
+    EnemyDeathAnimation(v4, 0x80);
+    cur_enemy_index = 192;
+    EnemyDeathAnimation(v4, 0xC0);
+    cur_enemy_index = 256;
+    EnemyDeathAnimation(v4, 0x100);
+    cur_enemy_index = v7;
+    SpawnHardcodedPlm(0x05, 0x1b, 0xb7bf);
+  }
+}
+NT_BOSS void Kraid_Death_UpdateBG2TilemapTopHalf(void) {  // 0xA7C4A4
+  Kraid_ProcessKraidInstr();
+  gEnemyData(0)->ai_var_A = 0xC4C8 /* Kraid_Death_UpdateBG2TilemapBottomHalf */;
+  EnemyData *E2 = gEnemyData(0x80); uint16 E2_k = (0x80);
+  E2->ai_var_A = 0xB923 /* Kraid_AlignEnemyToKraid */;
+  E2->ai_preinstr = 0x7FFF;
+  EnemyData *E3 = gEnemyData(0xC0); uint16 E3_k = (0xC0);
+  E3->ai_var_A = 0xB923 /* Kraid_AlignEnemyToKraid */;
+  E3->ai_preinstr = 0x7FFF;
+  EnemyData *E4 = gEnemyData(0x100); uint16 E4_k = (0x100);
+  E4->ai_var_A = 0xB923 /* Kraid_AlignEnemyToKraid */;
+  E4->ai_preinstr = 0x7FFF;
+  Kraid_UpdateBg2TilemapTopHalf();
+}
+NT_BOSS void Kraid_Death_UpdateBG2TilemapBottomHalf(void) {  // 0xA7C4C8
+  Kraid_ProcessKraidInstr();
+  nt_unpause_hook = 0xA7C2A0;
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->ai_var_A = 0xC537 /* Kraid_Death_SinkThroughFloor */;
+  kraid_unk9000 = 43;
+  E->properties |= 0x8000;
+  earthquake_type = 1;
+  earthquake_timer = 256;
+  EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+  E1->current_instruction = addr_kKraid_Ilist_8AA4;
+  E1->instruction_timer = 1;
+  EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+  E5->current_instruction = addr_kKraid_Ilist_86E7;
+  E5->instruction_timer = 1;
+  E5->ai_var_A = 0xBA2D /* nullsub_234 */;
+  Kraid_UpdateBG2TilemapBottomHalf();
+}
+NT_BOSS void Kraid_PlaySoundEveryHalfSecond(void) {  // 0xA7C51D
+  if (!--kraid_unk9000) {
+    QueueSfx3_Max6(0x1E);
+    kraid_unk9000 = 30;
+  }
+}
+NT_BOSS void Kraid_HandleSinking(void) {  // 0xA7C59F
+  int16 v1;
+  uint16 v3;
+
+  for (int i = 0; ; ++i) {
+    v1 = ((uint16)BW_A7(0xC5E7 + 0 + 6 * (i)));
+    if (v1 < 0)
+      break;
+    if (v1 == gEnemyData(0)->y_pos) {
+      if ((((uint16)BW_A7(0xC5E7 + 2 + 6 * (i))) & 0x8000) == 0) {
+        uint16 v2 = vram_write_queue_tail;
+        v3 = (vram_write_queue_tail);
+        nt_vwq_w16((uint16)(v3 + 0), 64);
+        nt_vwq_w16((uint16)(v3 + 2), 12224);
+        nt_vwq_w8((uint16)(v3 + 4), 126);
+        nt_vwq_w16((uint16)(v3 + 5), ((uint16)BW_A7(0xC5E7 + 2 + 6 * (i))) + ((reg_BG2SC & 0xFC) << 8));
+        vram_write_queue_tail = v2 + 7;
+      }
+      CallKraidSinkTableFunc(((uint16)BW_A7(0xC5E7 + 4 + 6 * (i))) | 0xA70000);
+      return;
+    }
+  }
+}
+NT_BOSS void Kraid_Death_SinkThroughFloor(void) {  // 0xA7C537
+  Kraid_ProcessKraidInstr();
+  Kraid_PlaySoundEveryHalfSecond();
+  Kraid_HandleSinking();
+  EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+  if (!sign16(++E0->y_pos - 608)) {
+    E0->properties &= ~kEnemyProps_Tangible;
+    enemy_bg2_tilemap_size = 2;
+    uint16 enemy_ptr = gEnemyData(cur_enemy_index)->enemy_ptr;
+    get_EnemyDef_A2(enemy_ptr)->shot_ai = 0x804C /* nullsub_170_A7 */;
+    EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+    uint16 v3 = E1->properties | kEnemyProps_Tangible | kEnemyProps_Deleted;
+    E1->properties = v3;
+    uint16 v4 = v3 & 0x51FF | 0x600;
+    gEnemyData(0x80)->properties = v4;
+    gEnemyData(0xC0)->properties = v4;
+    gEnemyData(0x100)->properties = v4;
+    gEnemyData(0x140)->properties = v4;
+    gEnemyData(0)->ai_var_A = 0xC715 /* Kraid_FadeInBg_ClearBg2TilemapTopHalf */;
+    camera_distance_index = 0;
+    Enemy_ItemDrop_Kraid(enemy_ptr);
+    Kraid_DrawRoomBg();
+  }
+}
+NT_BOSS void Kraid_CrumbleLeftPlatform_Left(void) {  // 0xA7C691
+  SpawnEprojWithGfx(0x70, cur_enemy_index, addr_kEproj_RocksFallingKraidCeiling);
+  SpawnHardcodedPlm(0x07, 0x12, 0xb7a7);
+}
+NT_BOSS void Kraid_CrumbleRightPlatform_Middle(void) {  // 0xA7C6A7
+  SpawnEprojWithGfx(0xF0, cur_enemy_index, addr_kEproj_RocksFallingKraidCeiling);
+  SpawnHardcodedPlm(0x0f, 0x12, 0xb7a7);
+}
+NT_BOSS void Kraid_CrumbleRightPlatform_Left(void) {  // 0xA7C6BD
+  SpawnEprojWithGfx(0xE0, cur_enemy_index, addr_kEproj_RocksFallingKraidCeiling);
+  SpawnHardcodedPlm(0x0e, 0x12, 0xb7af);
+}
+NT_BOSS void Kraid_CrumbleLeftPlatform_Right(void) {  // 0xA7C6D3
+  SpawnEprojWithGfx(0x90, cur_enemy_index, addr_kEproj_RocksFallingKraidCeiling);
+  SpawnHardcodedPlm(0x09, 0x12, 0xb7a7);
+}
+NT_BOSS void Kraid_CrumbleLeftPlatform_Middle(void) {  // 0xA7C6E9
+  SpawnEprojWithGfx(0x80, cur_enemy_index, addr_kEproj_RocksFallingKraidCeiling);
+  SpawnHardcodedPlm(0x08, 0x12, 0xb7af);
+}
+NT_BOSS void Kraid_CrumbleRightPlatform_Right(void) {  // 0xA7C6FF
+  SpawnEprojWithGfx(0x100, cur_enemy_index, addr_kEproj_RocksFallingKraidCeiling);
+  SpawnHardcodedPlm(0x10, 0x12, 0xb7af);
+}
+NT_BOSS void CallKraidSinkTableFunc(uint32 ea) {
+  switch (ea) {
+  case 0xA7C691: Kraid_CrumbleLeftPlatform_Left(); return;
+  case 0xA7C6A6: return;
+  case 0xA7C6A7: Kraid_CrumbleRightPlatform_Middle(); return;
+  case 0xA7C6BD: Kraid_CrumbleRightPlatform_Left(); return;
+  case 0xA7C6D3: Kraid_CrumbleLeftPlatform_Right(); return;
+  case 0xA7C6E9: Kraid_CrumbleLeftPlatform_Middle(); return;
+  case 0xA7C6FF: Kraid_CrumbleRightPlatform_Right(); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+NT_BOSS void Kraid_FadeInBg_ClearBg2TilemapTopHalf(void) {  // 0xA7C715
+  uint16 v2;
+
+  reg_BG2SC = 72;
+  for (int i = 2046; i >= 0; i -= 2)
+    tilemap_stuff[i >> 1] = 824;
+  uint16 v1 = vram_write_queue_tail;
+  v2 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v2 + 0), 1024);
+  nt_vwq_w16((uint16)(v2 + 2), 0x2000);
+  nt_vwq_w16((uint16)(v2 + 4), 126);
+  nt_vwq_w16((uint16)(v2 + 5), 18432);
+  vram_write_queue_tail = v1 + 7;
+  gEnemyData(0)->ai_var_A = 0xC751 /* Kraid_FadeInBg_ClearBg2TilemapBottomHalf */;
+}
+NT_BOSS void Kraid_FadeInBg_ClearBg2TilemapBottomHalf(void) {  // 0xA7C751
+  uint16 v1;
+
+  uint16 v0 = vram_write_queue_tail;
+  v1 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v1 + 0), 1024);
+  nt_vwq_w16((uint16)(v1 + 2), 0x2000);
+  nt_vwq_w16((uint16)(v1 + 4), 126);
+  nt_vwq_w16((uint16)(v1 + 5), 18944);
+  vram_write_queue_tail = v0 + 7;
+  gEnemyData(0)->ai_var_A = 0xC777 /* Kraid_FadeInBg_LoadBg3Tiles1of4 */;
+}
+NT_BOSS void Kraid_FadeInBg_LoadBg3Tiles1of4(void) {  // 0xA7C777
+  uint16 v1;
+
+  nt_unpause_hook = 0xA7C1FB;
+  gEnemyData(0)->ai_var_A = 0xC7A3 /* Kraid_FadeInBg_LoadBg3Tiles2of4 */;
+  uint16 v0 = vram_write_queue_tail;
+  v1 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v1 + 0), 1024);
+  nt_vwq_w16((uint16)(v1 + 2), -19968);
+  nt_vwq_w16((uint16)(v1 + 4), 154);
+  nt_vwq_w16((uint16)(v1 + 5), 0x4000);
+  vram_write_queue_tail = v0 + 7;
+}
+NT_BOSS void Kraid_FadeInBg_LoadBg3Tiles2of4(void) {  // 0xA7C7A3
+  uint16 v1;
+
+  gEnemyData(0)->ai_var_A = 0xC7C9 /* Kraid_FadeInBg_LoadBg3Tiles3of4 */;
+  uint16 v0 = vram_write_queue_tail;
+  v1 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v1 + 0), 1024);
+  nt_vwq_w16((uint16)(v1 + 2), -18944);
+  nt_vwq_w16((uint16)(v1 + 4), 154);
+  nt_vwq_w16((uint16)(v1 + 5), 16896);
+  vram_write_queue_tail = v0 + 7;
+}
+NT_BOSS void Kraid_FadeInBg_LoadBg3Tiles3of4(void) {  // 0xA7C7C9
+  uint16 v1;
+
+  gEnemyData(0)->ai_var_A = 0xC7EF /* Kraid_FadeInBg_LoadBg3Tiles4of4 */;
+  uint16 v0 = vram_write_queue_tail;
+  v1 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v1 + 0), 1024);
+  nt_vwq_w16((uint16)(v1 + 2), -17920);
+  nt_vwq_w16((uint16)(v1 + 4), 154);
+  nt_vwq_w16((uint16)(v1 + 5), 17408);
+  vram_write_queue_tail = v0 + 7;
+}
+NT_BOSS void Kraid_FadeInBg_LoadBg3Tiles4of4(void) {  // 0xA7C7EF
+  uint16 v1;
+
+  gEnemyData(0)->ai_var_A = 0xC815 /* Kraid_FadeInBg_FadeInBp6 */;
+  uint16 v0 = vram_write_queue_tail;
+  v1 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v1 + 0), 1024);
+  nt_vwq_w16((uint16)(v1 + 2), -16896);
+  nt_vwq_w16((uint16)(v1 + 4), 154);
+  nt_vwq_w16((uint16)(v1 + 5), 17920);
+  vram_write_queue_tail = v0 + 7;
+}
+NT_BOSS void Kraid_FadeInBg_FadeInBp6(void) {  // 0xA7C815
+  int16 v0;
+
+  if (AdvancePaletteFade_BgPalette6() & 1) {
+    QueueMusic_Delayed8(3);
+    v0 = nt_ram_w((uint16)(0xD828 + (area_index)));
+    if ((v0 & 1) != 0) {
+      gEnemyData(0)->ai_var_A = 0xC851 /* Kraid_FadeInBg_SetEnemyDead_KraidWasDead */;
+    } else {
+      nt_ram_set_w((uint16)(0xD828 + (area_index)), (uint16)(v0 | 1));
+      gEnemyData(0)->ai_var_A = 0xC843 /* Kraid_FadeInBg_SetEnemyDead_KraidWasAlive */;
+    }
+  }
+}
+NT_BOSS void Kraid_FadeInBg_SetEnemyDead_KraidWasAlive(void) {  // 0xA7C843
+  if (!Kraid_CheckIfDead() || layer1_x_pos)
+    Kraid_SetEnemyPropsToDead();
+}
+NT_BOSS void Kraid_FadeInBg_SetEnemyDead_KraidWasDead(void) {  // 0xA7C851
+  if (!Kraid_CheckIfDead() || layer1_x_pos)
+    Kraid_SetEnemyPropsToDead();
+  previous_layer1_x_block = -1;
+}
+NT_BOSS void Kraid_RestrictSamusXtoFirstScreen(uint16 k) {  // 0xA7C865
+  Kraid_RestrictSamusXtoFirstScreen_2();
+  KraidEnemy_HandleFunctionTimer(k);
+}
+NT_BOSS void Kraid_UpdateBg2TilemapTopHalf(void) {  // 0xA7C874
+  uint16 v1;
+
+  uint16 v0 = vram_write_queue_tail;
+  v1 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v1 + 0), 2048);
+  nt_vwq_w16((uint16)(v1 + 2), 0x2000);
+  nt_vwq_w8((uint16)(v1 + 4), 126);
+  nt_vwq_w16((uint16)(v1 + 5), (reg_BG2SC & 0xFC) << 8);
+  vram_write_queue_tail = v0 + 7;
+}
+NT_BOSS void Kraid_UpdateBG2TilemapBottomHalf(void) {  // 0xA7C8B6
+  uint16 v1;
+
+  uint16 v0 = vram_write_queue_tail;
+  v1 = (vram_write_queue_tail);
+  nt_vwq_w16((uint16)(v1 + 0), 2048);
+  nt_vwq_w16((uint16)(v1 + 2), 10240);
+  nt_vwq_w8((uint16)(v1 + 4), 126);
+  nt_vwq_w16((uint16)(v1 + 5), ((reg_BG2SC & 0xFC) << 8) + 2048);
+  vram_write_queue_tail = v0 + 7;
+}
+NT_BOSS void Kraid_RaiseKraidThroughFloor(uint16 k) {  // 0xA7C86B
+  Kraid_RestrictSamusXtoFirstScreen_2();
+  gEnemyData(0)->ai_var_A = 0xC89A /* Kraid_Raise_LoadTilemapBottomAndShake */;
+  Kraid_UpdateBg2TilemapTopHalf();
+}
+NT_BOSS void Kraid_Raise_LoadTilemapBottomAndShake(void) {  // 0xA7C89A
+  Kraid_RestrictSamusXtoFirstScreen_2();
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  E->ai_var_A = 0xC8E0 /* Kraid_Raise_SpawnRandomEarthquakeProjs16 */;
+  E->ai_preinstr = 120;
+  earthquake_timer = 496;
+  QueueMusic_Delayed8(5);
+  Kraid_UpdateBG2TilemapBottomHalf();
+}
+NT_BOSS void Kraid_Raise_SpawnRandomEarthquakeProjs16(void) {  // 0xA7C8E0
+  Kraid_RestrictSamusXtoFirstScreen_2();
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 v1 = E->ai_preinstr - 1;
+  E->ai_preinstr = v1;
+  if (v1) {
+    if ((v1 & 0xF) == 0)
+      Kraid_SpawnRandomQuakeProjs();
+  } else {
+    E->ai_var_A = 0xC902 /* Kraid_Raise_SpawnRandomEarthquakeProjs8 */;
+    E->ai_preinstr = 96;
+  }
+}
+NT_BOSS void Kraid_Raise_SpawnRandomEarthquakeProjs8(void) {  // 0xA7C902
+  Kraid_RestrictSamusXtoFirstScreen_2();
+  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
+  uint16 v1 = E->ai_preinstr - 1;
+  E->ai_preinstr = v1;
+  if (v1) {
+    if ((v1 & 7) == 0)
+      Kraid_SpawnRandomQuakeProjs();
+  } else {
+    E->ai_var_A = 0xC924 /* Kraid_Raise_Handler */;
+    E->ai_preinstr = 288;
+  }
+}
+NT_BOSS void Kraid_Raise_Handler(void) {  // 0xA7C924
+  Kraid_RestrictSamusXtoFirstScreen_2();
+  if ((earthquake_timer & 5) == 0)
+    Kraid_SpawnRandomQuakeProjs();
+  EnemyData *E0 = gEnemyData(0); uint16 E0_k = (0);
+  E0->x_pos += (E0->y_pos & 2) == 0 ? -1 : 1;
+  AddToHiLo(&E0->y_pos, &E0->y_subpos, -0x8000);
+  if (sign16(E0->y_pos - 457)) {
+    E0->x_pos = 176;
+    EnemyData *E5 = gEnemyData(0x140); uint16 E5_k = (0x140);
+    E5->ai_var_A = 0xB960 /* KraidFoot_FirstPhase_Thinking */;
+    E5->ai_preinstr = 300;
+    ERAM(0x7800 + E5_k) = 0xBF2D /* KraidsFoot_PrepareToLungeForward */;
+    E0->ai_var_B = addr_stru_A796DA;
+    Kraid_Mainloop_Thinking_Setup();
+    EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+    E1->current_instruction = addr_kKraid_Ilist_89F3;
+    E1->instruction_timer = 1;
+  }
+}
+NT_BOSS void Kraid_SpawnRandomQuakeProjs(void) {  // 0xA7C995
+  uint16 v0 = random_number & 0x3F;
+  if ((random_number & 2) == 0)
+    v0 = ~v0;
+  uint16 x = gEnemyData(0)->x_pos + v0;
+  uint16 y = 448 - ((uint16)(random_number & 0x3F00) >> 8);
+  CreateSpriteAtPos(x, y, 21, 0);
+  uint16 v1 = ((random_number & 0x10) != 0) ? addr_kEproj_RocksWhenKraidRisesRight : addr_kEproj_RocksWhenKraidRisesLeft;
+  SpawnEprojWithGfx(random_number & 0x3F0, cur_enemy_index, v1);
+}
+NT_BOSS void Kraid_RestrictSamusXtoFirstScreen_2(void) {  // 0xA7C9EE
+  if ((int16)(samus_x_pos - 256) >= 0) {
+    samus_x_pos = 256;
+    samus_prev_x_pos = 256;
+  }
+}
+NT_BOSS void CallKraidFunc(uint32 ea) {
+  uint16 k = cur_enemy_index;
+  switch (ea) {
+  case 0xA7AC4D: Kraid_GetsBig_BreakCeilingPlatforms(); return;  // 0x9bc35
+  case 0xA7AD3A: Kraid_GetsBig_SetBG2TilemapPrioBits(); return;  // 0x9bde6
+  case 0xA7AD61: Kraid_GetsBig_FinishUpdateBg2Tilemap(); return;  // 0x9be51
+  case 0xA7AD8E: Kraid_GetsBig_DrawRoomBg(); return;  // 0x9bee5
+  case 0xA7AE23: Kraid_GetsBig_FadeInRoomBg(); return;  // 0x9c08c
+  case 0xA7AEA4: Kraid_Mainloop_Thinking(); return;  // 0x9c1b8
+  case 0xA7AEC4: Kraid_GetsBig_Thinking(); return;  // 0x9c207
+  case 0xA7AEE4: Kraid_Shot_MouthIsOpen(); return;  // 0x9c256
+  case 0xA7B6BF: Kraid_InitEyeGlowing(); return;  // 0x9cf64
+  case 0xA7B6D7: Kraid_Shot_GlowHisEye(); return;  // 0x9cf9f
+  case 0xA7B73D: Kraid_Shot_UnglowEye(); return;  // 0x9d0b4
+  case 0xA7B832: KraidLint_ProduceLint(k); return;  // 0x9d371
+  case 0xA7B89B: KraidLint_FireLint(k); return;  // 0x9d44f
+  case 0xA7B907: KraidFingernail_WaitForLintXpos(k); return;  // 0x9d556
+  case 0xA7B923: Kraid_AlignEnemyToKraid(k); return;  // 0x9d5b5
+  case 0xA7B92D: KraidEnemy_HandleFunctionTimer(k); return;  // 0x9d5e5
+  case 0xA7B93F: KraidEnemy_DecrementEnemyFunctionTimer(); return;  // 0x9d61c
+  case 0xA7B960: KraidFoot_FirstPhase_Thinking(k); return;  // 0x9d66a
+  case 0xA7B965: KraidEnemy_ProcessInstrEnemyTimer(k); return;  // 0x9d67d
+  case 0xA7BA2E: KraidsFoot_SecondPhase_Thinking(); return;  // 0x9d8b2
+  case 0xA7BB45: KraidsFoot_SecondPhase_WalkingBackwards(); return;  // 0x9da2d
+  case 0xA7BB6E: KraidsFoot_SecondPhaseSetup_WalkToStartPt(); return;  // 0x9daa2
+  case 0xA7BBA4: KraidsFoot_SecondPhase_Init(); return;  // 0x9db2a
+  case 0xA7BBAE: KraidsFoot_SecondPhase_WalkForward(); return;  // 0x9db40
+  case 0xA7BBEA: Kraid_Main_AttackWithMouthOpen(); return;  // 0x9dbe0
+  case 0xA7BD60: KraidsFingernail_Init(); return;  // 0x9df94
+  case 0xA7BE8E: KraidsFingernail_Fire(k); return;  // 0x9e1ac
+  case 0xA7BF2D: KraidsFoot_PrepareToLungeForward(); return;  // 0x9e312
+  case 0xA7BFAB: KraidsFoot_FirstPhase_RetreatFromLunge(); return;  // 0x9e43a
+  case 0xA7C0A1: Kraid_GetsBig_ReleaseCamera(); return;  // 0x9e6a7
+  case 0xA7C360: Kraid_Death_Init(); return;  // 0x9ec0b
+  case 0xA7C3F9: Kraid_Death_Fadeout(); return;  // 0x9ed75
+  case 0xA7C4A4: Kraid_Death_UpdateBG2TilemapTopHalf(); return;  // 0x9ef19
+  case 0xA7C4C8: Kraid_Death_UpdateBG2TilemapBottomHalf(); return;  // 0x9ef92
+  case 0xA7C537: Kraid_Death_SinkThroughFloor(); return;  // 0x9f074
+  case 0xA7C715: Kraid_FadeInBg_ClearBg2TilemapTopHalf(); return;  // 0x9f369
+  case 0xA7C751: Kraid_FadeInBg_ClearBg2TilemapBottomHalf(); return;  // 0x9f3ed
+  case 0xA7C777: Kraid_FadeInBg_LoadBg3Tiles1of4(); return;  // 0x9f448
+  case 0xA7C7A3: Kraid_FadeInBg_LoadBg3Tiles2of4(); return;  // 0x9f4ad
+  case 0xA7C7C9: Kraid_FadeInBg_LoadBg3Tiles3of4(); return;  // 0x9f507
+  case 0xA7C7EF: Kraid_FadeInBg_LoadBg3Tiles4of4(); return;  // 0x9f561
+  case 0xA7C815: Kraid_FadeInBg_FadeInBp6(); return;  // 0x9f5bb
+  case 0xA7C843: Kraid_FadeInBg_SetEnemyDead_KraidWasAlive(); return;  // 0x9f62d
+  case 0xA7C851: Kraid_FadeInBg_SetEnemyDead_KraidWasDead(); return;  // 0x9f65b
+  case 0xA7C865: Kraid_RestrictSamusXtoFirstScreen(k); return;  // 0x9f694
+  case 0xA7C86B: Kraid_RaiseKraidThroughFloor(k); return;  // 0x9f6a7
+  case 0xA7C89A: Kraid_Raise_LoadTilemapBottomAndShake(); return;  // 0x9f71f
+  case 0xA7C8E0: Kraid_Raise_SpawnRandomEarthquakeProjs16(); return;  // 0x9f7b8
+  case 0xA7C902: Kraid_Raise_SpawnRandomEarthquakeProjs8(); return;  // 0x9f805
+  case 0xA7C924: Kraid_Raise_Handler(); return;  // 0x9f852
+  case 0xA7B868: KraidLint_ChargeLint(k); return;  // 0xa7b868
+  case 0xA7BA2D: return;  // 0xa7ba2d
+  case 0xA7BF5D: KraidsFoot_FirstPhase_LungeForward(); return;  // 0xa7bf5d
+  case 0xA7B831: return;
+  default: nt_unimpl("Unreachable");
+  }
 }
 NT_BOSS void Phantoon_Init(void) {  // 0xA7CDF3
   int16 j;
@@ -32932,7 +34817,8 @@ static void port_w_Rinka_Powerbomb(void) { Rinka_Powerbomb(cur_enemy_index); }
 static void port_w_Fireflea_Touch(void) { Fireflea_Touch(cur_enemy_index); }
 static void port_w_Metroid_Powerbomb(void) { Metroid_Powerbomb(cur_enemy_index); }
 static void port_w_MotherBrainsTubesFalling_Main(void) { MotherBrainsTubesFalling_Main(cur_enemy_index); }
-static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[397] = {
+static void port_w_Kraid_Arm_Shot(void) { Kraid_Arm_Shot(collision_detection_index * 2); }
+static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[420] = {
   {0xA08023, Enemy_NormalTouchAI_A0},
   {0xA0802D, Enemy_NormalShotAI_A0},
   {0xA28023, Enemy_NormalTouchAI_A2},
@@ -33146,9 +35032,32 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[397] = {
   {0xA7804C, port_nop_v},
   {0xA7804C, port_nop_v},
   {0xA7804C, port_nop_v},
+  {0xA7948B, Kraid_Touch_ArmFoot},
   {0xA7948F, port_nop_v},
+  {0xA79490, KraidsArm_Touch},
+  {0xA79490, KraidsArm_Touch},
+  {0xA7949F, Kraid_Touch},
   {0xA794B5, port_nop_v},
   {0xA794B5, port_nop_v},
+  {0xA794B6, port_w_Kraid_Arm_Shot},
+  {0xA7A959, Kraid_Init},
+  {0xA7AB43, KraidsArm_Init},
+  {0xA7AB68, KraidsTopLint_Init},
+  {0xA7AB9C, KraidsMiddleLint_Init},
+  {0xA7ABCA, KraidsBottomLint_Init},
+  {0xA7ABF8, KraidsFoot_Init},
+  {0xA7AC21, Kraid_Main},
+  {0xA7B7BD, KraidsArm_Main},
+  {0xA7B801, KraidsTopLint_Main},
+  {0xA7B80D, KraidsMiddleLint_Main},
+  {0xA7B819, KraidsBottomLint_Main},
+  {0xA7B9F6, KraidsFoot_Main},
+  {0xA7BCCF, KraidsGoodFingernail_Touch},
+  {0xA7BCDE, KraidsBadFingernail_Touch},
+  {0xA7BCEF, KraidsGoodFingernail_Init},
+  {0xA7BD2D, KraidsBadFingernail_Init},
+  {0xA7BD32, KraidsGoodFingernail_Main},
+  {0xA7BD49, KraidsBadFingernail_Main},
   {0xA7CDF3, Phantoon_Init},
   {0xA7CE55, Phantoon2_Init},
   {0xA7CEA6, Phantoon_Main},
@@ -33340,7 +35249,7 @@ PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las última
   if (cea[h] == ea) return cf[h];
 #endif
   PortFnV f = 0;
-  int lo = 0, hi = 396;
+  int lo = 0, hi = 419;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEnemyAi[m].ea;
@@ -33547,6 +35456,15 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xA780ED: return EnemyInstr_Goto(k, jp);
   case 0xA78110: return EnemyInstr_DecTimerAndGoto(k, jp);
   case 0xA78123: return EnemyInstr_SetTimer(k, jp);
+  case 0xA78A8F: return Kraid_Instr_9(k, jp);
+  case 0xA7B633: return Kraid_Instr_1(k, jp);
+  case 0xA7B636: return Kraid_Instr_DecYpos(k, jp);
+  case 0xA7B63C: return Kraid_Instr_IncrYpos_Shake(k, jp);
+  case 0xA7B64E: return Kraid_Instr_PlaySound_0x76(k, jp);
+  case 0xA7B65A: return Kraid_Instr_XposMinus3(k, jp);
+  case 0xA7B667: return Kraid_Instr_XposMinus3b(k, jp);
+  case 0xA7B674: return Kraid_Instr_XposPlus3(k, jp);
+  case 0xA7B683: return Kraid_Instr_MoveHimRight(k, jp);
   case 0xA880ED: return EnemyInstr_Goto(k, jp);
   case 0xA88110: return EnemyInstr_DecTimerAndGoto(k, jp);
   case 0xA88123: return EnemyInstr_SetTimer(k, jp);
@@ -33995,7 +35913,7 @@ uint8 port_CallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida */
   return 1;
 }
 
-static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[84] = {
+static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[87] = {
   {0x868ACD, Eproj_Init_0x8bc2_SkreeDownRight},
   {0x868AF1, Eproj_Init_0x8bd0_SkreeUpRight},
   {0x868B15, Eproj_Init_0x8bde_SkreeDownLeft},
@@ -34011,6 +35929,9 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[84] = {
   {0x8694DC, EprojInit_967A},
   {0x869824, EprojInit_PhantoonDestroyableFireballs},
   {0x86993A, EprojInit_PhantoonStartingFireballs},
+  {0x869CA3, EprojInit_RocksKraidSpits},
+  {0x869CD8, EprojInit_RocksFallingKraidCeiling},
+  {0x869D0C, EprojInit_RocksWhenKraidRises},
   {0x869DEC, EprojInit_MiniKraidSpit},
   {0x869E46, EprojInit_MiniKraidSpikesLeft},
   {0x869E4B, EprojInit_MiniKraidSpikesRight},
@@ -34090,7 +36011,7 @@ PortFnK port_FindCallEprojInit(uint32 ea) {  /* 0: no está traducida; las últi
   if (cea[h] == ea) return cf[h];
 #endif
   PortFnK f = 0;
-  int lo = 0, hi = 83;
+  int lo = 0, hi = 86;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEprojInit[m].ea;
@@ -34110,7 +36031,7 @@ uint8 port_CallEprojInit(uint32 ea, uint16 j) {  /* 0: no está traducida */
   return 1;
 }
 
-static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[102] = {
+static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[104] = {
   {0x868170, port_nop_k},
   {0x8684FB, port_nop_k},
   {0x868B5D, Eproj_PreInstr_SkreeParticle},
@@ -34133,6 +36054,8 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[102] = {
   {0x869ADA, EprojPreInstr_PhantoonDestroyableFireballs_3},
   {0x869B29, EprojPreInstr_PhantoonStartingFireballsB},
   {0x869B41, EprojPreInstr_PhantoonStartingFireballsB_2},
+  {0x869D56, EprojPreInstr_KraidRocks},
+  {0x869D89, EprojPreInstr_RocksFallingKraidCeiling},
   {0x869E1E, EprojPreInit_MiniKraidSpit},
   {0x869E83, EprojPreInstr_MiniKraidSpikes},
   {0x869EFF, EprojPreInstr_WalkingLavaSeahorseFireball},
@@ -34223,7 +36146,7 @@ PortFnK port_FindCallEprojPreInstr(uint32 ea) {  /* 0: no está traducida; las �
   if (cea[h] == ea) return cf[h];
 #endif
   PortFnK f = 0;
-  int lo = 0, hi = 101;
+  int lo = 0, hi = 103;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
     uint32 e = kPortCallEprojPreInstr[m].ea;
@@ -34929,6 +36852,97 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA7802D: Enemy_NormalShotAI_A7(); return 1;
   case 0xA7803C: Enemy_NormalPowerBombAI_SkipDeathAnim_A7(); return 1;
   case 0xA78041: Enemy_NormalFrozenAI_A7(); return 1;
+  case 0xA7948B: Kraid_Touch_ArmFoot(); return 1;
+  case 0xA794A4: Kraid_Func_1(); return 1;
+  case 0xA7949F: Kraid_Touch(); return 1;
+  case 0xA794B1: Kraid_Shot(); return 1;
+  case 0xA79490: KraidsArm_Touch(); return 1;
+  case 0xA7A943: Kraid_SetEnemyPropsToDead(); return 1;
+  case 0xA7A959: Kraid_Init(); return 1;
+  case 0xA7AB43: KraidsArm_Init(); return 1;
+  case 0xA7AB68: KraidsTopLint_Init(); return 1;
+  case 0xA7AB9C: KraidsMiddleLint_Init(); return 1;
+  case 0xA7ABCA: KraidsBottomLint_Init(); return 1;
+  case 0xA7ABF8: KraidsFoot_Init(); return 1;
+  case 0xA7AC21: Kraid_Main(); return 1;
+  case 0xA7AC4D: Kraid_GetsBig_BreakCeilingPlatforms(); return 1;
+  case 0xA7AD3A: Kraid_GetsBig_SetBG2TilemapPrioBits(); return 1;
+  case 0xA7AD61: Kraid_GetsBig_FinishUpdateBg2Tilemap(); return 1;
+  case 0xA7AD9A: Kraid_DrawRoomBg(); return 1;
+  case 0xA7AD8E: Kraid_GetsBig_DrawRoomBg(); return 1;
+  case 0xA7ADEF: Kraid_SetLintYAndRandomThinkTimer(); return 1;
+  case 0xA7ADE1: Kraid_GetsBig_Thinking_Setup(); return 1;
+  case 0xA7ADE9: Kraid_Mainloop_Thinking_Setup(); return 1;
+  case 0xA7AE23: Kraid_GetsBig_FadeInRoomBg(); return 1;
+  case 0xA7AEA4: Kraid_Mainloop_Thinking(); return 1;
+  case 0xA7AEC4: Kraid_GetsBig_Thinking(); return 1;
+  case 0xA7AEE4: Kraid_Shot_MouthIsOpen(); return 1;
+  case 0xA7AF94: KraidInstr_PlayRoarSfx(); return 1;
+  case 0xA7AF9F: KraidInstr_PlayDyingSfx(); return 1;
+  case 0xA7AFAA: Kraid_Shot_Mouth(); return 1;
+  case 0xA7B0F3: Kraid_Enemy_Touch(); return 1;
+  case 0xA7B181: Kraid_Shot_Body(); return 1;
+  case 0xA7B337: Kraid_Palette_Handling(); return 1;
+  case 0xA7B371: Kraid_HurtFlash_Handling(); return 1;
+  case 0xA7B394: Kraid_HealthBasedPaletteHandling(); return 1;
+  case 0xA7B6BF: Kraid_InitEyeGlowing(); return 1;
+  case 0xA7B6D7: Kraid_Shot_GlowHisEye(); return 1;
+  case 0xA7B73D: Kraid_Shot_UnglowEye(); return 1;
+  case 0xA7B7BD: KraidsArm_Main(); return 1;
+  case 0xA7B801: KraidsTopLint_Main(); return 1;
+  case 0xA7B80D: KraidsMiddleLint_Main(); return 1;
+  case 0xA7B819: KraidsBottomLint_Main(); return 1;
+  case 0xA7B93F: KraidEnemy_DecrementEnemyFunctionTimer(); return 1;
+  case 0xA7B9F6: KraidsFoot_Main(); return 1;
+  case 0xA7BA2E: KraidsFoot_SecondPhase_Thinking(); return 1;
+  case 0xA7BB45: KraidsFoot_SecondPhase_WalkingBackwards(); return 1;
+  case 0xA7BB6E: KraidsFoot_SecondPhaseSetup_WalkToStartPt(); return 1;
+  case 0xA7BBA4: KraidsFoot_SecondPhase_Init(); return 1;
+  case 0xA7BBAE: KraidsFoot_SecondPhase_WalkForward(); return 1;
+  case 0xA7BBEA: Kraid_Main_AttackWithMouthOpen(); return 1;
+  case 0xA7BCCF: KraidsGoodFingernail_Touch(); return 1;
+  case 0xA7BCDE: KraidsBadFingernail_Touch(); return 1;
+  case 0xA7BCEF: KraidsGoodFingernail_Init(); return 1;
+  case 0xA7BD2D: KraidsBadFingernail_Init(); return 1;
+  case 0xA7BD32: KraidsGoodFingernail_Main(); return 1;
+  case 0xA7BD49: KraidsBadFingernail_Main(); return 1;
+  case 0xA7BD60: KraidsFingernail_Init(); return 1;
+  case 0xA7BF2D: KraidsFoot_PrepareToLungeForward(); return 1;
+  case 0xA7BF5D: KraidsFoot_FirstPhase_LungeForward(); return 1;
+  case 0xA7BFAB: KraidsFoot_FirstPhase_RetreatFromLunge(); return 1;
+  case 0xA7C005: Kraid_HandleFirstPhase(); return 1;
+  case 0xA7C0A1: Kraid_GetsBig_ReleaseCamera(); return 1;
+  case 0xA7C168: Kraid_SpawnPlmToClearCeiling(); return 1;
+  case 0xA7C171: Kraid_ClearSomeSpikes(); return 1;
+  case 0xA7C360: Kraid_Death_Init(); return 1;
+  case 0xA7C4A4: Kraid_Death_UpdateBG2TilemapTopHalf(); return 1;
+  case 0xA7C4C8: Kraid_Death_UpdateBG2TilemapBottomHalf(); return 1;
+  case 0xA7C51D: Kraid_PlaySoundEveryHalfSecond(); return 1;
+  case 0xA7C59F: Kraid_HandleSinking(); return 1;
+  case 0xA7C537: Kraid_Death_SinkThroughFloor(); return 1;
+  case 0xA7C691: Kraid_CrumbleLeftPlatform_Left(); return 1;
+  case 0xA7C6A7: Kraid_CrumbleRightPlatform_Middle(); return 1;
+  case 0xA7C6BD: Kraid_CrumbleRightPlatform_Left(); return 1;
+  case 0xA7C6D3: Kraid_CrumbleLeftPlatform_Right(); return 1;
+  case 0xA7C6E9: Kraid_CrumbleLeftPlatform_Middle(); return 1;
+  case 0xA7C6FF: Kraid_CrumbleRightPlatform_Right(); return 1;
+  case 0xA7C715: Kraid_FadeInBg_ClearBg2TilemapTopHalf(); return 1;
+  case 0xA7C751: Kraid_FadeInBg_ClearBg2TilemapBottomHalf(); return 1;
+  case 0xA7C777: Kraid_FadeInBg_LoadBg3Tiles1of4(); return 1;
+  case 0xA7C7A3: Kraid_FadeInBg_LoadBg3Tiles2of4(); return 1;
+  case 0xA7C7C9: Kraid_FadeInBg_LoadBg3Tiles3of4(); return 1;
+  case 0xA7C7EF: Kraid_FadeInBg_LoadBg3Tiles4of4(); return 1;
+  case 0xA7C815: Kraid_FadeInBg_FadeInBp6(); return 1;
+  case 0xA7C843: Kraid_FadeInBg_SetEnemyDead_KraidWasAlive(); return 1;
+  case 0xA7C851: Kraid_FadeInBg_SetEnemyDead_KraidWasDead(); return 1;
+  case 0xA7C874: Kraid_UpdateBg2TilemapTopHalf(); return 1;
+  case 0xA7C8B6: Kraid_UpdateBG2TilemapBottomHalf(); return 1;
+  case 0xA7C89A: Kraid_Raise_LoadTilemapBottomAndShake(); return 1;
+  case 0xA7C8E0: Kraid_Raise_SpawnRandomEarthquakeProjs16(); return 1;
+  case 0xA7C902: Kraid_Raise_SpawnRandomEarthquakeProjs8(); return 1;
+  case 0xA7C924: Kraid_Raise_Handler(); return 1;
+  case 0xA7C995: Kraid_SpawnRandomQuakeProjs(); return 1;
+  case 0xA7C9EE: Kraid_RestrictSamusXtoFirstScreen_2(); return 1;
   case 0xA7CDF3: Phantoon_Init(); return 1;
   case 0xA7CE55: Phantoon2_Init(); return 1;
   case 0xA7CEA6: Phantoon_Main(); return 1;

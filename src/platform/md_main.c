@@ -37,7 +37,7 @@ void md_vint(void);
 #define SNES_R 0x0010
 
 #ifdef MD_TEST_INPUT
-extern const u16 kTestInput[];
+extern const u16 kTestRle[];   /* (cuadros, botones) por tramos */
 extern const u16 kTestInputLen;
 static u16 test_pos;
 #endif
@@ -117,7 +117,13 @@ static u16 read_joy(void) {
 #endif
   }
 #endif
-  if (test_pos < kTestInputLen) return kTestInput[test_pos++];
+  if (test_pos < kTestInputLen) {               /* por tramos (tools/conv/rle_test_input.py): cuadros, botones */
+    static u16 rle_i, rle_left, rle_v;
+    if (!rle_left) { rle_left = kTestRle[2 * rle_i]; rle_v = kTestRle[2 * rle_i + 1]; rle_i++; }
+    rle_left--;
+    test_pos++;
+    return rle_v;
+  }
 #endif
   u16 pad = JOY_readJoypad(JOY_1);
   u16 s = 0;

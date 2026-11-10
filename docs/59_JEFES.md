@@ -189,7 +189,6 @@ Ojo: el patrón de prueba no llega a cada fase de cada pelea (Mother Brain, sobr
    `nt_ram_w`/`nt_ram_set_w`. Arregla también los otros jefes que miran su bit así (`& 1`: Phantoon y otros, 3 lugares).
    Ahora la sala vencida se ve como en el SNES (el esqueleto en x = 576, con sus colores). PC: la muerte (3000 cuadros)
    y la sala vencida (2000) en 0 diferencias. Regresión: sin cambios.
-5. **(antes) La sala vencida** (estado con el esqueleto y el puente roto): comprobar que se ve bien.
 
 ## Rendimiento de las salas de jefes (2026-11-06)
 

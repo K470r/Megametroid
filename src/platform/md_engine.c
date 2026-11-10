@@ -1225,6 +1225,12 @@ uint32 ep_lookup(uint16 v2, uint16 sm, uint16 g) {
   if (sm == 0x8000) return 0;                   /* $8D:8000: spritemap vacío (el proyectil aún sin instrucción) */
   const uint16 *r = ep_zebes ? zebes_obj_find_cached(sm, g, 0x8000) : find_key_q(2, sm, g, 0);
   if (!r) { missing(2, sm, g, 0); return 0; }
+  if (ep_zebes) {                               /* clave por cuadro (Kraid): los registros con su lugar, sin recordarlos */
+    extern const uint16 *zebes_obj_ep_recs(const uint16 *r, uint8 *stream);
+    uint8 st;
+    r = zebes_obj_ep_recs(r, &st);
+    if (st) { ep_cache[v2 >> 1].rec = 0; return (uint32)r; }
+  }
   struct EpCache *c = &ep_cache[v2 >> 1];
   c->sm = sm; c->g = g; c->rec = r;
   return (uint32)r;

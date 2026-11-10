@@ -708,9 +708,8 @@ def bg_loads_4000(bg_ptr):
 
 
 # salas con el cuerpo dibujado
-# (Kraid, A59F: en curso, docs/59: su cuerpo y sus sprites no entran juntos en la VRAM; se prueba con
-# MM_BOSS_BG2_ROOMS=CD13,DA60,A98D,A59F)
-BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60,A98D").split(",") if x}
+# (Kraid, A59F: sus sprites por cuadro, mkzobj.STREAM_ROOMS, para que entren con su cuerpo: docs/59)
+BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60,A98D,A59F").split(",") if x}
 
 
 # ------------------------------------------------------------------ todo
@@ -912,7 +911,7 @@ def main():
          '   de 32 celdas (la fila R, píxel R * 8 de la sala) */',
          'typedef struct { uint16 state; uint16 gfx; uint16 obj; } ZebesState;   /* obj: 0xFFFF sin objetos */',
          'typedef struct { uint8 page; uint16 ntiles, nkeys, nruns; const uint16 *runs; const uint16 *src; const uint16 *keys;',
-         '                 const uint16 *recs; uint16 base; } ZebesObj;   /* base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala) */',
+         '                 const uint16 *recs; uint16 base; uint8 stream; } ZebesObj;   /* base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala); stream: objetos por cuadro desde base (mkzobj.STREAM_ROOMS) */',
          '/* objetos: tiles desde ZOBJ_BASE; src: 30 índices de palette_buffer, colores 1-15 de la línea 3 debajo del HUD (9-13 el rayo)',
          '   y 1-15 de la línea 1 (solo con un jefe de colores propios, la sala en una línea: mkzobj.BOSS_LINE), 0xFFFF sin uso;',
          '   keys: (spritemap, paleta, tiles, desplazamiento en recs) ordenadas; recs: como los de md_data */',
@@ -1125,7 +1124,7 @@ def main():
     H.append(f'extern const ZebesObj kZebesObj[{max(1, len(obj_list))}];')
     C.append(f'const ZebesObj kZebesObj[{max(1, len(obj_list))}] = {{')
     for i, d in enumerate(obj_list):
-        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["runs"]) // 2}, kZO{i}_runs, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]} }},')
+        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["runs"]) // 2}, kZO{i}_runs, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]}, {d.get("stream", 0)} }},')
     if not obj_list:
         C.append('  { 0 },')
     C.append('};')

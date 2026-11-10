@@ -775,6 +775,64 @@ def frozen_entry(rom, vram, k, islot, common):
     return common["index"][content]
 
 
+# salas con los objetos "por cuadro" (docs/59): sus claves no tienen tiles fijos en la VRAM; cada una es una entrada
+# del juego común (como los congelados: tiles desde 0 y registros) que la Genesis sube cuando se dibuja, a un depósito
+# de lugares en la zona de los objetos (md_zebes.c, frz_*). Kraid: su cuerpo y sus sprites no entran juntos.
+STREAM_ROOMS = {0xA59F}
+STREAM_EPROJ = True     # los proyectiles enemigos también por cuadro (md_zebes.c, zebes_obj_ep_recs)
+
+
+def stream_entries(d, common, vbase):
+    """los objetos del estado d (convert_state, armado con base 0) por cuadro: cada clave con sus tiles (los que usan
+    sus registros, en el orden de la Genesis: columna por columna en un sprite grande) en el juego común. Quedan fijos
+    (desde vbase, la zona de los objetos) los proyectiles enemigos (clave con 0x8000: md_engine.c los dibuja con sus
+    registros, ep_lookup); el depósito de la Genesis empieza después de ellos"""
+    base, tiles = 0, d["tiles"]
+    recs = list(d["recs"])
+    keys, res_tiles, res_idx = [], [], {}
+    for key in d["keys"]:
+        off = key[-1]
+        if off >= FROZEN_REF:
+            keys.append(key)
+            continue
+        if key[2] == 0x8000 and not STREAM_EPROJ:  # proyectil enemigo: fijo
+            for i in range(recs[off]):
+                sl, attr = recs[off + 6 + 4 * i], recs[off + 7 + 4 * i]
+                w, h = ((sl >> 10) & 3) + 1, ((sl >> 8) & 3) + 1
+                t0 = (attr & 0x7FF) - base
+                blk = tuple(tiles[(t0 + j) * 32:(t0 + j + 1) * 32] for j in range(w * h))
+                if blk not in res_idx:
+                    res_idx[blk] = len(res_tiles)
+                    res_tiles += blk
+                recs[off + 7 + 4 * i] = (attr & 0xF800) | (vbase + res_idx[blk])
+            keys.append(key)
+            continue
+        n = recs[off]
+        out, tidx, ent_tiles = [], {}, []
+        for i in range(n):
+            y, sl, attr, x = recs[off + 5 + 4 * i: off + 9 + 4 * i]
+            w, h = ((sl >> 10) & 3) + 1, ((sl >> 8) & 3) + 1
+            t0 = (attr & 0x7FF) - base
+            blk = tuple(tiles[(t0 + j) * 32:(t0 + j + 1) * 32] for j in range(w * h))
+            if blk not in tidx:
+                tidx[blk] = len(ent_tiles)
+                ent_tiles += blk
+            out.append((y, sl, (attr & 0xF800) | tidx[blk], x))
+        words = recs[off:off + 5] + [v for r in out for v in r]
+        content = (b"".join(ent_tiles), tuple(words))
+        if content not in common["index"]:
+            common["index"][content] = len(common["list"])
+            common["list"].append((content[0], list(words)))
+        keys.append(tuple(key[:-1]) + (FROZEN_REF | common["index"][content],))
+    d = dict(d)
+    d["keys"] = sorted(keys)
+    d["recs"] = recs
+    d["tiles"] = b"".join(res_tiles)
+    d["base"] = vbase
+    d["stream"] = 1
+    return d
+
+
 def build(rom_path, log_paths, states, frozen=None):
     """states: [(estado, sala, tilesets_ptr)] -> {estado: datos o None}. frozen: {"index": {}, "list": []} que se
     llena con el juego común de los congelados (frozen_entry)"""
@@ -809,7 +867,10 @@ def build(rom_path, log_paths, states, frozen=None):
         ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an))
         if ck not in cache:                       # (lo mismo: se comparte)
             sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else OBJ_SLOT_LIST
-            cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an)
+            if room in STREAM_ROOMS:              # por cuadro: los tiles no tienen que entrar juntos (base 0)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an)
+            else:
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an)
             if cache[ck] is None and low < ZOBJ_BASE:   # más lugar: desde el final de los tiles de la sala
                 cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an)
             if cache[ck] is None:                 # no entran los tiles: sin juntar piezas (comparten los tiles del SNES)
@@ -836,6 +897,8 @@ def build(rom_path, log_paths, states, frozen=None):
                         nf += 1
                 d["keys"].sort()
                 assert len(d["recs"]) < FROZEN_REF, "objetos: los registros pasan de 0x8000 palabras"
+                if room in STREAM_ROOMS:          # por cuadro: sin tiles fijos (stream_entries)
+                    d = cache[ck] = stream_entries(d, frozen, 448 + ((room_tiles + 7) & ~7))
                 print(f"objetos sala {room:04X}: {len(d['keys'])} spritemaps ({nf} congelados), {len(d['tiles']) // 32} tiles, "
                       f"sprites {d['nspr'][0]} -> {d['nspr'][1]}, "
                       f"{d['ncolors']} colores ({d['merged']} fusiones)", file=sys.stderr)

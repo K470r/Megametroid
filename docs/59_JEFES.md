@@ -402,3 +402,23 @@ full64, `bg_loads_4000`), las palabras de la boca y del ojo ($A7:97C8-A0C8) en l
 como parte del cuerpo, los tiles del cuerpo en 0xF000 y en las filas libres de la Window (`BOSS_WIN_TILE`,
 `bt_dma` en dos partes) y el plano B de 64x64 (`ZebesGfx.bg2h`). Con A59F activado el cuerpo ya aparece en su lugar
 (falta lugar para los sprites).
+
+### Kraid, paso 2: sprites por cuadro (2026-11-11)
+
+Elegido por el usuario: subir los sprites de Kraid por cuadro (sin pérdida). Hecho:
+- **Generador** (`mkzobj.STREAM_ROOMS = {A59F}`): en esas salas los objetos se convierten con base 0 y cada clave
+  pasa a ser una entrada del juego común de los congelados (tiles propios desde 0 y registros; `stream_entries`). La
+  sala ya no tiene tiles fijos de objetos (`ZebesObj.stream`). También los proyectiles enemigos (`STREAM_EPROJ`).
+- **Motor** (md_zebes.c): el depósito de los congelados se configura al entrar a la sala (`frz_setup`): normal, 3
+  lugares de 18 tiles en la Window; con `stream`, hasta 48 lugares de 8 tiles desde el final de la sala (Kraid vivo:
+  928-1279), con sus tablas en `cinematic_text_tilemap + 3200`. Un lugar se libera si no se dibujó en `FRZ_KEEP`
+  cuadros; el vblank sube los tiles pedidos. Los proyectiles enemigos (`ep_lookup`, que copia registros) usan
+  `zebes_obj_ep_recs`: sus registros con el lugar ya sumado en un búfer (`+ 3488`), sin recordarlos.
+  `zebes_load_vram` reinicia el depósito (la pausa pisa sus tablas).
+- Con esto entran el cuerpo de Kraid (plano B de 64x64, `BOSS_BG2_ROOMS` con A59F) y todos sus sprites: Kraid se ve
+  entero en la Genesis, sube y se mueve como en el SNES, con brazo, rocas y polvo. Sin claves que falten.
+  Regresión: 0 distintos.
+
+Lo que falta (paso 3): la sala (BG1: las púas, la pared de la cueva y sus colores; la paleta 6 en vivo y los tiles
+1008-1023 que Kraid sube), lo que Kraid escribe en su BG2 (boca y ojo, sus dos mitades, el hundimiento), los colores
+del cuerpo en su propia línea y el rendimiento con el depósito.

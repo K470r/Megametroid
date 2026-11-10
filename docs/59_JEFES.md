@@ -308,3 +308,40 @@ estatuas y las gemas, y comprobar que al vencer a cada jefe pasa lo mismo que en
   tools/conv/wip/mkzebes_kraid_bg2.py (library_bg de 64x64, BOSS_BG2_64).
 - El fondo de la sala (plano A) se ve distinto del SNES ya en la ROM anterior: en esta sala las capas no son las de
   siempre (en el BG1 del SNES aparece textura del cuerpo); revisar cómo las reparte antes de comparar.
+
+## Kraid: plan (2026-11-10)
+
+Medido en la VRAM del SNES en plena pelea (hlref `HL_VDUMP`):
+
+| | SNES | Genesis (con los volteos de sus tiles) |
+|---|---|---|
+| BG2 (pared del fondo + cuerpo de Kraid, 64x64, tiles desde la palabra 0x2000: `BG12NBA = 0x0200`) | 490 tiles | **287** únicos; como mucho **253** en una pantalla |
+| BG1 (la sala, 64x32, tiles desde 0) | 167 | **150** |
+| Sprites de Kraid (brazo, pies, uñas, pelusas, rocas, polvo; todos sus cuadros) | — | 458 (mkzobj) |
+
+Lugar en la VRAM de la Genesis: 1280 tiles (0x0000-0x9FFF), de los que 448 son comunes (Samus, HUD, rayo); más 123 en
+0xF000 y 54 en las filas libres de la Window: **~1010 para la sala, el cuerpo y los objetos**. Con volteos: 150 + 287 +
+458 = 895: entra sin redibujar nada. Hoy no entra (680 tiles de sala y cuerpo) porque el generador lee el BG2 como
+el de los otros jefes (64x32 en $4800, tiles desde 0): Kraid lo tiene en otro lugar y de otro tamaño.
+
+Paleta: el cuerpo (BG2) y todas las piezas (sprites, `0E00`) usan la paleta 7 del SNES: una línea de la Genesis
+(`BOSS_LINE`) con sus 15 colores exactos para el cuerpo y las piezas a la vez, sin juntar colores.
+
+Pasos:
+1. **Capas y fases** en el SNES: subida (el techo se rompe, la cámara), pelea, muerte (se hunde: `kKraidSinkEntry`
+   borra filas por la cola de VRAM, fundido de la paleta 6) y sala vencida. Qué escribe Kraid en el mapa del BG2: las
+   dos mitades (7E:2000/2800 -> $4000/$4800), la boca y el ojo (4 cuadros de 352 palabras desde $A7:97C8-A0C8 a
+   $4000) y el borrado al hundirse.
+2. **Generador**: el BG2 de 64x64 desde $4000 con los tiles desde 0x2000 (borrador: tools/conv/wip/), los tiles con
+   volteos, las palabras de la boca y del ojo también, el cuerpo en `BOSS_LINE`; reparto propio de la VRAM de la sala:
+   comunes | sala | cuerpo | objetos, más 0xF000 y la Window. Si no alcanza: los sprites de Kraid subidos por cuadro
+   (solo los del cuadro de animación que se ve, como Samus) o el cuerpo en la caché de Crocomire (253 a la vez).
+3. **Motor**: la cola de VRAM de Kraid (sus entradas a $4000/$4800 y las de la boca) convierte palabras al plano B
+   como `bb_convert`; el scroll del BG2 (la subida); los fundidos de su paleta.
+4. **Pruebas** contra el SNES: lado_a_lado y los planos armados por separado desde la VRAM de las dos consolas (como
+   con Crocomire); la muerte con `HL_POKE_AT`/`MD_TEST_POKES` (vida de Kraid: 7E:0F8C); la sala vencida.
+5. **Terminar**: las rocas (salen amarillentas), la uña mala (un cuadro antes en el PC), el rendimiento.
+
+Redibujar tiles: con los volteos no hace falta. Fusionar tiles parecidos casi no ahorra (8 de 287 difieren en 6
+píxeles o menos). Si alguna vez hiciera falta, la reducción se hace en el generador con la ROM de cada uno (nada del
+juego en el repositorio, docs/43), no a mano.

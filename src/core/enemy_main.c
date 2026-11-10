@@ -16,12 +16,22 @@ uint16 enemy_ram7800[0x1000];
 static inline uint16 abs16(uint16 t) { return sign16(t) ? (uint16)-t : t; }
 
 /* palabra de un banco de datos de enemigos (punteros de 16 bits del SNES, palabras ya nativas) */
+/* (el comienzo de la copia del banco se recuerda: las cajas de golpe de los spritemaps extendidos, Crocomire, leen
+   cientos de palabras por cuadro y el switch de port_bank_word era el 12 % del cuadro) */
+static uint8 bw_bank;
+static const uint8 *bw_base;
 static inline uint16 BankW(uint8 bank, uint16 a) {
-  if (bank == 0xA6) return A6W(a);
-  { extern uint8 port_bank_word(uint8 bank, uint16 a, uint16 *w); uint16 w; if (port_bank_word(bank, a, &w)) return w; }
-  nt_unimpl_v("BankW (banco sin preparar)", bank);
-  return 0;
+  if (bank != bw_bank || !bw_base) {
+    extern const uint8 *port_bank_base(uint8 bank);
+    const uint8 *b = bank == 0xA6 ? kBankA6B : port_bank_base(bank);
+    if (!b) { nt_unimpl_v("BankW (banco sin preparar)", bank); return 0; }
+    bw_bank = bank; bw_base = b;
+  }
+  return BANKB_W(bw_base, a);
 }
+
+/* palabra de cualquier banco de datos ya preparado (RomPtrWithBank del decomp: WriteColorsToPalette $A9:D2E4) */
+uint16 nt_bank_w(uint8 bank, uint16 a) { return BankW(bank, a); }
 
 /* Definición de enemigo por su dirección: búsqueda binaria (mkdata.py los deja ordenados), con una caché de las
    últimas: el bucle de enemigos la pide muchas veces por cuadro y con todos los enemigos de Zebes la búsqueda son
@@ -92,6 +102,28 @@ void CallEnemyAi(uint8 bank, uint16 f) {
 #endif
     nt_unimpl_v("CallEnemyAi (IA de enemigo sin portar)", ea); return;
   }
+}
+
+/* tilemap de un spritemap extendido (0xFFFE): bloques (destino en la RAM, palabras, datos) hasta 0xFFFF, casi siempre
+   en tilemap_stuff (7E:2000, el BG2 de los jefes grandes: Phantoon, Draygon, Crocomire); la NMI lo sube a la VRAM
+   (QueueEnemyBG2TilemapTransfers; en la Genesis, la plataforma) */
+void ProcessExtendedTilemap(uint8 db, uint16 r22) {  // 0xA096CA
+  uint16 p = r22 + 2;
+  for (;;) {
+    uint16 dst = BankW(db, p);
+    if (dst == 0xFFFF)
+      break;
+    uint16 n = BankW(db, p + 2);
+    p += 4;
+    for (uint16 i = 0; i < n; i++, p += 2, dst += 2) {
+      uint16 w = BankW(db, p);
+      if ((uint16)(dst - 0x2000) < 0x1000)
+        tilemap_stuff[(dst - 0x2000) >> 1] = w;
+      else
+        nt_ram_set_w(dst, w);
+    }
+  }
+  ++nmi_flag_bg2_enemy_vram_transfer;
 }
 
 /* ------------------------------------------------------------------ carga ($A0:8A1E) */
@@ -235,7 +267,7 @@ void InitializeEnemies(void) {  // 0xA08A9E
   num_enemy_deaths_left_to_clear = P->kill_count;
 }
 
-uint16 SpawnEnemyN(uint8 db, uint16 k) {  // 0xA09275: población de un solo enemigo en el banco db (16 bytes)
+uint16 SpawnEnemy(uint8 db, uint16 k) {  // 0xA09275: población de un solo enemigo en el banco db (16 bytes)
   uint16 varE20 = k;
   uint16 backup = cur_enemy_index;
   int16 v3 = enemy_def(BankW(db, k))->num_parts - 1;
@@ -799,7 +831,7 @@ static void WriteEnemyOams(void) {  // 0xA0944A
       uint16 x = x2 + BankW(E->bank, ep), y = y2 + BankW(E->bank, ep + 2);
       if (BankW(E->bank, sm) == 0xFFFE) {
         if (E->extra_properties & 0x8000)
-          nt_unimpl("WriteEnemyOams (tilemap extendido)");   /* ProcessExtendedTilemap */
+          ProcessExtendedTilemap(E->bank, sm);
       } else if (!((x + 128) & 0xFE00) && !((y + 128) & 0xFE00)) {
         DrawEnemySpritemap(E->bank, sm, x, y, palette_index, E->vram_tiles_index);
       }

@@ -100,7 +100,7 @@ retrorun). `make full` desde cero da el mismo md5.
 
 Lo que proponía la sección del Mega CD (abajo), aprobado por Edwin con tope de 16 MB (docs/55, "Todo el juego"):
 - **La ventana 6 (0x300000-0x37FFFF) muestra la página de sonido del conjunto de música cargado**, cambiada solo en
-  `music_upload` (`$A130FD`), como el SNES sube un conjunto (`APU_UploadBank` $80:8F0C). Páginas 6 y 24-28 (en
+  `music_upload` (`$A130FD`), como el SNES sube un conjunto (`APU_UploadBank` $80:8F0C). Páginas 6 y 24-28 (desde 2026-11-05: 6 y 26-31; la 24 y la 25 son de Zebes, con los enemigos de todas las áreas; en
   `md_ssf2.ld` hay lugar hasta la 31: 16 MB).
 - Lo común tiene que quedar **debajo de 0x300000** (`ASSERT` en `md_ssf2.ld`). Para eso salieron de lo común:
   - el título → al final de la página 22 (se ve con la ventana 7 en 22, `front_screens`);

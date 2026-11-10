@@ -14,6 +14,14 @@ class Graph:
             lines = open(f, encoding='utf-8', errors='replace').read().split('\n')
             i = 0
             while i < len(lines):
+                m1 = re.match(r'^(?:static )?void ([A-Za-z_]\w*)\((?:void|uint16 \w+)\) \{\}\s*(?://\s*0x([0-9A-Fa-f]{6}))?\s*$', lines[i])
+                if m1:                                  # de una línea: void nullsub_305(void) {}
+                    a = int(m1.group(2), 16) if m1.group(2) else None
+                    self.funcs.setdefault(m1.group(1), (os.path.basename(f), i + 1, i + 1, a, lines[i].replace('{}', '{\n}')))
+                    if a is not None:
+                        self.addr.setdefault(a, m1.group(1))
+                    i += 1
+                    continue
                 m = HDR.match(lines[i])
                 if m and not lines[i].startswith((' ', '\t')) and m.group(2) not in ('if', 'while', 'for', 'switch'):
                     name = m.group(2)

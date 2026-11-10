@@ -11,7 +11,7 @@
 
 uint8 nt_viewer;                          /* la Genesis lo enciende (md_main); en el PC (comparación con el SNES), no */
 uint8 nt_viewer_place;                    /* la Genesis: al llegar a la sala, Samus a un lugar libre en la pantalla */
-uint8 nt_viewer_enemies;                  /* la Genesis: con los enemigos de Crateria (ya portados y dibujados) */
+uint8 nt_viewer_enemies;                  /* la Genesis: con los enemigos (ya portados y dibujados) */
 static int16 viewer_idx = -1;
 static uint8 place_pending;
 uint16 viewer_debug_next = 0xFFFF;       /* pruebas: la próxima sala del visor (índice), puesta desde el emulador */
@@ -46,9 +46,12 @@ static void viewer_place_samus(void) {
 
 uint8 viewer_keep_enemy(uint16 enemy_ptr) {
   /* la nave y los ascensores (Elevator, $A3:D73F) siempre: sin el ascensor Samus se queda arriba del cuarto al bajar
-     (Brinstar verde, 9AD9). Con los enemigos: Crateria y Brinstar (salvo la sala de Kraid, A59F, sin portar) */
-  return !nt_viewer || area_index == 6 || enemy_ptr == 0xD07F || enemy_ptr == 0xD0BF || enemy_ptr == 0xD73F
-         || (nt_viewer_enemies && (area_index == 0 || (area_index == 1 && room_ptr != 0xA59F)));
+     (Brinstar verde, 9AD9). Con los enemigos: todas las áreas (Kraid, A59F, portado: docs/59) */
+  if (!nt_viewer || area_index == 6 || enemy_ptr == 0xD07F || enemy_ptr == 0xD0BF || enemy_ptr == 0xD73F)
+    return 1;
+  if (!nt_viewer_enemies || area_index > 5)
+    return 0;
+  return 1;
 }
 
 static int16 viewer_find(uint16 room) {

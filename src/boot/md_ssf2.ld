@@ -165,10 +165,11 @@ SECTIONS
   ASSERT(SIZEOF (.bank22) <= 0x80000, "MegaMetroid: la pagina 22 pasa de 512 KB")
   .bank23 0x380000 : AT (0xB80000) { KEEP(*(.bank23)) }
   ASSERT(SIZEOF (.bank23) <= 0x80000, "MegaMetroid: la pagina 23 pasa de 512 KB")
-  .snd24 0x300000 : AT (0xC00000) { KEEP(*(.snd_page24)) }
-  ASSERT(SIZEOF (.snd24) <= 0x80000, "MegaMetroid: la pagina de sonido 24 pasa de 512 KB")
-  .snd25 0x300000 : AT (0xC80000) { KEEP(*(.snd_page25)) }
-  ASSERT(SIZEOF (.snd25) <= 0x80000, "MegaMetroid: la pagina de sonido 25 pasa de 512 KB")
+  /* 24 y 25: Zebes (los objetos de los enemigos de todas las áreas); el sonido va en la 6 y de la 26 a la 31 */
+  .bank24 0x380000 : AT (0xC00000) { KEEP(*(.bank24)) }
+  ASSERT(SIZEOF (.bank24) <= 0x80000, "MegaMetroid: la pagina 24 pasa de 512 KB")
+  .bank25 0x380000 : AT (0xC80000) { KEEP(*(.bank25)) }
+  ASSERT(SIZEOF (.bank25) <= 0x80000, "MegaMetroid: la pagina 25 pasa de 512 KB")
   .snd26 0x300000 : AT (0xD00000) { KEEP(*(.snd_page26)) }
   ASSERT(SIZEOF (.snd26) <= 0x80000, "MegaMetroid: la pagina de sonido 26 pasa de 512 KB")
   .snd27 0x300000 : AT (0xD80000) { KEEP(*(.snd_page27)) }

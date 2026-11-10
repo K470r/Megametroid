@@ -141,6 +141,9 @@ $(OBJ)/front_%_c.o: $(GEN)/front/%.c $(FLAGS_STAMP)
 $(OBJ)/front_%_s.o: $(GEN)/front/%.s $(FLAGS_STAMP)
 	cd $(GEN) && $(CC) -m68000 -c front/$*.s -o $@
 # los .s de res/gen/md hacen .incbin con rutas relativas a esa carpeta
+$(OBJ)/test_input.o: $(GEN)/test_input.s $(FLAGS_STAMP)
+	python3 $(ROOT)/tools/conv/rle_test_input.py $< $(OBJ)/test_input_rle.s
+	$(CC) -m68000 -c $(OBJ)/test_input_rle.s -o $@
 $(OBJ)/%.o: $(GEN)/%.s $(FLAGS_STAMP)
 	cd $(GEN) && $(CC) -m68000 -c $*.s -o $@
 $(GEN)/md_voice.s $(GEN)/md_snd_data.s:

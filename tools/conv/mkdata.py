@@ -42,10 +42,10 @@ H = ['/* Generado por tools/conv/mkdata.py desde la ROM del SNES: no editar. */'
 C = ['/* Generado por tools/conv/mkdata.py desde la ROM del SNES: no editar. */', '#include "tables.h"']
 
 
-def arr(ctype, name, vals, per=16, fmt='{}'):
+def arr(ctype, name, vals, per=16, fmt='{}', attr=''):
     al = ' __attribute__((aligned(2)))' if ctype in ('uint8', 'int8') else ''   # gcc lee de a palabras pares
     H.append(f'extern const {ctype} {name}[{len(vals)}]{al};')
-    C.append(f'const {ctype} {name}[{len(vals)}]{al} = {{')
+    C.append(f'{attr}const {ctype} {name}[{len(vals)}]{al} = {{')
     for i in range(0, len(vals), per):
         C.append('  ' + ', '.join(fmt.format(v) for v in vals[i:i + per]) + ',')
     C.append('};')
@@ -174,6 +174,7 @@ blob('kBank91_Pals', 0x91, 0xD727, 0xDCB4)
 blob('kBank91_SuitHdma', 0x91, 0xD5A2, 0xD692)   # listas del objeto de HDMA de los trajes (suit.c)
 blob('kBank9B_Grapple', 0x9B, 0xC0DB, 0xC9CE)   # tablas del gancho (grapple.c)
 blob('kGrappleSnesTiles', 0x9A, 0x8200, 0x92A0)  # tiles del gancho (el punto y los segmentos: md_engine.c)
+blob('kRainSnesTiles', 0x9A, 0xB700, 0xB740)     # tiles 0x50-0x53 del BG3 (las motas de la lluvia, 2 bpp: md_engine.c)
 H.append('static inline uint16 bank91_word(uint16 a) { const uint8 *p = kBank91_Pals + (uint16)(a - 0xD727); '
          'uint16 lo = p[0]; __asm__("" : "+d"(lo)); return lo | p[1] << 8; }')
 
@@ -346,6 +347,11 @@ H.append('#endif')
 # los niveles de Ceres (área 6) van en la página 7, con los tiles y planos de sus salas (mkmd.py): en Ceres la ventana 7
 # queda en 7 y lo común no los lleva (docs/48, docs/55)
 ceres_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if hb[1] == 6 for _, _, st in sels}
+# los niveles de las salas de los jefes van en la página de su código (tools/port/port.py, BOSS_PAGE: en esas salas la
+# ventana 7 muestra el nivel, así que el código del jefe está siempre a mano; docs/46)
+BOSS_PAGE = 25
+BOSS_ROOMS = {0x9DC7, 0xA59F, 0xA98D, 0xB283, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDC65, 0xDCB1, 0xDD58}   # (DC65: cadáveres de Tourian)
+boss_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if ra in BOSS_ROOMS for _, _, st in sels}
 page, used, lvl_page = LEVEL_PAGE0, 0, {}
 for i, lvl in enumerate(sorted(levels)):
     lvl_idx[lvl] = i
@@ -357,6 +363,13 @@ for i, lvl in enumerate(sorted(levels)):
         C.append(f'NT_BANK(7) const uint16 kLevel{i}_Data[{size // 2}] = {{' + ','.join(
             '0x%X' % v for v in struct.unpack('<%dH' % (size // 2), d[2:2 + size])) + '};')
         C.append(f'NT_BANK(7) const uint8 kLevel{i}_Bts[{size // 2}] = {{' + ','.join(
+            str(v) for v in d[2 + size:2 + size + size // 2]) + '};')
+        continue
+    if lvl in boss_lvls:
+        lvl_page[lvl] = BOSS_PAGE
+        C.append(f'NT_BANK({BOSS_PAGE}) const uint16 kLevel{i}_Data[{size // 2}] = {{' + ','.join(
+            '0x%X' % v for v in struct.unpack('<%dH' % (size // 2), d[2:2 + size])) + '};')
+        C.append(f'NT_BANK({BOSS_PAGE}) const uint8 kLevel{i}_Bts[{size // 2}] = {{' + ','.join(
             str(v) for v in d[2 + size:2 + size + size // 2]) + '};')
         continue
     if used + need > 0x80000:
@@ -440,6 +453,11 @@ H.append('#define kProjInstr_BombExplosion 0x%X  /* HIWORD(kProjInstrList_Explos
 TR_LO, TR_HI = 0xB4C9, 0xB5BB
 arr('uint16', 'kBank90_Trails', words(0x900000 | TR_LO, (TR_HI - TR_LO) // 2), fmt='0x{:X}')
 H.append(f'#define BANK90_TRAILS_LO 0x{TR_LO:X}')
+# salas de los jefes en el mapa (DisableMinimapAndMarkBossRoomAsExplored $90:A7E2): g_stru_90A83A (6 x {jefe, lista})
+# y sus listas de puntos (x, y) que terminan en una palabra con el bit 15
+BM_LO, BM_HI = 0xA83A, 0xA8A6
+arr('uint16', 'kBank90_BossMap', words(0x900000 | BM_LO, (BM_HI - BM_LO) // 2), fmt='0x{:X}')
+H.append(f'#define BANK90_BOSSMAP_LO 0x{BM_LO:X}')
 arr('uint16', 'off_90B5BB', words(0x90B5BB, 39), fmt='0x{:X}')
 arr('uint16', 'off_90B609', words(0x90B609, 39), fmt='0x{:X}')
 T9_LO, T9_HI = 0xA4B3, 0xA56F
@@ -612,9 +630,17 @@ _bk = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', '..', 't
 _bl = open(_bk).read().split() if _os.path.exists(_bk) else []
 if '86' not in _bl:
     _bl.append('86')                       # proyectiles de enemigos: también el motor escrito a mano (nmath.h)
+BOSS_BANKS = {0x91, 0xA4, 0xA5, 0xA9, 0xAD}      # solo los leen los jefes (Crocomire, Mother Brain; $91: su rayo; $A9: y los cadáveres; $A5: Draygon y Spore Spawn, 9DC7 en BOSS_ROOMS): en su página
 for _b in _bl:
     _b = int(_b, 16)
-    arr('uint8', 'kBank%02XB' % _b, list(r((_b << 16) | 0x8000, 0x8000) + r(((_b + 1) << 16) | 0x8000, 1)), per=32)
+    arr('uint8', 'kBank%02XB' % _b, list(r((_b << 16) | 0x8000, 0x8000) + r(((_b + 1) << 16) | 0x8000, 1)), per=32,
+        attr='NT_BANK(%d) ' % BOSS_PAGE if _b in BOSS_BANKS else '')
+# Kraid (Kraid_SetupGfxWithTilePrioClear $A7:AAC6): DecompressToMem($B9:FE3E) a 7E:2000 (tilemap_stuff, 2048 palabras) y
+# DecompressToMem($B9:FA38) a 7E:4000, del que lee las primeras 1024 palabras: ya descomprimidos, en la página de los jefes
+_k2 = decompress(0xB9FE3E)
+_k4 = decompress(0xB9FA38)
+arr('uint16', 'kKraidMap2000', [_k2[2 * i] | _k2[2 * i + 1] << 8 for i in range(2048)], fmt='0x{:04X}', attr='NT_BANK(%d) ' % BOSS_PAGE)
+arr('uint16', 'kKraidMap4000', [_k4[2 * i] | _k4[2 * i + 1] << 8 for i in range(1024)], fmt='0x{:04X}', attr='NT_BANK(%d) ' % BOSS_PAGE)
 # bancos poco usados: bytes (la mitad de ROM que las palabras; nmath.h los lee de a dos)
 def bankbytes(name, bank):
     arr('uint8', name, list(r((bank << 16) | 0x8000, 0x8000) + r(((bank + 1) << 16) | 0x8000, 1)), per=32)

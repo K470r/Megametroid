@@ -882,6 +882,7 @@ static int8 pb_decide(void) {
       pb_was = 0;
       pb_res_shape = -1; pb_full_ok = 0;
       md_cone_room();
+      { void zebes_boss_tiles_again(void); zebes_boss_tiles_again(); }   /* y los del cuerpo del jefe (docs/59) */
     }
     return -1;
   }

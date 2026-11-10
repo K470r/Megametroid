@@ -13,6 +13,7 @@
 #include "nmath.h"
 #include "samus.h"
 #include "game.h"
+#pragma GCC optimize("Os")              /* cajas de mensaje: corre poco; la parte común de la ROM no alcanzaba (docs/48) */
 
 void QueueSfx1_Max6(uint16 a);
 void QueueSfx2_Max6(uint16 a);

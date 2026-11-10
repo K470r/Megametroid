@@ -30,10 +30,18 @@ extern EnemySpawnData enemy_spawn_data[ENEMY_COUNT];
 /* RAM extra de los enemigos (7E:7800-97FF): variables de jefes como Ridley */
 extern uint16 enemy_ram7800[0x1000];
 #define ERAM(addr) (enemy_ram7800[(uint16)((addr) - 0x7800) >> 1])
+#define ERAM_ARR(addr) (&enemy_ram7800[(uint16)((addr) - 0x7800) >> 1])   /* arreglo de palabras en la RAM extra: ERAM_ARR(a)[i] */
 /* 7E:9000: el decomp la nombra aparte, pero es la misma RAM que ERAM(0x9000) (Draygon_Instr_22 $A5:E872 la escribe y
    EprojPreInstr_SporeSpawners $86:DD46 la lee; check la compara como parte de enemy_ram7800) */
 #define kraid_unk9000 ERAM(0x9000)
 static inline EnemySpawnData *gEnemySpawnData(uint16 k) { return &enemy_spawn_data[k >> 6]; }
+/* palabra de 7E:7000-97FF por su dirección del SNES: el decomp lee gEnemySpawnData(k)[31].campo (otro enemigo, o
+   pasado el final de los datos de aparición, la RAM extra 7E:7800: NorfairRio, NorfairLavaMan, MiniDraygon) */
+static inline uint16 *nt_spawn_p(uint16 a) {
+  if (a < 0x7800)
+    return (uint16 *)((uint8 *)enemy_spawn_data + (uint16)(a - 0x7000));
+  return &enemy_ram7800[(uint16)(a - 0x7800) >> 1];
+}
 
 #include "tables.h"
 const EnemyDefN *enemy_def_slow(uint16 addr);
@@ -67,7 +75,7 @@ uint16 GunshipInstrWord(uint16 a);
 void CeresSteam_Init(void);
 void CeresSteam_Main(void);
 void CeresSteam_Touch(void);
-uint16 SpawnEnemyN(uint8 db, uint16 k);
+uint16 SpawnEnemy(uint8 db, uint16 k);
 extern uint8 nt_enemy_gfx_drawn_hook;     /* enemy_gfx_drawn_hook: 1 = Ridley_A2F2 ($A6:A2F2), 0 = nullsub */
 void CallEnemyGfxDrawnHook(void);
 uint16 RidleyInstr(uint16 f, uint16 jp, int *ok);

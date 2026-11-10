@@ -37,7 +37,7 @@ for m in re.finditer(r'#define fn(\w+) 0x([0-9A-Fa-f]{6})', (SRC / 'funcs.h').re
 
 # instrucciones traducidas: dirección -> (pasos, saltos_desde_argumento, se_detiene)
 instr = {}
-for m in re.finditer(r'^uint16 (\w+)\(uint16 k, uint16 jp\) \{  // 0x([0-9A-F]{6})\n(.*?)^\}', PORT, re.M | re.S):
+for m in re.finditer(r'^(?:static )?(?:NT_BOSS )?uint16 (\w+)\(uint16 k, uint16 jp\) \{  // 0x([0-9A-F]{6})\n(.*?)^\}', PORT, re.M | re.S):
     a, body = int(m.group(2), 16), m.group(3)
     steps, jumps, stop = set(), set(), False
     for r in re.findall(r'return ([^;]*);', body):
@@ -177,6 +177,11 @@ def eproj_heads1(bank, fam):
     for m in re.finditer(r'(?:#define (addr_\w+) |\b(addr_\w+) = )0x([0-9a-fA-F]{4})', (SRC / 'funcs.h').read_text() + (SRC / 'ida_types.h').read_text() + t):
         names[m.group(1) or m.group(2)] = int(m.group(3), 16)
     for m in re.finditer(r'^\S[^\n]*\b%s_\w+\([^)]*\) \{.*?^\}' % re.escape(fam), t, re.M | re.S):
+        # (y las cabeceras que el código guarda antes en una variable: FakeKraid_Instr $A6:9AD0, v6 = addr_kEproj_
+        # MiniKraidSpikesLeft o Right, las púas del mini Kraid)
+        for a in re.findall(r'= (addr_kEproj_\w+);', m.group(0)):
+            if 'SpawnEprojWithGfx' in m.group(0) and names.get(a, 0) >= 0x8000:
+                res.add((names[a], False))
         for mm in re.finditer(r'SpawnEproj(WithRoomGfx|WithGfx)\(([^;]*)\);', m.group(0)):
             for a in re.findall(r'\baddr_\w+', mm.group(2)):
                 v = names.get(a)
@@ -210,7 +215,7 @@ def room_states(ra):
 # proyectiles con los tiles comunes (gfx 0): explosiones de muerte de los enemigos (off_86EFD5) y lo que sueltan
 # (off_86EF04): los mismos en todas las salas
 einstr = {}
-for m in re.finditer(r'^uint16 (\w+)\(uint16 k, uint16 (\w+)\) \{  // 0x(86[0-9A-F]{4})\n(.*?)^\}', PORT, re.M | re.S):
+for m in re.finditer(r'^(?:static )?(?:NT_BOSS )?uint16 (\w+)\(uint16 k, uint16 (\w+)\) \{  // 0x(86[0-9A-F]{4})\n(.*?)^\}', PORT, re.M | re.S):
     P, a, body = m.group(2), int(m.group(3), 16), m.group(4)
     steps, jumps, stop = set(), set(), False
     for r in re.findall(r'return ([^;]*);', body):
@@ -234,7 +239,7 @@ for m in re.finditer(r'case 0x86([0-9A-F]{4}): \w+\(k\); return jp;', PORT):
 # funciones del banco $86 traducidas (port_gen.c): las listas que ponen en eproj_instr_list_ptr, las
 # pre-instrucciones que ponen y las funciones que llaman (para seguir un proyectil por todo su código)
 PFUN = {}
-for m in re.finditer(r'^(?:static )?[\w ]+?\*?\b(\w+)\([^)]*\) \{  // 0x86([0-9A-F]{4})\n(.*?)^\}', PORT, re.M | re.S):
+for m in re.finditer(r'^(?:static )?(?:NT_BOSS )?[\w ]+?\*?\b(\w+)\([^)]*\) \{  // 0x86([0-9A-F]{4})\n(.*?)^\}', PORT, re.M | re.S):
     PFUN[m.group(1)] = (int(m.group(2), 16), m.group(3))
 PADDR = {a: n for n, (a, _) in PFUN.items()}
 NAMES86 = {}
@@ -428,6 +433,21 @@ for ra in rooms:
                     for sm in eproj_sms(PLM_EPROJ[v]):
                         lines.add('%04X eproj %04X 0000' % (ra, sm))
             q += 6
+        # Ridley de Norfair (E17F): lo que su código dibuja aparte (cola, alas: DrawA6Spritemap $A6:DC13) y sus bolas
+        # de fuego, las mismas claves que Ceres (mkmd.ridley_keys) en el formato de Zebes
+        q_ = 0xA10000 | w(0x8F0000 | st + 8)
+        while w(q_) != 0xFFFF:
+            if w(q_) == 0xE17F and ra != 0xE0B5:
+                for k_ in mkmd.ridley_keys(rom):
+                    if len(k_) > 2 and k_[0] in ('a6', 'enemy') and '0000' in k_[2:4]:
+                        continue                  # (sin el destello: en la VRAM de objetos no entran dos juegos)
+                    if k_[0] == 'a6':
+                        lines.add('%04X enemy A6 %s %s 0000' % (ra, k_[1], k_[2]))
+                    elif k_[0] == 'enemy':
+                        lines.add('%04X enemy %s %s %s %s' % ((ra,) + tuple(k_[1:])))
+                    elif k_[0] == 'eproj':
+                        lines.add('%04X eproj %s %s' % (ra, k_[1], k_[2]))
+            q_ += 16
         ets = w(0x8F0000 | st + 10)
         # tilesets: paleta y tiles de cada enemigo (LoadEnemyGfxIndexes, $A0:8BF3)
         gfx = {}

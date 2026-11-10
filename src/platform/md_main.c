@@ -37,7 +37,7 @@ void md_vint(void);
 #define SNES_R 0x0010
 
 #ifdef MD_TEST_INPUT
-extern const u16 kTestInput[];
+extern const u16 kTestRle[];   /* (cuadros, botones) por tramos */
 extern const u16 kTestInputLen;
 static u16 test_pos;
 #endif
@@ -89,12 +89,41 @@ static u16 read_joy(void) {
       samus_y_pos = samus_prev_y_pos = MD_TEST_SETXY_Y;
     }
 #endif
+#ifdef MD_TEST_POKES
+    /* varias a la vez: -DMD_TEST_POKES="{13543,0xF7A,0x640},{13543,0xCD24,0x101}" (cuadro, dirección, valor), en orden */
+    { static const uint16_t kPk[][3] = { MD_TEST_POKES }; static u8 ip;
+      while (ip < sizeof kPk / sizeof kPk[0] && test_pos >= kPk[ip][0]) {
+        extern uint16_t enemy_data[]; extern void nt_ram_set_w(uint16_t a, uint16_t x);
+        if (kPk[ip][1] >= 0x0F78 && kPk[ip][1] < 0x0F78 + 0x800) enemy_data[(kPk[ip][1] - 0x0F78) >> 1] = kPk[ip][2];
+        else nt_ram_set_w(kPk[ip][1], kPk[ip][2]);
+        ip++;
+      } }
+#endif
+#ifdef MD_TEST_POKE_AT
+    /* como HL_POKE_AT de hlref (-DMD_TEST_POKE_AT=n -DMD_TEST_POKE_ADDR=0xF7A -DMD_TEST_POKE_VAL=0x640): una palabra
+       de la RAM del SNES en el cuadro n de la entrada (enemy_data: la misma disposición; si no, nt_ram_set_w) */
+    { static u8 poked;
+      if (!poked && test_pos >= MD_TEST_POKE_AT) {
+        extern uint16_t enemy_data[]; extern void nt_ram_set_w(uint16_t a, uint16_t x);
+        poked = 1;
+        if (MD_TEST_POKE_ADDR >= 0x0F78 && MD_TEST_POKE_ADDR < 0x0F78 + 0x800)
+          enemy_data[(MD_TEST_POKE_ADDR - 0x0F78) >> 1] = MD_TEST_POKE_VAL;
+        else
+          nt_ram_set_w(MD_TEST_POKE_ADDR, MD_TEST_POKE_VAL);
+      } }
+#endif
 #ifdef MD_TEST_GOD
     if (game_state == 8) samus_health = samus_max_health;   /* como HL_GOD de hlref: Samus no muere */
 #endif
   }
 #endif
-  if (test_pos < kTestInputLen) return kTestInput[test_pos++];
+  if (test_pos < kTestInputLen) {               /* por tramos (tools/conv/rle_test_input.py): cuadros, botones */
+    static u16 rle_i, rle_left, rle_v;
+    if (!rle_left) { rle_left = kTestRle[2 * rle_i]; rle_v = kTestRle[2 * rle_i + 1]; rle_i++; }
+    rle_left--;
+    test_pos++;
+    return rle_v;
+  }
 #endif
   u16 pad = JOY_readJoypad(JOY_1);
   u16 s = 0;

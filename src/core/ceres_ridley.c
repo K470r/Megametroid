@@ -28,7 +28,7 @@ void RidleyGetawayFrame(void);                                                  
 void SpawnEprojWithRoomGfx(uint16 j, uint16 a);
 uint16 EnemyInstrWord(uint8 bank, uint16 a);
 
-static void WriteColorsToPalette(uint16 dst, uint16 src, uint16 n) {  // 0x82D... (dst en bytes de palette_buffer)
+static void WriteColorsToPalette_A6(uint16 dst, uint16 src, uint16 n) {  // 0x82D... (dst en bytes de palette_buffer)
   uint16 d = dst >> 1;
   for (uint16 i = 0; i < n; i++)
     palette_buffer[d + i] = A6W(src + 2 * i);
@@ -44,7 +44,7 @@ static uint16 CallBabyMetroidInstr(uint16 f, uint16 k) {
     QueueSfx3_Max6(0x24);
     return k + 2;
   case 0xBFE1:                                  // BabyMetroid_Instr_3
-    WriteColorsToPalette(0x162, A6W(k), 15);
+    WriteColorsToPalette_A6(0x162, A6W(k), 15);
     return k + 2;
   case 0xBFF2: return RV(0x46) ? A6W(k) : k + 2;   // BabyMetroid_Instr_1
   case 0xBFF8: return A6W(k);                      // BabyMetroid_Goto
@@ -82,16 +82,30 @@ static void DrawBabyMetroid_0(void) {  // 0xA6BF1A
 }
 
 /* ------------------------------------------------------------------ utilidades de Ridley */
-static void DisableMinimapAndMarkBossRoomAsExplored(void) {  // 0x90A7E2
+#define B90BM(a) kBank90_BossMap[((uint16)(a) - BANK90_BOSSMAP_LO) >> 1]   /* $90:A83A-A8A5 (mkdata.py) */
+static void MarkMapTileAsExplored(uint16 r18, uint16 r24) {  // 0x90A8A6
+  uint8 v0 = (uint16)(r18 & 0xFF00) >> 8;
+  uint16 R34 = (room_x_coordinate_on_map + v0) & 0x20;
+  uint16 r20 = ((room_x_coordinate_on_map + v0) & 0x1F) >> 3;
+  uint16 R22 = room_y_coordinate_on_map + ((r24 & 0xFF00) >> 8) + 1;
+  map_tiles_explored[(uint16)(r20 + 4 * (R34 + R22))] |= 0x80 >> ((room_x_coordinate_on_map + v0) & 7);   // kShr0x80
+}
+
+void DisableMinimapAndMarkBossRoomAsExplored(void) {  // 0x90A7E2
   debug_disable_minimap = 1;
   for (int i = 0; i < 5; i++) {
     hud_tilemap[i + 26] = 11295;
     hud_tilemap[i + 58] = 11295;
     hud_tilemap[i + 90] = 11295;
   }
-  /* g_stru_90A83A no tiene la entrada del jefe 1 (Ridley de Ceres): no se marca nada en el mapa */
-  if (boss_id == 3 || boss_id == 5 || boss_id == 6 || boss_id == 7 || boss_id == 8 || boss_id == 10)
-    nt_unimpl("DisableMinimapAndMarkBossRoomAsExplored (mapa del jefe)");
+  /* (g_stru_90A83A no tiene la entrada del jefe 1, Ridley de Ceres: ahí no se marca nada en el mapa) */
+  uint16 v2 = 5;
+  while (boss_id != B90BM(0xA83A + 4 * v2)) {     // g_stru_90A83A[v2].boss_id_
+    if ((--v2 & 0x8000) != 0)
+      return;
+  }
+  for (uint16 i = B90BM(0xA83A + 4 * v2 + 2); !(B90BM(i) & 0x8000); i += 4)
+    MarkMapTileAsExplored(B90BM(i), B90BM(i + 2));
 }
 
 typedef struct { uint16 x, y, w, h; } RectN;
@@ -396,7 +410,7 @@ static void Ridley_Func_115(void) {  // 0xA6D97D: aleteo
 /* ------------------------------------------------------------------ paleta */
 static void Ridley_D495(uint16 r18) {  // 0xA6D495
   if (!palette_change_num)
-    WriteColorsToPalette(0x1E2, (uint16)(28 * r18 - 7062), 0xE);
+    WriteColorsToPalette_A6(0x1E2, (uint16)(28 * r18 - 7062), 0xE);
 }
 
 static void Ridley_Func_101(void) {  // 0xA6D4B5
@@ -1151,15 +1165,15 @@ static void CeresRidley_Func_22(void) {  // 0xA6A971: se va con la bebé
 static void CeresRidley_Func_23(void) {  // 0xA6A9A0
   EnemyData *E = gEnemyData(0);
   if (--E->ai_preinstr & 0x8000) {
-    SpawnEnemyN(0xA6, 0xAA2F);                    // CeresRidley_Func_25
-    SpawnEnemyN(0xA6, 0xAA3F);
+    SpawnEnemy(0xA6, 0xAA2F);                    // CeresRidley_Func_25
+    SpawnEnemy(0xA6, 0xAA3F);
     E->ai_var_B = 0;
     E->ai_var_C = 0;
     TS[0] = 0;
     E->ai_var_A = 0xAA11;                         // CeresRidley_Func_24
-    WriteColorsToPalette(0xA2, 0xA9E3, 0xF);
-    WriteColorsToPalette(0x42, 0xAA01, 8);
-    WriteColorsToPalette(0x1E2, 0xAA01, 8);
+    WriteColorsToPalette_A6(0xA2, 0xA9E3, 0xF);
+    WriteColorsToPalette_A6(0x42, 0xAA01, 8);
+    WriteColorsToPalette_A6(0x1E2, 0xAA01, 8);
   }
 }
 
@@ -1190,7 +1204,7 @@ void RidleyGetawayMode7Queue(uint16 list);       /* capa de la Genesis: QueueMod
 void Samus_SetPushedOutOfCeresRidley(void);       /* samus_move.c ($90:E119) */
 
 static void CeresRidley_Func_35(uint16 a) {  // 0xA6B0EF: la paleta de Ridley según la escala
-  WriteColorsToPalette(0xA2, (uint16)(32 * HI8(a) - 0x4EF9), 0xF);
+  WriteColorsToPalette_A6(0xA2, (uint16)(32 * HI8(a) - 0x4EF9), 0xF);
 }
 
 static void CeresRidley_Func_29(void) {  // 0xA6AB5F: matriz del modo 7 (giro y escala)
@@ -1578,7 +1592,30 @@ void CeresRidley_Init(void) {  // 0xA6A0F5 (rama de Ceres)
   earthquake_timer = 0;
   Ridley_Func_92();
   Ridley_Func_117();
-  if (area_index == 2) { nt_unimpl("CeresRidley_Init (Norfair)"); return; }
+  if (area_index == 2) {                          // Ridley en Norfair (lo demás: traducido, port_gen.c)
+    E->properties |= 0x1000 | 0x400;
+    E->x_pos = 96;
+    E->y_pos = 394;
+    E->ai_var_A = 0xA35B;                         // CeresRidley_Func_3
+    E->ai_var_B = 0;
+    E->ai_var_C = 0;
+    E->layer = 5;
+    RV(0x01) = 0;
+    RV(0x02) = 1;
+    RV(0x20) = 64;
+    RV(0x21) = 416;
+    RV(0x22) = 64;
+    RV(0x23) = 224;
+    RV(0x10) = 2;
+    RV(0x1C) = 120;
+    for (int i = 0; i < 0x20; i++)                // WriteColorsToTargetPalette($A6, 0x140, word_A6E1CF, 0x20)
+      target_palettes[160 + i] = A6W(0xE1CF + 2 * i);
+    for (int i = 0; i < 15; i++) {
+      target_palettes[113 + i] = 0;
+      target_palettes[241 + i] = 0;
+    }
+    return;
+  }
   E->properties |= 0x1000 | 0x400;
   E->x_pos = 186;
   E->y_pos = 169;

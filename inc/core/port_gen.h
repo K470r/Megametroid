@@ -11,9 +11,21 @@
 #include "room.h"
 #include "nmath.h"
 #include "tables.h"
+/* código de los jefes: en la página 25 del SSF2, con los niveles de sus salas (en ellas la ventana 7 la muestra) */
+#ifdef NT_SSF2
+#define NT_BOSS __attribute__((section(".bank25")))
+/* (la Genesis) una función de la página de los jefes con la ventana 7 en otra página: no se llama (avisa) */
+extern uint8 md_cur_page;
+#define NT_BOSS_AWAY(f) ((uint32)(f) >= 0x380000 && md_cur_page != 25)
+#else
+#define NT_BOSS
+#endif
 static inline uint16 BW_86(uint16 a) { const uint8 *p = kBank86B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_86(uint16 a) { return kBank86B[(uint16)(a - 0x8000)]; }
 #define IW_86(a) BW_86(a)
+static inline uint16 BW_91(uint16 a) { const uint8 *p = kBank91B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_91(uint16 a) { return kBank91B[(uint16)(a - 0x8000)]; }
+#define IW_91(a) BW_91(a)
 static inline uint16 BW_94(uint16 a) { const uint8 *p = kBank94B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_94(uint16 a) { return kBank94B[(uint16)(a - 0x8000)]; }
 #define IW_94(a) BW_94(a)
@@ -29,6 +41,9 @@ static inline uint8 BB_A2(uint16 a) { return kBankA2B[(uint16)(a - 0x8000)]; }
 static inline uint16 BW_A3(uint16 a) { const uint8 *p = kBankA3B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_A3(uint16 a) { return kBankA3B[(uint16)(a - 0x8000)]; }
 #define IW_A3(a) BW_A3(a)
+static inline uint16 BW_A4(uint16 a) { const uint8 *p = kBankA4B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_A4(uint16 a) { return kBankA4B[(uint16)(a - 0x8000)]; }
+#define IW_A4(a) BW_A4(a)
 static inline uint16 BW_A5(uint16 a) { const uint8 *p = kBankA5B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_A5(uint16 a) { return kBankA5B[(uint16)(a - 0x8000)]; }
 #define IW_A5(a) BW_A5(a)
@@ -41,9 +56,15 @@ static inline uint8 BB_A7(uint16 a) { return kBankA7B[(uint16)(a - 0x8000)]; }
 static inline uint16 BW_A8(uint16 a) { const uint8 *p = kBankA8B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_A8(uint16 a) { return kBankA8B[(uint16)(a - 0x8000)]; }
 #define IW_A8(a) BW_A8(a)
+static inline uint16 BW_A9(uint16 a) { const uint8 *p = kBankA9B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_A9(uint16 a) { return kBankA9B[(uint16)(a - 0x8000)]; }
+#define IW_A9(a) BW_A9(a)
 static inline uint16 BW_AA(uint16 a) { const uint8 *p = kBankAAB + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_AA(uint16 a) { return kBankAAB[(uint16)(a - 0x8000)]; }
 #define IW_AA(a) BW_AA(a)
+static inline uint16 BW_AD(uint16 a) { const uint8 *p = kBankADB + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
+static inline uint8 BB_AD(uint16 a) { return kBankADB[(uint16)(a - 0x8000)]; }
+#define IW_AD(a) BW_AD(a)
 static inline uint16 BW_B2(uint16 a) { const uint8 *p = kBankB2B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_B2(uint16 a) { return kBankB2B[(uint16)(a - 0x8000)]; }
 #define IW_B2(a) BW_B2(a)
@@ -184,6 +205,12 @@ typedef uint8 Func_U8(void);
 typedef void Func_Y_V(uint16 j);
 extern uint16 eproj_spawn_x, eproj_spawn_y, eproj_spawn_varE24;
 extern uint16 nt_gfx_hook_addr; extern uint8 nt_gfx_hook_bank;
+extern uint32 nt_pause_hook, nt_unpause_hook;
+uint16 nt_ram_w(uint16 a);
+void nt_ram_set_w(uint16 a, uint16 x);
+void nt_vwq_w8(uint16 o, uint8 v);
+void nt_vwq_w16(uint16 o, uint16 v);
+uint16 nt_bank_w(uint8 bank, uint16 a);
 uint8 port_call_void(uint32 ea);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
 uint32 Multiply16x16(uint16 a, uint16 j);
@@ -194,6 +221,7 @@ uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 port_CallEprojInit(uint32 ea, uint16 j);
 uint8 port_CallEprojPreInstr(uint32 ea, uint16 k);
 uint16 port_CallEprojInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok);
+typedef uint8 CoroutineRet;   /* (ganchos de la pausa escritos a mano: bosses.c) */
 typedef void (*PortFnV)(void);
 typedef void (*PortFnK)(uint16);
 void port_nop_v(void);

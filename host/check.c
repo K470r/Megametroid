@@ -57,7 +57,10 @@ static const char *kNotCompared[] = {
   "hdma_table_1",
   /* cola de escrituras a la VRAM: el motor no la usa (la Genesis dibuja de otra forma); el SNES la deja llena en los
      cuadros sin NMI con actualización (caja de mensaje) */
-  "vram_write_queue_tail", 0
+  "vram_write_queue_tail",
+  /* tabla del HDMA del BG2 de Crocomire (solo imagen): en el motor comparte la RAM con cinematic_text_tilemap
+     (vars_extra.txt) */
+  "crocomire_bg2_scroll_hdma_data", 0
 };
 static int not_compared(const char *n) {
   /* en la pausa (estados 13-17) el scroll del BG1 es el del mapa: lo arma el motor y se compara */
@@ -202,6 +205,20 @@ int main(int argc, char **argv) {
     cur_frame = f;
     { extern long mm_rec_frame; mm_rec_frame = f; }
     if (!read_frame(f)) break;
+    /* HL_POKE_AT="n:dir:valor,...": como hlref, una palabra de la RAM del SNES (por su dirección: nt_ram_set_w) antes
+       del cuadro grabado n */
+    { static long pa_n[32]; static unsigned pa_a[32], pa_v[32]; static int npa = -1, ipa = 0;
+      if (npa < 0) { npa = 0; if (getenv("HL_POKE_AT")) { char *ps = strdup(getenv("HL_POKE_AT"));
+        for (char *t = strtok(ps, ","); t && npa < 32; t = strtok(0, ",")) { sscanf(t, "%ld:%x:%x", &pa_n[npa], &pa_a[npa], &pa_v[npa]); npa++; } } }
+      while (ipa < npa && pa_n[ipa] <= from) ipa++;
+      while (ipa < npa && f >= pa_n[ipa]) {
+        extern void nt_ram_set_w(uint16 a, uint16 x);
+        if (pa_a[ipa] >= 0x0F78 && pa_a[ipa] < 0x0F78 + 0x800)   /* enemy_data (7E:0F78, la misma disposición) */
+          ((uint16 *)enemy_data)[(pa_a[ipa] - 0x0F78) >> 1] = (uint16)pa_v[ipa];
+        else
+          nt_ram_set_w((uint16)pa_a[ipa], (uint16)pa_v[ipa]);
+        ipa++;
+      } }
     while (isxy < nsxy && sxy_n[isxy] <= from) isxy++;
     if (isxy < nsxy && f >= sxy_n[isxy] && game_state == 8) {
       samus_x_pos = samus_prev_x_pos = sxy_x[isxy];

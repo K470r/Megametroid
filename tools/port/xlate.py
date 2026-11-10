@@ -60,6 +60,42 @@ def parse_structs():
     return out
 
 
+# Get_X que devuelve otro tipo que Enemy_X (el decomp: Get_ShitdroidInCutscene -> Enemy_ShitroidInCutscene)
+GETTER_TYPE = {m.group(2): m.group(1) for m in re.finditer(
+    r'static inline (Enemy_\w+) \*Get_(\w+)\(int o\)', open(os.path.join(SRC, 'enemy_types.h')).read())
+    if m.group(1) != 'Enemy_' + m.group(2)}
+
+
+def parse_rom_structs():
+    """estructuras de ida_types.h con todos los campos de 16 bits (VoidP o (u)int16): tablas de la ROM que el decomp
+    lee como arreglos de estructuras (MaridiaSnailData2 $A3:CD42) -> {tipo: ({campo: desplazamiento}, tamaño)}"""
+    txt = open(os.path.join(SRC, 'ida_types.h')).read()
+    out = {}
+    for m in re.finditer(r'typedef struct\s+(\w+) \{(.*?)\}\s*\1;', txt, re.S):
+        fields, off = {}, 0
+        for line in m.group(2).split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            fm = re.fullmatch(r'(VoidP|uint16|int16)\s+(\w+);', line)
+            if not fm:
+                break
+            fields[fm.group(2)] = off
+            off += 2
+        else:
+            if fields:
+                out[m.group(1)] = (fields, off)
+    return out
+
+
+# arreglos de bytes de la RAM del SNES (decomp: #define nombre ((uint8*)(g_ram+0xDIR))): nombre -> dirección
+U8_ARRAYS = {m.group(1): int(m.group(2), 16) for m in re.finditer(
+    r'#define (\w+) \(\(uint8\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read())}
+# variables de un byte de la RAM del SNES (#define nombre (*(uint8*)(g_ram+0xDIR))): nombre -> dirección
+U8_SCALARS = {m.group(1): int(m.group(2), 16) for m in re.finditer(
+    r'#define (\w+) \(\*\(uint8\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read())}
+
+
 def match_paren(s, i, o='(', c=')'):
     """s[i] == o: índice de su cierre"""
     d = 0
@@ -95,6 +131,10 @@ class Xlate:
             self.fnaddr[m.group(1)] = int(m.group(2), 16)
         self.g = Graph()
         self.structs = parse_structs()
+        self.rom_structs = parse_rom_structs()
+        # variables del SNES que no son arreglos: nombre -> dirección (lecturas con desplazamiento: nt_ram_w)
+        self.scalar_vars = {m.group(1): int(m.group(2), 16) for m in re.finditer(
+            r'^#define (\w+) \(\*\(u?int16\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read(), re.M)}
         self.rom = {}           # nombre -> (dirección, tipo)
         self.scalars = {}       # constante escalar de la ROM -> (dirección, tipo)
         for f in os.listdir(SRC):
@@ -161,6 +201,8 @@ class Xlate:
         sz = 2 if t in ('uint16', 'int16') else 1 if t in ('uint8', 'int8') else 4 if t in ('uint32', 'int32') else None
         if sz == 4:
             return '((%s)((uint32)BW_%02X(0x%04X + 4 * (%s)) | (uint32)BW_%02X(0x%04X + 4 * (%s) + 2) << 16))' % (t, bank, a, idx, bank, a, idx)
+        if sz is None and t in self.rom_structs:
+            return 'XROMS_%s(0x%06X, %s)' % (t, addr, idx)                 # campos: rom_struct_fields
         if sz is None:
             self.todo.append('tabla de %s en %06X' % (t, addr))
             return 'XLATE_TODO_ROM_%s(0x%06X, %s)' % (t, addr, idx)
@@ -176,9 +218,25 @@ class Xlate:
         binstr = re.match(r'(?:static )?const uint8 \*(\w+)\(uint16 k, const uint8 \*(\w+)\)', hdr)
         if binstr:
             hdr = 'uint16 %s(uint16 k, uint16 %s) {  // %s' % (binstr.group(1), binstr.group(2), hdr.split('//')[-1].strip() if '//' in hdr else '')
-        instr = re.match(r'const uint16 \*(\w+)\(uint16 k, const uint16 \*jp\)', hdr)
+        # instrucciones (y sus funciones auxiliares, con más argumentos después de jp: WreckedShipRobot_CommonInstr)
+        # función que devuelve la próxima instrucción de una lista (Crocomire_Func_20): la dirección
+        if re.match(r'const uint16 \*\w+\(uint16 k\)', hdr) and 'INSTR_RETURN_ADDR' in body:
+            hdr = 'uint16 ' + hdr[len('const uint16 *'):]
+            body = body.replace('INSTR_RETURN_ADDR(', '(uint16)(')
+        if hdr.startswith('CoroutineRet ') and 'COROUTINE' not in body:
+            hdr = 'void ' + hdr[len('CoroutineRet '):]
+        instr = re.match(r'const uint16 \*(\w+)\(uint16 k, const uint16 \*jp((?:, [^)]*)?)\)', hdr)
         if instr:
-            hdr = 'uint16 %s(uint16 k, uint16 jp) {  // %s' % (instr.group(1), hdr.split('//')[-1].strip() if '//' in hdr else '')
+            hdr = 'uint16 %s(uint16 k, uint16 jp%s) {  // %s' % (instr.group(1), instr.group(2), hdr.split('//')[-1].strip() if '//' in hdr else '')
+        # argumento const uint8 *j que apunta a la ROM del banco de la función (MaridiaSnail_D07E: GET_WORD(j + 6)):
+        # en el motor es una dirección del banco
+        romp = [] if binstr else re.findall(r'const uint8 \*(\w+)[,)]', hdr.split('{')[0])
+        for p_ in romp:
+            hdr = re.sub(r'const uint8 \*%s\b' % p_, 'uint16 %s' % p_, hdr)
+            body = re.sub(r'\bGET_WORD\(%s\)' % p_, 'BW_%02X(%s)' % (bank, p_), body)
+            body = re.sub(r'\bGET_WORD\(%s \+ (\d+)\)' % p_, lambda m: 'BW_%02X((uint16)(%s + %s))' % (bank, p_, m.group(1)), body)
+            body = re.sub(r'\b%s\[(\d+)\]' % p_, lambda m: 'BB_%02X((uint16)(%s + %s))' % (bank, p_, m.group(1)), body)
+            self.used_banks.add(bank)
         for mname, (params, mbody) in self.macros.items():
             rx = re.compile(r'\b%s\(' % mname)
             while True:
@@ -191,6 +249,9 @@ class Xlate:
                 for p_, a_ in zip(params, args):
                     rep_ = re.sub(r'\b%s\b' % p_, '(%s)' % a_, rep_)
                 body = body[:m.start()] + '(' + rep_ + ')' + body[e + 1:]
+        # *(TABLA + i) -> TABLA[i] (Phantoon_Shot) y el byte bajo de una tabla de palabras (MotherBrain_SetPainfulWalkingTimer)
+        body = re.sub(r'\*\((g_(?:byte|word)_[0-9A-F]{6}) \+ (\w+)\)', r'\1[\2]', body)
+        body = re.sub(r'\bLOBYTE\((g_word_[0-9A-F]{6}\[[^\]]+\])\)', r'(uint8)(\1)', body)
         # RAM extra 7E:7800 con la forma de Kraid (Ram7800_Kraid, la usa también el mini Kraid): campos -> ERAM
         KR = {'kraid_next': 0, 'field_2': 2, 'field_4': 4, 'kraid_thinking': 6, 'kraid_min_y_pos_eject': 8,
               'kraid_mouth_flags': 10, 'kraid_healths_8ths': 12, 'field_1C': 28, 'kraid_target_x': 30,
@@ -206,19 +267,69 @@ class Xlate:
             off = KR[m.group(2)] + (2 * int(m.group(4)) if m.group(4) else 0)
             return 'ERAM(0x%04X + (uint16)(%s))' % (0x7800 + off, m.group(1))
         body = re.sub(r'gExtraEnemyRam7800\(([^()]*)\)->kraid\.(\w+)(\[(\d+)\])?', kraid, body)
+        body = re.sub(r'(?m)^\s*ExtraEnemyRam7800 \*\w+ = gExtraEnemyRam7800\([^;]*\);\n?', '', body)
+        # la misma RAM por elemento (64 bytes): enemy_ram7800[n].kraid.campo, gRam7800_Default(e)->var_XX (la palabra
+        # XX), *(uint16 *)&extra_enemy_ram8000[n].pad[m] (Mother Brain, Botwoon...)
+        body = re.sub(r'\benemy_ram7800\[(\d+)\]\.kraid\.(\w+)(\[(\d+)\])?', lambda m: 'ERAM(0x%04X)' % (
+            0x7800 + 64 * int(m.group(1)) + KR[m.group(2)] + (2 * int(m.group(4)) if m.group(4) else 0)), body)
+        rx_ = re.compile(r'gRam7800_Default\(')
+        while True:
+            m = rx_.search(body)
+            if not m:
+                break
+            e_ = match_paren(body, m.end() - 1)
+            fm = re.match(r'->var_([0-9A-F]{2})', body[e_ + 1:])
+            if not fm:
+                self.todo.append('%s: gRam7800_Default sin campo' % name)
+                break
+            body = body[:m.start()] + 'ERAM(0x%04X + (%s))' % (0x7800 + 2 * int(fm.group(1), 16), body[m.end():e_]) + body[e_ + 1 + len(fm.group(0)):]
+        body = re.sub(r'\*\(uint16 \*\)&extra_enemy_ram8([08])00\[(\d+)\]\.pad\[(\d+)\]', lambda m: 'ERAM(0x%04X)' % (
+            0x8000 + 0x800 * int(m.group(1)) // 8 + 64 * int(m.group(2)) + int(m.group(3))), body)
         # *(uint16 *)&a[i] |= N con N < 0x100: en el SNES (bajo-alto) solo toca el byte a[i]; en el 68000 la palabra en una
         # dirección impar es un ADDRESS ERROR (SporeSpawn_Func_6: boss_bits_for_area[area_index] con area_index 1)
         body = re.sub(r'\*\(uint16 \*\)&(\w+\[[^\]]+\]) \|= ((?:0x)?[0-9A-Fa-f]+);',
                       lambda m: '%s |= %s;' % (m.group(1), m.group(2)) if int(m.group(2), 0) < 0x100 else m.group(0), body)
+        # *(uint16 *)&a[i] = v sobre un arreglo de bytes de la RAM del SNES: en el 68000 la palabra queda al revés
+        # (alto-bajo; scrolls[3] = 256 dejaba el 1 en scrolls[3]) y si i es el último byte se sale del arreglo nativo
+        # (Crocomire_Func_60 borra croco_vline_height hasta el byte 129: en el SNES, 7E:071C-071D; en el PC pisaba
+        # croco_target_0688): por su dirección del SNES, byte a byte (nt_ram_set_w)
+        def u8word(m):
+            if m.group(1) not in U8_ARRAYS:
+                return m.group(0)
+            a = '(uint16)(0x%04X + (%s))' % (U8_ARRAYS[m.group(1)], m.group(2))
+            if m.group(3) == '=':
+                return 'nt_ram_set_w(%s, (uint16)(%s));' % (a, m.group(4))
+            return 'nt_ram_set_w(%s, nt_ram_w(%s) %s (uint16)(%s));' % (a, a, m.group(3)[0], m.group(4))
+        body = re.sub(r'\*\(uint16 \*\)&(\w+)\[([^\]]+)\] (=|\|=|&=) ([^;]+);', u8word, body)
+        # lo mismo al leer (*(uint16 *)&boss_bits_for_area[area_index] & 2, Crocomire_Init: en el 68000 miraba el byte
+        # de al lado y la sala vencida tenía a Crocomire vivo) y con variables sueltas de un byte
+        # (*(uint16 *)&reg_TM |= 2, wrecked_ship_robot_palanim_table_index): por su dirección del SNES
+        body = re.sub(r'\*\(uint16 \*\)&(\w+)\[([^\]]+)\]',
+                      lambda m: 'nt_ram_w((uint16)(0x%04X + (%s)))' % (U8_ARRAYS[m.group(1)], m.group(2))
+                      if m.group(1) in U8_ARRAYS else m.group(0), body)
+        def u8scalar(m):
+            if m.group(1) not in U8_SCALARS:
+                return m.group(0)
+            a = '0x%04X' % U8_SCALARS[m.group(1)]
+            if m.group(2) == '=':
+                return 'nt_ram_set_w(%s, (uint16)(%s));' % (a, m.group(3))
+            return 'nt_ram_set_w(%s, nt_ram_w(%s) %s (uint16)(%s));' % (a, a, m.group(2)[0], m.group(3))
+        body = re.sub(r'\*\(uint16 \*\)&(\w+) (=|\|=|&=) ([^;]+);', u8scalar, body)
+        body = re.sub(r'\*\(uint16 \*\)&(\w+)\b(?!\[)',
+                      lambda m: 'nt_ram_w(0x%04X)' % U8_SCALARS[m.group(1)] if m.group(1) in U8_SCALARS else m.group(0), body)
         # variables de tipo Enemy_X
         vars_ = {}
         def decl(m):
             typ, v, expr = m.group(1), m.group(2), m.group(4)
             vars_[v] = typ
-            return 'EnemyData *%s = gEnemyData(%s); const uint16 %s_k = (%s);' % (v, expr, v, expr)
+            # (const salvo que la variable se vuelva a asignar: Draygon_Func_35, MotherBrain_Phase3_Death_13)
+            cst = '' if re.search(r'\b%s = Get_' % re.escape(v), body) else 'const '
+            return 'EnemyData *%s = gEnemyData(%s); %suint16 %s_k = (%s);' % (v, expr, cst, v, expr)
         body = re.sub(r'\b(Enemy_\w+) \*(\w+) = Get_(\w+)\(([^;]*?)\);', decl, body)
         def assign(m):
-            v, typ, expr = m.group(1), 'Enemy_' + m.group(2), m.group(3)
+            v, typ, expr = m.group(1), GETTER_TYPE.get(m.group(2), 'Enemy_' + m.group(2)), m.group(3)
+            if '->' in expr or expr.count('(') != expr.count(')'):    # y = Get_X(k)->campo + ... (no es un puntero)
+                return m.group(0)
             return '%s = gEnemyData(%s); %s_k = (%s);' % (v, expr, v, expr)
         for m in re.finditer(r'\b(Enemy_\w+) \*(\w+);', body):
             vars_[m.group(2)] = m.group(1)
@@ -226,7 +337,7 @@ class Xlate:
         body = re.sub(r'\b(\w+) = Get_(\w+)\(([^;]*?)\);', assign, body)
         # Get_X(expr)->campo (sin variable)
         def inline(m):
-            typ, expr, field = 'Enemy_' + m.group(1), m.group(2), m.group(3)
+            typ, expr, field = GETTER_TYPE.get(m.group(1), 'Enemy_' + m.group(1)), m.group(2), m.group(3)
             return self.field(typ, 'gEnemyData(%s)' % expr, '(%s)' % expr, field)
         body = re.sub(r'\bGet_(\w+)\(([^()]*(?:\([^()]*\))?[^()]*)\)->(\w+(?:\.\w+)?)', inline, body)
         # V->campo
@@ -258,6 +369,10 @@ class Xlate:
                 if idx:
                     off = '%d * (%s) + %s' % (sz, idx[1:-1], off)
                 rep_ = self.rom_read(addr, m.group(1), '0').replace('(0)', '(%s)' % off).replace('2 * ', '')
+            elif m.group(1) in ('uint16', 'int16') and not idx and tname in self.scalar_vars:
+                # palabra de la RAM del SNES a un desplazamiento de una variable que no es arreglo (el fantasma de
+                # Wrecked Ship lee samus_y_pos + índice del enemigo): por su dirección (nt_ram_w, vars_ram.c)
+                rep_ = 'nt_ram_w((uint16)(0x%04X + (%s)))' % (self.scalar_vars[tname], off)
             elif m.group(1) in ('uint16', 'int16') and not idx:   # arreglo de la RAM (palabras): por índice
                 rep_ = '%s[(uint16)(%s) >> 1]' % (tname, off)
             else:
@@ -266,9 +381,22 @@ class Xlate:
                 continue
             body = body[:m.start()] + rep_ + body[e + 1:]
             pos = m.start() + len(rep_)
+        # (declarados y asignados aparte: const uint8 *v5; v5 = RomPtr_A7(v4); Kraid_Shot_Mouth $A7:AFAA): juntos
+        body = re.sub(r'const uint8 \*(\w+);\n(\s*)\1 = (RomPtr_[0-9A-F]{2}\()', r'\2const uint8 *\1 = \3', body)
         # punteros a la ROM: *(T *)RomPtr_XX(e) -> lectura; const uint8 *v = RomPtr_XX(e) -> v es una dirección
         body = re.sub(r'\*\(u?int16 \*\)RomPtr_([0-9A-F]{2})\(', lambda m: 'BW_%s(' % m.group(1), body)
-        for m in list(re.finditer(r'const (uint8|uint16) \*(\w+) = (?:\(const uint16 \*\))?RomPtr_([0-9A-F]{2})\(', body)):
+        # (también sin const y asignados después: uint16 v3, *v4; ... v4 = (uint16 *)RomPtr_A6(i); Ridley_Func_118)
+        for m in list(re.finditer(r'\b([A-Za-z_]\w*) = \((?:const )?uint16 \*\)RomPtr_([0-9A-F]{2})\(', body)):
+            v, bk = m.group(1), m.group(2)
+            if not re.search(r'\buint16 [^;()]*\*%s\b' % v, body):
+                continue
+            body = re.sub(r'(\buint16 [^;()]*)\*%s\b' % v, r'\1%s' % v, body, count=1)
+            body = body.replace(m.group(0), 'const uint16 *%s = (const uint16 *)RomPtr_%s(' % (v, bk), 1) \
+                if False else body.replace(m.group(0), '%s = (' % v, 1)
+            body = re.sub(r'\b%s\[([^\]]+)\]' % v, lambda mm: 'BW_%s(%s + 2 * (%s))' % (bk, v, mm.group(1)), body)
+            body = re.sub(r'\*%s\b' % v, 'BW_%s(%s)' % (bk, v), body)
+            self.used_banks.add(int(bk, 16))
+        for m in list(re.finditer(r'(?:const )?(uint8|uint16) \*(\w+) = (?:\((?:const )?uint16 \*\))?RomPtr_([0-9A-F]{2})\(', body)):
             t_, v, bk = m.group(1), m.group(2), m.group(3)
             self.used_banks.add(int(bk, 16))
             body = body.replace(m.group(0), 'uint16 %s = (' % v, 1)
@@ -277,8 +405,9 @@ class Xlate:
             body = re.sub(r'\bGET_WORD\(%s \+ ([^)]*)\)' % v, lambda mm: 'BW_%s(%s + %s)' % (bk, v, mm.group(1)), body)
             body = re.sub(r'\b%s\[([^\]]+)\]' % v, lambda mm: '%s(%s + %d * (%s))' % ('BW_' + bk if sz == 2 else 'BB_' + bk, v, sz, mm.group(1)), body)
             body = re.sub(r'\*%s\b' % v, '%s(%s)' % ('BW_' + bk if sz == 2 else 'BB_' + bk, v), body)
-            if re.search(r'\b%s\s*(\+=|\+\+|=[^=])' % v, body.split('uint16 %s = (' % v, 1)[1]):
-                body = re.sub(r'\b%s \+= (\d+)' % v, lambda mm: '%s += %d' % (v, int(mm.group(1)) * (1 if sz == 1 else 2)) if sz == 1 else mm.group(0), body)
+            if sz == 2:                     # puntero a palabras: avanza de a 2 bytes (Ridley_Func_93: src++)
+                body = re.sub(r'\b%s\+\+' % v, '%s += 2' % v, body)
+                body = re.sub(r'\b%s \+= (\d+)\b' % v, lambda mm: '%s += %d' % (v, 2 * int(mm.group(1))), body)
         # variables del decomp en 7E:7800-97FF: la RAM extra de los enemigos (ERAM)
         def eram_var(m):
             ad = int(m.group(1), 16)
@@ -319,6 +448,22 @@ class Xlate:
         body = re.sub(r'\*\(\(uint16 \*\)RomPtr_([0-9A-F]{2})\(([^()]*(?:\([^()]*\))?[^()]*)\) \+ (\d+)\)', romw, body)
         body = re.sub(r'\*\(uint16 \*\)RomPtr_([0-9A-F]{2})\(([^()]*(?:\([^()]*\))?[^()]*)\)()', romw, body)
         body = body.replace('*(uint16 *)&enemy_gfx_drawn_hook.bank', 'nt_gfx_hook_bank').replace('enemy_gfx_drawn_hook.addr', 'nt_gfx_hook_addr')
+        body = body.replace('enemy_gfx_drawn_hook.bank', 'nt_gfx_hook_bank')
+        # ganchos de la pausa (pause.c): la dirección de 24 bits
+        body = re.sub(r'\bmov24\(&(un)?pause_hook, (fn)?(\w+)\);', lambda m: 'nt_%spause_hook = 0x%06X;' % (
+            m.group(1) or '', self.g.funcs[m.group(3)][3] if m.group(2) else int(m.group(3), 0)), body)
+        # (Kraid_Init $A7:A959 los pone por partes: .bank = -89 y .addr = 0xC24E: el banco es el de la función)
+        body = re.sub(r'\b(un)?pause_hook\.bank = [^;]+;\n?\s*', '', body)
+        def hook_addr(m):
+            v = m.group(2)
+            f = re.fullmatch(r'FUNC16\((\w+)\)', v)
+            a = (self.g.funcs[f.group(1)][3] & 0xFFFF) if f else int(v, 16)
+            return 'nt_%spause_hook = 0x%02X%04X;' % (m.group(1) or '', bank, a)
+        body = re.sub(r'\b(un)?pause_hook\.addr = (0x[0-9A-Fa-f]+|FUNC16\(\w+\))[^;]*;', hook_addr, body)
+        # corrutinas que no esperan (MotherBrainsBody_UnpauseHook): void
+        body = body.replace('return kCoroutineNone;', 'return;')
+        body = re.sub(r'\bmov24\(&enemy_gfx_drawn_hook, 0x([0-9A-Fa-f]{2})([0-9A-Fa-f]{4})\);',
+                      r'nt_gfx_hook_bank = 0x\1; nt_gfx_hook_addr = 0x\2;', body)
         body = re.sub(r'\bWriteReg\([^;]*\);', '(void)0;', body)
         for tname, (addr, t) in self.scalars.items():
             if re.search(r'\b%s\b' % tname, body):
@@ -356,6 +501,7 @@ class Xlate:
         body = body.replace('*(uint16 *)&E->bank = *(uint16 *)&Edef->bank;',
                             'E->bank = Edef->bank; E->field_2F = Edef->hurt_ai_time;')   # sin leer 2 bytes a la vez
         body = self.subst_index(body, 'BTS', 'bts_get')
+        body = body.replace('return Unreachable();', 'nt_unimpl("Unreachable"); return 0;')
         body = body.replace('Unreachable()', 'nt_unimpl("Unreachable")')
         # el decomp lee campos de otro enemigo (el anterior) por arreglos de la RAM que están justo antes de
         # enemy_data (7E:0F78): enemy_drawing_queue (7E:0E84), enemy_drawing_queue_sizes (7E:0F68)
@@ -367,7 +513,7 @@ class Xlate:
                    'parameter_2']
         def other_enemy(m):
             arr, var, n = m.group(1), m.group(2), int(m.group(3))
-            dm = re.search(r'\bint %s = \(?([\w>()]+?)\)? >> 1;' % var, body)
+            dm = re.search(r'\b(?:int |uint16 )?%s = \(?([\w>()]+?)\)? >> 1;' % var, body)
             if not dm:
                 return m.group(0)
             base = 0x0E84 if arr == 'enemy_drawing_queue' else 0x0F68
@@ -378,6 +524,44 @@ class Xlate:
                 return m.group(0)
             return 'gEnemyData((uint16)(%s + (%d)))->%s' % (dm.group(1), d, f)
         body = re.sub(r'\b(enemy_drawing_queue(?:_sizes)?)\[(\w+) \+ (\d+)\]', other_enemy, body)
+        body = re.sub(r'\b(enemy_drawing_queue_sizes)\[(\w+)()\]', lambda m: other_enemy(re.match(
+            r'(\w+)\[(\w+) \+ (\d+)\]', '%s[%s + 0]' % (m.group(1), m.group(2)))) if re.search(
+            r'\b(?:int |uint16 )?%s = \(?[\w>()]+?\)? >> 1;' % m.group(2), body) else m.group(0), body)
+        # datos de aparición de otro enemigo o pasado su final (7E:7000 + k + 64 * n + campo): nt_spawn_p
+        SPF = ['some_flag', 'cause_of_death', 'field_4', 'vram_tiles_index', 'palette_index', 'field_A', 'field_C',
+               'field_E', 'xpos2', 'ypos2', 'field_14', 'field_16', 'field_18', 'field_1A', 'field_1C', 'id', 'x_pos',
+               'y_pos', 'init_param', 'properties', 'extra_properties', 'param_1', 'param_2']
+        def spawn_far(kexpr, n, f):
+            return '(*nt_spawn_p((uint16)(0x%04X + (%s))))' % (0x7000 + 64 * int(n) + 2 * SPF.index(f), kexpr)
+        rx = re.compile(r'gEnemySpawnData\(')
+        pos = 0
+        while True:
+            m = rx.search(body, pos)
+            if not m:
+                break
+            e = match_paren(body, m.end() - 1)
+            fm = re.match(r'\[(\d+)\]\.(\w+)', body[e + 1:])
+            if not fm or fm.group(2) not in SPF:
+                pos = e
+                continue
+            rep_ = spawn_far(body[m.end():e], fm.group(1), fm.group(2))
+            body = body[:m.start()] + rep_ + body[e + 1 + len(fm.group(0)):]
+            pos = m.start() + len(rep_)
+        for m in list(re.finditer(r'(?:EnemySpawnData \*)?\b(\w+) = gEnemySpawnData\(([^;]+)\);', body)):
+            v, kexpr = m.group(1), m.group(2)
+            body = re.sub(r'\b%s\[(\d+)\]\.(\w+)' % v, lambda mm: spawn_far(kexpr, mm.group(1), mm.group(2))
+                          if mm.group(2) in SPF else mm.group(0), body)
+        # la misma forma con el índice en línea: enemy_drawing_queue[(cur_enemy_index >> 1) + 87] (NorfairLavaMan)
+        def other_enemy2(m):
+            arr, var, n = m.group(1), m.group(2), int(m.group(3))
+            base = 0x0E84 if arr == 'enemy_drawing_queue' else 0x0F68
+            rel = base + 2 * n - 0x0F78
+            d, off = (rel // 64) * 64, rel % 64
+            f = EFIELDS[off // 2]
+            if f is None or off & 1:
+                return m.group(0)
+            return 'gEnemyData((uint16)(%s + (%d)))->%s' % (var, d, f)
+        body = re.sub(r'\b(enemy_drawing_queue(?:_sizes)?)\[\((\w+) >> 1\) \+ (\d+)\]', other_enemy2, body)
         body = re.sub(r'SpawnHardcodedPlm\(\(SpawnHardcodedPlmArgs\) ?\{ ?([^,]+), ([^,]+), ([^}]+?) ?\}\)', r'SpawnHardcodedPlm(\1, \2, \3)', body)
         # palabra que empieza en el byte alto de un campo (en el SNES, little-endian): byte alto de ese campo y byte
         # bajo del siguiente
@@ -386,12 +570,128 @@ class Xlate:
             nxt = chr(ord(f) + 1)
             return '((uint16)(HIBYTE(%s->ai_var_%s) | LOBYTE(%s->ai_var_%s) << 8))' % (v, f, v, nxt)
         body = re.sub(r'\*\(uint16 \*\)\(\(uint8 \*\)&(\w+)->ai_var_([A-E]) \+ 1\)', mid_word, body)
+        # lo mismo con cualquier campo de EnemyData (Ridley_Func_114: *(int16 *)((uint8 *)&E->enemy_ptr + 1))
+        def mid_word2(m):
+            t_, v, f = m.group(1), m.group(2), m.group(3)
+            if f not in EFIELDS:
+                return m.group(0)
+            i_ = EFIELDS.index(f)
+            if i_ + 1 >= len(EFIELDS) or not EFIELDS[i_ + 1]:
+                return m.group(0)
+            return '((%s)(HIBYTE(%s->%s) | LOBYTE(%s->%s) << 8))' % (t_, v, f, v, EFIELDS[i_ + 1])
+        body = re.sub(r'\*\((u?int16) \*\)\(\(uint8 \*\)&(\w+)->(\w+) \+ 1\)', mid_word2, body)
+        # objetos de HDMA con sus argumentos (DMAP, BBAD, lista): el motor solo usa la lista (hdmaobj.c)
+        for m in list(re.finditer(r'(?m)^[ \t]*static const SpawnHdmaObject_Args (\w+) = \{ ?[^,]+, [^,]+, ([^}]+?) ?\};\n?', body)):
+            body = body.replace(m.group(0), '', 1)
+            body = re.sub(r'SpawnHdmaObject\(([^,]+), &%s\)' % m.group(1), r'SpawnHdmaObject(\1, %s)' % m.group(2), body)
+        # cola de escrituras a la VRAM del SNES (VramWriteEntry, 7 bytes por entrada): el puntero pasa a ser el
+        # desplazamiento en la cola y cada campo una escritura de bytes (nt_vwq_*, nt_ram.c)
+        VWQ = {'size': (0, 2), 'src.addr': (2, 2), 'src.bank': (4, 1), 'vram_dst': (5, 2)}
+        for v_ in set(re.findall(r'\bVramWriteEntry \*(\w+)', body)):   # v[n].campo: la entrada n después
+            body = re.sub(r'\b%s\[(\d+)\]\.' % v_, lambda m, v_=v_: 'gVramWriteEntry(%s + %d)->' % (v_, 7 * int(m.group(1))), body)
+        body = re.sub(r'\bVramWriteEntry \*(\w+)\s*=\s*gVramWriteEntry\(([^;]*)\);', r'uint16 \1 = (\2);', body)
+        body = re.sub(r'\bVramWriteEntry \*(\w+);', r'uint16 \1;', body)
+        body = re.sub(r'\b(\w+) = gVramWriteEntry\(([^;]*)\);', r'\1 = (\2);', body)
+        def vwq_base(b):
+            m_ = re.fullmatch(r'gVramWriteEntry\((.*)\)', b)
+            return '(%s)' % m_.group(1) if m_ else b
+        B_ = r'(gVramWriteEntry\([^;]*?\)|\w+)'
+        body = re.sub(r'\*\(VoidP \*\)\(\(uint8 \*\)&%s->src\.addr \+ 1\) = ([^;]+);' % B_,
+                      lambda m: 'nt_vwq_w16((uint16)(%s + 3), %s);' % (vwq_base(m.group(1)), m.group(2)), body)
+        body = re.sub(r'\*\(uint16 \*\)&%s->src\.bank = ([^;]+);' % B_,
+                      lambda m: 'nt_vwq_w16((uint16)(%s + 4), %s);' % (vwq_base(m.group(1)), m.group(2)), body)
+        body = re.sub(r'LOBYTE\(%s->size\) = ([^;]+);' % B_,
+                      lambda m: 'nt_vwq_w8((uint16)(%s), %s);' % (vwq_base(m.group(1)), m.group(2)), body)
+        for f_, (o_, sz_) in VWQ.items():
+            body = re.sub(r'%s->%s = ([^;]+);' % (B_, re.escape(f_)),
+                          lambda m: 'nt_vwq_w%d((uint16)(%s + %d), %s);' % (8 * sz_, vwq_base(m.group(1)), o_, m.group(2)), body)
+        if 'gVramWriteEntry' in body or re.search(r'->vram_dst|->src\.', body):
+            self.todo.append('%s: cola de VRAM que no sé traducir' % name)
+        # RAM extra de los enemigos en 7E:8000 (Ram8000_Default: 32 palabras por elemento, Rinka) -> ERAM
+        rx = re.compile(r'gRam8000_Default\(')
+        while True:
+            m = rx.search(body)
+            if not m:
+                break
+            e = match_paren(body, m.end() - 1)
+            fm = re.match(r'(?:\[(\d+)\]\.|->)var_([0-9A-F]{2})', body[e + 1:])
+            if not fm:
+                self.todo.append('%s: gRam8000_Default sin campo' % name)
+                break
+            off = 64 * int(fm.group(1) or 0) + 2 * (int(fm.group(2), 16) - 0x20)
+            body = body[:m.start()] + 'ERAM(0x%04X + (%s))' % (0x8000 + off, body[m.end():e]) + body[e + 1 + len(fm.group(0)):]
+        # ExtraEnemyRam8000 *v = gExtraEnemyRam8000(k); ... *(uint16 *)&v->pad[n] -> ERAM(0x8000 + n + k)
+        for m in list(re.finditer(r'\n\s*ExtraEnemyRam8000 \*(\w+) = gExtraEnemyRam8000\(([^;]+)\);', body)):
+            v, k = m.group(1), m.group(2)
+            body = body.replace(m.group(0), '', 1)
+            body = re.sub(r'\*\(uint16 \*\)&%s->pad\[(\d+)\]' % v, lambda mm: 'ERAM(0x8000 + %s + (%s))' % (mm.group(1), k), body)
+        rx = re.compile(r'gExtraEnemyRam7800\(')
+        while True:
+            m = rx.search(body)
+            if not m:
+                break
+            e = match_paren(body, m.end() - 1)
+            if not body[e + 1:].startswith('->kraid.kraid_next'):
+                break
+            body = body[:m.start()] + 'ERAM(0x7800 + (%s))' % body[m.end():e] + body[e + 1 + len('->kraid.kraid_next'):]
+        # la cola de escrituras a la VRAM del SNES (7E:00D0, 7 bytes por entrada): el motor no la tiene; se lee la RAM
+        body = re.sub(r'\*\(uint16 \*\)\(\(uint8 \*\)&gVramWriteEntry\(0\)\[(\d+)\]\.vram_dst \+ 1\)',
+                      lambda m: 'nt_ram_w(0x%04X)' % (0xD0 + 7 * int(m.group(1)) + 6), body)
+        # escritura en esa palabra (Metroid_Touch): los dos bytes por separado
+        body = re.sub(r'\(\(uint16\)\(HIBYTE\(([\w>-]+)\) \| LOBYTE\(([\w>-]+)\) << 8\)\) = ([^;]+);',
+                      r'{ uint16 mw_ = (\3); \1 = (uint16)((\1 & 0xFF) | mw_ << 8); \2 = (uint16)((\2 & 0xFF00) | mw_ >> 8); }', body)
         if re.search(r'\(uint8 \*\)&\w+->\w+ \+ 1\)', body):
             self.todo.append('%s: palabra a mitad de un campo' % name)
         if instr:
             body = self.instr_body(name, body, bank)
         if binstr:
             body = self.binstr_body(name, body, bank, binstr.group(2))
+        # avisos de depuración del decomp (printf("Possible bug...")): no hay printf en la Genesis
+        body = re.sub(r'\bprintf\("[^"]*"(?:, [^;]*)?\);', '; /* (aviso del decomp) */', body)
+        # palabra de un banco leída como dos bytes de la tabla: *(uint16 *)&BB_XX(a) -> BW_XX(a)
+        body = re.sub(r'\*\(uint16 \*\)&\(\(uint8\)BB_([0-9A-F]{2})\(', r'(BW_\1(', body)
+        body = re.sub(r'\*\(uint16 \*\)&BB_([0-9A-F]{2})\(', r'BW_\1(', body)
+        # nt_ram_w(...) = x (una escritura): nt_ram_set_w
+        rx_ = re.compile(r'\bnt_ram_w\(')
+        pos_ = 0
+        while True:
+            m = rx_.search(body, pos_)
+            if not m:
+                break
+            e_ = match_paren(body, m.end() - 1)
+            am = re.match(r' = ([^;]+);', body[e_ + 1:])
+            if am and not am.group(0).startswith(' == '):
+                rep_ = 'nt_ram_set_w(%s, %s);' % (body[m.end():e_], am.group(1))
+                body = body[:m.start()] + rep_ + body[e_ + 1 + len(am.group(0)):]
+                pos_ = m.start() + len(rep_)
+            else:
+                pos_ = e_
+        body = body.replace('ADDR16_OF_RAM(*enemy_ram7800)', '0x7800')
+        body = body.replace('ADDR16_OF_RAM(*extra_enemy_ram8000)', '0x8000').replace('ADDR16_OF_RAM(*extra_enemy_ram8800)', '0x8800')
+        # RAM del SNES por dirección (Crocomire_Func_60): escrituras y lecturas de palabras
+        body = re.sub(r'\*\(uint16 \*\)&g_ram\[([^\]]+)\] = ([^;]+);', r'nt_ram_set_w((uint16)(\1), \2);', body)
+        body = re.sub(r'\*\(uint16 \*\)&g_ram\[([^\]]+)\]', r'nt_ram_w((uint16)(\1))', body)
+        body = re.sub(r'GET_WORD\(RomPtrWithBank\(([^()]*)\)\)', r'nt_bank_w(\1)', body)
+        # byte de la ROM con índice: RomPtr_XX(e)[i] (Eproj_MotherBrainRoomTurretBullets_Func2)
+        body = re.sub(r'\bRomPtr_([0-9A-F]{2})\(([^()]*)\)\[([^\]]+)\]', r'BB_\1((uint16)((\2) + (\3)))', body)
+        body = re.sub(r'\*\(uint16 \*\)&BB_([0-9A-F]{2})\(', r'BW_\1(', body)
+        # *(uint16 *)RomPtrWithBank(banco, dirección): lectura de un banco que se sabe recién al correr
+        body = body.replace('*(uint16 *)RomPtrWithBank(', 'nt_bank_w(')
+        # *((uint16 *)RomPtr_XX(e) + n) y *(uint16 *)RomPtr_XX(e) con paréntesis anidados en e (Phantoon_Func_7)
+        rx_ = re.compile(r'\*\(\(uint16 \*\)RomPtr_([0-9A-F]{2})\(')
+        while True:
+            m = rx_.search(body)
+            if not m:
+                break
+            e_ = match_paren(body, m.end() - 1)
+            tm = re.match(r'(?: \+ (\d+))?\)', body[e_ + 1:])
+            if not tm:
+                self.todo.append('%s: RomPtr con forma rara' % name)
+                break
+            off = 2 * int(tm.group(1) or 0)
+            body = body[:m.start()] + 'BW_%s((uint16)(%s + %d))' % (m.group(1), body[m.end():e_], off) + body[e_ + 1 + len(tm.group(0)):]
+        # RomPtr_XX(e) que queda como argumento (de una función como las de romp): la dirección
+        body = re.sub(r'\bRomPtr_[0-9A-F]{2}\(', '(uint16)(', body)
         body = body.replace('(int8)bts_get(cur_block_index) * room_width_in_blocks',
                             'Mul16((int8)bts_get(cur_block_index), room_width_in_blocks)')   # mulu.w, sin __mulsi3
         # byte bajo de una lectura de la ROM (no es un lugar): LOBYTE(BW_XX(...)) -> (uint8)(...)
@@ -399,10 +699,39 @@ class Xlate:
         # byte de una tabla de palabras: *((uint8 *)&g_word_XXXXXX + i) (ya traducida a BW_XX(dirección)) -> BB_XX
         body = re.sub(r'\*\(\(uint8 \*\)&\(\(uint16\)BW_([0-9A-F]{2})\((0x[0-9A-Fa-f]+) \+ 2 \* \(0\)\)\) \+ ([^)]+)\)',
                       r'BB_\1((uint16)(\2 + (\3)))', body)
+        body = self.rom_struct_fields(name, body)
         for tn in self.table_defs:
             if re.search(r'\b%s\b' % tn, body):
                 self.need_tables.add(tn)
         return hdr + '\n' + body
+
+    def rom_struct_fields(self, name, body):
+        """campos de las tablas de estructuras de la ROM (rom_read): XROMS_T(dir, i).campo -> BW(dir + tamaño * i +
+        desplazamiento) y *(T *)((uint8 *)&XROMS_T(dir, 0).campo + expr) -> BW(dir + desplazamiento + expr)"""
+        rx = re.compile(r'\*\((?:uint16|int16|VoidP) \*\)\(\(uint8 \*\)&XROMS_(\w+)\(0x([0-9A-F]{2})([0-9A-F]{4}), 0\)\.(\w+) \+ ')
+        while True:
+            m = rx.search(body)
+            if not m:
+                break
+            st = m.group(0).index('((uint8')
+            e = match_paren(body, m.start() + st)
+            expr = body[m.end():e]
+            fs, _ = self.rom_structs[m.group(1)]
+            body = body[:m.start()] + '((uint16)BW_%s(0x%s + %d + (%s)))' % (m.group(2), m.group(3), fs[m.group(4)], expr) + body[e + 1:]
+        rx = re.compile(r'XROMS_(\w+)\(0x([0-9A-F]{2})([0-9A-F]{4}), ')
+        while True:
+            m = rx.search(body)
+            if not m:
+                break
+            e = match_paren(body, m.end() - len('0x%s%s, ' % (m.group(2), m.group(3))) - 1)
+            idx = body[m.end():e]
+            fm = re.match(r'\.(\w+)', body[e + 1:])
+            fs, size = self.rom_structs[m.group(1)]
+            if not fm or fm.group(1) not in fs:
+                self.todo.append('%s: tabla de %s sin campo' % (name, m.group(1)))
+                break
+            body = body[:m.start()] + '((uint16)BW_%s(0x%s + %d + %d * (%s)))' % (m.group(2), m.group(3), fs[fm.group(1)], size, idx) + body[e + 1 + len(fm.group(0)):]
+        return body
 
     def binstr_body(self, name, b, bank, P):
         """instrucciones con puntero de bytes (proyectiles enemigos, $86): P es la dirección en el banco"""
@@ -411,6 +740,7 @@ class Xlate:
         b = re.sub(r'\bLoad24\(\(LongPtr \*\)%s\)' % P, '(BW_%02X(%s) | (uint32)BB_%02X((uint16)(%s + 2)) << 16)' % (bank, P, bank, P), b)
         b = re.sub(r'\bGET_WORD\(%s\)' % P, 'BW_%02X(%s)' % (bank, P), b)
         b = re.sub(r'\bGET_WORD\(%s \+ (\d+)\)' % P, lambda m: 'BW_%02X(%s + %s)' % (bank, P, m.group(1)), b)
+        b = re.sub(r'\bGET_WORD\(%s \+ ([^()]*(?:\[[^\]]*\])?)\)' % P, lambda m: 'BW_%02X((uint16)(%s + %s))' % (bank, P, m.group(1)), b)
         b = re.sub(r'\b%s\[(\d+)\]' % P, lambda m: 'BB_%02X(%s + %s)' % (bank, P, m.group(1)), b)
         b = re.sub(r'\*%s\b' % P, 'BB_%02X(%s)' % (bank, P), b)
         b = re.sub(r'\b%s \+ (\d+)\b' % P, lambda m: '(uint16)(%s + %s)' % (P, m.group(1)), b)

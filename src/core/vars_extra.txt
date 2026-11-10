@@ -10,3 +10,4 @@ uint16 cinematic_glow_timer[8] @0x1A07
 uint16 cinematic_glow_x[8] @0x1A17
 uint16 cinematic_glow_y[8] @0x1A27
 uint16 cinematic_glow_pal[8] @0x1A37
+alias crocomire_bg2_scroll_hdma_data = cinematic_text_tilemap + 0x398   # 7E:CAF0 en el SNES (560 bytes): aquí 7E:3730-395F (bytes 1840-2399: entre las tablas de la caché del cuerpo, md_zebes.c, y sin pisar las del líquido, md_engine.c); solo la escribe Crocomire (la lee el HDMA del BG2); en el juego ese lugar es del mapa de la pausa (con la pausa en la pelea, lo que no rearma queda mal hasta rearmarlo; RAM: docs/46)

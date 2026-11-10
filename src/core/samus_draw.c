@@ -122,6 +122,11 @@ void SetEventHappened(uint16 a) {  // 0x8081FA
   events_that_happened[a >> 3] |= bitmask;
 }
 
+void ClearEventHappened(uint16 a) {  // 0x808212
+  bitmask = 1 << (a & 7);                    // PrepareBitAccess ($80:818E)
+  events_that_happened[a >> 3] &= ~bitmask;
+}
+
 uint8 CheckEventHappened(uint16 a) {  // 0x808233
   bitmask = 1 << (a & 7);                    // PrepareBitAccess ($80:818E)
   return (bitmask & events_that_happened[a >> 3]) != 0;

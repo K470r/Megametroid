@@ -11,6 +11,7 @@
 #include "nmath.h"
 #include "hdmaobj.h"
 #include "enemies.h"
+#pragma GCC optimize("Os")              /* fin de juego: corre poco; la parte común de la ROM no alcanzaba (docs/48) */
 
 void MenuGfx(void);                                                   /* capa de la Genesis */
 void DrawMenuSpritemap(uint16 idx, uint16 x, uint16 y, uint16 chr);   /* $81:891F (Genesis) */

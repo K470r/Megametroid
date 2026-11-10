@@ -25,7 +25,9 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-POOL_CHUNK = 1024          # tiles por trozo del depósito común (32 KB)
+BOSS_PAGE = 25                                               # (port.py)
+BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(320 * 1024)))
+POOL_CHUNK = 512           # tiles por trozo del depósito común (16 KB: llenan mejor los huecos de las páginas)
 PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "2048"))   # bytes libres al final de cada página: la cuenta
 # no incluye las alineaciones; medido en rom.map (docs/58), lo real queda hasta ~1 KB por encima de la cuenta. El
 # enlace falla si una página pasa de 512 KB (md_ssf2.ld)
@@ -350,7 +352,7 @@ def put_items(table, vram, items):
     return bytes(table), bytes(vram)
 
 
-def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None):
+def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
     para la sala (sin dar: MAX_PALS; 1 en las salas de jefes que usan la línea 1, mkzobj.BOSS_LINE); usage: veces que
@@ -359,6 +361,10 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     max_pals = max_pals or MAX_PALS
     ts = tileset(gs)
     table, pal = ts["table"], ts["pal"]
+    if pal_over:                                  # colores que el jefe pone después de cargar la sala (zbg2.log)
+        pal = list(pal)
+        for i_, c_ in pal_over.items():
+            pal[i_] = c_
     vram = vram or ts["vram"]
     if items:
         table, vram = put_items(table, vram, items)
@@ -414,6 +420,14 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     if c:
                         g = gc(p, int(c))
                         cw[g] = cw.get(g, 0) + u * int((a == c).sum())
+        if bg2 and nbg2 is not None:                      # y los del cuerpo del jefe (cada tile, como un bloque visto)
+            for e in bg2[nbg2:]:
+                t, p = e & 0x3FF, (e >> 10) & 7
+                a = px(t)
+                for c in np.unique(a):
+                    if c:
+                        g = gc(p, int(c))
+                        cw[g] = cw.get(g, 0) + 4 * int((a == c).sum())
     while bins is None:
         level = "tile+fusión"
         allc = sorted(set().union(*[{merges.get(c, c) for c in cs} for cs in combos.values()]))
@@ -503,21 +517,51 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 grid = [[c ^ 0x8000 for c in grid[1]], [c ^ 0x8000 for c in grid[0]]]
             # orden: arriba-izq, abajo-izq, arriba-der, abajo-der (columnas)
             cells += [cell(grid[0][0]), cell(grid[1][0]), cell(grid[0][1]), cell(grid[1][1])]
-    bg2c = [cell(e) for e in bg2] if bg2 else None
+    bg2c = [cell(e) for e in bg2[:nbg2]] if bg2 else None
+    n_before_extra = len(tile_list)               # (nbg2: lo que sigue son los tiles que solo usa el cuerpo del jefe)
+    if bg2 and nbg2 is not None:
+        bg2c += [cell(e) for e in bg2[nbg2:]]
     # tiles animados: para cada trozo (origen, VRAM) los tiles de la Genesis que cambia, ya convertidos
     anims = {}
     for (t, p), ((gi, _, _), bi, lut) in gtile.items():
         for key, fr in anim.get(t, {}).items():
             anims.setdefault(key, []).append((gi, genesis_tile_bytes(lut[snes_tile(fr, 0)])))
-    return {"anims": anims, "bg2": bg2c, "tiles": b"".join(tile_list), "ntiles": len(tile_list), "src": src, "npal": len(palettes),
+    return {"n_before_extra": n_before_extra, "anims": anims, "bg2": bg2c, "tiles": b"".join(tile_list), "ntiles": len(tile_list), "src": src, "npal": len(palettes),
             "ids": blocks, "cells": cells, "level": level, "merges": len(merges)}
 
 
 # ------------------------------------------------------------------ fondo de biblioteca (LoadLibraryBackground $82:E97C)
-def library_bg(gs, bg_ptr):
-    """VRAM (con los tiles que cargue el fondo) y las 64x32 palabras del tilemap del BG2 (VRAM $4800, BG2SC 0x49)"""
+def bg_copies_2000(bg_ptr):
+    """el fondo de biblioteca copia 7E:2000 (tilemap_stuff) al BG2: el de las salas de los jefes del BG2"""
+    j = bg_ptr
+    if not j & 0x8000:
+        return False
+    for _ in range(64):
+        cmd = w16(0x8F0000 | j)
+        j += 2
+        if cmd == 0:
+            return False
+        if cmd in (2, 8):
+            if ptr24(0x8F0000 | j) == 0x7E2000:
+                return True
+            j += 7
+        elif cmd == 4:
+            j += 5
+        elif cmd == 0xE:
+            j += 9
+        elif cmd not in (6, 0xA, 0xC):
+            return False
+    return False
+
+
+def library_bg(gs, bg_ptr, ram_2000=None):
+    """VRAM (con los tiles que cargue el fondo) y las 64x32 palabras del tilemap del BG2 (VRAM $4800, BG2SC 0x49).
+    ram_2000: la palabra con que el inicio del jefe llenó 7E:2000 (tilemap_stuff) antes de que el fondo la copie
+    (Phantoon, Draygon, Crocomire: 0x338, un tile vacío; sin ella la copia daba el tile 0)"""
     vram = bytearray(tileset(gs)["vram"])
     ram = {0x7E: bytearray(0x10000), 0x7F: bytearray(0x10000)}
+    if ram_2000 is not None:
+        ram[0x7E][0x2000:0x3000] = struct.pack('<H', ram_2000) * 0x800
     fill = r(0x80A29A, 1)[0]                         # ClearBG2Tilemap: los dos bytes de cada palabra
     for a in range(0x4800 * 2, 0x5000 * 2):
         vram[a] = fill
@@ -566,8 +610,70 @@ def library_bg(gs, bg_ptr):
     return bytes(vram), words
 
 
+# ------------------------------------------------------------------ cuerpos de los jefes en el BG2 (docs/59)
+BOSS_BG2_LOG = Path(__file__).resolve().parents[2] / "res" / "snes_ref" / "zbg2.log"
+
+
+def boss_bg2_logs():
+    """{sala: (palabras del BG2 sin flips ni prioridad, {índice de palette_buffer: color})} del registro del motor
+    en el PC (host/pc_stubs.c, MM_DRAWLOG: lo que cada jefe sube de tilemap_stuff y el color más brillante de cada
+    índice del BG mientras tanto)"""
+    out = {}
+    if not BOSS_BG2_LOG.exists():
+        return out
+    for l in BOSS_BG2_LOG.read_text().splitlines():
+        f = l.split()
+        if len(f) >= 3 and f[1] == "bg2":
+            out.setdefault(int(f[0], 16), (set(), {}))[0].add(int(f[2], 16) & 0x1FFF)
+        elif len(f) >= 4 and f[1] == "bg2pal":
+            out.setdefault(int(f[0], 16), (set(), {}))[1][int(f[2])] = int(f[3], 16)
+    return {ra: (sorted(ws), {i: c for i, c in pal.items() if (i >> 4) in {(w >> 10) & 7 for w in ws}})
+            for ra, (ws, pal) in out.items() if ws and ra in BOSS_BG2_ROOMS}
+
+
+ZT_BASE = 448                                    # primer tile de la sala en la Genesis (md_zebes.c)
+BOSS_HI_TILE, BOSS_HI_N = 1920, 123              # VRAM 0xF000: hasta el tile 2042 (2043-2047: el gancho, md_engine.c)
+# 7E:2000 cuando el fondo de biblioteca lo copia al BG2, comprobado contra el SNES: Phantoon y Draygon ya lo llenaron
+# con 0x338 (tile vacío). En la de Crocomire, no (con 0x338 se veía el color de fondo de la Genesis, rojo; sin
+# llenar, el tile 0 de su tileset: negro como en el SNES)
+BOSS_2000_FILL = {0xCD13: 0x338, 0xDA60: 0x338, 0xA98D: 0x338}
+# salas con el cuerpo en una caché (md_zebes.c): sus tiles no entran todos en la VRAM; se suben los que usa el mapa
+BOSS_BG2_CACHE = {0xA98D}                        # Crocomire: 312 tiles, ~155 a la vez
+# Crocomire derritiéndose (docs/59): Crocomire_Func_60 ($A4:943D) copia a 7E:4000 filas de tiles del banco $A4 (listas
+# de $A4:9BC5: cabecera de 4 palabras y pares (origen, destino) hasta 0xFFFF; después la lista de la cola de VRAM) y
+# Crocomire_Func_67 las sube como tiles r * 16 + c (c < 11) del BG2. Esos tiles van en la caché del cuerpo con números
+# que la sala no usa (MELT_FAKE): kCrocoMelt[fase][r * 11 + c] (md_zebes.c los usa en vez de los de la VRAM)
+MELT_ROWS = 7
+MELT_FAKE = None
+
+
+def croco_melt_phases():
+    """[[origen de la fila r en $A4, ...] por fase]"""
+    phases, i = [], 0
+    while len(phases) < 2:
+        hdr = [w16(0xA49BC5 + i + 2 * k) for k in range(4)]
+        assert hdr[3] == 0xA4, "Crocomire: lista de copia sin el banco $A4"
+        i += 8
+        rows = []
+        while w16(0xA49BC5 + i) != 0xFFFF:
+            rows.append(w16(0xA49BC5 + i))
+            i += 4
+        i += 2
+        while w16(0xA49BC5 + i) != 0xFFFF:       # (la lista de la cola de VRAM)
+            i += 8
+        i += 2
+        phases.append(rows)
+    return phases
+
+
+# salas con el cuerpo dibujado
+BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60,A98D").split(",") if x}
+
+
 # ------------------------------------------------------------------ todo
 def main():
+    global BOSS_BG2
+    BOSS_BG2 = boss_bg2_logs()
     rooms = all_rooms()
     doors_in = room_doors_in(rooms)
     th = (out / "tables.h").read_text()
@@ -599,7 +705,10 @@ def main():
             # estados con un jefe de colores propios (mkzobj.BOSS_PALETTES, docs/51): la sala en una sola línea, la
             # línea 1 es de los objetos
             boss = mkzobj.boss_line(mrom, st, zkeys.get(ra, set())) is not None
-            key = (lvl, gs, plm_ptr, ra, eye, boss)
+            bg_ptr_ = struct.unpack_from('<H', b, 22)[0]
+            # (el fondo va en la clave: la sala de Draygon tiene el mismo nivel en la pelea, con el fondo copiado de
+            # 7E:2000, y vencido, con una pared)
+            key = (lvl, gs, plm_ptr, ra, eye, boss, bg_ptr_ if (l2x & 1) else None)
             if key not in gfx_keys:
                 d = decompress(lvl)
                 size = d[0] | d[1] << 8
@@ -612,7 +721,7 @@ def main():
                     l2 = struct.unpack_from('<%dH' % n, d, 2 + size + n)
                     blocks |= {w & 0x3FF for w in l2}
                 elif l2x & 1:
-                    vram, bg2 = library_bg(gs, bg_ptr)
+                    vram, bg2 = library_bg(gs, bg_ptr, BOSS_2000_FILL.get(ra) if ra in BOSS_BG2 and bg_copies_2000(bg_ptr) else None)
                 setup = struct.unpack_from('<H', b, 24)[0]
                 sky_tab = {0x91C9: 0x88AD9C, 0x91BD: 0x88AD9C, 0x91CE: 0x88ADA6}.get(setup)
                 if sky_tab:                       # cielo de la superficie: el BG2 sale de los mapas de $8A por filas
@@ -633,8 +742,64 @@ def main():
                 usage = {}
                 for w_ in list(l1) + list(l2 or []):
                     usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1
-                res = convert(gs, blocks, bg2, vram, anim, items, max_pals=1 if boss else None,
-                              usage=usage if boss else None)
+                bb = BOSS_BG2.get(ra) if (l2x & 1) and bg_copies_2000(bg_ptr) else None
+                nbg2 = len(bg2) if bg2 else 0
+                if bb and ra == 0xA98D:           # los tiles del derretido (MELT_FAKE), con la paleta del cuerpo
+                    global MELT_FAKE
+                    phases = croco_melt_phases()
+                    bpal = max({(w >> 10) & 7 for w in bb[0]}, key=lambda p_: sum(1 for w in bb[0] if (w >> 10) & 7 == p_))
+                    used = {w & 0x3FF for w in bb[0]} | {w & 0x3FF for w in (bg2 or [])}
+                    ts_ = tileset(gs)["table"]
+                    for mt in blocks:
+                        used |= {struct.unpack_from('<H', ts_, mt * 8 + 2 * k)[0] & 0x3FF for k in range(4)}
+                    if MELT_FAKE is None:
+                        free = [t for t in range(1023, 0, -1) if t not in used]
+                        MELT_FAKE = [[free.pop(0) if r_ < len(ph) else None for r_ in range(MELT_ROWS) for c_ in range(11)]
+                                     for ph in phases]
+                    vram = bytearray(vram)
+                    extra_w = []
+                    for pi, ph in enumerate(phases):
+                        for r_, src_ in enumerate(ph):
+                            for c_ in range(11):
+                                f_ = MELT_FAKE[pi][r_ * 11 + c_]
+                                assert f_ not in used, "Crocomire: número de tile del derretido en uso"
+                                vram[f_ * 32:f_ * 32 + 32] = r(0xA40000 | (src_ + 32 * c_), 32)
+                                extra_w.append(bpal << 10 | f_)
+                    vram = bytes(vram)
+                    bb = (bb[0] + extra_w, bb[1])
+                res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items,
+                              max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
+                              pal_over=bb[1] if bb else None, nbg2=nbg2 if bb else None)
+                res["boss"] = None
+                if bb:                            # celdas del cuerpo: tabla por (línea del SNES, tile)
+                    cells_b = res["bg2"][nbg2:]
+                    # los tiles que solo usa el cuerpo (los últimos), hasta BOSS_HI_N, van a la VRAM de 0xF000
+                    # (BOSS_HI_TILE: libre en estas salas, sin el ojo ni cajas de mensaje): no ocupan la de los objetos
+                    nt_ = res["ntiles"]
+                    cache = ra in BOSS_BG2_CACHE
+                    hi = nt_ - res["n_before_extra"] if cache else min(nt_ - res["n_before_extra"], BOSS_HI_N)
+                    keep = nt_ - hi
+                    hi_tiles = res["tiles"][keep * 32:]
+                    res["tiles"] = res["tiles"][:keep * 32]
+                    res["ntiles"] = keep
+                    if cache:                     # caché: bit 15 (sin uso: la prioridad viene de la palabra) + tile k
+                        cells_b = [(c_ & 0x7800) | 0x8000 | ((c_ & 0x7FF) - keep) if (c_ & 0x7FF) >= keep else c_
+                                   for c_ in cells_b]
+                    else:
+                        cells_b = [(c_ & ~0x7FF) | (BOSS_HI_TILE - ZT_BASE + (c_ & 0x7FF) - keep)
+                                   if (c_ & 0x7FF) >= keep else c_ for c_ in cells_b]
+                    res["bg2"] = res["bg2"][:nbg2] or None
+                    pals = sorted({(w >> 10) & 7 for w in bb[0]})
+                    assert len(pals) <= 2, "jefe con más de dos líneas en el BG2"
+                    slot_of = [pals.index(p_) if p_ in pals else 0 for p_ in range(8)]
+                    tab = [0] * 2048
+                    for w_, c_ in zip(bb[0], cells_b):
+                        tab[slot_of[(w_ >> 10) & 7] << 10 | (w_ & 0x3FF)] = c_
+                    if cache and r(0x8F0000 | (ra + 5), 1)[0] == 1:
+                        cache = 3                 # sala de una pantalla de alto: también las filas 36-61 del plano A
+                    res["boss"] = (slot_of, tab, hi_tiles, cache)
+                    if cache:
+                        assert len(hi_tiles) // 32 <= 400, "caché del cuerpo: %d tiles, más de 400 (md_zebes.c, BC_K)" % (len(hi_tiles) // 32)
                 if eye:
                     res["cells"] = [c | 0x8000 for c in res["cells"]]
                     if res["bg2"]:
@@ -709,7 +874,7 @@ def main():
 
     def next_page(pg):
         pg += 1
-        assert pg <= int(os.environ.get("MM_LAST_PAGE", "23")), "zebes: no entra en las páginas del SSF2 (md_ssf2.ld llega a la 23)"
+        assert pg <= int(os.environ.get("MM_LAST_PAGE", "25")), "zebes: no entra en las páginas del SSF2 (en la 25 solo lo que dejan los jefes: BOSS_RESERVE)"
         return pg
     # primer hueco: cada bloque va a la primera página donde cabe (antes, una página tras otra: lo que sobraba al
     # final de cada página se perdía)
@@ -719,6 +884,19 @@ def main():
             fill[pg] = u + 16384                    # margen
     for pg, u in pause_pages.items():
         fill[pg] = fill.get(pg, 0) + u + 4096
+    # el título va al final de la página 22 (md_ssf2.ld, .rodata_title): lo que miden sus archivos si ya se generaron
+    # (make_data.sh corre make_title_data.py después) y si no 420 KB; con los enemigos de todas las áreas Zebes llega
+    # a esa página
+    tdat = HERE.parent.parent / "res" / "gen" / "md" / "front" / "title_data.s"
+    title_sz = 420 * 1024
+    if tdat.exists():
+        fs_ = re.findall(r'incbin "([^"]+)"', tdat.read_text())
+        if fs_ and all((tdat.parent.parent / f_).exists() for f_ in fs_):
+            title_sz = sum((tdat.parent.parent / f_).stat().st_size for f_ in fs_) + 16384
+    fill[22] = fill.get(22, 0) + title_sz
+    # la página de los jefes (port.py, BOSS_PAGE: su código, los niveles de sus salas y sus bancos, ~240 KB) también
+    # sirve para Zebes en lo que sobra: se le reservan BOSS_RESERVE bytes (el enlazador avisa si la página se pasa)
+    fill[BOSS_PAGE] = BOSS_RESERVE + sum(4096 + len(e["boss"][2]) for e in entries if e.get("boss"))   # (y los cuerpos)
 
     def place(need):
         for pg in sorted(fill):
@@ -835,6 +1013,32 @@ def main():
         if e["bg2"]:
             C.append(f'NT_BANK({page}) static const uint16 kZG{i}_bg2[{len(e["bg2"])}] = {{' +
                      ','.join('0x%X' % x for x in e["bg2"]) + '};')
+    # cuerpos de los jefes en el BG2 (docs/59): tablas en la página de los jefes (la ventana 7 la muestra en sus salas)
+    bosses = [(i, e["boss"]) for i, e in enumerate(entries) if e.get("boss")]
+    for i, (slot_of, tab, ht, cache) in bosses:
+        C.append(f'NT_BANK({BOSS_PAGE}) static const uint16 kZG{i}_boss[2048] = {{' + ','.join('0x%X' % x for x in tab) + '};')
+        C.append(f'NT_BANK({BOSS_PAGE}) static const uint16 kZG{i}_bosst[{max(1, len(ht) // 2)}] = {{' +
+                 (','.join('0x%X' % x for x in struct.unpack('>%dH' % (len(ht) // 2), ht)) if ht else '0') + '};')
+    H.append('/* cuerpo de un jefe en el BG2: celda de la Genesis por (línea del SNES -> slot[línea], tile del SNES): tab[slot<<10|tile];')
+    H.append('   tiles: los que solo usa el cuerpo, a la VRAM desde ZEBES_BOSS_HI_TILE (0xF000); cache: van a la VRAM según los')
+    H.append('   use el mapa (en la tabla: bit 15 + número de tile); cache 3: la sala es de una pantalla de alto (más lugares) */')
+    H.append(f'#define ZEBES_BOSS_HI_TILE {BOSS_HI_TILE}')
+    H.append('typedef struct { uint16 gfx; uint8 slot[8]; const uint16 *tab; const uint16 *tiles; uint16 ntiles, cache; } ZebesBossBg2;')
+    H.append(f'#define NT_ZEBES_NBOSSBG2 {len(bosses)}')
+    H.append(f'#define ZEBES_BOSS_PAGE {BOSS_PAGE}')
+    H.append(f'extern const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}];')
+    H.append(f'#define CROCO_MELT_ROWS {MELT_ROWS}')
+    H.append('extern const uint16 kCrocoMelt[2][CROCO_MELT_ROWS * 11];   /* tiles del derretido de Crocomire (0xFFFF: sin) */')
+    C.append('const uint16 kCrocoMelt[2][CROCO_MELT_ROWS * 11] = {')
+    for ph_ in (MELT_FAKE or [[None] * (MELT_ROWS * 11)] * 2):
+        C.append('  { ' + ', '.join('0x%04X' % (0xFFFF if f_ is None else f_) for f_ in ph_) + ' },')
+    C.append('};')
+    C.append(f'const ZebesBossBg2 kZebesBossBg2[{max(1, len(bosses))}] = {{')
+    for i, (slot_of, tab, ht, cache) in bosses:
+        C.append(f'  {{ {i}, {{ {", ".join(str(x) for x in slot_of)} }}, kZG{i}_boss, kZG{i}_bosst, {len(ht) // 32}, {int(cache)} }},')
+    if not bosses:
+        C.append('  { 0xFFFF },')
+    C.append('};')
     for i, d in enumerate(obj_list):
         page = obj_pages[i]
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_runs[{len(d["runs"])}] = {{' +

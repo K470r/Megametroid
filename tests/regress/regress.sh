@@ -17,6 +17,12 @@
 # dibujo de la línea según qué instrucción corre el 68000, y con sonido el Z80 le roba ciclos (docs/54, docs/55). Se
 # informa cuántos cuadros cambiaron ahí; fuera de esa ventana todo sigue contando.
 #
+# Ritmo: en dos momentos el cuadro que se muestra depende de cuántos ciclos tarda el código (un cuadro atrasado de
+# más o de menos): la pelea con Ridley de Ceres (cuadros 5124-5127 del motor) y la huida (8034; y 8058, el reloj
+# de la huida: cuenta los cuadros de verdad, no los del motor). Con cada cambio de
+# código caen de un lado o del otro; comparadas píxel a píxel, las dos imágenes son correctas (docs/59, 2026-11-06).
+# Se cuentan aparte y no fallan.
+#
 # Uso: regress.sh [escena...]          comparar (escenas: intro ceres zebes; sin nada, todas)
 #      UPDATE=1 regress.sh [escena...] aprobar: la imagen actual pasa a ser la de referencia
 # Variables: RETRORUN, CORE (Genesis Plus GX libretro)
@@ -59,7 +65,8 @@ g = load(gzip.open(sys.argv[1]).read())
 c = load(open(sys.argv[2], 'rb').read())
 bad, shift, rowcount = [], [], {}
 CIRC = {'ceres': (8620, 8705), 'zebes': (8620, 8705)}.get(sys.argv[3])   # borde del círculo (ver arriba)
-circ = []
+PACE = {'ceres': [(5124, 5127), (8034, 8034), (8058, 8058)], 'zebes': [(5124, 5127), (8034, 8034), (8058, 8058)]}.get(sys.argv[3], [])   # ritmo
+circ, pace = [], []
 for f in sorted(g):
     if f not in c or g[f] == c[f]:
         continue
@@ -74,6 +81,8 @@ for f in sorted(g):
         for i in d: rowcount[i] = rowcount.get(i, 0) + 1
     elif CIRC and CIRC[0] <= f <= CIRC[1]:
         circ.append(f)
+    elif any(a <= f <= b for a, b in PACE):
+        pace.append(f)
     else:
         bad.append(f)
 steady = sorted(i for i, k in rowcount.items() if k > 0.2 * len(g))
@@ -88,6 +97,7 @@ msg = '%s: %d cuadros comparados, %d distintos' % (sys.argv[3], len(g), len(bad)
 if bad: msg += ' en ' + ranges(bad)
 if shift: msg += '; %d con corrimientos de una línea' % len(shift)
 if circ: msg += '; %d en el borde del círculo de la explosión (no falla)' % len(circ)
+if pace: msg += '; %d de ritmo (no falla)' % len(pace)
 if steady: msg += '; LÍNEAS QUE CAMBIAN SIEMPRE: %s' % steady[:10]
 if miss: msg += '; %d cuadros que no se vieron' % len(miss)
 print(msg)

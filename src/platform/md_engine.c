@@ -288,6 +288,204 @@ static inline uint16 tint_cram(uint16 c) {
 }
 uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7FFF]; }   /* md_zebes.c */
 
+/* líquido de la capa 3 (lava, ácido: docs/59). En el SNES el BG3 va solo en la pantalla principal y la sala en la
+   subpantalla, sumados (LayerBlendFunc_18, CGADSUB 0x24): debajo de la superficie el color del líquido se suma a todo.
+   Aquí: desde la línea de la superficie, la interrupción horizontal pone una paleta con el color medio del líquido
+   sumado (lq_col: las 4 líneas, la 3 con los colores de los objetos); el vblank repone la normal. El color medio sale
+   de palette_buffer con los pesos de los píxeles del tilemap del FX ($8A, kFxTypeTilemapPtrs) sobre los tiles del BG3
+   ($9A:B200): lava 27/26/25, ácido 3/2/1 (92/5/3 %), así sigue el brillo de su paleta (palfx). */
+typedef struct __attribute__((packed)) { const uint16 *col; uint16 n; uint32 cmd; uint16 reg; } LqStep;
+static const LqStep *volatile lq_hp;
+extern uint16 cinematic_text_tilemap[];
+#define LQ_MAXSTEP 10                             /* pasos de la interrupción: el líquido (hasta 5) y la onda de Crocomire */
+#define lq_steps ((LqStep *)((uint8 *)cinematic_text_tilemap + 3968))  /* los que lee la interrupción (el vblank copia
+                                                                         lq_next; md_hint_lq: la misma dirección) */
+/* (la RAM es justa: en cinematic_text_tilemap + 3200, después de lo que usan en estas salas la caché de los jefes,
+   md_zebes.c, y crocomire_bg2_scroll_hdma_data; la pausa y la caja de mensaje lo pisan: se rearma cada cuadro) */
+#define lq_col ((uint16 *)((uint8 *)cinematic_text_tilemap + 3200))
+#define lq_cols ((uint16 *)((uint8 *)cinematic_text_tilemap + 3328))    /* la franja de la superficie */
+#define LQ_SURF 8                                 /* líneas de la superficie (escribir 64 colores toma ~3) */
+#define lq_next ((LqStep *)((uint8 *)cinematic_text_tilemap + 3520))   /* los que arma md_post (LQ_MAXSTEP) */
+/* onda de Crocomire (HDMA $A4:943C: el BG2VOFS de cada línea desde crocomire_bg2_scroll_hdma_data): los valores de
+   la VSRAM del plano B de sus pasos; [15]: el de arriba (md_vint_top), [14]: 1 si hay onda */
+#define lq_wv_next ((uint16 *)((uint8 *)cinematic_text_tilemap + 3456))
+#define lq_wv ((uint16 *)((uint8 *)cinematic_text_tilemap + 3488))
+static uint8 lq_wn;                               /* pasos de la onda en lq_wv_next (md_post les suma scroll_by) */
+static uint8 lq_on;                             /* este cuadro lleva líquido (lq_steps listos) */
+__asm__(
+  "    .text\n"
+  "    .global md_hint_lq\n"
+  "md_hint_lq:\n"
+  "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank: nada */
+  "    bcc.s 9f\n"
+  "    movem.l %d0/%a0-%a1,-(%sp)\n"
+  "    movea.l lq_hp,%a0\n"
+  "    cmpi.b #40,0xC00008\n"             /* arriba (la primera del cuadro, línea 31): desde el primer paso */
+  "    bcc.s 3f\n"
+  "    lea cinematic_text_tilemap+3968,%a0\n"   /* (lq_steps) */
+  "3:  move.l (%a0)+,%a1\n"
+  "    move.w (%a0)+,%d0\n"
+  "    cmpa.w #0,%a1\n"
+  "    beq.s 1f\n"
+  "    move.l (%a0),0xC00004\n"
+  "    subq.w #1,%d0\n"
+  "2:  move.w (%a1)+,0xC00000\n"
+  "    dbra %d0,2b\n"
+  "    bra.s 5f\n"
+  "1:  cmpi.w #0xFFFF,%d0\n"              /* paso final (sin colores, n 0xFFFF): se queda en él */
+  "    bne.s 5f\n"
+  "    move.w 4(%a0),0xC00004\n"
+  "    bra.s 4f\n"
+  "5:  addq.l #4,%a0\n"
+  "    move.w (%a0)+,0xC00004\n"
+  "    move.l %a0,lq_hp\n"
+  "4:  movem.l (%sp)+,%d0/%a0-%a1\n"
+  "9:  rte\n");
+void md_hint_lq(void);
+void zebes_obj_colors_add(int16 ar, int16 ag, int16 ab, uint16 *out);
+/* tablas por canal (5 bits -> el canal de la Genesis, como tint_tables): cada color, tres lecturas */
+#define lq_tab ((uint8 *)cinematic_text_tilemap + 3648)       /* 2 x 96: el cuerpo y la superficie */
+void zebes_obj_colors_tab(const uint8 *t, uint16 *out);
+static void lq_tables(int16 ar, int16 ag, int16 ab, uint8 *t) {
+  for (int16 v = 0; v < 32; v++) {
+    int16 r = v + ar, g = v + ag, b = v + ab;
+    r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
+    t[v] = (uint8)kCram555[r]; t[32 + v] = (uint8)(kCram555[g << 5] >> 4); t[64 + v] = (uint8)(kCram555[b << 10] >> 8);
+  }
+}
+static void lq_palette(const uint8 *t, uint16 *out) {   /* las 64: con el color sumado (tabla t) */
+  const uint8 *pbb = (const uint8 *)palette_buffer;
+  for (uint16 i = 0; i < 48; i++) {
+    uint16 o = cram_off[i];
+    if (o == 0xFFFE) { out[i] = cram[i]; continue; }
+    uint16 c = o == 0xFFFF ? 0 : *(const uint16 *)(pbb + o);
+    out[i] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
+  }
+  out[48] = cram[48];
+  zebes_obj_colors_tab(t, out + 49);
+}
+/* el HDMA de Crocomire derritiéndose (Crocomire_950F $A4:950F: pre-instrucción $A4:943C, tabla indirecta
+   {0xFF -> 7E:CAF0, 0xE1 -> 7E:CBEE}: una palabra por línea desde la 0) está activo */
+uint8 md_croco_wave(void) {
+  if (room_ptr != 0xA98D) return 0;
+  for (uint16 i = 0; i < 6; i++)
+    if (hdma_object_channels_bitmask[i] && hdma_object_pre_instructions[i] == 0x943C) return 1;
+  return 0;
+}
+static uint8 lq_pal_dirty = 1;                  /* la paleta cambió (md_post) o se pisó el lugar de las tablas */
+static uint8 lq_lo = 255, lq_hi;                 /* índices de palette_buffer que cambiaron (pocos) desde la última vez
+                                                   (lq_lo > lq_hi: ninguno) */
+static int8 lq_last[3] = { 127, 0, 0 };
+static void lq_prepare(void) {
+  lq_on = 0;
+#ifdef MD_NO_LQ
+  return;
+#endif
+  uint8 water = fx_type == 6 || fx_type == 0x26;  /* (0x26: el agua de la estatua de Tourian, el mismo tilemap) */
+  uint8 rain = fx_type == 0xA;                  /* lluvia: su bruma (línea 6 del BG3, como la lava) en toda la imagen */
+  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4 && !water && !rain)) return;
+  uint16 ly = rain ? layer1_y_pos : water ? fx_y_pos : lava_acid_y_pos;   /* superficie: el agua usa fx_y_pos */
+  if (ly & 0x8000) return;
+  int16 S = (int16)(ly - layer1_y_pos) - 2;     /* línea de la Genesis (medido contra el SNES: la interrupción y la escritura de colores llegan unas líneas tarde) */
+  if (S >= 224) return;
+  if (S < 66) S = 32;                           /* (con una interrupción menos: desde la primera línea del juego; 64-65: el intervalo daría 0 o menos) */
+  int16 ar, ag, ab;
+  if (water) {                                  /* agua: 74 % el color 26, 26 % el 25 (su tilemap del FX) */
+    const uint16 *pb = palette_buffer;
+    ar = (int16)((24 * (pb[26] & 31) + 8 * (pb[25] & 31)) >> 5);
+    ag = (int16)((24 * ((pb[26] >> 5) & 31) + 8 * ((pb[25] >> 5) & 31)) >> 5);
+    ab = (int16)((24 * ((pb[26] >> 10) & 31) + 8 * ((pb[25] >> 10) & 31)) >> 5);
+    uint8 bl = (uint8)fx_layer_blending_config_c;   /* LayerBlendFunc_14/16: se resta (Maridia); 18: se suma */
+    if (bl == 0x14 || bl == 0x16) { ar = -ar; ag = -ag; ab = -ab; }
+  } else {
+    const uint16 *pb = palette_buffer + (fx_type == 4 ? 0 : 24);   /* lava y lluvia: línea 6; ácido: 0 */
+    /* pesos sobre 32: 92 % el color 3, 5 % el 2, 3 % el 1 */
+    ar = (int16)((29 * (pb[3] & 31) + 2 * (pb[2] & 31) + (pb[1] & 31)) >> 5);
+    ag = (int16)((29 * ((pb[3] >> 5) & 31) + 2 * ((pb[2] >> 5) & 31) + ((pb[1] >> 5) & 31)) >> 5);
+    ab = (int16)((29 * ((pb[3] >> 10) & 31) + 2 * ((pb[2] >> 10) & 31) + ((pb[1] >> 10) & 31)) >> 5);
+  }
+  if (tint_on) { ar += tint_r; ag += tint_g; ab += tint_b; }
+  { extern uint8 nt_msgbox_active; if (nt_msgbox_active) lq_pal_dirty = 1; }   /* (la caja de mensaje usa la misma RAM) */
+  uint8 again = lq_pal_dirty || ar != lq_last[0] || ag != lq_last[1] || ab != lq_last[2];
+  if (again) {                                  /* solo si cambió la paleta o el color del líquido */
+    lq_pal_dirty = 0; lq_last[0] = ar; lq_last[1] = ag; lq_last[2] = ab;
+    lq_tables(ar, ag, ab, lq_tab);
+    lq_tables(ar + (ar >> 1), ag + (ag >> 1), ab + (ab >> 1), lq_tab + 96);   /* superficie: ~1,5 veces (SNES) */
+    lq_palette(lq_tab, lq_col);
+    lq_palette(lq_tab + 96, lq_cols);
+  } else if (lq_lo <= lq_hi) {                  /* solo los colores que salen de los índices que cambiaron */
+    const uint8 *pbb = (const uint8 *)palette_buffer;
+    const uint8 *t = lq_tab, *u = lq_tab + 96;
+    for (uint16 i = lq_lo; i <= (uint16)lq_hi; i++)
+      for (uint8 sl = cram_rev[i]; sl != 0xFF; sl = cram_next[sl]) {
+        if (sl >= 48) continue;
+        uint16 c = *(const uint16 *)(pbb + cram_off[sl]);
+        lq_col[sl] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
+        lq_cols[sl] = u[c & 31] | (uint16)u[32 + ((c >> 5) & 31)] << 4 | (uint16)u[64 + ((c >> 10) & 31)] << 8;
+      }
+    if (lq_hi >= 128) {                         /* (índices de los sprites: los colores de los objetos) */
+      zebes_obj_colors_tab(t, lq_col + 49);
+      zebes_obj_colors_tab(u, lq_cols + 49);
+    }
+  }
+  lq_lo = 255; lq_hi = 0;
+  /* sin apagar la interrupción: después del último paso salta cada 32 líneas sin hacer nada (paso final, n 0xFFFF)
+     y en el cuadro siguiente vuelve a la línea 31, que empieza otra vez (md_hint_lq); así un cuadro atrasado en que
+     el vblank no la reprograma (VDP ocupada) también lleva el líquido */
+  static const LqStep kEnd = { 0, 0xFFFF, 0, 0x8A1F };
+  /* los pasos con su línea: 31 (la primera), 63 (fija: el intervalo de la 31 lo da el vblank), la superficie (S - 1)
+     y el cuerpo del líquido (+ LQ_SURF); el registro de cada paso es el intervalo entre los dos siguientes */
+  LqStep st[LQ_MAXSTEP];
+  int16 ln[LQ_MAXSTEP];
+  uint16 n = 0;
+  if (S == 32) {                                /* línea 31: todo de una vez (sin franja) */
+    st[n] = (LqStep){ lq_col, 64, 0xC0000000u, 0 }; ln[n++] = 31;
+    st[n] = (LqStep){ 0, 0, 0, 0 }; ln[n++] = 63;
+  } else {
+    /* (escribir colores durante la imagen frena al 68000: lo justo. La línea 31 solo los objetos: las líneas 0-2 las
+       repone md_vint_top; la franja, solo las líneas 0-2) */
+    st[n] = (LqStep){ zobj_col, 15, 0xC0620000u, 0 }; ln[n++] = 31;
+    st[n] = (LqStep){ 0, 0, 0, 0 }; ln[n++] = 63;
+    st[n] = (LqStep){ lq_cols, 48, 0xC0000000u, 0 }; ln[n++] = S - 1;
+    st[n] = (LqStep){ lq_col, 64, 0xC0000000u, 0 }; ln[n++] = S - 1 + LQ_SURF;
+  }
+  lq_wn = 0;
+  lq_wv_next[14] = 0;
+  { /* onda de Crocomire: las líneas en que cambia el BG2VOFS de la tabla (línea del SNES + 2 en la Genesis), las que
+       quepan (repartidas); cada una escribe la VSRAM del plano B (md_post suma scroll_by) */
+    extern uint8 md_croco_wave(void);
+    if (md_croco_wave()) {
+      const uint16 *t = crocomire_bg2_scroll_hdma_data;
+      uint16 room = LQ_MAXSTEP - 1 - n;           /* (uno para el final) */
+      uint8 ch[112]; uint16 nc = 0;
+      for (uint16 i = 31; i < 222 && nc < sizeof ch; i++) if (t[i] != t[i - 1]) ch[nc++] = (uint8)i;
+      lq_wv_next[14] = 1;
+      for (uint16 j = 0; j < room && j < nc; j++) {
+        uint16 k = nc <= room ? j : (uint16)((2 * j + 1) * nc / (2 * room));
+        int16 L = ch[k] + 2;
+        /* lugar en la lista (ordenada por línea), con aire: 4 líneas después de un paso de colores, 2 de los demás */
+        uint16 p = n;
+        while (p > 0 && ln[p - 1] >= L) p--;
+        if (p > 0) { int16 g = ln[p - 1] + (st[p - 1].n > 1 ? 4 : 2); if (L < g) L = g; }
+        if (p < n && ln[p] < L + (int16)2) continue;   /* (no cabe antes del siguiente: se salta) */
+        if (L > 222) continue;
+        for (uint16 q = n; q > p; q--) { st[q] = st[q - 1]; ln[q] = ln[q - 1]; }
+        lq_wv_next[lq_wn] = (uint16)(t[ch[k]] - t[0]);
+        st[p] = (LqStep){ &lq_wv[lq_wn], 1, 0x40020010u, 0 }; ln[p] = L;
+        lq_wn++;
+        n++;
+      }
+    }
+  }
+  for (uint16 k = 0; k < n; k++) {
+    st[k].reg = k + 2 < n ? (uint16)(0x8A00 | (uint16)(ln[k + 2] - ln[k + 1] - 1)) : 0x8A1F;
+    lq_next[k] = st[k];
+  }
+  lq_next[n] = kEnd;
+  /* (la paleta normal la repone md_vint_top, líneas 0-2; y el primer paso, línea 31) */
+  lq_on = 1;
+}
+
 /* caja de mensaje (src/msgbox.c): sprites con los tiles de sus celdas (kMsgTiles, mkmd.py) en la línea 3; en las
    líneas de la caja la línea 3 vuelve a tener los colores del HUD (interrupciones: 31 los de los enemigos, 63 nada,
    arriba de la caja los del HUD, abajo de la caja otra vez los de los enemigos) */
@@ -408,6 +606,7 @@ static void md_msgbox_post(void) {
     if (mb_shown) {
       mb_shown = 0;
       md_cone_room();                             /* los tiles de 0xF000 eran del haz: se vuelven a cargar */
+      { void zebes_boss_tiles_again(void); zebes_boss_tiles_again(); }   /* (o del cuerpo del jefe, docs/59) */
       if (md_zebes) zebes_frz_reset();            /* y los de los congelados (filas del Window) */
     }
     mb_prev_n = 0;
@@ -471,6 +670,12 @@ static volatile uint8 md_vdp_busy;
 static void md_vint_top(void) {
   if (zobj_hint == 2) mb_hp = mb_steps;
   if (zobj_hint && !md_vdp_busy) {             /* Zebes: aunque el cuadro se atrase, el HUD con sus colores arriba */
+    if (zobj_hint == 3) {                       /* líquido: los pasos desde el principio y arriba la paleta sin él */
+      lq_hp = lq_steps;
+      VDP_CTRL32 = VDP_CMD_CRAM_W(0);
+      for (uint16 i = 0; i < 48; i++) VDP_DATA = cram[i];
+      if (lq_wv[14]) { VDP_CTRL32 = 0x40020010u; VDP_DATA = lq_wv[15]; }   /* onda: arriba, el scroll sin ella */
+    }
     VDP_CTRL32 = VDP_CMD_CRAM_W(0x62);
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];
     vdp_reg(0x0A, 31);   /* cambio de colores en la línea 32 (la primera del juego): no en el HUD */
@@ -939,8 +1144,37 @@ static uint8 flash_line(void) {
   return fl_line = (uint8)bl;
 }
 
+/* destello de los jefes (docs/59): el SNES los dibuja con la paleta 0 en los cuadros alternos de flash_timer
+   ($A0:9929); aquí se dibujan con su paleta y ese cuadro los colores de los objetos van a blanco (boss_flash_post) */
+static uint8 boss_flash_req, boss_flash_was;
+static uint8 room_is_boss(void) {
+  switch (room_ptr) {
+  case 0x9DC7: case 0xA59F: case 0xA98D: case 0xB283: case 0xB32E: case 0xCD13: case 0xD95E: case 0xDA60: case 0xDD58:
+    return 1;
+  }
+  return 0;
+}
+uint8 zebes_boss_line(void);
+static void boss_flash_post(void) {              /* (después de zebes_obj_colors) */
+  if (boss_flash_req) {
+    static const uint8 kSlots[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 13, 14 };   /* colores 1-8, 14, 15 (9-13: el rayo) */
+    for (uint16 i = 0; i < 10; i++) zobj_col[kSlots[i]] = 0x0EEE;
+    if (zebes_boss_line())
+      for (uint16 c = 17; c < 32; c++) if (cram[c] != 0x0EEE) { cram[c] = 0x0EEE; cram_dirty = 1; }
+    boss_flash_was = 1;
+  } else if (boss_flash_was) {                   /* la línea 1 vuelve a sus colores */
+    boss_flash_was = 0;
+    nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
+  }
+  boss_flash_req = 0;
+}
+
 void DrawEnemySpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, uint16 tiles) {  // 0x818AB8
   (void)bank;
+  if (md_zebes && !pal && room_is_boss()) {
+    uint16 base = gEnemyData(cur_enemy_index)->palette_index;
+    if (base && zebes_obj_draw(sm, base, tiles, (int16)x, (int16)y)) { boss_flash_req = 1; return; }
+  }
   if (md_zebes && !pal) {
     uint16 base = gEnemyData(cur_enemy_index)->palette_index;
     GenSpr *s0 = sp_ptr;
@@ -961,6 +1195,7 @@ void DrawEnemySpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, u
    ya juntadas en sprites grandes), se dibuja de una vez; si no, el motor dibuja cada spritemap */
 uint8 DrawEnemyExtSpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, uint16 tiles) {
   (void)bank;
+  if (md_zebes) return 0;                       /* (las claves de tipo 7 son las de Ceres; en Zebes, pieza por pieza) */
   return drawkey(7, sm, pal, tiles, (int16)x, (int16)y);
 }
 
@@ -1176,6 +1411,10 @@ void md_draw_eprojs(uint16 prio, uint16 bx, uint16 by) {
 }
 
 void DrawA6Spritemap(uint16 sm, uint16 x, uint16 y, uint16 a) {  // 0xA6DC13: posición en la sala
+  /* Zebes (Ridley de Norfair): las claves de los objetos de la sala (mkzkeys.py: enemy A6 sm paleta 0000) */
+  if (md_zebes && zebes_obj_draw(sm, a, 0, (int16)(x - layer1_x_pos), (int16)(y - layer1_y_pos))) return;
+  if (md_zebes && !a && room_is_boss() &&                       /* destello: con su paleta (la 7: 0x0E00) y en blanco */
+      zebes_obj_draw(sm, 0x0E00, 0, (int16)(x - layer1_x_pos), (int16)(y - layer1_y_pos))) { boss_flash_req = 1; return; }
   if (!drawkey(3, sm, a, 0, (int16)(x - layer1_x_pos), (int16)(y - layer1_y_pos))) missing(3, sm, a, 0);
 }
 
@@ -2203,6 +2442,14 @@ void md_logic(uint16_t joy) {
   sp_ptr = spr;
   md_spr_reserved = zebes_eye_room() || md_cone_pb_prio();   /* (la luz de la bomba de poder: md_cone.c) */
   if (md_spr_reserved) sp_ptr = spr + 2;       /* salas con el ojo: dos sprites que tapan el HUD (md_cone.c) */
+  /* en el SNES el HUD (BG3 con prioridad, BGMODE bit 3) tapa todos los sprites de las líneas 0-31; en la Genesis la
+     Window no tapa a los sprites: los dos primeros de la lista los enmascaran (como en las salas del ojo, md_cone.c:
+     8 x 32 en las líneas del HUD, el primero con x = 1, fuera de la pantalla, y el segundo con x = 0) */
+  else if ((uint16)(game_state - 7) <= 4) {
+    spr[0].y = 128; spr[0].size_link = (3 << 8) | 1; spr[0].attr = 0x8000; spr[0].x = 1;
+    spr[1].y = 128; spr[1].size_link = (3 << 8) | 2; spr[1].attr = 0x8000; spr[1].x = 0;
+    sp_ptr = spr + 2;
+  }
   door_seen = 0;
   flash_seen = 0;
   game_frame(viewer_input(joy));
@@ -2267,13 +2514,85 @@ const void *md_cone_sat(uint8 bank);
 void md_cone_color(void);
 void md_cone_vblank(void);
 void md_cone_room(void);
+/* lluvia (FX 0x0A, la sala de aterrizaje: docs/59). En el SNES el BG3 lleva una bruma (el tinte, lq_prepare) y motas
+   sueltas (colores 1-2 de los tiles 0x50-0x53 del BG3) que caen ~6 píxeles por cuadro y se mueven con la cámara
+   (HdmaobjPreInstr_RainBg3Scroll $88:D9A1). Aquí: 16 sprites de 8x32 con esos 4 tiles apilados (las motas en un
+   color libre de la línea 3: zebes_cone_slot), en lugares fijos de un dibujo de 256x256 que cae y deriva. */
+#define RAIN_TILE 2039                          /* 4 tiles en 0xF000 (sin el ojo; el gancho desde el 2043) */
+static const uint8 kRainPos[16][2] = {
+  { 12, 20 }, { 71, 140 }, { 133, 60 }, { 197, 200 }, { 40, 95 }, { 101, 230 }, { 166, 10 }, { 228, 120 },
+  { 25, 175 }, { 88, 45 }, { 150, 150 }, { 212, 75 }, { 55, 250 }, { 118, 110 }, { 182, 35 }, { 244, 185 } };
+static uint8 rain_ox, rain_oy;
+static uint8 rain_slot, rain_up, rain_line, rain_fixed, rain_slot_k = 0xFF, rain_pal_dirty = 1;   /* color de las motas (línea, índice) */
+#define rain_tiles ((uint16 *)((uint8 *)cinematic_text_tilemap + 3776))   /* los 4 tiles ya convertidos (128 bytes) */
+extern volatile uint16 md_frame_count;
+uint8 zebes_cone_slot(uint16 c);
+static void rain_post(void) {
+  rain_slot = 0;
+  if (!md_zebes || cine_stage || fx_type != 0xA || nt_msgbox_active) return;
+  if (rain_pal_dirty && (rain_slot_k == 0xFF || !(md_frame_count & 15))) {   /* el color de las motas: si cambió la
+                                                   paleta, como mucho cada 16 cuadros (en la sala de aterrizaje cambia casi siempre) */
+    rain_pal_dirty = 0;
+    static const uint8 kTry[5] = { 15, 14, 8, 7, 6 };
+    uint8 sl = 0, ln = 3, fx = 0;
+    for (uint16 i = 0; i < 5 && !sl; i++) if (zebes_cone_slot(kTry[i])) sl = kTry[i];
+    if (!sl) {                                  /* sin lugar libre: el color más parecido de la CRAM (como el gancho) */
+      uint16 want = kCram555[palette_buffer[25] & 0x7FFF], best = 0xFFFF;
+      for (uint16 i = 1; i < 64; i++) {
+        if (!(i & 15)) continue;
+        uint16 v = i >= 48 ? zobj_col[i - 49] : cram[i];
+        int16 dr = (int16)(v & 0xE) - (int16)(want & 0xE), dg = (int16)((v >> 4) & 0xE) - (int16)((want >> 4) & 0xE);
+        int16 db = (int16)((v >> 8) & 0xE) - (int16)((want >> 8) & 0xE);
+        uint16 d = (uint16)(dr * dr + dg * dg + db * db);
+        if (d < best) { best = d; sl = i & 15; ln = (uint8)(i >> 4); }
+      }
+      fx = 1;                                   /* (no se pinta: se usa como está) */
+    }
+    rain_line = ln; rain_fixed = fx;
+    if (sl != rain_slot_k) {                    /* los 4 tiles (2 bpp del SNES -> el índice sl), para el vblank */
+      rain_slot_k = sl;
+      uint16 *o = rain_tiles;
+      for (uint16 t = 0; t < 4; t++)
+        for (uint16 y = 0; y < 8; y++) {
+          uint8 a = kRainSnesTiles[t * 16 + 2 * y], b = kRainSnesTiles[t * 16 + 2 * y + 1];
+          uint32 row = 0;
+          for (uint16 x = 0; x < 8; x++) {
+            uint8 v = ((a >> (7 - x)) & 1) | (((b >> (7 - x)) & 1) << 1);
+            row = row << 4 | ((v == 1 || v == 2) ? sl : 0);
+          }
+          *o++ = (uint16)(row >> 16); *o++ = (uint16)row;
+        }
+      rain_up = 1;
+    }
+  }
+  rain_slot = rain_slot_k == 0xFF ? 0 : rain_slot_k;
+  if (!rain_slot) return;
+  rain_oy += 6; rain_ox -= 1;
+  for (uint16 i = 0; i < 16 && sp_ptr < spr + MAX_SPR; i++) {
+    int16 x = (int16)((kRainPos[i][0] + rain_ox - layer1_x_pos) & 255);
+    int16 y = (int16)((kRainPos[i][1] + rain_oy - layer1_y_pos) & 255);
+    if (y >= 224 || y < 32 || x >= 256) continue;   /* (no sobre el HUD: líneas 0-31) */
+    GenSpr *s = sp_ptr++;
+    s->y = y + 129;
+    s->size_link = 0x0300 | (uint16)(s - spr + 1);   /* 8x32 */
+    s->attr = 0x8000 | ((uint16)rain_line << 13) | RAIN_TILE;
+    s->x = x + 128;
+  }
+  if (!(md_frame_count & 63)) rain_up = 1;      /* (la bomba de poder o la caja de mensaje pueden pisar 0xF000) */
+}
+static void rain_vblank(void) {                 /* los 4 tiles (rain_post los convirtió) */
+  rain_up = 0;
+  vdp_dma_vram(rain_tiles, RAIN_TILE * 32, 64);
+}
+
 void md_post(void) {
-  if (pz_dim) { md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c */
+  if (pz_dim) { rain_slot_k = 0xFF; rain_pal_dirty = 1; md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c (pisa la RAM de los tiles de la lluvia) */
   pipe_take();
   md_haze_read();
   ncone = (md_zebes && !cine_stage && !nt_msgbox_active && !mb_shown) ? md_cone_frame() : 0;
   if (md_zebes) md_msgbox_post();
   /* conos de luz (md_cone.c): al final de la lista de sprites */
+  rain_post();
   nspr = (uint16)(sp_ptr - spr);
 #ifdef MD_SPRSUM
   { uint16 sum = nspr; const uint16 *w = (const uint16 *)spr; for (uint16 i = 0; i < nspr * 4; i++) sum = (sum << 1 | sum >> 15) ^ w[i];
@@ -2333,6 +2652,11 @@ void md_post(void) {
   /* colores: cada uno sale de un índice de palette_buffer (tabla de la sala), solo si la paleta cambió */
   if (nt_palette_changed) {
     nt_palette_changed = 0;
+    rain_pal_dirty = 1;
+    if (nt_palette_hi - nt_palette_lo < 32) {   /* pocos índices: el líquido rehace solo sus colores (lq_prepare) */
+      if (nt_palette_lo < lq_lo) lq_lo = (uint8)nt_palette_lo;
+      if (nt_palette_hi > lq_hi) lq_hi = (uint8)nt_palette_hi;
+    } else lq_pal_dirty = 1;
     const uint8 *pb = (const uint8 *)palette_buffer;
     const uint8 *lut = (const uint8 *)kCram555;
     if (nt_palette_hi - nt_palette_lo < 32) {
@@ -2362,7 +2686,15 @@ void md_post(void) {
     if (palette_buffer[0] != hz_last_c) hz_bd_dirty = 1;   /* el degradado sale solo del color de fondo */
     rl_pal_dirty = 1;
   }
-  if (md_zebes) { zebes_obj_colors(); md_cone_color(); }
+  if (md_zebes) { zebes_obj_colors(); boss_flash_post(); md_cone_color(); }
+  if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6 || fx_type == 0x26)) lq_prepare(); else lq_on = 0;
+  /* (la bruma de la lluvia, FX 0x0A, no: suma G+1 B+2 de 5 bits, en la Genesis casi nada, y en la sala de aterrizaje
+     la paleta cambia casi cada cuadro: rehacer las paletas atrasaba el juego) */
+  if (rain_slot && !rain_fixed) {               /* el color de las motas de la lluvia (rain_post) */
+    uint16 c = kCram555[palette_buffer[25] & 0x7FFF];
+    zobj_col[rain_slot - 1] = c;
+    if (lq_on) lq_col[48 + rain_slot] = c;
+  }
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);
@@ -2424,6 +2756,11 @@ void md_post(void) {
   scroll_ay = layer1_y_pos + nt_shake_bg1y;
   if (g_room->b_mode == 1) { scroll_bx = reg_BG2HOFS; scroll_by = reg_BG2VOFS; }
   else { scroll_bx = layer2_x_pos + nt_shake_bg2x; scroll_by = layer2_y_pos + nt_shake_bg2y; }
+  if (lq_on && lq_wv_next[14]) {               /* onda de Crocomire: el HDMA reemplaza al BG2VOFS en todas las líneas */
+    scroll_by += (uint16)(crocomire_bg2_scroll_hdma_data[0] - reg_BG2VOFS);
+    for (uint16 k = 0; k < lq_wn; k++) lq_wv_next[k] += scroll_by;
+  }
+  lq_wv_next[15] = scroll_by;
   if (cine_stage) cine_frame(); else hud_prepare();
   if (md_zebes && !cine_stage) {
     zebes_frame(scroll_ax, scroll_ay, scroll_bx, scroll_by);
@@ -2587,7 +2924,9 @@ void md_vblank(uint16_t late) {
   }
   if (arm_dma) { vdp_dma_vram(arm_dma, ARM_TILE * 32, 16); arm_dma = 0; }
   if (gr_dirty) { vdp_dma_vram(&gr_tiles[0][0], GRAPPLE_TILE * 32, 80); gr_dirty = 0; }
-  if (beam_dma) { vdp_dma_vram(beam_dma, BEAM_TILE * 32, 128); beam_dma = 0; }
+  if (beam_dma) {                    /* (y los 6 de la explosión del rayo, fijos: mkmd.beam_common) */
+    vdp_dma_vram(beam_dma, BEAM_TILE * 32, 128); vdp_dma_vram(kBeamExplTiles, BEAM_EXPL_TILE * 32, 96); beam_dma = 0;
+  }
   if (intro_on) {
     intro_vblank();
     md_vdp_busy = 0;
@@ -2627,6 +2966,7 @@ void md_vblank(uint16_t late) {
   }
   text_n = 0;
   if (md_zebes && !cine_stage && !room_pending) zebes_vblank();
+  if (rain_up && rain_slot && md_zebes && !room_pending) rain_vblank();
   /* puerta del pozo (modo 7): dos versiones de unas celdas */
   uint8 repatch = 0;
   if (ring_n) {                                 /* pozo de modo 7: filas nuevas del anillo (desde la ROM: versión 0) */
@@ -2709,7 +3049,10 @@ void md_vblank(uint16_t late) {
       mb_steps[3].col = zobj_col; mb_steps[3].reg = 0x8004;
       mb_hp = mb_steps;
     }
-    if (zobj_hint != want) { SYS_setHIntCallback(want == 2 ? md_hint_msg : md_hint_obj); zobj_hint = want; }
+    if (want == 1 && lq_on) {                   /* líquido (md_hint_lq) y la onda de Crocomire */
+      want = 3; memcpy(lq_steps, lq_next, LQ_MAXSTEP * sizeof(LqStep)); memcpy(lq_wv, lq_wv_next, 32); lq_hp = lq_steps;
+    }   /* líquido (md_hint_lq) */
+    if (zobj_hint != want) { SYS_setHIntCallback(want == 2 ? md_hint_msg : want == 3 ? md_hint_lq : md_hint_obj); zobj_hint = want; }
     VDP_CTRL32 = VDP_CMD_CRAM_W(0x62);
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];
     vdp_reg(0x0A, 31);   /* cambio de colores en la línea 32 (la primera del juego): no en el HUD */

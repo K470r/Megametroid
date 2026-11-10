@@ -70,8 +70,16 @@ def init_palettes(rom, st):
                 t = f.read_text(errors="replace") if f.exists() else ""
                 m = re.search(r"^void %s\(void\) \{.*?^\}" % re.escape(name), t, re.M | re.S)
                 if m:
-                    for mm in re.finditer(r"target_palettes\[\w+ \+ (\d+)\] = g_word_([0-9A-F]{6})\[", m.group(0)):
-                        base, src = int(mm.group(1)), int(mm.group(2), 16)
+                    # el arreglo: g_word_XXXXXX o un nombre del archivo (#define kX ((uint16*)RomFixedPtr(0xXXXXXX)),
+                    # p. ej. kSporeSpawn_Palette en SporeSpawn_Init $A5:EA2A); el índice: i + N o (i >> 1) + N
+                    defs = {d.group(1): int(d.group(2), 16) for d in
+                            re.finditer(r"#define (\w+) \(\(uint16\*\)RomFixedPtr\(0x([0-9a-fA-F]{6})\)\)", t)}
+                    for mm in re.finditer(r"target_palettes\[(?:\w+|\(\w+ >> 1\)) \+ (\d+)\] = (\w+)\[", m.group(0)):
+                        base, arr = int(mm.group(1)), mm.group(2)
+                        g = re.fullmatch(r"g_word_([0-9A-F]{6})", arr)
+                        src = int(g.group(1), 16) if g else defs.get(arr)
+                        if src is None:
+                            continue
                         for c in range(16):
                             res[base + c] = rom.w(src + 2 * c)
                 _init_pal_cache[name] = res
@@ -211,8 +219,17 @@ BOSS_PALETTES = {
         0: [["Torizo_Init", "Torizo_C250"], ["Torizo_C268"]],     # Bomb Torizo: estatua, despierto (Torizo_Instr_5)
         None: [["Torizo_Init", "Torizo_C280"], ["Torizo_C298"]],  # Golden Torizo: Torizo_Init y Torizo_Instr_41
     },
+    # Ridley de Norfair (CeresRidley_Init $A6:A0F5, área 2): su línea 7 de sprites es la paleta de su cabecera ($A6:E14F,
+    # colores 1-14) y al perder vida Ridley_D495 ($A6:D495) escribe 14 colores de $A6:E46A + 28 * n (n = 0..2) en
+    # 7E:C1E2. (dirección en la ROM, primer índice de palette_buffer, cuántos) en vez del nombre de una función.
+    (0xA6, 0xA0F5): {
+        None: [[(0xA6E150, 241, 14)], [(0xA6E46A, 241, 14)], [(0xA6E486, 241, 14)], [(0xA6E4A2, 241, 14)]],
+    },
 }
 BOSS_LINE = 1
+# salas de jefes cuyos objetos no entran en la VRAM con las copias del destello (el jefe dibujado con la paleta 0000,
+# la línea 0 de sprites, blanca, cuando recibe daño): sin ellas, el destello no se ve (Crocomire: 796 tiles -> 592)
+FLASH_DROP = {0xA98D}
 _fn_bodies = {}
 
 
@@ -309,7 +326,11 @@ def boss_moments(rom, boss, area):
     cur, moments = {}, []
     for group in tab.get(area, tab[None]):
         for name in group:
-            cur.update(fn_palettes(rom, boss[0], name))
+            if isinstance(name, tuple):
+                a, first, n = name
+                cur.update({first + c: rom.w(a + 2 * c) for c in range(n)})
+            else:
+                cur.update(fn_palettes(rom, boss[0], name))
         moments.append(dict(cur))
     return moments
 
@@ -766,6 +787,9 @@ def build(rom_path, log_paths, states, frozen=None):
     frozen = frozen if frozen is not None else {"index": {}, "list": []}
     for st, room, ts, room_tiles in states:
         k = keys.get(room, set()) | pkeys
+        if room in FLASH_DROP:                    # jefes: sin las copias del destello (paleta 0000) de lo que tiene otra
+            other = {(x[1], x[2], x[4]) for x in k if x[0] == "e" and x[3] != "0000"}
+            k = {x for x in k if not (x[0] == "e" and x[3] == "0000" and (x[1], x[2], x[4]) in other)}
         # las claves son por sala: las de enemigos de otro estado (otro banco: p. ej. 9804 después del Torizo) no van
         bks = pop_banks(rom, st)
         k = {x for x in k if x[0] != "e" or int(x[1], 16) in bks}

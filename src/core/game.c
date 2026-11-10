@@ -160,8 +160,8 @@ void DrawSamusEnemiesAndProjectiles(void) {  // 0xA0884D
 }
 
 void QueueEnemyBG2TilemapTransfers(void) {  // 0xA09726 (la transferencia a la VRAM la hace la Genesis)
-  if (nmi_flag_bg2_enemy_vram_transfer && !(debug_time_frozen_for_enemies | time_is_frozen_flag) && g_hooks.enemy_bg2_transfer)
-    g_hooks.enemy_bg2_transfer();
+  if (nmi_flag_bg2_enemy_vram_transfer && !(debug_time_frozen_for_enemies | time_is_frozen_flag))
+    nt_enemy_bg2_transfer();
   nmi_flag_bg2_enemy_vram_transfer = 0;
 }
 
@@ -362,6 +362,10 @@ void game_frame(uint16 joy) {
           nt_animtiles_transfer(animtiles_src_ptr[i], animtiles_sizes[i], animtiles_vram_ptr[i]);
           animtiles_src_ptr[i] = 0;
         }
+    if (vram_write_queue_tail) {           // NMI: la cola de VRAM ($80:9667) la sube la plataforma
+      nt_vram_queue_flush(nt_vwq, vram_write_queue_tail);
+      vram_write_queue_tail = 0;
+    }
     nmi_frames_missed = 0;
     ++nmi_frame_counter_byte;
     ++nmi_frame_counter_word;

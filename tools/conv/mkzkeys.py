@@ -177,6 +177,11 @@ def eproj_heads1(bank, fam):
     for m in re.finditer(r'(?:#define (addr_\w+) |\b(addr_\w+) = )0x([0-9a-fA-F]{4})', (SRC / 'funcs.h').read_text() + (SRC / 'ida_types.h').read_text() + t):
         names[m.group(1) or m.group(2)] = int(m.group(3), 16)
     for m in re.finditer(r'^\S[^\n]*\b%s_\w+\([^)]*\) \{.*?^\}' % re.escape(fam), t, re.M | re.S):
+        # (y las cabeceras que el código guarda antes en una variable: FakeKraid_Instr $A6:9AD0, v6 = addr_kEproj_
+        # MiniKraidSpikesLeft o Right, las púas del mini Kraid)
+        for a in re.findall(r'= (addr_kEproj_\w+);', m.group(0)):
+            if 'SpawnEprojWithGfx' in m.group(0) and names.get(a, 0) >= 0x8000:
+                res.add((names[a], False))
         for mm in re.finditer(r'SpawnEproj(WithRoomGfx|WithGfx)\(([^;]*)\);', m.group(0)):
             for a in re.findall(r'\baddr_\w+', mm.group(2)):
                 v = names.get(a)

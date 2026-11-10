@@ -273,3 +273,16 @@ estatuas y las gemas, y comprobar que al vencer a cada jefe pasa lo mismo que en
 - Bomb Torizo (sala 9804): durante la pelea nunca abrió los ojos (en el SNES los abre: brillo de los ojos, paleta /
   piezas de la cara) y al terminar quedaron dos círculos marrones cerca de la puerta (¿restos de proyectiles u
   objetos de sprite que no se borran, o tiles de la explosión con los colores de la sala?). Revisar contra la biblia.
+
+## Kraid (2026-11-10, en curso)
+
+- Sala de los mini Kraid (A521, `FakeKraid`): sus púas ($86:9DBE/9DCC: spritemaps $8D:8427 y 842E, g = 0x0660) no
+  tenían clave: `FakeKraid_Instr` guarda la cabecera en una variable (`v6 = addr_kEproj_MiniKraidSpikesLeft`) antes de
+  `SpawnEprojWithGfx` y mkzkeys solo miraba los argumentos. mkzkeys ahora toma también esas asignaciones; con todas
+  las salas (salas.py, áreas 0-5) solo faltaban esas dos claves en todo el juego. PC: A521 en 0 diferencias.
+- Sala de Kraid (A59F): Kraid nunca aparece porque su IA ($A7: Kraid, brazo, pelusas, pie, uñas; rocas en $86) no
+  está portada. Al agregarlo a roots.txt el traductor deja sin resolver: corrutinas (`Kraid_UnpauseHook_IsSinking`),
+  ganchos de pausa (`pause_hook`/`unpause_hook`), la cola de lectura de VRAM y copias por DMA (`PauseHook_Kraid`,
+  `UnpauseHook_Kraid_*`), `ram4000`/`g_ram` (`Kraid_SetupGfxWithTilePrioClear`: mapas descomprimidos a 7E:4000 y
+  7E:2000) y `Kraid_Instr_9`. Hay que escribirlos a mano (bosses.c) y dibujar su cuerpo en el plano B (como
+  Crocomire: BOSS_BG2_ROOMS, zbg2.log). Pendiente.

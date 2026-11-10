@@ -2392,6 +2392,14 @@ void md_logic(uint16_t joy) {
   sp_ptr = spr;
   md_spr_reserved = zebes_eye_room() || md_cone_pb_prio();   /* (la luz de la bomba de poder: md_cone.c) */
   if (md_spr_reserved) sp_ptr = spr + 2;       /* salas con el ojo: dos sprites que tapan el HUD (md_cone.c) */
+  /* en el SNES el HUD (BG3 con prioridad, BGMODE bit 3) tapa todos los sprites de las líneas 0-31; en la Genesis la
+     Window no tapa a los sprites: los dos primeros de la lista los enmascaran (como en las salas del ojo, md_cone.c:
+     8 x 32 en las líneas del HUD, el primero con x = 1, fuera de la pantalla, y el segundo con x = 0) */
+  else if ((uint16)(game_state - 7) <= 4) {
+    spr[0].y = 128; spr[0].size_link = (3 << 8) | 1; spr[0].attr = 0x8000; spr[0].x = 1;
+    spr[1].y = 128; spr[1].size_link = (3 << 8) | 2; spr[1].attr = 0x8000; spr[1].x = 0;
+    sp_ptr = spr + 2;
+  }
   door_seen = 0;
   flash_seen = 0;
   game_frame(viewer_input(joy));

@@ -70,8 +70,16 @@ def init_palettes(rom, st):
                 t = f.read_text(errors="replace") if f.exists() else ""
                 m = re.search(r"^void %s\(void\) \{.*?^\}" % re.escape(name), t, re.M | re.S)
                 if m:
-                    for mm in re.finditer(r"target_palettes\[\w+ \+ (\d+)\] = g_word_([0-9A-F]{6})\[", m.group(0)):
-                        base, src = int(mm.group(1)), int(mm.group(2), 16)
+                    # el arreglo: g_word_XXXXXX o un nombre del archivo (#define kX ((uint16*)RomFixedPtr(0xXXXXXX)),
+                    # p. ej. kSporeSpawn_Palette en SporeSpawn_Init $A5:EA2A); el índice: i + N o (i >> 1) + N
+                    defs = {d.group(1): int(d.group(2), 16) for d in
+                            re.finditer(r"#define (\w+) \(\(uint16\*\)RomFixedPtr\(0x([0-9a-fA-F]{6})\)\)", t)}
+                    for mm in re.finditer(r"target_palettes\[(?:\w+|\(\w+ >> 1\)) \+ (\d+)\] = (\w+)\[", m.group(0)):
+                        base, arr = int(mm.group(1)), mm.group(2)
+                        g = re.fullmatch(r"g_word_([0-9A-F]{6})", arr)
+                        src = int(g.group(1), 16) if g else defs.get(arr)
+                        if src is None:
+                            continue
                         for c in range(16):
                             res[base + c] = rom.w(src + 2 * c)
                 _init_pal_cache[name] = res

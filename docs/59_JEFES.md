@@ -211,3 +211,19 @@ estatuas y las gemas, y comprobar que al vencer a cada jefe pasa lo mismo que en
   escriben tiles del SNES), `DeadTorizo_Func_1` y `MotherBrain_AddSpritemapToOam` (dibujo en la cola de VRAM y la OAM
   del SNES).
 - Kraid.
+
+## Spore Spawn: HUD y esporas (2026-11-10)
+
+- El bloqueo que se reportó no aparece en la ROM de esta rama (confirmado por el usuario y en una pelea de 4500
+  cuadros en la ROM de prueba).
+- HUD: en el SNES el HUD (BG3 con prioridad, BGMODE bit 3) tapa todos los sprites de las líneas 0-31; en la Genesis
+  la Window no tapa a los sprites, así que el tallo de Spore Spawn (y Ridley en Ceres) asomaba encima del HUD.
+  `md_logic` pone en todo el juego (estados 7-11) los dos sprites de máscara que ya usaban las salas del ojo
+  (`md_cone.c`): 8x32 en las líneas del HUD, uno con x = 1 y otro con x = 0, que enmascara a los que siguen en esas
+  líneas. Regresión de Ceres y Zebes re-aprobada: solo cambian las líneas 0-31 (Ridley de Ceres ya no asoma).
+- Esporas: no tenían claves (las crea la IA, no una lista: `SporeSpawners` → `Spores` $86:DE7A, spritemaps
+  A9B0/A9B7/A9BE) ni la nube de polvo (`SpawnEprojWithRoomGfx(addr_kEproj_DustCloudExplosion, 0x18)`, sm_a5.c, B023-B082
+  con g = 0x0200): se sumaron a `zdraw.log` (lo que pidió `md_missing_ring`). Y salían negras: usan la paleta 7
+  (`palette_buffer` 249-252), que llena `SporeSpawn_Init` desde `kSporeSpawn_Palette` ($A5:E359). `mkzobj.init_palettes`
+  ahora reconoce los arreglos con `#define kX ((uint16*)RomFixedPtr(0x...))` y el índice `(i >> 1) + N`.
+- Pendiente: la "sombra" del cuerpo (plano B) bajo el HUD que se ve al subir el jefe.

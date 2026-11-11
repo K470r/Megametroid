@@ -381,7 +381,10 @@ const MdRoom *zebes_use(void) {
   zw = 0;
   for (uint16 i = 0; i < NT_ZEBES_NWALL; i++)
     if (kZebesWall[i].gfx == kZebesStates[f].gfx) zw = &kZebesWall[i];
-  wall_on = 0; wall_pend = 0; kq_r = kq_w = 0; kq_conv = 0; mouth_cur = 0; mouth_pend = 0;
+  if (game_state != 17) {                        /* (17: al volver de la pausa, ResumeGameplay: Kraid sigue igual) */
+    wall_on = 0; kq_r = kq_w = 0; mouth_cur = 0;
+  }
+  wall_pend = 0; kq_conv = 0; mouth_pend = 0;
   frz_nq = 0;
   zprio = 0; psweep = ZW;
   const MdRoom *base = &kMdRooms[ZEBES_BASE_ROOM];
@@ -638,7 +641,9 @@ void nt_vram_queue_flush(const uint8 *q, uint16 n) {
       if (sz == 2) sx = 0;
       uint16 k = 32 - x;
       if (k > left) k = left;
-      kq_push(a, (uint16)((sy * 32 + y) * 64 + sx * 32 + x), k);
+      /* (BG2 de 32x32, la sala vencida: el SNES lo repite en toda la pantalla; la fila va a las cuatro pantallas del
+         plano B de 64x64: bit 15) */
+      kq_push(a, (uint16)((sy * 32 + y) * 64 + sx * 32 + x) | (sz == 0 ? 0x8000 : 0), k);
       a += 2 * k; off += k; left -= k;
     }
   }
@@ -652,8 +657,8 @@ static inline uint16 kq_word(uint32 a) {          /* palabra del origen: la RAM 
 static void kq_frame(void) {                      /* (zebes_frame) convierte hasta KQ_ROWS tareas */
   if (kq_conv || kq_r == kq_w) return;
   uint8 lp = md_cur_page;
-  uint16 c = 0;
-  while (kq_r != kq_w && c < KQ_ROWS) {
+  uint16 c = 0, wgt = 0;                          /* (wgt: filas a subir; una de 32x32 va a 4 lugares) */
+  while (kq_r != kq_w && wgt < KQ_ROWS) {
     KqJob j = kq_job[kq_r];
     if (j.cell == 0xFFFF) {                       /* la boca: empieza una tanda (sus filas, 11, entran en ella) */
       if (c) break;
@@ -662,6 +667,7 @@ static void kq_frame(void) {                      /* (zebes_frame) convierte has
       continue;
     }
     kq_r = (uint8)((kq_r + 1) % KQ_N);
+    wgt += (j.cell & 0x8000) ? 4 : 1;
     uint16 *o = kq_buf + c * 32;
     for (uint16 i = 0; i < j.n; i++) {
       uint16 w = kq_word(j.src + 2 * i), cc = 0;
@@ -681,8 +687,14 @@ static void kq_frame(void) {                      /* (zebes_frame) convierte has
   kq_conv = (uint8)c;
 }
 static void kq_vblank(void) {
-  for (uint16 c = 0; c < kq_conv; c++)
-    vdp_dma_vram(kq_buf + c * 32, MD_VRAM_PLANE_B + kq_dst[2 * c] * 2, kq_dst[2 * c + 1]);
+  for (uint16 c = 0; c < kq_conv; c++) {
+    uint16 cell = kq_dst[2 * c];
+    if (cell & 0x8000)
+      for (uint16 q = 0; q < 4; q++)
+        vdp_dma_vram(kq_buf + c * 32, MD_VRAM_PLANE_B + ((cell & 0x7FFF) + (q & 1) * 32 + (q >> 1) * 2048) * 2,
+                     kq_dst[2 * c + 1]);
+    else vdp_dma_vram(kq_buf + c * 32, MD_VRAM_PLANE_B + cell * 2, kq_dst[2 * c + 1]);
+  }
   kq_conv = 0;
   if (mouth_pend && zw) {
     uint8 f = mouth_pend - 1, lp = md_cur_page;
@@ -1037,10 +1049,17 @@ static void frz_reset(void) {
 }
 void zebes_frz_reset(void) { frz_reset(); }   /* md_engine.c: la caja de mensaje usó las filas del Window */
 /* (con la página ZEBES_FRZ_PAGE puesta) primer tile de la VRAM del congelado n, o 0 si no hay lugar */
+/* por cuadro (frz_stream): lugar de cada entrada por número (n & 63), para no recorrer el depósito en cada dibujo
+   (cinematic_text_tilemap + 2880..3007: libre en esas salas, entre kq_dst y las tablas del depósito) */
+#define frz_hc ((uint8 *)cinematic_text_tilemap + 2880)
 static uint16 frz_get(uint16 n) {
   uint16 now = md_frame_count;
+  if (frz_stream) {
+    uint8 c = frz_hc[n & 127];
+    if (c < frz_ns && frz_id[c] == n) { frz_last[c] = now; return frz_t0 + c * frz_slot; }
+  }
   for (uint16 i = 0; i < frz_ns; i++)
-    if (frz_id[i] == n) { frz_last[i] = now; return frz_t0 + i * frz_slot; }
+    if (frz_id[i] == n) { frz_last[i] = now; if (frz_stream) frz_hc[n & 127] = (uint8)i; return frz_t0 + i * frz_slot; }
   uint16 k = (kZebesFrz[4 * n + 2] + frz_slot - 1) / frz_slot;   /* lugares que necesita */
   if (k > frz_ns) return 0;
   /* libres: sin usar o sin dibujarse hace FRZ_KEEP cuadros (los del cuadro anterior no: puede no haberse visto) */
@@ -1066,6 +1085,7 @@ static uint16 frz_get(uint16 n) {
     if (i + k < frz_ns && frz_id[i + k] == 0xFFFE)   /* el resto de uno que se suelta: queda libre */
       for (uint16 j = i + k; j < frz_ns && frz_id[j] == 0xFFFE; j++) frz_id[j] = 0xFFFF;
     frz_id[i] = n; frz_last[i] = now;
+    if (frz_stream) frz_hc[n & 127] = (uint8)i;
     for (m = 1; m < k; m++) frz_id[i + m] = 0xFFFE;
     if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i;
     return frz_t0 + i * frz_slot;

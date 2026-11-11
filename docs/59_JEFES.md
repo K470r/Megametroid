@@ -464,5 +464,37 @@ del cuerpo en su propia línea y el rendimiento con el depósito.
 - **La pared muy oscura** es del SNES: sus colores (`kKraid_Palette2`) valen 1-6 de 31 y la Genesis los lleva al
   nivel del DAC más cercano (casi negro, con puntos). Fiel; se puede aclarar si se prefiere.
 
-Falta: la vuelta de la pausa (el plano B se rearma con el mapa inicial, no con el estado de Kraid:
-`Kraid_TransferTopHalfToVram`), la muerte y el hundimiento contra el SNES, la sala vencida y el rendimiento.
+### Kraid, paso 3: muerte, sala vencida, pausa y rendimiento (2026-11-11)
+
+Probado contra el SNES escribiendo `kraid_var_A = Kraid_Death_Init` ($C360) y la vida en 0 en el mismo momento de los
+dos lados (`HL_POKE_AT` / `MD_TEST_POKES`), y la sala vencida al entrar con `boss_bits_for_area` (7E:D829) en 1:
+- **Muerte y hundimiento**: los mismos estados y los mismos 313 cuadros de lógica; el cuerpo se borra por filas (la
+  cola de VRAM, `kKraidSinkEntry`), las púas del piso (fila 27) se desmoronan de a una cada 12 cuadros, las rocas
+  caen, la pared se apaga y se vuelve a encender, y la sala queda vencida igual que en el SNES.
+- **Púas "fantasma" del SNES**: durante el temblor del hundimiento el SNES dibuja algunos bloques desmoronados en
+  otro lugar del mapa del BG1 (la cola muestra `0x56DA` para la columna 13): en su pantalla quedan púas de las
+  columnas 13-15 (sin colisión) y un bloque marrón junto a la puerta. La Genesis redibuja desde el nivel y no las
+  tiene. No se copia.
+- **Sala vencida** (`BG2SC = 0x48`: BG2 de 32x32, que el SNES repite): lo que Kraid escribe en esa pantalla va a las
+  cuatro del plano B de 64x64 (bit 15 en la celda de la tarea; cuenta como 4 filas en la tanda del cuadro).
+- **Pausa**: al volver, la Genesis rehace su VRAM y el plano B sale del mapa inicial. Los ganchos de Kraid (bosses.c)
+  mandan a la cola lo que el SNES copia por DMA (`Kraid_TransferTopHalfToVram`: 7E:2000) y lo que el SNES conserva en
+  su VRAM: la mitad de abajo (7E:2800) si Kraid ya es grande, y en el hundimiento las filas ya borradas
+  (`Kraid_UnpauseHook_IsSinking`). `zebes_use` corre también al volver de la pausa (`game_state` 17): ahí no olvida la
+  pared, el cuadro de la boca ni la cola. En los estados 12-18 los colores de los enemigos (`zobj_col`) van en negro
+  (antes, los del HUD: los sprites de Kraid salían rosados sobre la pantalla todavía negra). Para salir de la pausa
+  en una prueba hay que mantener Start (~40 cuadros: `timed_held_input`).
+- **Rendimiento** (perfil con el núcleo de `tools/emu_harness/gpgx_mm_profile.patch`):
+  - con la vida en 0, `Kraid_HurtFlash_Handling` y `Kraid_HealthBasedPaletteHandling` corren en cada cuadro;
+    escritos a mano, solo escriben (y avisan, `nt_pal_dirty`) los colores que cambian: antes la CRAM entera se
+    rehacía en cada cuadro;
+  - la ventana dibujada (`zebes_frame`) sigue a la cámara sin el temblor (3 píxeles como mucho, entra en su margen):
+    con él se volvían a dibujar columnas y filas en cada cuadro;
+  - `frz_get` busca el lugar de una entrada por un índice directo (`frz_hc`, `cinematic_text_tilemap + 2880`);
+  - `port_Find*` (port.py): la caché de funciones es de dos vías (las piezas de Kraid chocaban en la directa).
+  El hundimiento pasó de 450 a 366 cuadros de consola (313 de lógica); la pelea grande, de 2062 a 2008 (1713): todavía
+  ~17 % lenta. Lo que queda es del motor en general (`EnemyMain` con las colisiones de cada pieza, ~16 000 ciclos por
+  cuadro; `zebes_obj_draw`, ~8 000; `md_post`). La regresión cambia de ritmo en la huida de Ceres (7994, 8125: el
+  temblor cae un cuadro antes): agregados a las excepciones de ritmo.
+
+Falta: el rendimiento de la pelea grande (60 cuadros por segundo), y los colores de la sala (bloques azules y puerta).

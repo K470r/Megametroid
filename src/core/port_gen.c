@@ -104,6 +104,8 @@ uint16 Math_MultByCos(uint16 a, uint16 ang);
 PairU16 MakePairU16(uint16 k, uint16 j);
 NT_BOSS CoroutineRet Kraid_UnpauseHook_IsSinking(void);
 NT_BOSS void Kraid_SetupGfxWithTilePrioClear(uint16 r18);
+NT_BOSS void Kraid_HurtFlash_Handling(void);
+NT_BOSS void Kraid_HealthBasedPaletteHandling(void);
 NT_BOSS void Kraid_Death_Fadeout(void);
 NT_BOSS uint16 HandleMotherBrainInstructionList(uint16 a);
 void GrappleBeam_Func2(void);
@@ -1631,8 +1633,6 @@ NT_BOSS void Kraid_SpawnExplosionEproj(uint16 k);
 NT_BOSS void Kraid_Enemy_Touch(void);
 NT_BOSS void Kraid_Shot_Body(void);
 NT_BOSS void Kraid_Palette_Handling(void);
-NT_BOSS void Kraid_HurtFlash_Handling(void);
-NT_BOSS void Kraid_HealthBasedPaletteHandling(void);
 NT_BOSS uint16 Kraid_Instr_1(uint16 k, uint16 jp);
 NT_BOSS uint16 Kraid_Instr_DecYpos(uint16 k, uint16 jp);
 NT_BOSS uint16 Kraid_Instr_IncrYpos_Shake(uint16 k, uint16 jp);
@@ -20077,40 +20077,6 @@ LABEL_6:
     }
   }
 }
-NT_BOSS void Kraid_HurtFlash_Handling(void) {  // 0xA7B371
-  uint16 v0 = 0;
-  if ((ERAM(0x782A + (0)) & 1) == 0)
-    v0 = 32;
-  uint16 v1 = 0;
-  do {
-    { palette_buffer[(v1 >> 1) + 240] = ((uint16)BW_A7(0xB513 + 2 * (v0 >> 1))); nt_pal_dirty((uint8)((v1 >> 1) + 240), (uint8)((v1 >> 1) + 240)); }
-    v1 += 2;
-    v0 += 2;
-  } while ((int16)(v1 - 32) < 0);
-}
-NT_BOSS void Kraid_HealthBasedPaletteHandling(void) {  // 0xA7B394
-  uint16 v0 = 0;
-  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
-  if ((ERAM(0x782A + E_k) & 1) == 0) {
-    uint16 v2 = 14;
-    uint16 health = E->health;
-    do {
-      if ((int16)(health - ERAM_ARR(0x780C + (v2))[0]) >= 0)
-        break;
-      v2 -= 2;
-    } while (v2);
-    v0 = 16 * (v2 + 2);
-  }
-  uint16 v4 = 0;
-  do {
-    int v5 = v0 >> 1;
-    int v6 = v4 >> 1;
-    { palette_buffer[v6 + 112] = ((uint16)BW_A7(0xB3D3 + 2 * (v5))); nt_pal_dirty((uint8)(v6 + 112), (uint8)(v6 + 112)); }
-    { palette_buffer[v6 + 240] = ((uint16)BW_A7(0xB513 + 2 * (v5))); nt_pal_dirty((uint8)(v6 + 240), (uint8)(v6 + 240)); }
-    v0 += 2;
-    v4 += 2;
-  } while ((int16)(v4 - 32) < 0);
-}
 NT_BOSS uint16 Kraid_Instr_1(uint16 k, uint16 jp) {  // 0xA7B633
   return jp;
 }
@@ -35241,12 +35207,19 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[420] = {
 };
 PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[8]; static PortFnV cf[8];   /* (8: la RAM no alcanza para más) */
-  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;
+  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;
 #ifdef NT_SSF2
   if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];
 #else
   if (cea[h] == ea) return cf[h];
 #endif
+#ifdef NT_SSF2
+  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {
+#else
+  if (cea[h | 1] == ea) {
+#endif
+    PortFnV t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;
+  }
   PortFnV f = 0;
   int lo = 0, hi = 419;
   while (lo <= hi) {
@@ -35258,7 +35231,7 @@ PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las última
 #ifdef NT_SSF2
   if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }
 #endif
-  cea[h] = ea; cf[h] = f;
+  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;
   return f;
 }
 uint8 port_CallEnemyAi(uint32 ea) {  /* 0: no está traducida */
@@ -35885,12 +35858,19 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[174] = {
 };
 PortFnK port_FindCallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[8]; static PortFnK cf[8];   /* (8: la RAM no alcanza para más) */
-  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;
+  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;
 #ifdef NT_SSF2
   if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];
 #else
   if (cea[h] == ea) return cf[h];
 #endif
+#ifdef NT_SSF2
+  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {
+#else
+  if (cea[h | 1] == ea) {
+#endif
+    PortFnK t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;
+  }
   PortFnK f = 0;
   int lo = 0, hi = 173;
   while (lo <= hi) {
@@ -35902,7 +35882,7 @@ PortFnK port_FindCallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida; las �
 #ifdef NT_SSF2
   if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }
 #endif
-  cea[h] = ea; cf[h] = f;
+  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;
   return f;
 }
 uint8 port_CallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida */
@@ -36003,12 +35983,19 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[87] = {
 };
 PortFnK port_FindCallEprojInit(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[8]; static PortFnK cf[8];   /* (8: la RAM no alcanza para más) */
-  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;
+  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;
 #ifdef NT_SSF2
   if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];
 #else
   if (cea[h] == ea) return cf[h];
 #endif
+#ifdef NT_SSF2
+  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {
+#else
+  if (cea[h | 1] == ea) {
+#endif
+    PortFnK t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;
+  }
   PortFnK f = 0;
   int lo = 0, hi = 86;
   while (lo <= hi) {
@@ -36020,7 +36007,7 @@ PortFnK port_FindCallEprojInit(uint32 ea) {  /* 0: no está traducida; las últi
 #ifdef NT_SSF2
   if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }
 #endif
-  cea[h] = ea; cf[h] = f;
+  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;
   return f;
 }
 uint8 port_CallEprojInit(uint32 ea, uint16 j) {  /* 0: no está traducida */
@@ -36138,12 +36125,19 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[104] = {
 };
 PortFnK port_FindCallEprojPreInstr(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[8]; static PortFnK cf[8];   /* (8: la RAM no alcanza para más) */
-  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;
+  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;
 #ifdef NT_SSF2
   if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];
 #else
   if (cea[h] == ea) return cf[h];
 #endif
+#ifdef NT_SSF2
+  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {
+#else
+  if (cea[h | 1] == ea) {
+#endif
+    PortFnK t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;
+  }
   PortFnK f = 0;
   int lo = 0, hi = 103;
   while (lo <= hi) {
@@ -36155,7 +36149,7 @@ PortFnK port_FindCallEprojPreInstr(uint32 ea) {  /* 0: no está traducida; las �
 #ifdef NT_SSF2
   if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }
 #endif
-  cea[h] = ea; cf[h] = f;
+  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;
   return f;
 }
 uint8 port_CallEprojPreInstr(uint32 ea, uint16 k) {  /* 0: no está traducida */
@@ -36882,8 +36876,6 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA7B0F3: Kraid_Enemy_Touch(); return 1;
   case 0xA7B181: Kraid_Shot_Body(); return 1;
   case 0xA7B337: Kraid_Palette_Handling(); return 1;
-  case 0xA7B371: Kraid_HurtFlash_Handling(); return 1;
-  case 0xA7B394: Kraid_HealthBasedPaletteHandling(); return 1;
   case 0xA7B6BF: Kraid_InitEyeGlowing(); return 1;
   case 0xA7B6D7: Kraid_Shot_GlowHisEye(); return 1;
   case 0xA7B73D: Kraid_Shot_UnglowEye(); return 1;

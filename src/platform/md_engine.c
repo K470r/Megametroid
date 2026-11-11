@@ -2769,7 +2769,11 @@ void md_post(void) {
   lq_wv_next[15] = scroll_by;
   if (cine_stage) cine_frame(); else hud_prepare();
   if (md_zebes && !cine_stage) {
-    zebes_frame(scroll_ax, scroll_ay, scroll_bx, scroll_by);
+    /* la ventana dibujada sigue a la cámara sin el temblor (unos píxeles: entra en su margen); con él se volvían a
+       dibujar columnas y filas en cada cuadro del temblor (Kraid hundiéndose) */
+    zebes_frame(scroll_ax - nt_shake_bg1x, scroll_ay - nt_shake_bg1y,
+                g_room->b_mode == 1 ? scroll_bx : scroll_bx - nt_shake_bg2x,
+                g_room->b_mode == 1 ? scroll_by : scroll_by - nt_shake_bg2y);
     if (zebes_sky_on()) zebes_sky_lines(rot_h, scroll_ax, scroll_ay);
   }
   /* modo 7 girado (pozo en la huida) */

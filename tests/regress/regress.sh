@@ -23,7 +23,9 @@
 # de la huida: cuenta los cuadros de verdad, no los del motor; en 7670 la primera vez que se ve el cuadro, si se ve dos
 # veces, el reloj ya avanzó: solo cambian sus filas, 32-52, y la segunda vez es igual). Con cada cambio de
 # código caen de un lado o del otro; comparadas píxel a píxel, las dos imágenes son correctas (docs/59, 2026-11-06).
-# Se cuentan aparte y no fallan.
+# Se cuentan aparte y no fallan. Lo mismo, en general, con un cuadro del motor que se ve más de una vez (atrasado) y
+# alguna de las veces siguientes es igual a la referencia: el resultado del cuadro es el mismo y la primera vez solo
+# mostró algo a mitad (el reloj de la huida de Ceres en 7646 y 7670).
 #
 # Uso: regress.sh [escena...]          comparar (escenas: intro ceres zebes; sin nada, todas)
 #      UPDATE=1 regress.sh [escena...] aprobar: la imagen actual pasa a ser la de referencia
@@ -55,16 +57,19 @@ for sc in $scenes; do
   [ -f $G ] || { echo "$sc: sin referencia (UPDATE=1 para aprobar)"; fail=1; continue; }
   python3 - $G $WORK/$sc.rows $sc <<'PY' || fail=1
 import sys, gzip, struct
-def load(data):
+def load(data, more=None):
     out, p = {}, 0
     while p + 6 <= len(data):
         f, v, h = struct.unpack_from('<3H', data, p); p += 6
         rows = data[p:p + 2 * h]; p += 2 * h
         if v >= 2 and v not in out:              # el primer cuadro de emulación que muestra cada cuadro del motor
             out[v] = rows
+        elif v >= 2 and more is not None:        # (las veces siguientes, si se vio más de una)
+            more.setdefault(v, []).append(rows)
     return out
 g = load(gzip.open(sys.argv[1]).read())
-c = load(open(sys.argv[2], 'rb').read())
+again = {}
+c = load(open(sys.argv[2], 'rb').read(), again)
 bad, shift, rowcount = [], [], {}
 CIRC = {'ceres': (8620, 8705), 'zebes': (8620, 8705)}.get(sys.argv[3])   # borde del círculo (ver arriba)
 PACE = {'ceres': [(5124, 5127), (7670, 7670), (7994, 7994), (8034, 8034), (8058, 8058), (8125, 8125)], 'zebes': [(5124, 5127), (7670, 7670), (7994, 7994), (8034, 8034), (8058, 8058), (8125, 8125)]}.get(sys.argv[3], [])   # ritmo
@@ -83,8 +88,8 @@ for f in sorted(g):
         for i in d: rowcount[i] = rowcount.get(i, 0) + 1
     elif CIRC and CIRC[0] <= f <= CIRC[1]:
         circ.append(f)
-    elif any(a <= f <= b for a, b in PACE):
-        pace.append(f)
+    elif any(a <= f <= b for a, b in PACE) or g[f] in again.get(f, []):
+        pace.append(f)                           # (o se vio dos veces y la segunda es igual: el cuadro está bien)
     else:
         bad.append(f)
 steady = sorted(i for i, k in rowcount.items() if k > 0.2 * len(g))

@@ -379,6 +379,11 @@ __asm__(
   "EprojBlockCollisition_Horiz:\n"
   "    movem.l %d2-%d7/%a2,-(%sp)\n"
   "    movea.w 34(%sp),%a1\n"                 /* k */
+  "    bsr ep_h_body\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    rts\n"
+  /* el cuerpo: a1 = k; usa d0-d7/a0/a2 (EprojRunAll lo llama así, con los registros ya guardados) */
+  "ep_h_body:\n"
   "    lea eproj_radius,%a0\n"
   "    moveq #0,%d1\n"
   "    move.b (%a0,%a1.w),%d1\n"              /* R30 (el byte alto) */
@@ -432,16 +437,24 @@ __asm__(
   "    move.w %d6,(%a0,%a1.w)\n"
   "    lea eproj_x_pos,%a0\n"
   "    move.w %d7,(%a0,%a1.w)\n"
-  "    movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #0,%d0\n"
   "    rts\n"
-  "90: movem.l (%sp)+,%d2-%d7/%a2\n"
-  "    jmp EprojBlockCollisition_Horiz_full\n"
+  "90: moveq #0,%d0\n"                        /* el original completo: _full(k) */
+  "    move.w %a1,%d0\n"
+  "    move.l %d0,-(%sp)\n"
+  "    jsr EprojBlockCollisition_Horiz_full\n"
+  "    addq.l #4,%sp\n"
+  "    rts\n"
   /* uint8 EprojBlockCollisition_Vertical(uint16 k)   // 0x86897B */
   "    .global EprojBlockCollisition_Vertical\n"
   "EprojBlockCollisition_Vertical:\n"
   "    movem.l %d2-%d7/%a2,-(%sp)\n"
-  "    movea.w 34(%sp),%a1\n"
+  "    movea.w 34(%sp),%a1\n"                 /* k */
+  "    bsr ep_v_body\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    rts\n"
+  /* el cuerpo: a1 = k; usa d0-d7/a0/a2 (EprojRunAll lo llama así, con los registros ya guardados) */
+  "ep_v_body:\n"
   "    lea eproj_radius,%a0\n"
   "    moveq #0,%d2\n"
   "    move.b (%a0,%a1.w),%d2\n"              /* R30 */
@@ -495,11 +508,14 @@ __asm__(
   "    move.w %d6,(%a0,%a1.w)\n"
   "    lea eproj_y_pos,%a0\n"
   "    move.w %d7,(%a0,%a1.w)\n"
-  "    movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #0,%d0\n"
   "    rts\n"
-  "90: movem.l (%sp)+,%d2-%d7/%a2\n"
-  "    jmp EprojBlockCollisition_Vertical_full\n");
+  "90: moveq #0,%d0\n"                        /* el original completo: _full(k) */
+  "    move.w %a1,%d0\n"
+  "    move.l %d0,-(%sp)\n"
+  "    jsr EprojBlockCollisition_Vertical_full\n"
+  "    addq.l #4,%sp\n"
+  "    rts\n");
 #else
 static inline uint8 EprojBlocksQuietC(uint16 k, uint8 dir, uint16 bi, uint16 step, uint16 m) {
   EpQc *q = &ep_qc[dir][k >> 1];
@@ -816,41 +832,40 @@ __asm__(
   "EprojRunAll:\n"
   "    tst.w eproj_enable_flag\n"
   "    bpl 99f\n"
-  "    move.l %d2,-(%sp)\n"
-  "    moveq #34,%d2\n"
-  "1:  move.w %d2,eproj_index\n"
+  "    movem.l %d2-%d7/%a2-%a3,-(%sp)\n"     /* (una vez: los cuerpos de H y V los usan) */
+  "    movea.w #34,%a3\n"                     /* i */
+  "1:  move.w %a3,eproj_index\n"
   "    lea eproj_id,%a0\n"
-  "    tst.w (%a0,%d2.w)\n"
+  "    tst.w (%a0,%a3.w)\n"
   "    beq 9f\n"
   "    lea eproj_pre_instr,%a0\n"
-  "    move.w (%a0,%d2.w),%d0\n"
+  "    move.w (%a0,%a3.w),%d0\n"
   "    cmp.w #0x9D56,%d0\n"
   "    bne 5f\n"
   /* EprojPreInstr_KraidRocks */
-  "    move.l %d2,-(%sp)\n"
-  "    jsr EprojBlockCollisition_Horiz\n"
+  "    movea.l %a3,%a1\n"
+  "    bsr ep_h_body\n"
   "    btst #0,%d0\n"
   "    bne 3f\n"
-  "    jsr EprojBlockCollisition_Vertical\n"
+  "    movea.l %a3,%a1\n"
+  "    bsr ep_v_body\n"
   "    btst #0,%d0\n"
   "    bne 3f\n"
-  "    addq.l #4,%sp\n"
   "    lea eproj_x_vel,%a0\n"
-  "    move.w (%a0,%d2.w),%d0\n"
+  "    move.w (%a0,%a3.w),%d0\n"
   "    addq.w #8,%d0\n"
   "    move.w %d0,%d1\n"
   "    sub.w #256,%d1\n"
   "    bmi 2f\n"
   "    move.w #0xFF00,%d0\n"                  /* -256 */
-  "2:  move.w %d0,(%a0,%d2.w)\n"
+  "2:  move.w %d0,(%a0,%a3.w)\n"
   "    lea eproj_y_vel,%a0\n"
-  "    add.w #64,(%a0,%d2.w)\n"
+  "    add.w #64,(%a0,%a3.w)\n"
   "    bra 6f\n"
-  "3:  addq.l #4,%sp\n"
-  "    lea eproj_id,%a0\n"
-  "    clr.w (%a0,%d2.w)\n"
+  "3:  lea eproj_id,%a0\n"
+  "    clr.w (%a0,%a3.w)\n"
   "    bra 6f\n"
-  "5:  move.l %d2,-(%sp)\n"                  /* ep_preinstr_c(f, k) */
+  "5:  move.l %a3,-(%sp)\n"                  /* ep_preinstr_c(f, k) */
   "    moveq #0,%d1\n"
   "    move.w %d0,%d1\n"
   "    move.l %d1,-(%sp)\n"
@@ -864,10 +879,11 @@ __asm__(
   "    move.l %d2,-(%sp)\n"
   "    jsr ep_instr_list\n"
   "    addq.l #4,%sp\n"
-  "8:  move.w eproj_index,%d2\n"             /* i = eproj_index */
-  "9:  subq.w #2,%d2\n"
+  "8:  movea.w eproj_index,%a3\n"            /* i = eproj_index */
+  "9:  subq.w #2,%a3\n"
+  "    move.w %a3,%d0\n"
   "    bpl 1b\n"
-  "    move.l (%sp)+,%d2\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2-%a3\n"
   "99: rts\n");
 #else
 void EprojRunAll(void) {  // 0x868104

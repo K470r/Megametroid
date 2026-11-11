@@ -223,8 +223,9 @@ void InitializeEnemies(void) {  // 0xA08A9E
   num_enemies_killed_in_room = 0;
   flag_process_all_enemies = 0;
   /* el original borra 144 palabras desde eproj_flags (7E:F380-F49F): eproj_flags, eproj_enemy_header_ptr,
-     eproj_killed_enemy_index y el origen de la caída de objetos especiales */
-  for (int i = 0; i < 36; i++) {
+     eproj_killed_enemy_index y el origen de la caída de objetos especiales (lo demás de ese tramo no se usa: los dos
+     primeros tienen 18 entradas, docs/60) */
+  for (int i = 0; i < 18; i++) {
     eproj_flags[i] = 0;
     eproj_enemy_header_ptr[i] = 0;
   }

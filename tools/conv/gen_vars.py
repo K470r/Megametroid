@@ -31,7 +31,17 @@ ARRAY_LEN = {
     **{n: 4 for n in ('cinematicbg_instr_ptr', 'cinematicbg_preinstr', 'cinematicbg_instr_timer', 'cinematicbg_arr6')},
     'cinematicbg_arr1': 12,
     **{n: 2 for n in ('mode7_obj_instr_ptr', 'mode7_obj_preinstr_func', 'mode7_obj_instr_timer', 'mode7_obj_goto_timer')},
-    'projectile_bomb_pre_instructions': 10, 'enemy_drawing_queue_sizes': 8, 'tilemap_stuff': 2048, 'hdma_table_1': 256, 'scrolling_sky_bg2_hdma_data': 64, 'scrolling_sky_bg2_indirect_hdma': 128, 'projectile_variables': 10, 'projectile_timers': 10,
+    # objetos de sprite: 32 lugares (CreateSpriteAtPos empieza en el índice 62); el SNES deja 0x80 bytes por arreglo
+    **{n: 32 for n in ('sprite_instr_list_ptrs', 'sprite_instr_timer', 'sprite_palettes', 'sprite_x_pos',
+                       'sprite_x_subpos', 'sprite_y_pos', 'sprite_y_subpos', 'sprite_disable_flag')},
+    # 18 proyectiles enemigos (7E:F380 y F3C8: el SNES deja 0x48 bytes a cada uno; docs/60)
+    'eproj_flags': 18, 'eproj_enemy_header_ptr': 18,
+    # HDMA de la ondulación del BG2 bajo el líquido (hdmaobj.c: índices 0-16) y del cielo (el último par que nombra
+    # kHdmaScrollEntrys, $88:AEC1, es 7E:9FD8: índice 45); docs/60
+    'g_word_7E9C46': 17,
+    # mapa explorado guardado: 7 áreas de 128 palabras (el área 7, la de depuración, no se alcanza; gamestart.c)
+    'explored_map_tiles_saved': 7 * 128,
+    'projectile_bomb_pre_instructions': 10, 'enemy_drawing_queue_sizes': 8, 'tilemap_stuff': 2048, 'hdma_table_1': 256, 'scrolling_sky_bg2_hdma_data': 46, 'scrolling_sky_bg2_indirect_hdma': 128, 'projectile_variables': 10, 'projectile_timers': 10,
 }
 # variables que el motor define a su manera (no como en la RAM del SNES)
 # kraid_unk9000 (7E:9000) cae dentro de la RAM extra de enemigos: es ERAM(0x9000) (inc/core/enemies.h)

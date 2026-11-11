@@ -80,3 +80,19 @@ confirma con el código.
 
 Validación de cada paso: la regresión, `host/check` en las salas (las variables se comparan con el SNES) y `pckeys.sh`
 en la sala de Kraid.
+
+## Paso 2 (hecho): arreglos recortados
+
+`gen_vars.py` (`ARRAY_LEN`): los 8 `sprite_*` a 32, `eproj_flags` y `eproj_enemy_header_ptr` a 18 (y el borrado de
+`LoadEnemies` a 18), `g_word_7E9C46` a 17, `scrolling_sky_bg2_hdma_data` a 46 y `explored_map_tiles_saved` a 7 áreas
+(con una guarda para el área 7 en `gamestart.c`). Hay que volver a generar el estado inicial (`host/mkinit`, como en
+`make_data.sh`): lleva el tamaño de cada variable. `_bend`: 0xE0FFE388 → 0xE0FFDF74 (**1044 bytes libres**).
+
+Se quedan como están (mirado en el código):
+- `enemy_drawing_queue` (228): son las 8 colas de capa de `kEnemyLayerToQueuePtr` ($A0:B133), de largos distintos y que
+  se desbordan una en la siguiente como en el SNES; recortarla cambia lo que pasa con muchos enemigos en una capa.
+- `power_bomb_explosion_left/right_hdma`: `PowerBombScaledCircle` puede escribir hasta el índice 255.
+- `scrolling_sky_bg2_indirect_hdma` y `mother_brain_indirect_hdma`: su largo depende de la pantalla y del código de
+  Mother Brain aún sin portar.
+
+Validación: regresión con 0 distintos; Kraid en el PC (`pckeys.sh`) igual que antes (3 cuadros, primero 191).

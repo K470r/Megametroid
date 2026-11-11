@@ -422,3 +422,19 @@ Elegido por el usuario: subir los sprites de Kraid por cuadro (sin pérdida). He
 Lo que falta (paso 3): la sala (BG1: las púas, la pared de la cueva y sus colores; la paleta 6 en vivo y los tiles
 1008-1023 que Kraid sube), lo que Kraid escribe en su BG2 (boca y ojo, sus dos mitades, el hundimiento), los colores
 del cuerpo en su propia línea y el rendimiento con el depósito.
+
+### Kraid, paso 3 (2026-11-11, en curso)
+
+- **Tileset de Kraid**: en el SNES (`DoorTransitionFunction`) el CRE se descomprime primero (7E:7000) y el tileset
+  encima (7E:2000): el de Kraid (tileset 26, 0x8000 bytes) pisa el CRE y sus tiles 640-1023 son la parte baja de su
+  cuerpo. `mkzebes.tileset` ponía el CRE después: la sala y el cuerpo salían con tiles equivocados (el "fondo roto").
+  Ahora en el mismo orden que el SNES; la sala de Kraid ya coincide (piso, púas, puerta, colores).
+- **La pared de la cueva** (BG1 1008-1023): `convert(own=...)` les da tiles propios convertidos desde `kKraidsRoomBg`
+  con su paleta (`kKraid_Palette2`, $A7:86C7); `kZebesWall` lista sus tiles de la Genesis y su contenido. El motor
+  los deja vacíos al entrar y los llena o los borra cuando Kraid los sube por la cola de VRAM (`wall_on`). Sus
+  colores leen la paleta 6 en vivo: el fundido es el del SNES.
+- **La cola de VRAM de Kraid** (`nt_vram_queue_flush`, md_zebes.c): sus escrituras al mapa del BG2 (las dos mitades,
+  la boca y el ojo, el hundimiento, el borrado) pasan al plano B por filas (`kq_*`, 16 por cuadro, convertidas con la
+  tabla del cuerpo), con `BG2SC` como esté (64x64 o 64x32).
+- **Tabla del cuerpo sin volteos**: las palabras del mapa inicial y de la boca traen sus volteos y la prioridad; la
+  tabla los tenía grabados y el motor los volvía a aplicar (la barriga salía revuelta). Ahora la tabla va sin ellos.

@@ -77,10 +77,10 @@ typedef void (*PortFnV)(void);
 PortFnV port_FindCallEnemyAi(uint32 ea);
 void port_nop_v(void);
 uint8 Enemy_GrappleReact(uint16 f);
+static uint32 cea[16];                           /* traducidas ya buscadas (casi siempre las mismas cada cuadro) */
+static PortFnV cfn[16];
 void CallEnemyAi(uint8 bank, uint16 f) {
   uint32 ea = (uint32)bank << 16 | f;
-  static uint32 cea[16];                         /* traducidas ya buscadas (casi siempre las mismas cada cuadro) */
-  static PortFnV cfn[16];
   uint16 h = (f ^ (f >> 4) ^ bank) & 14;         /* dos vías: (h, h + 1); la nueva entra en h, la de h pasa a h + 1 */
   if (cea[h] == ea) { if (cfn[h] != port_nop_v) cfn[h](); return; }
   if (cea[h + 1] == ea) { if (cfn[h + 1] != port_nop_v) cfn[h + 1](); return; }
@@ -635,7 +635,7 @@ static void EnemyBombCollHandler_Multibox(void) {  // 0xA09D23
   }
 }
 
-static void EnemyCollisionHandler(void) {  // 0xA09758
+static inline __attribute__((always_inline)) void EnemyCollisionHandler(void) {  // 0xA09758 (una sola llamada)
   if (gEnemyData(cur_enemy_index)->extra_properties & 4) {
     EprojCollHandler_Multibox();
     EnemyBombCollHandler_Multibox();
@@ -792,6 +792,8 @@ void DrawSpriteObjects(void) {  // 0xB4BD32
   }
 }
 
+typedef struct { uint16 ptr; uint8 bits, bank; PortFnV fn; } AiSlot;
+static AiSlot ai_slot[ENEMY_COUNT];
 void EnemyMain(void) {  // 0xA08FD4
   if (first_free_enemy_index) {
     if (enemy_index_to_shake != 0xFFFF) {
@@ -827,7 +829,23 @@ void EnemyMain(void) {  // 0xA08FD4
             do { ++v6; c = bits & 1; bits >>= 1; } while (!c);
           }
           if (v6 > 4) nt_unimpl("EnemyMain (bit de IA fuera de tabla)");
-          CallEnemyAi(E->bank, enemy_def(E->enemy_ptr)->ai_bits[v6 > 4 ? 0 : v6]);
+          /* la IA de este lugar ya resuelta (docs/60: RAM del plan): mismo enemigo y mismo bit -> la misma función;
+             si no, la definición y CallEnemyAi, y se guarda si es una traducida (no los casos del switch ni el
+             gancho, que se deciden en cada llamada) */
+          AiSlot *S = &ai_slot[cur_enemy_index >> 6];
+          if (S->fn && S->ptr == E->enemy_ptr && S->bits == v6 && S->bank == E->bank) {
+            if (S->fn != port_nop_v) S->fn();
+          } else {
+            uint8 bank = E->bank;
+            uint16 ptr = E->enemy_ptr, f = enemy_def(ptr)->ai_bits[v6 > 4 ? 0 : v6];
+            CallEnemyAi(bank, f);
+            uint32 ea = (uint32)bank << 16 | f;
+            uint16 h = (f ^ (f >> 4) ^ bank) & 14;
+            S->fn = 0;
+            if (!(f >= 0x8000 && f <= 0x801E) && cea[h] == ea) {
+              S->fn = cfn[h]; S->ptr = ptr; S->bits = (uint8)v6; S->bank = bank;
+            }
+          }
           ++E->frame_counter;
           if (E->properties & 0x2000) {
             enemy_processing_stage = 2;

@@ -1242,7 +1242,10 @@ static void DrawTrail(uint16 x, uint16 y, uint16 tile) {   /* el sprite de 8x8 d
 
 void HandleProjectileTrails(void) {  // 0x90B6A9
   if (!time_is_frozen_flag) {
-    for (uint16 v0 = 34; !(v0 & 0x8000); v0 -= 2) {
+    const uint16 *pl = &projectiletrail_left_instr_timer[17], *pr = &projectiletrail_right_instr_timer[17];
+    for (uint16 v0 = 34; !(v0 & 0x8000); v0 -= 2, pl--, pr--) {
+      if (!(*pl | *pr))                            /* (lo común: ninguna estela en el lugar; recorrido con punteros) */
+        continue;
       int v1 = v0 >> 1;
       if (projectiletrail_left_instr_timer[v1]) {
         if (--projectiletrail_left_instr_timer[v1]) {

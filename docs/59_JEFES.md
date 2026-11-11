@@ -565,3 +565,10 @@ en el SNES. Unos 85 000 son el dibujo de objetos por cuadro (`zebes_obj_draw` ~8
 sobrecosto cada una, `zebes_obj_ep_recs` copia los registros de cada roca en cada cuadro, `md_putrecs`); el resto es
 la lógica traducida (`EnemyMain` ~25 000, colisiones de las rocas con el nivel ~33 000). Llevarlo a 60 cuadros por
 segundo pide optimizar a fondo el dibujo de objetos y los proyectiles.
+
+**Colisión de proyectiles con bloques en ensamblador.** `EprojBlockCollisition_Horiz/Vertical` (con `eproj_quiet`)
+pasan a ensamblador en la Genesis (el C de siempre queda en el PC como referencia): sin el guardado de once
+registros del C, con lecturas de byte en vez de desplazamientos de 8 y `lvl_mod` en un registro (en la sala de Kraid
+hay bloques cambiados y `lvl_fast` es 0, así que cada bloque mira su bit). Cualquier caso que no sea "ningún bloque
+reacciona" salta al original (`_full`). Subida de Kraid: 572 → 560 cuadros de consola (las dos funciones y el bucle,
+~22k → ~17,4k ciclos por cuadro de lógica, ~9 llamadas de cada una por cuadro). Regresión: 0 distintos.

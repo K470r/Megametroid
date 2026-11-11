@@ -102,3 +102,22 @@ con las de siempre: Samus sin energía, `HandleSamusOutOfHealthAndGameTile` sin 
 Trampa encontrada: `ClearSpriteObjects` borraba 64 entradas de cada `sprite_*` (el original borra 511 palabras de
 seguido) y, con los arreglos a 32, pisaba las variables de al lado (`size_of_bg2`, `sprite_object_index`): 11 lotes
 fallaban en la carga de sala. Al recortar un arreglo, buscar los borrados con largo fijo del original.
+
+## Paso 3 (hecho): RAM extra de enemigos sin 7E:8AC0-8FFF
+
+La medición daba 7E:8AB8-8FFF sin usar, pero es la parte alta de los bloques de 64 bytes por enemigo de 7E:8800
+(`ERAM(0x8800 + E_k)`, `gExtraEnemyRam8800`): se usa según el índice del enemigo, y ninguna grabación tenía enemigos
+de esas especies con índice alto. Recorriendo las poblaciones de todas las salas (especie de cada índice y su
+desplazamiento más alto en 7E:88xx): lo más alto es 7E:8ABF (Yapping Maw, índice 10, sala A293). Ridley, Draygon,
+Botwoon, Spore Spawn, Baby Metroid y Mother Brain la usan con índice 0; los enemigos que se crean en juego (la
+explosión de Ridley...) no la tocan. Se quita 7E:8AC0-8FFF (1344 bytes).
+
+- `ERAM(a)` (`inc/core/enemies.h`, `eram_idx`): desde 7E:9000 baja 0x540 bytes; con direcciones fijas lo resuelve el
+  compilador. En el PC, tocar el tramo avisa (`nt_eram_gap`, sale como "SIN PORTAR") y `check` cuenta como diferencia
+  que el SNES lo cambie en juego.
+- Los demás accesos pasan por `ERAM`: `nt_spawn_p`, `nt_ram_w`, `plm.c`, `eram_set_byte`; `host/check`, `mkinit`,
+  `simsum` y `vardump` recorren las direcciones con lugar. El título usa el arreglo como búfer (4992 bytes): cabe.
+- `_bend`: 0xE0FFDF74 → 0xE0FFDA34. Con el paso 2: **2388 bytes libres**.
+
+Validación: las 194 salas con `check` igual que antes (47 lotes sin diferencias, 2 con Samus sin energía) y ningún
+aviso del tramo; regresión 0 distintos; Kraid en el PC igual (3, primero 191); la pelea grande dura lo mismo (1833).

@@ -707,10 +707,11 @@ static void HandleSpriteObjects(void) {  // 0xB4BC82
     return;
   }
   uint8 live = 0;
-  for (int i = 31; i >= 0; i--) {
-    sprite_object_index = 2 * i;
-    if (!sprite_instr_list_ptrs[i])
+  const uint16 *pl = &sprite_instr_list_ptrs[31];   /* (la mayoría de los 32 lugares, vacíos: con un puntero) */
+  for (int i = 31; i >= 0; i--, pl--) {
+    if (!*pl)
       continue;
+    sprite_object_index = 2 * i;                   /* (solo lo leen las instrucciones de un objeto vivo) */
     live = 1;
     if (sprite_disable_flag[i] & 1)
       continue;
@@ -738,8 +739,9 @@ void DrawSpriteObjSpritemap(uint16 spritemap, uint16 x, uint16 y, uint16 pal, ui
 void DrawSpriteObjects(void) {  // 0xB4BD32
   if (SPRITE_OBJS_NONE())
     return;
-  for (int i = 31; i >= 0; i--) {
-    if (!sprite_instr_list_ptrs[i])
+  const uint16 *pl = &sprite_instr_list_ptrs[31];
+  for (int i = 31; i >= 0; i--, pl--) {
+    if (!*pl)
       continue;
     uint16 x = sprite_x_pos[i] - layer1_x_pos;
     int16 y = sprite_y_pos[i] - layer1_y_pos;

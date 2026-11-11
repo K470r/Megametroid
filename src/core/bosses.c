@@ -181,7 +181,12 @@ static void Kraid_SetPal(uint16 i, uint16 c) {
   if (palette_buffer[i] != c) { palette_buffer[i] = c; nt_pal_dirty((uint8)i, (uint8)i); }
 }
 static void Kraid_PalRow(uint16 a, uint16 dst) {   /* 16 colores de la ROM ($A7:a) a palette_buffer[dst] */
-  for (uint16 i = 0; i < 16; i++) Kraid_SetPal(dst + i, BW_A7(a + 2 * i));
+  const uint8 *p = kBankA7B + (uint16)(a - 0x8000);   /* (con la vida en 0 corre en cada cuadro: con un puntero) */
+  uint16 *pb = palette_buffer + dst;
+  for (uint16 i = 0; i < 16; i++, p += 2) {
+    uint16 c = (uint16)(p[0] | p[1] << 8);
+    if (pb[i] != c) { pb[i] = c; nt_pal_dirty((uint8)(dst + i), (uint8)(dst + i)); }
+  }
 }
 NT_BOSS void Kraid_HurtFlash_Handling(void) {  // 0xA7B371
   Kraid_PalRow(0xB513 + ((ERAM(0x782A) & 1) ? 0 : 32), 240);   // kraid_hurt_frame; kKraid_SprPalette7_KraidDeath

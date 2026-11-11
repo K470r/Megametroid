@@ -18,6 +18,11 @@ extern uint32 nt_unimpl_val;               /* el valor que falta (dirección de 
 static inline void nt_unimpl_v(const char *what, uint32 v) { nt_unimpl_val = v; nt_unimpl(what); nt_unimpl_val = 0; }
 void nt_clear_ram(uint16 from, uint16 to);   /* nt_ram.c: pone a cero las variables de 7E:from-7E:to-1 */
 uint16 nt_ram_w(uint16 a);                    /* nt_ram.c: palabra de la RAM del SNES (7E:a) por su dirección */
+/* palabra de un arreglo de bytes del SNES que existe en el port (p, n bytes, en 7E:a): directo; si se sale del
+   arreglo, la RAM del SNES por su dirección (el byte de al lado) */
+static inline uint16 nt_u8w(const uint8 *p, uint16 n, uint16 i, uint16 a) {
+  return (uint16)(i + 1) < n ? (uint16)(p[i] | p[(uint16)(i + 1)] << 8) : nt_ram_w((uint16)(a + i));
+}
 void nt_ram_set_w(uint16 a, uint16 x);        /* nt_ram.c: escribirla */
 extern uint8 nt_vwq[0x100];                   /* nt_ram.c: la cola de escrituras a la VRAM del SNES (7E:00D0) */
 void nt_vwq_w8(uint16 o, uint8 v);

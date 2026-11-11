@@ -12934,7 +12934,7 @@ NT_BOSS void Crocomire_Init(void) {  // 0xA48A5A
     tilemap_stuff[v0 >> 1] = 824;
     v0 += 2;
   } while ((int16)(v0 - 4096) < 0);
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 2) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 2) != 0) {
     *(uint16 *)scrolls = 257;
     nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
     croco_target_0688 = 0;
@@ -14034,7 +14034,7 @@ NT_BOSS void Crocomire_Func_1(void) {  // 0xA4BAB4
 }
 NT_BOSS void CrocomireTongue_Init(void) {  // 0xA4F67A
   EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 2) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 2) != 0) {
     E->properties = E->properties & 0xDCFF | 0x300;
   } else {
     E->current_instruction = addr_kCrocomire_Ilist_BE56;
@@ -19494,7 +19494,7 @@ NT_BOSS void Kraid_Arm_Shot(uint16 j) {  // 0xA794B6
   projectile_dir[j >> 1] |= 0x10;
 }
 NT_BOSS uint16 Kraid_CheckIfDead(void) {  // 0xA7A92C
-  return (nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0;
+  return (nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 1) != 0;
 }
 NT_BOSS void Kraid_SetEnemyPropsToDead(void) {  // 0xA7A943
   EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
@@ -20904,7 +20904,7 @@ NT_BOSS void Kraid_FadeInBg_FadeInBp6(void) {  // 0xA7C815
 
   if (AdvancePaletteFade_BgPalette6() & 1) {
     QueueMusic_Delayed8(3);
-    v0 = nt_ram_w((uint16)(0xD828 + (area_index)));
+    v0 = nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828);
     if ((v0 & 1) != 0) {
       gEnemyData(0)->ai_var_A = 0xC851 /* Kraid_FadeInBg_SetEnemyDead_KraidWasDead */;
     } else {
@@ -25068,7 +25068,7 @@ void MaridiaFloater_Powerbomb(void) {  // 0xA8C63F
   }
 }
 void WreckedShipRobot_Init(void) {  // 0xA8CB77
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 1) != 0) {
     nt_gfx_hook_bank = -88;
     nt_gfx_hook_addr = 0xCC67 /* WreckedShipRobot_Func_1 */;
     EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
@@ -25398,7 +25398,7 @@ void WreckedShipRobotDeactivated_Shot(void) {  // 0xA8D18D
   NormalEnemyShotAi();
 }
 void WreckedShipRobot_Shot(void) {  // 0xA8D192
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 1) != 0) {
     NormalEnemyShotAi();
     EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
     if (E->health) {
@@ -32422,7 +32422,7 @@ void ChozoStatue_Main(void) {  // 0xAAE7A7
   CallEnemyPreInstr(v0->ai_preinstr | 0xAA0000);
 }
 void Shaktool_PreInstr_0(uint16 k) {  // 0xAAE7AE
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 1) != 0) {
     EnemyData *E = gEnemyData(k); uint16 E_k = (k);
     if (E->parameter_1) {
       E->current_instruction = addr_kShaktool_Ilist_E461;

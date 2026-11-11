@@ -538,6 +538,21 @@ lógica en cada versión). Hecho:
 Resultado: la pelea grande (de AE23 a C3F9, 1712 cuadros de lógica) pasó de 2011 a 1886 cuadros de consola (~10 %
 lenta); en la regresión ya no se pierden cuadros (antes 1-3).
 
+**Segunda vuelta (optimización de fondo, sirve para todo el juego):**
+- `md_putrecs_t` (asm): el tile del depósito se suma al escribir cada sprite; `md_putrecs`/`md_putrecs_t` guardan solo
+  los registros del camino común.
+- `zebes_obj_draw`: camino rápido corto (acierto de `zcache` y lugar ya puesto; sin multiplicar), el resto aparte
+  (`zebes_obj_draw_slow`); sin cambiar de página si no hace falta.
+- Proyectiles por cuadro: `ep_cache` los recuerda (bit 31) y `ep_lookup` los dibuja desde la página del depósito,
+  sin copiar registros.
+- `EprojBlockCollisition_Horiz/Vertical`: camino rápido cuando ningún bloque del borde reacciona.
+- xlate.py: las palabras sobre arreglos de bytes que el port tiene (vars.h) se leen directo (`nt_u8w`), no por la
+  dirección del SNES (`Kraid_CheckIfDead` en cada cuadro de la sala vencida: ~4 600 ciclos).
+- Las paletas de Kraid con un puntero; `HandleSpriteObjects`/`DrawSpriteObjects` recorren con punteros.
+Mediciones (cuadros de consola para los mismos de lógica): salida de Kraid (C902 a AEA4, 367) 686 -> 623; pelea
+grande (AE23 a C3F9, 1712) 1886 -> 1856 (al empezar el rendimiento: 2062). La comparación del PC con el SNES en la
+sala de Kraid sigue igual. Una sala tranquila (Kraid vencido) usa ~95 000 ciclos por cuadro.
+
 Lo que falta: **la salida de Kraid del piso** (estados C902-C924) y su transformación (AC4D) van a la mitad de
 velocidad: ~254 000 ciclos por cuadro de lógica (el presupuesto es ~127 000) con 10-11 rocas y el polvo, las mismas que
 en el SNES. Unos 85 000 son el dibujo de objetos por cuadro (`zebes_obj_draw` ~80 veces por cuadro con ~300 ciclos de

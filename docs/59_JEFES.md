@@ -579,3 +579,9 @@ a ensamblador en la Genesis, con `_Static_assert` sobre la disposición de `zcac
 argumentos: ~13k → ~9,5k ciclos por cuadro de lógica (unas 10 llamadas por cuadro). Subida: 560 → 548 cuadros;
 pelea grande: 1844 → 1832. La imagen de cada cuadro del motor es la misma que antes (hash por `md_shown_frame`,
 script imgcmp.sh); solo cambian los cuadros de retraso, que caen en otros momentos.
+
+`zfrz_put` (md_zebes.c, ensamblador): el dibujo de un congelado con su lugar del cuadro ya puesto, con convención de
+registros, común a `zebes_obj_draw` y a `md_draw_eprojs_asm` (que ya no pasa por el C de `zebes_ep_draw` en lo común).
+Neutro en ciclos (~16k por cuadro entre los dos, ~18 llamadas de ~600 ciclos: la mitad son el cambio de página al
+depósito y la vuelta y el guardado), pero deja un solo camino. Lo que queda caro aquí es el cambio de página por
+llamada: los datos del depósito (kZebesFrz, página 18) no caben en la parte fija.

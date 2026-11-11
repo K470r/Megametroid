@@ -1229,6 +1229,58 @@ _Static_assert(offsetof(ZebesObj, recs) == 20, "ZebesObj.recs: el ensamblador de
 _Static_assert(FROZEN_REF == 0x8000 && ZEBES_FRZ_PAGE == 18, "zebes_obj_draw: constantes del ensamblador");
 __asm__(
   "    .text\n"
+  /* zfrz_put: el congelado n (d0.w) en (x d1.w, y a1.w) si ya tiene su lugar del cuadro (frz_hc): d0 = 1; si no, 0
+     (el camino lento lo busca o lo sube). Preserva d2-d7/a2-a6. (También md_draw_eprojs_asm, md_engine.c.) */
+  "    .global zfrz_put\n"
+  "zfrz_put:\n"
+  "    movem.l %d2-%d4/%a2,-(%sp)\n"
+  "    movea.w %d1,%a2\n"                     /* x */
+  "    moveq #127,%d2\n"
+  "    and.w %d0,%d2\n"
+  "    lea cinematic_text_tilemap+2880,%a0\n" /* frz_hc */
+  "    moveq #0,%d3\n"
+  "    move.b (%a0,%d2.w),%d3\n"              /* c */
+  "    cmp.b frz_ns,%d3\n"
+  "    bcc 8f\n"
+  "    add.w %d3,%d3\n"
+  "    movea.l frz_id,%a0\n"
+  "    cmp.w (%a0,%d3.w),%d0\n"
+  "    bne 8f\n"
+  "    movea.l frz_last,%a0\n"
+  "    move.w md_frame_count,(%a0,%d3.w)\n"
+  "    moveq #0,%d4\n"
+  "    move.w %d3,%d4\n"
+  "    lsl.w #2,%d4\n"
+  "    add.w frz_t0,%d4\n"                    /* frz_t0 + (c << 3) */
+  "    move.b md_cur_page,%d3\n"              /* la página de antes */
+  "    move.b #18,md_cur_page\n"              /* ZEBES_FRZ_PAGE */
+  "    cmp.b #18,md_hw_page\n"
+  "    beq 3f\n"
+  "    move.b #18,md_hw_page\n"
+  "    move.b #18,0xA130FF\n"
+  "3:  and.l #0xFFFF,%d0\n"
+  "    lsl.l #3,%d0\n"
+  "    lea kZebesFrz,%a0\n"
+  "    moveq #0,%d1\n"
+  "    move.w 6(%a0,%d0.l),%d1\n"             /* kZebesFrz[4 n + 3] */
+  "    add.l %d1,%d1\n"
+  "    move.l %a1,%d2\n"                      /* y */
+  "    lea kZebesFrzRecs,%a0\n"
+  "    adda.l %d1,%a0\n"
+  "    move.l %a2,%d0\n"
+  "    move.l %d2,%d1\n"
+  "    jsr md_putrecs_t\n"
+  "    move.b %d3,md_cur_page\n"
+  "    cmp.b md_hw_page,%d3\n"
+  "    beq 4f\n"
+  "    move.b %d3,md_hw_page\n"
+  "    move.b %d3,0xA130FF\n"
+  "4:  movem.l (%sp)+,%d2-%d4/%a2\n"
+  "    moveq #1,%d0\n"
+  "    rts\n"
+  "8:  movem.l (%sp)+,%d2-%d4/%a2\n"
+  "    moveq #0,%d0\n"
+  "    rts\n"
   "    .global zebes_obj_draw\n"
   "zebes_obj_draw:\n"                        /* sm 6(sp), pal 10, tiles 14, x 18, y 22 (palabras bajas) */
   "    move.l zo,%d0\n"
@@ -1275,49 +1327,12 @@ __asm__(
   "    asr.l #1,%d0\n"
   "    sub.w #0x8000,%d0\n"                   /* n = ... - FROZEN_REF */
   "    bmi 89f\n"                             /* (n >= 0x8000) */
-  "    moveq #127,%d2\n"
-  "    and.w %d0,%d2\n"
-  "    lea cinematic_text_tilemap+2880,%a1\n" /* frz_hc */
-  "    moveq #0,%d3\n"
-  "    move.b (%a1,%d2.w),%d3\n"              /* c */
-  "    cmp.b frz_ns,%d3\n"
-  "    bcc 89f\n"
-  "    add.w %d3,%d3\n"
-  "    movea.l frz_id,%a1\n"
-  "    cmp.w (%a1,%d3.w),%d0\n"
-  "    bne 89f\n"
-  "    movea.l frz_last,%a1\n"
-  "    move.w md_frame_count,(%a1,%d3.w)\n"
-  "    moveq #0,%d4\n"
-  "    move.w %d3,%d4\n"
-  "    lsl.w #2,%d4\n"
-  "    add.w frz_t0,%d4\n"                    /* frz_t0 + (c << 3) */
-  "    move.b md_cur_page,%d3\n"              /* la página de antes */
-  "    move.b #18,md_cur_page\n"              /* ZEBES_FRZ_PAGE */
-  "    cmp.b #18,md_hw_page\n"
-  "    beq 3f\n"
-  "    move.b #18,md_hw_page\n"
-  "    move.b #18,0xA130FF\n"
-  "3:  and.l #0xFFFF,%d0\n"
-  "    lsl.l #3,%d0\n"
-  "    lea kZebesFrz,%a1\n"
-  "    moveq #0,%d1\n"
-  "    move.w 6(%a1,%d0.l),%d1\n"             /* kZebesFrz[4 n + 3] */
-  "    add.l %d1,%d1\n"
-  "    lea kZebesFrzRecs,%a0\n"
-  "    adda.l %d1,%a0\n"
-  "    move.w 30(%sp),%d0\n"
-  "    ext.l %d0\n"                           /* x */
-  "    move.w 34(%sp),%d1\n"
-  "    ext.l %d1\n"                           /* y */
-  "    jsr md_putrecs_t\n"
-  "    move.b %d3,md_cur_page\n"
-  "    cmp.b md_hw_page,%d3\n"
-  "    beq 4f\n"
-  "    move.b %d3,md_hw_page\n"
-  "    move.b %d3,0xA130FF\n"
-  "4:  movem.l (%sp)+,%d2-%d4\n"
-  "    moveq #1,%d0\n"
+  "    movem.l (%sp)+,%d2-%d4\n"
+  "    move.w 18(%sp),%d1\n"                  /* x */
+  "    movea.w 22(%sp),%a1\n"                 /* y */
+  "    bsr zfrz_put\n"
+  "    tst.w %d0\n"
+  "    beq 90f\n"
   "    rts\n"
   "80: moveq #0,%d0\n"
   "    rts\n"

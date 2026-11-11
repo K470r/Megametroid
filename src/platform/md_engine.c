@@ -1511,14 +1511,24 @@ __asm__(
   "    bpl 1b\n"
   "    movem.l (%sp)+,%d2-%d7/%a2-%a6\n"
   "    rts\n"
-  "6:  move.w (%a5),%d0\n"                 /* zebes_ep_draw(n, x, y) */
+  "6:  move.w %d1,%d7\n"                   /* n (la entrada de la caché) */
+  "    move.w %d1,%d0\n"
+  "    move.w (%a5),%d1\n"
+  "    add.w %d4,%d1\n"
+  "    movea.w %d1,%a1\n"                    /* y */
+  "    move.w %d6,%d1\n"                     /* x */
+  "    jsr zfrz_put\n"                       /* (md_zebes.c: con el lugar ya puesto) */
+  "    tst.w %d0\n"
+  "    bne 9b\n"
+  "    move.w (%a5),%d0\n"                   /* si no: zebes_ep_draw(n, x, y) */
   "    add.w %d4,%d0\n"
   "    ext.l %d0\n"
   "    move.l %d0,-(%sp)\n"
   "    move.w %d6,%d0\n"
   "    ext.l %d0\n"
   "    move.l %d0,-(%sp)\n"
-  "    and.l #0xFFFF,%d1\n"
+  "    moveq #0,%d1\n"
+  "    move.w %d7,%d1\n"
   "    move.l %d1,-(%sp)\n"
   "    jsr zebes_ep_draw\n"
   "    lea 12(%sp),%sp\n"

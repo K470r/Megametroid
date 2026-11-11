@@ -95,4 +95,10 @@ Se quedan como están (mirado en el código):
 - `scrolling_sky_bg2_indirect_hdma` y `mother_brain_indirect_hdma`: su largo depende de la pantalla y del código de
   Mother Brain aún sin portar.
 
-Validación: regresión con 0 distintos; Kraid en el PC (`pckeys.sh`) igual que antes (3 cuadros, primero 191).
+Validación: regresión con 0 distintos; Kraid en el PC (`pckeys.sh`) igual que antes (3 cuadros, primero 191); las
+194 salas con `check` (lotes de `tools/rooms/lote.sh`): igual que con el código de antes (47 lotes sin diferencias; 2
+con las de siempre: Samus sin energía, `HandleSamusOutOfHealthAndGameTile` sin portar).
+
+Trampa encontrada: `ClearSpriteObjects` borraba 64 entradas de cada `sprite_*` (el original borra 511 palabras de
+seguido) y, con los arreglos a 32, pisaba las variables de al lado (`size_of_bg2`, `sprite_object_index`): 11 lotes
+fallaban en la carga de sala. Al recortar un arreglo, buscar los borrados con largo fijo del original.

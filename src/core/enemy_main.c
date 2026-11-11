@@ -136,8 +136,9 @@ void ProcessExtendedTilemap(uint8 db, uint16 r22) {  // 0xA096CA
 
 /* ------------------------------------------------------------------ carga ($A0:8A1E) */
 static void ClearSpriteObjects(void) {  // 0xB4BD97 (el original borra 511 palabras: los 8 arreglos menos la primera)
-  for (int i = 1; i < 64; i++) sprite_instr_list_ptrs[i] = 0;
-  for (int i = 0; i < 64; i++) {
+  /* (cada arreglo tiene aquí los 32 lugares que se usan, docs/60: el resto del tramo del SNES no lo lee nadie) */
+  for (int i = 1; i < 32; i++) sprite_instr_list_ptrs[i] = 0;
+  for (int i = 0; i < 32; i++) {
     sprite_instr_timer[i] = 0; sprite_palettes[i] = 0; sprite_x_pos[i] = 0; sprite_x_subpos[i] = 0;
     sprite_y_pos[i] = 0; sprite_y_subpos[i] = 0; sprite_disable_flag[i] = 0;
   }

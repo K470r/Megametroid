@@ -572,3 +572,10 @@ registros del C, con lecturas de byte en vez de desplazamientos de 8 y `lvl_mod`
 hay bloques cambiados y `lvl_fast` es 0, así que cada bloque mira su bit). Cualquier caso que no sea "ningún bloque
 reacciona" salta al original (`_full`). Subida de Kraid: 572 → 560 cuadros de consola (las dos funciones y el bucle,
 ~22k → ~17,4k ciclos por cuadro de lógica, ~9 llamadas de cada una por cuadro). Regresión: 0 distintos.
+
+**zebes_obj_draw en ensamblador.** El camino común (clave en `zcache`, congelado por cuadro con su lugar puesto) pasa
+a ensamblador en la Genesis, con `_Static_assert` sobre la disposición de `zcache` y `ZebesObj.recs`; lo demás salta a
+`zebes_obj_draw_slow` con los mismos argumentos. Sin el guardado de once registros y la copia de los cinco
+argumentos: ~13k → ~9,5k ciclos por cuadro de lógica (unas 10 llamadas por cuadro). Subida: 560 → 548 cuadros;
+pelea grande: 1844 → 1832. La imagen de cada cuadro del motor es la misma que antes (hash por `md_shown_frame`,
+script imgcmp.sh); solo cambian los cuadros de retraso, que caen en otros momentos.

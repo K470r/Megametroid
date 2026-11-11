@@ -11,6 +11,7 @@
  *
  * Paletas: líneas 0 y 1 de la CRAM para la sala (cada color sale de un índice de palette_buffer: kZebesGfx.src),
  * 2 Samus, 3 HUD y objetos (como en Ceres: de la sala base de Ceres). */
+#include <stddef.h>
 #include <string.h>
 #include "samus.h"
 #include "game.h"
@@ -1188,7 +1189,7 @@ void zebes_ep_draw(uint16 n, int16 x, int16 y) {   /* (lo común, corto: el luga
   zebes_ep_draw_slow(n, x, y);
 }
 
-static __attribute__((noinline)) uint8 zebes_obj_draw_slow(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
+static __attribute__((noinline, noclone, used)) uint8 zebes_obj_draw_slow(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
   if (!zo) return 0;
   uint8 lp = md_cur_page;
   /* (un acierto de zcache no lee la página de los objetos: solo se pone para buscar o para sus registros) */
@@ -1219,6 +1220,110 @@ static __attribute__((noinline)) uint8 zebes_obj_draw_slow(uint16 sm, uint16 pal
   return ok;
 }
 
+#ifdef __mc68000__
+/* zebes_obj_draw en ensamblador (el C de la rama #else es la referencia): sin el guardado de once registros del C;
+   lo que no sea lo común salta a zebes_obj_draw_slow con los mismos argumentos */
+_Static_assert(sizeof(zcache[0]) == 14 && offsetof(__typeof__(zcache[0]), rec) == 6 &&
+               offsetof(__typeof__(zcache[0]), zo) == 10, "zcache: el ensamblador de zebes_obj_draw");
+_Static_assert(offsetof(ZebesObj, recs) == 20, "ZebesObj.recs: el ensamblador de zebes_obj_draw");
+_Static_assert(FROZEN_REF == 0x8000 && ZEBES_FRZ_PAGE == 18, "zebes_obj_draw: constantes del ensamblador");
+__asm__(
+  "    .text\n"
+  "    .global zebes_obj_draw\n"
+  "zebes_obj_draw:\n"                        /* sm 6(sp), pal 10, tiles 14, x 18, y 22 (palabras bajas) */
+  "    move.l zo,%d0\n"
+  "    beq 80f\n"
+  "    tst.b frz_stream\n"
+  "    beq 90f\n"
+  "    movea.l %d0,%a0\n"                     /* zo */
+  "    movem.l %d2-%d4,-(%sp)\n"              /* (los argumentos: + 12) */
+  "    move.w 18(%sp),%d1\n"                  /* sm */
+  "    move.w %d1,%d2\n"
+  "    lsr.w #6,%d2\n"
+  "    eor.w %d1,%d2\n"
+  "    move.w 22(%sp),%d3\n"                  /* pal */
+  "    eor.w %d3,%d2\n"
+  "    move.w 26(%sp),%d4\n"                  /* tiles */
+  "    eor.w %d4,%d2\n"
+  "    and.w #62,%d2\n"                       /* h (el par h, h + 1) */
+  "    add.w %d2,%d2\n"
+  "    move.w %d2,%d0\n"
+  "    lsl.w #3,%d0\n"
+  "    sub.w %d2,%d0\n"                       /* 14 h */
+  "    lea zcache,%a1\n"
+  "    adda.w %d0,%a1\n"
+  "    cmpa.l 10(%a1),%a0\n"
+  "    bne 1f\n"
+  "    cmp.w (%a1),%d1\n"
+  "    bne 1f\n"
+  "    cmp.w 2(%a1),%d3\n"
+  "    bne 1f\n"
+  "    cmp.w 4(%a1),%d4\n"
+  "    beq 2f\n"
+  "1:  lea 14(%a1),%a1\n"                     /* h + 1 */
+  "    cmpa.l 10(%a1),%a0\n"
+  "    bne 89f\n"
+  "    cmp.w (%a1),%d1\n"
+  "    bne 89f\n"
+  "    cmp.w 2(%a1),%d3\n"
+  "    bne 89f\n"
+  "    cmp.w 4(%a1),%d4\n"
+  "    bne 89f\n"
+  "2:  move.l 6(%a1),%d0\n"                   /* rec */
+  "    beq 89f\n"
+  "    sub.l 20(%a0),%d0\n"                   /* - zo->recs */
+  "    asr.l #1,%d0\n"
+  "    sub.w #0x8000,%d0\n"                   /* n = ... - FROZEN_REF */
+  "    bmi 89f\n"                             /* (n >= 0x8000) */
+  "    moveq #127,%d2\n"
+  "    and.w %d0,%d2\n"
+  "    lea cinematic_text_tilemap+2880,%a1\n" /* frz_hc */
+  "    moveq #0,%d3\n"
+  "    move.b (%a1,%d2.w),%d3\n"              /* c */
+  "    cmp.b frz_ns,%d3\n"
+  "    bcc 89f\n"
+  "    add.w %d3,%d3\n"
+  "    movea.l frz_id,%a1\n"
+  "    cmp.w (%a1,%d3.w),%d0\n"
+  "    bne 89f\n"
+  "    movea.l frz_last,%a1\n"
+  "    move.w md_frame_count,(%a1,%d3.w)\n"
+  "    moveq #0,%d4\n"
+  "    move.w %d3,%d4\n"
+  "    lsl.w #2,%d4\n"
+  "    add.w frz_t0,%d4\n"                    /* frz_t0 + (c << 3) */
+  "    move.b md_cur_page,%d3\n"              /* la página de antes */
+  "    move.b #18,md_cur_page\n"              /* ZEBES_FRZ_PAGE */
+  "    cmp.b #18,md_hw_page\n"
+  "    beq 3f\n"
+  "    move.b #18,md_hw_page\n"
+  "    move.b #18,0xA130FF\n"
+  "3:  and.l #0xFFFF,%d0\n"
+  "    lsl.l #3,%d0\n"
+  "    lea kZebesFrz,%a1\n"
+  "    moveq #0,%d1\n"
+  "    move.w 6(%a1,%d0.l),%d1\n"             /* kZebesFrz[4 n + 3] */
+  "    add.l %d1,%d1\n"
+  "    lea kZebesFrzRecs,%a0\n"
+  "    adda.l %d1,%a0\n"
+  "    move.w 30(%sp),%d0\n"
+  "    ext.l %d0\n"                           /* x */
+  "    move.w 34(%sp),%d1\n"
+  "    ext.l %d1\n"                           /* y */
+  "    jsr md_putrecs_t\n"
+  "    move.b %d3,md_cur_page\n"
+  "    cmp.b md_hw_page,%d3\n"
+  "    beq 4f\n"
+  "    move.b %d3,md_hw_page\n"
+  "    move.b %d3,0xA130FF\n"
+  "4:  movem.l (%sp)+,%d2-%d4\n"
+  "    moveq #1,%d0\n"
+  "    rts\n"
+  "80: moveq #0,%d0\n"
+  "    rts\n"
+  "89: movem.l (%sp)+,%d2-%d4\n"
+  "90: jmp zebes_obj_draw_slow\n");
+#else
 /* lo común, corto (sin el prólogo del camino lento): clave ya en zcache y, si es por cuadro, con su lugar puesto */
 uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
   if (!zo) return 0;
@@ -1240,6 +1345,7 @@ uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
   }
   return zebes_obj_draw_slow(sm, pal, tiles, x, y);
 }
+#endif
 
 void map_page_ext(uint8 p) { map_page(p); }
 /* bancos del SNES que se leen poco (nmath.h, mkdata.py COLD_BANKS): en la página NT_COLD_PAGE; se pone un momento y

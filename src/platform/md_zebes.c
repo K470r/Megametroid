@@ -1074,7 +1074,7 @@ static uint16 frz_get(uint16 n) {
   uint16 now = md_frame_count;
   if (frz_stream) {
     uint8 c = frz_hc[n & 127];
-    if (c < frz_ns && frz_id[c] == n) { frz_last[c] = now; return frz_t0 + c * frz_slot; }
+    if (c < frz_ns && frz_id[c] == n) { frz_last[c] = now; return frz_t0 + (c << 3); }   /* (por cuadro: lugares de 8) */
   }
   for (uint16 i = 0; i < frz_ns; i++)
     if (frz_id[i] == n) { frz_last[i] = now; if (frz_stream) frz_hc[n & 127] = (uint8)i; return frz_t0 + i * frz_slot; }
@@ -1130,57 +1130,90 @@ typedef struct { int16 y; uint16 size_link; uint16 attr; int16 x; } GenSpr;   /*
 extern GenSpr *sp_ptr;
 extern uint8 nt_msgbox_active;
 /* congelado n en (x, y) */
-static uint8 frz_draw(uint16 n, int16 x, int16 y) {
+/* registros de a0 en (x, y) con t sumado al atributo de cada sprite (md_engine.c, md_putrecs_t), sin llamada en C */
+static inline __attribute__((always_inline)) void put_recs_t(const uint16 *r, int16 x, int16 y, uint16 t) {
+  register int32_t d0 __asm__("d0") = x;
+  register int32_t d1 __asm__("d1") = y;
+  register const uint16 *a0 __asm__("a0") = r;
+  register uint32_t d4 __asm__("d4") = t;
+  __asm__ volatile("jsr md_putrecs_t" : "+d"(d0), "+d"(d1), "+a"(a0) : "d"(d4) : "a1", "cc", "memory");
+}
+static inline __attribute__((always_inline)) uint8 frz_draw(uint16 n, int16 x, int16 y) {
   if (!frz_stream && (nt_msgbox_active || zg->eye)) return 0;   /* (la caja y el haz usan las filas del Window) */
   uint8 lp = md_cur_page;
   map_page(ZEBES_FRZ_PAGE);
   uint16 t = frz_get(n);
-  if (t) {
-    GenSpr *s0 = sp_ptr;
-    md_put_recs(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y);
-    for (GenSpr *q = s0; q < sp_ptr; q++) q->attr += t;
-  }
+  if (t) put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t);
   map_page(lp);
   return t != 0;
 }
 
-/* proyectiles enemigos (md_engine.c, ep_lookup: los registros se copian enseguida a la lista de sprites) con una
-   clave por cuadro: sus registros con el tile del depósito ya sumado, en un búfer común (cinematic_text_tilemap +
-   3488, 64 palabras); 0 sin lugar. Con otra clave, la misma. */
-#define EP_BUF ((uint16 *)((uint8 *)cinematic_text_tilemap + 3488))
-const uint16 *zebes_obj_ep_recs(const uint16 *r, uint8 *stream) {
-  *stream = 0;
-  if (!zo || (uint16)(r - zo->recs) < FROZEN_REF) return r;
-  *stream = 1;
-  uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
-  if (!frz_stream) return 0;
+/* proyectiles enemigos con una clave por cuadro (md_engine.c, ep_lookup): el número de la entrada (o -1 si es una
+   clave fija), y su dibujo en (x, y) con el lugar del depósito sumado, desde la página del depósito */
+int16 zebes_ep_frozen(const uint16 *r) {   /* (-2: congelado en una sala sin depósito por cuadro: no se dibuja) */
+  if (!zo || (uint16)(r - zo->recs) < FROZEN_REF) return -1;
+  if (!frz_stream) return -2;
+  return (int16)((uint16)(r - zo->recs) - FROZEN_REF);
+}
+void zebes_ep_draw(uint16 n, int16 x, int16 y) {
   uint8 lp = md_cur_page;
   map_page(ZEBES_FRZ_PAGE);
   uint16 t = frz_get(n);
-  const uint16 *src = kZebesFrzRecs + kZebesFrz[4 * n + 3];
-  uint16 m = src[0];
-  if (!t || 5 + 4 * m > 64) { map_page(lp); return 0; }
-  uint16 *b = EP_BUF;
-  for (uint16 i = 0; i < 5 + 4 * m; i++) b[i] = src[i];
-  for (uint16 i = 0; i < m; i++) b[5 + 4 * i + 2] += t;
+  if (t) put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t);
   map_page(lp);
-  return b;
 }
 
-uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
+static __attribute__((noinline)) uint8 zebes_obj_draw_slow(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
   if (!zo) return 0;
   uint8 lp = md_cur_page;
-  map_page(zo->page);
-  const uint16 *r = zebes_obj_find_cached(sm, pal, tiles);
-  uint8 ok = r != 0;
-  if (r && (uint16)(r - zo->recs) >= FROZEN_REF) {   /* congelado: (0x8000 | número) */
-    uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
-    map_page(lp);
-    return frz_draw(n, x, y);
+  /* (un acierto de zcache no lee la página de los objetos: solo se pone para buscar o para sus registros) */
+  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 63;
+  const uint16 *r;
+  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles) {
+    r = zcache[h].rec;
+  } else {
+    map_page(zo->page);
+    r = zebes_obj_find(sm, pal, tiles);
+    zcache[h].sm = sm; zcache[h].pal = pal; zcache[h].tiles = tiles; zcache[h].rec = r; zcache[h].zo = zo;
   }
-  if (r) md_put_recs(r, x, y);
+  uint8 ok = 0;
+  if (!r) {
+  } else if ((uint16)(r - zo->recs) >= FROZEN_REF) {   /* congelado o por cuadro: (0x8000 | número) */
+    uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
+    if (frz_stream || !(nt_msgbox_active || zg->eye)) {   /* (la caja y el haz usan las filas del Window) */
+      map_page(ZEBES_FRZ_PAGE);
+      uint16 t = frz_get(n);
+      if (t) { put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t); ok = 1; }
+    }
+  } else {
+    map_page(zo->page);
+    put_recs_t(r, x, y, 0);
+    ok = 1;
+  }
   map_page(lp);
   return ok;
+}
+
+/* lo común, corto (sin el prólogo del camino lento): clave ya en zcache y, si es por cuadro, con su lugar puesto */
+uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
+  if (!zo) return 0;
+  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 63;
+  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles && frz_stream) {
+    const uint16 *r = zcache[h].rec;
+    uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
+    if (r && n < 0x8000) {
+      uint8 c = frz_hc[n & 127];
+      if (c < frz_ns && frz_id[c] == n) {
+        frz_last[c] = md_frame_count;
+        uint8 lp = md_cur_page;
+        map_page(ZEBES_FRZ_PAGE);
+        put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, frz_t0 + (c << 3));   /* (por cuadro: lugares de 8) */
+        map_page(lp);
+        return 1;
+      }
+    }
+  }
+  return zebes_obj_draw_slow(sm, pal, tiles, x, y);
 }
 
 void map_page_ext(uint8 p) { map_page(p); }

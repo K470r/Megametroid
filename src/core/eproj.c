@@ -214,6 +214,10 @@ static uint8 EprojBlockReact(EprojCollInfo *eci, uint8 vertical) {
   }
 }
 
+/* tipos de bloque con los que un proyectil enemigo reacciona (EprojBlockReact): pendiente (1), salto horizontal y
+   vertical por BTS (5, 0xD) y sólidos (8-0xC, 0xF); con los demás sigue de largo */
+#define EPROJ_REACTS ((1 << 1) | (1 << 5) | (1 << 8) | (1 << 9) | (1 << 0xA) | (1 << 0xB) | (1 << 0xC) | (1 << 0xD) | (1 << 0xF))
+
 uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
   int v1 = k >> 1;
   int32 amt = (int32)(int16)eproj_x_vel[v1] << 8;
@@ -225,8 +229,22 @@ uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
   uint32 np = (uint32)amt + PAIR32(eproj_x_pos[v1], eproj_x_subpos[v1]);
   uint16 r24 = np >> 16, r22 = (uint16)np;
   uint16 v4 = (amt < 0) ? (uint16)(r24 - R28) : (uint16)(R28 + r24 - 1);
-  EprojCollInfo eci = { (uint16)(amt >> 16), r24, r26, R28, R30, r26, v4 };
   uint16 v5 = 2 * (prod + (v4 >> 4));
+  {                                             /* lo común (rocas en el aire): ningún bloque reacciona */
+    uint16 bi = v5 >> 1, w = room_width_in_blocks, m = r26;
+    if (m > 16) goto slow;                      /* (radios raros: el camino de siempre) */
+    for (;;) {
+      if ((EPROJ_REACTS >> (level_block(bi) >> 12)) & 1) goto slow;
+      if (!m--) break;
+      bi += w;
+    }
+    cur_block_index = bi;
+    eproj_x_subpos[v1] = r22;
+    eproj_x_pos[v1] = r24;
+    return 0;
+  }
+slow:;
+  EprojCollInfo eci = { (uint16)(amt >> 16), r24, r26, R28, R30, r26, v4 };
   for (;;) {
     cur_block_index = v5 >> 1;
     if (EprojBlockReact(&eci, 0) & 1)
@@ -262,8 +280,22 @@ uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
   uint16 hi = (uint16)((int16)vel >> 8);
   uint16 r24 = eproj_y_pos[v1] + hi + (r22 < sub);
   uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R30) : (uint16)(R30 + r24 - 1);
-  EprojCollInfo eci = { hi, r24, n, R28, R30, n, v4 };
   uint16 i = (uint16)(Mul16((uint8)(v4 >> 4), room_width_in_blocks) + (xl >> 4));
+  {                                             /* lo común (rocas en el aire): ningún bloque reacciona */
+    uint16 bi = i, m = n;
+    if (m > 16) goto slow;                      /* (radios raros: el camino de siempre) */
+    for (;;) {
+      if ((EPROJ_REACTS >> (level_block(bi & 0x7FFF) >> 12)) & 1) goto slow;
+      if (!m--) break;
+      bi++;
+    }
+    cur_block_index = bi & 0x7FFF;
+    eproj_y_subpos[v1] = r22;
+    eproj_y_pos[v1] = r24;
+    return 0;
+  }
+slow:;
+  EprojCollInfo eci = { hi, r24, n, R28, R30, n, v4 };
   for (;; i++) {
     cur_block_index = i & 0x7FFF;
     if (EprojBlockReact(&eci, 1) & 1)

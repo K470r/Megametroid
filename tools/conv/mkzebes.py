@@ -434,11 +434,68 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     # Kraid (own): sus líneas 6 (la pared, se funde) y 7 (el cuerpo, cambia con su vida) cambian en vivo; un color
     # solo de ellas no se junta con uno solo de la sala (si no, uno de los dos sale del color del otro)
     side = {}
-    if own:
+    if own and os.environ.get("MM_KRAID_SIDES"):
         live = set().union(*[cs for (t, p), cs in combos.items() if p >= 6] or [set()])
         room = set().union(*[cs for (t, p), cs in combos.items() if p < 6] or [set()])
         side = {c: 1 for c in live - room}
         side.update({c: 2 for c in room - live})
+    if os.environ.get("MM_COLDBG") and own and cw is not None:
+        users0 = {}
+        for (t, p), cs in combos.items():
+            for c in cs:
+                users0.setdefault(c, set()).add(p)
+        for c in sorted(users0, key=lambda c: -cw.get(c, 0)):
+            print(f"   color {gen_to_rgb(c)} líneas {sorted(users0[c])} peso {int(cw.get(c, 0))}", file=sys.stderr)
+    gm = None                                     # (Kraid: fusiones por grupo de líneas)
+    if own and bins is None and cw is not None:
+        # Kraid: una línea para el cuerpo (7: cambia con su vida) y otra para la sala y la pared (0-6); cada una se
+        # reduce a sus 15 colores juntando los más cercanos dentro del grupo (el error al cuadrado por la raíz de los
+        # píxeles). Juntando en toda la sala, los azules de los bloques terminaban con los rosados de la puerta.
+        level = "tile+fusión"
+        gm = [{}, {}]
+        bins = []
+        caps = caps_for(2)
+        for g in range(2):
+            keys = [k for k in combos if (k[1] in KRAID_BODY_LINES) == (g == 0)]
+            cols = set().union(*[combos[k] for k in keys]) if keys else set()
+            if len(cols) > caps[g]:
+                # los caps[g] colores que representan a los demás (k-medoides: cada color va al representante más
+                # cercano; error = raíz de sus píxeles x distancia al cuadrado). Sin cadenas de fusiones: juntando de
+                # a pares, un azul iba a un gris, el gris a otro y todo terminaba en el verde de la pared
+                cl = sorted(cols)
+                wt = {c: (cw.get(c, 0) + 1) ** 0.5 for c in cl}
+                dist2 = {(a_, b_): color_dist(a_, b_) ** 2 for a_ in cl for b_ in cl}
+
+                def cost(ms):
+                    return sum(wt[c] * min(dist2[(c, m)] for m in ms) for c in cl)
+                med = []
+                for _ in range(caps[g]):                  # construcción: el que más baja el error
+                    med.append(min((c for c in cl if c not in med), key=lambda c: cost(med + [c])))
+                better = True
+                while better:                             # cambios de a uno mientras mejore
+                    better = False
+                    cur = cost(med)
+                    for i_ in range(len(med)):
+                        for c in cl:
+                            if c in med:
+                                continue
+                            t_ = med[:i_] + [c] + med[i_ + 1:]
+                            ct = cost(t_)
+                            if ct < cur - 1e-6:
+                                med, cur, better = t_, ct, True
+                grp = {}
+                for c in cl:
+                    grp.setdefault(min(med, key=lambda m_: dist2[(c, m_)]), []).append(c)
+                cols = set()
+                for ms in grp.values():                   # el grupo queda con su color de más peso
+                    rep = max(ms, key=lambda c: (wt[c], c))
+                    cols.add(rep)
+                    for c in ms:
+                        if c != rep:
+                            gm[g][c] = rep
+            bins.append((cols, keys))
+        merges = {**gm[1], **gm[0]}               # (solo para la cuenta)
+    mg = (lambda p_, g_: gm[0 if p_ in KRAID_BODY_LINES else 1].get(g_, g_)) if gm else (lambda p_, g_: merges.get(g_, g_))
     while bins is None:
         level = "tile+fusión"
         allc = sorted(set().union(*[{merges.get(c, c) for c in cs} for cs in combos.values()]))
@@ -464,6 +521,18 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 merges[k] = a
         merges[b] = a
         bins = pack_palettes([(k, {merges.get(c, c) for c in cs}) for k, cs in combos.items()], npal, caps_for(npal))
+    if os.environ.get("MM_COLDBG") and own:       # depuración (MM_ONLY): colores y fusiones de la sala
+        users = {}
+        for (t, p), cs in combos.items():
+            for c in cs:
+                users.setdefault(c, set()).add(p)
+        allc0 = sorted(users)
+        print(f"  colores distintos {len(allc0)}, fusiones {len(merges)}, nivel {level}", file=sys.stderr)
+        for p_ in range(8):
+            print(f"   línea {p_}: {len([c for c in allc0 if p_ in users[c]])}", file=sys.stderr)
+        for b_, a_ in merges.items():
+            print(f"   {gen_to_rgb(b_)} {sorted(users.get(b_, []))} w={int((cw or {}).get(b_, 0))} -> {gen_to_rgb(a_)} "
+                  f"{sorted(users.get(a_, []))}", file=sys.stderr)
     assign = {}
     for bi, (cs, keys) in enumerate(bins):
         for k in keys:
@@ -479,7 +548,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     for (t, p), bi in assign.items():
         for c in np.unique(px(t)):
             if c:
-                g = merges.get(gc(p, int(c)), gc(p, int(c)))
+                g = mg(p, gc(p, int(c)))
                 uses.setdefault((bi, g), {}).setdefault(p * 16 + int(c), 0)
                 uses[(bi, g)][p * 16 + int(c)] += 1
     src = []
@@ -489,10 +558,25 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             u = uses.get((bi, g), {0: 1})
             # (Kraid: la línea 6 de la pared se funde y la 7 del cuerpo cambia con su vida; un color que comparten
             # con la sala, como el de sus púas, sigue al de la sala)
-            if own and any(k_ < 96 for k_ in u):
+            if gm:
+                # Kraid: un índice de la sala con ese color exacto; si solo la pared (6) o el cuerpo (7) lo tienen y la
+                # sala también usa el lugar, el más usado (la paleta 6 está en negro en la primera fase: las sombras de
+                # los bloques azules salían negras)
+                ex = {k_: v_ for k_, v_ in u.items() if gc(k_ >> 4, k_ & 15) == g}
+                exr = {k_: v_ for k_, v_ in ex.items() if k_ < 96}
+                if exr:
+                    u = exr
+                elif ex and not any(k_ < 96 for k_ in u):
+                    u = ex
+            elif own and any(k_ < 96 for k_ in u):
                 u = {k_: v_ for k_, v_ in u.items() if k_ < 96}
             row[slot(bi, i)] = max(u.items(), key=lambda kv: (kv[1], -kv[0]))[0]
         src.append(row)
+        if os.environ.get("MM_COLDBG") and own:
+            for i, g in enumerate(pl):
+                k_ = row[slot(bi, i)]
+                print(f"   línea {bi} lugar {slot(bi, i)}: {gen_to_rgb(g)} <- índice {k_} (línea {k_ >> 4}, "
+                      f"{gen_to_rgb(gc(k_ >> 4, k_ & 15))}) usos {dict(sorted(uses.get((bi, g), {}).items()))}", file=sys.stderr)
     tile_list, tile_index = [], {}
 
     def own_tile(a):                                          # tile animado: propio (no se comparte)
@@ -519,7 +603,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             bi = assign[k]
             lut = np.zeros(16, np.uint8)
             for c in range(1, 16):
-                g = merges.get(gc(p, c), gc(p, c))
+                g = mg(p, gc(p, c))
                 if g in palettes[bi]:
                     lut[c] = slot(bi, palettes[bi].index(g))
             gtile[k] = ((own_tile if t in anim or t in own else add_tile)(lut[px(t)]), bi, lut)
@@ -739,6 +823,9 @@ BOSS_BG2_64 = {0xA59F: 0}
 # la pared de la cueva de Kraid: los tiles 1008-1023 del BG1 los sube su código (kKraidsRoomBg $A7:A716, al hacerse
 # grande; ceros al morir): en la Genesis son tiles propios que el motor llena o borra (kZebesWall, md_zebes.c)
 KRAID_WALL_ROOMS = {0xA59F}                        # sala: byte de la VRAM del tile 0 de su BG2
+# Kraid (convert, own): líneas del SNES que van en la línea de la Genesis del cuerpo (la 7) y no en la de la sala: la
+# puerta (1) entra con el cuerpo y deja lugar a los azules de los bloques
+KRAID_BODY_LINES = {int(x) for x in os.environ.get("MM_KRAID_BODY_LINES", "7,1").split(",")}
 KRAID_MOUTH = (0xA797C8, 0xA79AC8, 0xA79DC8, 0xA7A0C8)   # 352 palabras cada uno (filas de arriba del mapa)
 
 
@@ -787,6 +874,8 @@ def main():
     mrom = mkmd.Rom(sys.argv[1])
     zlogs = [x for x in os.environ.get("MM_ZDRAW", str(HERE.parent.parent / "res" / "snes_ref" / "zdraw.log")).split(":") if x]
     zkeys = mkzobj.read_logs(zlogs)
+    if os.environ.get("MM_ONLY"):                 # depuración: una sola sala, sin escribir nada
+        rooms = [int(os.environ["MM_ONLY"], 16)]
     for ra in rooms:
         hb = r(0x8F0000 | ra, 11)
         area = hb[1]
@@ -984,6 +1073,8 @@ def main():
             gfx_keys.setdefault(("st", st), gfx_keys[key])
     # ---- objetos (enemigos) de cada estado: mkzobj.py
     logs = zlogs
+    if os.environ.get("MM_ONLY"):
+        sys.exit(0)
     st_tiles = {k[1]: entries[v]["ntiles"] for k, v in gfx_keys.items() if k[0] == "st"}
     frozen = {"index": {}, "list": []}       # juego común de los enemigos congelados (mkzobj.frozen_entry, docs/58)
     objs = mkzobj.build(sys.argv[1], logs, [(st, ra, ts, st_tiles.get(st, 432)) for st, ra, ts in obj_states], frozen)

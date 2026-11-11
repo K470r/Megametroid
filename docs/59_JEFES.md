@@ -497,4 +497,26 @@ dos lados (`HL_POKE_AT` / `MD_TEST_POKES`), y la sala vencida al entrar con `bos
   cuadro; `zebes_obj_draw`, ~8 000; `md_post`). La regresión cambia de ritmo en la huida de Ceres (7994, 8125: el
   temblor cae un cuadro antes): agregados a las excepciones de ritmo.
 
-Falta: el rendimiento de la pelea grande (60 cuadros por segundo), y los colores de la sala (bloques azules y puerta).
+### Kraid: colores de la sala (2026-11-11)
+
+Con Kraid vivo la sala, la pared y el cuerpo piden 45 colores para las dos líneas de la Genesis (30). La fusión general
+(de a pares, el error por los píxeles) juntaba colores lejanos que se ven poco: los azules de los bloques terminaban
+en los rosados de la puerta, y en cadena (un azul a un gris, el gris a otro...) todo iba al verde más visto. En la sala
+de Kraid (`convert(own=...)`, A5B1) ahora:
+- **Dos grupos de líneas del SNES**, uno por línea de la Genesis: el cuerpo con la puerta (`KRAID_BODY_LINES` = 7, 1;
+  la puerta comparte negro y blanco con el cuerpo) y la sala con la pared (0, 2-6). Cada tile va a la línea de su
+  grupo.
+- **k-medoides por grupo**: los 15 colores que representan a los demás (error = raíz de los píxeles x distancia al
+  cuadrado), cada color al más cercano, y el grupo queda con su color de más peso. Sin cadenas.
+- **El índice del SNES de cada lugar** (de donde la Genesis toma el color en vivo): uno de la sala con ese color exacto;
+  si solo la pared o el cuerpo lo tienen y la sala también usa el lugar, el más usado (en la primera fase la paleta 6
+  está en negro: las sombras de los bloques azules no pueden salir de ella).
+- Resultado: la puerta gris rosada, los bloques azules con sus brillos celestes, las púas rojas y el cuerpo con sus
+  colores, como el SNES. Lo que se cede: el gris de la pared (que casi no se ve) toma el azul de las sombras de los
+  bloques. Probadas las otras dos combinaciones: con la pared en el grupo del cuerpo (7, 6) los brillos celestes de los
+  bloques vuelven al rosado; con la pared y la puerta (7, 1, 6) la puerta sale verde.
+- `MM_ONLY=sala` (una sola sala, sin escribir nada) y `MM_COLDBG=1` (colores, pesos, fusiones e índice de cada lugar)
+  para depurar.
+
+Queda: los sprites de la sala (polvo y rocas) con otro tono (la línea de los objetos: 41 colores en 15), y el
+rendimiento de la pelea grande (60 cuadros por segundo).

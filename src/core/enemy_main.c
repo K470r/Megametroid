@@ -11,7 +11,7 @@
 #include "nmath.h"
 
 EnemySpawnData enemy_spawn_data[ENEMY_COUNT];
-uint16 enemy_ram7800[0x1000];
+uint16 enemy_ram7800[ERAM_WORDS];
 
 static inline uint16 abs16(uint16 t) { return sign16(t) ? (uint16)-t : t; }
 

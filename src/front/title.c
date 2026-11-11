@@ -37,7 +37,7 @@ _Static_assert(TILE_USER_INDEX == 16, "make_title_data.py (TILE_BASE) supone TIL
 extern u8 enemy_ram7800[];
 #define ZBUF_TILES   (enemy_ram7800)
 #define ZBUF_MAP     (enemy_ram7800 + FRAME_BYTES)
-_Static_assert(FRAME_BYTES + 14 * 64 * 2 <= 8192, "el búfer del título no entra en enemy_ram7800");
+_Static_assert(FRAME_BYTES + 14 * 64 * 2 <= 8192 - 0x540, "el búfer del título no entra en enemy_ram7800 (docs/60)");
 /* Música (src/platform/md_snd.c, docs/55): como el SNES, el conjunto $03 con la pista 5 (CinematicFunctionOpening,
    $8B:9B68) desde el cuadro en que el SNES la escribe en el puerto (g_title_music_frame), y la 6 (el menú de
    partidas) al terminar de fundir a negro con START (HandleCinematicsTransitions_1, $8B:9A83). music_data_index:

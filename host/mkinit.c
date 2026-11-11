@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
   for (int k = 0; k < ENEMY_COUNT; k++)
     for (int i = 0; i < 32; i++) put16(rw(r, 0x7000 + 64 * k + 2 * i));
   fprintf(fc, "  { (void *)enemy_spawn_data, sizeof(enemy_spawn_data) },\n");
-  for (int i = 0; i < 0x1000; i++) put16(rw(r, 0x7800 + 2 * i));
+  for (unsigned a = 0x7800; a < 0x9800; a += 2) if (a < ERAM_GAP_LO || a >= ERAM_GAP_HI) put16(rw(r, a));   /* docs/60 */
   fprintf(fc, "  { (void *)enemy_ram7800, sizeof(enemy_ram7800) },\n");
   /* nivel de la sala: el de la ROM más los bloques cambiados (room.h) */
   for (const VarMap *v = g_vars_map; v->name; v++)

@@ -4,6 +4,7 @@
  * del SNES de cada variable usada) y esto borra los elementos que caen en el rango. */
 #include "nt.h"
 #include "vars.h"
+#include "enemies.h"
 
 void nt_clear_ram(uint16 from, uint16 to) {   /* [from, to), direcciones del SNES (7E:xxxx) */
   for (int i = 0; i < NT_RAM_VARS; i++) {
@@ -66,11 +67,14 @@ void nt_ram_set_w(uint16 a, uint16 x) {
 
 /* una palabra de la RAM del SNES por su dirección: el decomp a veces lee una variable con un desplazamiento (el
    fantasma de Wrecked Ship, $A8:9D36: samus_y_pos + índice del enemigo) */
-extern uint16 enemy_ram7800[0x1000];
+#ifndef NT_SSF2
+extern uint32 nt_unimpl_val;
+void nt_eram_gap(uint16 a) { nt_unimpl_val = a; nt_unimpl("ERAM: tramo quitado (7E:8AC0-8FFF, docs/60)"); nt_unimpl_val = 0; }
+#endif
 uint16 nt_ram_w(uint16 a) {
   /* (la RAM extra de los enemigos, 7E:7800-97FF, directo: Botwoon lee la historia de su cuerpo en 7E:9000 + índice y
      la búsqueda era el 25 % del cuadro) */
-  if (!(a & 1) && (uint16)(a - 0x7800) < 0x2000) return enemy_ram7800[(uint16)(a - 0x7800) >> 1];
+  if (!(a & 1) && (uint16)(a - 0x7800) < 0x2000) return ERAM(a);
   return nt_ram_b(a) | nt_ram_b((uint16)(a + 1)) << 8;
 }
 

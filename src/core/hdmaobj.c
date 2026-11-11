@@ -1748,7 +1748,7 @@ void beam_job_start(void) {
 void beam_params(uint16 *p) { for (uint16 i = 0; i < 4; i++) p[i] = beam_memo[i]; }   /* md_cone.c */
 static uint8 beam_memo_ok;
 static inline uint8 get_byte(const uint16 *a, uint16 b) { return (b & 1) ? a[b >> 1] >> 8 : (uint8)a[b >> 1]; }
-static void eram_set_byte(uint16 addr, uint8 v) { set_byte(enemy_ram7800, addr - 0x7800, v); }
+static void eram_set_byte(uint16 addr, uint8 v) { set_byte(&ERAM(addr & ~1), addr & 1, v); }
 
 void SpawnMorphBallEyeBeamHdma(void) {  // 0x88E8D9 (DMAP 0x41, BBAD 0x26: ventana 1 del SNES)
   SpawnHdmaObject(0x88, 0xE8EC);

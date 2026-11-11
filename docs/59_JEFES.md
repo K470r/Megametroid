@@ -553,6 +553,12 @@ Mediciones (cuadros de consola para los mismos de lógica): salida de Kraid (C90
 grande (AE23 a C3F9, 1712) 1886 -> 1856 (al empezar el rendimiento: 2062). La comparación del PC con el SNES en la
 sala de Kraid sigue igual. Una sala tranquila (Kraid vencido) usa ~95 000 ciclos por cuadro.
 
+**Probado y descartado: los bancos con los bytes de cada par intercambiados** (para que una palabra en dirección par
+sea una lectura nativa del 68000). Las direcciones impares resultan muy comunes (las tablas del SNES caen en
+cualquier byte): fuera de línea (`bankb_w_odd`) costaban ~7 000 ciclos por cuadro y la pelea quedó peor (1917 cuadros
+contra 1856); en línea, el código no entra en la ROM fija (0x300000, ya casi llena: cualquier optimización que agrande
+el código fijo necesita antes mover algo a las páginas).
+
 Lo que falta: **la salida de Kraid del piso** (estados C902-C924) y su transformación (AC4D) van a la mitad de
 velocidad: ~254 000 ciclos por cuadro de lógica (el presupuesto es ~127 000) con 10-11 rocas y el polvo, las mismas que
 en el SNES. Unos 85 000 son el dibujo de objetos por cuadro (`zebes_obj_draw` ~80 veces por cuadro con ~300 ciclos de

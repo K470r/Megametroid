@@ -1032,13 +1032,26 @@ uint16 zebes_obj_end(void) { return zo ? zo->base + zo->ntiles : ZOBJ_BASE; }   
 
 /* claves ya buscadas (por dispersión del spritemap): casi siempre el mismo enemigo con el mismo cuadro */
 static struct { uint16 sm, pal, tiles; const uint16 *rec; const void *zo; } zcache[64];
+/* dos vías: 32 conjuntos de 2 (h, h + 1; las claves de un cuadro chocaban en la tabla directa y cada choque era una
+   búsqueda binaria); la nueva entra en h y la que estaba pasa a h + 1 */
+static inline int16 zc_find(uint16 sm, uint16 pal, uint16 tiles) {
+  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 62;      /* (el par h, h + 1 es un conjunto) */
+  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles) return h;
+  h ^= 1;
+  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles) return h;
+  return -1;
+}
+static inline void zc_put(uint16 sm, uint16 pal, uint16 tiles, const uint16 *r) {
+  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 62;
+  zcache[h ^ 1] = zcache[h];
+  zcache[h].sm = sm; zcache[h].pal = pal; zcache[h].tiles = tiles; zcache[h].rec = r; zcache[h].zo = zo;
+}
 /* con la página de los objetos puesta: los registros de la clave (de zcache o de la búsqueda) o 0 */
 const uint16 *zebes_obj_find_cached(uint16 sm, uint16 pal, uint16 tiles) {
-  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 63;
-  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles)
-    return zcache[h].rec;
+  int16 h = zc_find(sm, pal, tiles);
+  if (h >= 0) return zcache[h].rec;
   const uint16 *r = zebes_obj_find(sm, pal, tiles);
-  zcache[h].sm = sm; zcache[h].pal = pal; zcache[h].tiles = tiles; zcache[h].rec = r; zcache[h].zo = zo;
+  zc_put(sm, pal, tiles, r);
   return r;
 }
 /* luz de la bomba de poder (md_cone.c): el plano A con prioridad alta (on) o la de cada celda. Las celdas que entran
@@ -1155,26 +1168,38 @@ int16 zebes_ep_frozen(const uint16 *r) {   /* (-2: congelado en una sala sin dep
   if (!frz_stream) return -2;
   return (int16)((uint16)(r - zo->recs) - FROZEN_REF);
 }
-void zebes_ep_draw(uint16 n, int16 x, int16 y) {
+static __attribute__((noinline)) void zebes_ep_draw_slow(uint16 n, int16 x, int16 y) {
   uint8 lp = md_cur_page;
   map_page(ZEBES_FRZ_PAGE);
   uint16 t = frz_get(n);
   if (t) put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t);
   map_page(lp);
 }
+void zebes_ep_draw(uint16 n, int16 x, int16 y) {   /* (lo común, corto: el lugar ya puesto) */
+  uint8 c = frz_hc[n & 127];
+  if (c < frz_ns && frz_id[c] == n) {
+    frz_last[c] = md_frame_count;
+    uint8 lp = md_cur_page;
+    map_page(ZEBES_FRZ_PAGE);
+    put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, frz_t0 + (c << 3));   /* (por cuadro: lugares de 8) */
+    map_page(lp);
+    return;
+  }
+  zebes_ep_draw_slow(n, x, y);
+}
 
 static __attribute__((noinline)) uint8 zebes_obj_draw_slow(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
   if (!zo) return 0;
   uint8 lp = md_cur_page;
   /* (un acierto de zcache no lee la página de los objetos: solo se pone para buscar o para sus registros) */
-  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 63;
+  int16 h = zc_find(sm, pal, tiles);
   const uint16 *r;
-  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles) {
+  if (h >= 0) {
     r = zcache[h].rec;
   } else {
     map_page(zo->page);
     r = zebes_obj_find(sm, pal, tiles);
-    zcache[h].sm = sm; zcache[h].pal = pal; zcache[h].tiles = tiles; zcache[h].rec = r; zcache[h].zo = zo;
+    zc_put(sm, pal, tiles, r);
   }
   uint8 ok = 0;
   if (!r) {
@@ -1197,8 +1222,8 @@ static __attribute__((noinline)) uint8 zebes_obj_draw_slow(uint16 sm, uint16 pal
 /* lo común, corto (sin el prólogo del camino lento): clave ya en zcache y, si es por cuadro, con su lugar puesto */
 uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
   if (!zo) return 0;
-  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 63;
-  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles && frz_stream) {
+  int16 h = frz_stream ? zc_find(sm, pal, tiles) : -1;
+  if (h >= 0) {
     const uint16 *r = zcache[h].rec;
     uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
     if (r && n < 0x8000) {

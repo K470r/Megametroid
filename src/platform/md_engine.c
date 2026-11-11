@@ -1491,11 +1491,12 @@ __asm__(
   "    move.w (%a0,%d5.w),%d7\n"            /* tiles y paleta */
   "    move.l 4(%a6),%d1\n"
   "    beq 5f\n"
-  "    bmi 5f\n"                            /* (por cuadro: ep_lookup la dibuja) */
   "    cmp.w (%a6),%d0\n"
   "    bne 5f\n"
   "    cmp.w 2(%a6),%d7\n"
   "    bne 5f\n"
+  "    tst.l %d1\n"
+  "    bmi 6f\n"                            /* (por cuadro: zebes_ep_draw, sin ep_lookup) */
   "    movea.l %d1,%a0\n"
   "4:  move.w (%a5),%d1\n"
   "    add.w %d4,%d1\n"
@@ -1510,6 +1511,18 @@ __asm__(
   "    bpl 1b\n"
   "    movem.l (%sp)+,%d2-%d7/%a2-%a6\n"
   "    rts\n"
+  "6:  move.w (%a5),%d0\n"                 /* zebes_ep_draw(n, x, y) */
+  "    add.w %d4,%d0\n"
+  "    ext.l %d0\n"
+  "    move.l %d0,-(%sp)\n"
+  "    move.w %d6,%d0\n"
+  "    ext.l %d0\n"
+  "    move.l %d0,-(%sp)\n"
+  "    and.l #0xFFFF,%d1\n"
+  "    move.l %d1,-(%sp)\n"
+  "    jsr zebes_ep_draw\n"
+  "    lea 12(%sp),%sp\n"
+  "    bra 9b\n"
   "5:  move.w (%a5),%d1\n"                 /* ep_lookup(v2, sm, g, x, y) */
   "    add.w %d4,%d1\n"
   "    ext.l %d1\n"

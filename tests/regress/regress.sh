@@ -19,8 +19,9 @@
 #
 # Ritmo: en dos momentos el cuadro que se muestra depende de cuántos ciclos tarda el código (un cuadro atrasado de
 # más o de menos): la pelea con Ridley de Ceres (cuadros 5124-5127 del motor) y la huida (7994, 8034 y 8125: el
-# temblor cae un cuadro antes o después; y 8058, el reloj
-# de la huida: cuenta los cuadros de verdad, no los del motor). Con cada cambio de
+# temblor cae un cuadro antes o después; y 7670 y 8058, el reloj
+# de la huida: cuenta los cuadros de verdad, no los del motor; en 7670 la primera vez que se ve el cuadro, si se ve dos
+# veces, el reloj ya avanzó: solo cambian sus filas, 32-52, y la segunda vez es igual). Con cada cambio de
 # código caen de un lado o del otro; comparadas píxel a píxel, las dos imágenes son correctas (docs/59, 2026-11-06).
 # Se cuentan aparte y no fallan.
 #
@@ -66,7 +67,7 @@ g = load(gzip.open(sys.argv[1]).read())
 c = load(open(sys.argv[2], 'rb').read())
 bad, shift, rowcount = [], [], {}
 CIRC = {'ceres': (8620, 8705), 'zebes': (8620, 8705)}.get(sys.argv[3])   # borde del círculo (ver arriba)
-PACE = {'ceres': [(5124, 5127), (7994, 7994), (8034, 8034), (8058, 8058), (8125, 8125)], 'zebes': [(5124, 5127), (7994, 7994), (8034, 8034), (8058, 8058), (8125, 8125)]}.get(sys.argv[3], [])   # ritmo
+PACE = {'ceres': [(5124, 5127), (7670, 7670), (7994, 7994), (8034, 8034), (8058, 8058), (8125, 8125)], 'zebes': [(5124, 5127), (7670, 7670), (7994, 7994), (8034, 8034), (8058, 8058), (8125, 8125)]}.get(sys.argv[3], [])   # ritmo
 circ, pace = [], []
 for f in sorted(g):
     if f not in c or g[f] == c[f]:

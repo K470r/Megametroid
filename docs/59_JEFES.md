@@ -585,3 +585,12 @@ registros, común a `zebes_obj_draw` y a `md_draw_eprojs_asm` (que ya no pasa po
 Neutro en ciclos (~16k por cuadro entre los dos, ~18 llamadas de ~600 ciclos: la mitad son el cambio de página al
 depósito y la vuelta y el guardado), pero deja un solo camino. Lo que queda caro aquí es el cambio de página por
 llamada: los datos del depósito (kZebesFrz, página 18) no caben en la parte fija.
+
+**El destello verde del HUD (arreglado).** En algunos cuadros de la pelea el fondo y el texto del HUD salían un cuadro
+con los colores de los enemigos (el verde de Kraid). Medido con `MD_HUDLOG` (líneas de la entrada al vblank, de la
+reposición de los colores del HUD y del final de `md_vblank`): el vblank llega a tiempo y repone los colores en la
+línea 226, pero en esos cuadros `md_vblank` termina en las líneas 0-8, ya con el HUD en pantalla; al volver a activar
+la interrupción horizontal (la había apagado al empezar), salta en ese momento y no en la línea 31, y el cambio a los
+colores de los enemigos cae sobre el HUD. Los manejadores de la línea 31 (`md_hint_obj`, `md_hint_msg`,
+`md_hint_lq`) no hacen nada antes de la línea 30: la interrupción buena de la línea 31 llega igual. En la pelea, la
+fila del HUD sale igual en todos los cuadros; la regresión, 0 distintos.

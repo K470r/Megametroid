@@ -250,6 +250,8 @@ __asm__(
   "md_hint_obj:\n"
   "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank (interrupción pendiente de antes): nada */
   "    bcc.s 1f\n"
+  "    cmpi.b #30,0xC00008\n"             /* antes de la línea 30 (la primera es la 31): la que salta al volver a */
+  "    bcs.s 1f\n"                         /* activarlas si el vblank se pasó al HUD; nada (docs/60) */
   "    move.l %a0,-(%sp)\n"
   "    lea zobj_col,%a0\n"
   "    move.l #0xC0620000,0xC00004\n"
@@ -318,6 +320,8 @@ __asm__(
   "md_hint_lq:\n"
   "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank: nada */
   "    bcc.s 9f\n"
+  "    cmpi.b #30,0xC00008\n"             /* antes de la línea 30 (la primera es la 31): la que salta al volver a */
+  "    bcs.s 9f\n"                         /* activarlas si el vblank se pasó al HUD; nada (docs/60) */
   "    movem.l %d0/%a0-%a1,-(%sp)\n"
   "    movea.l lq_hp,%a0\n"
   "    cmpi.b #40,0xC00008\n"             /* arriba (la primera del cuadro, línea 31): desde el primer paso */
@@ -498,6 +502,8 @@ __asm__(
   "md_hint_msg:\n"
   "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank: nada */
   "    bcc.s 9f\n"
+  "    cmpi.b #30,0xC00008\n"             /* antes de la línea 30 (la primera es la 31): la que salta al volver a */
+  "    bcs.s 9f\n"                         /* activarlas si el vblank se pasó al HUD; nada (docs/60) */
   "    movem.l %a0-%a1,-(%sp)\n"
   "    movea.l mb_hp,%a0\n"
   "    move.l (%a0)+,%a1\n"
@@ -667,6 +673,9 @@ static void cv_point(uint16 line) {   /* la interrupción de la línea "line" es
 
 /* inicio del vblank (interrupción vertical de SGDK): el color de fondo vuelve al de arriba */
 static volatile uint8 md_vdp_busy;
+#ifdef MD_HUDLOG
+volatile uint8 md_hud_vl, md_hud_tl, md_hud_pub, md_hud_el;   /* (medición) línea de entrada al vblank, de la reposición; md_pub */
+#endif
 static void md_vint_top(void) {
   if (zobj_hint == 2) mb_hp = mb_steps;
   if (zobj_hint && !md_vdp_busy) {             /* Zebes: aunque el cuadro se atrase, el HUD con sus colores arriba */
@@ -680,6 +689,9 @@ static void md_vint_top(void) {
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];
     vdp_reg(0x0A, 31);   /* cambio de colores en la línea 32 (la primera del juego): no en el HUD */
     vdp_reg(0x00, 0x14);
+#ifdef MD_HUDLOG
+    md_hud_tl = VDP_VCOUNT >> 8;
+#endif
   }
   if (cv_active && !md_vdp_busy) {           /* círculo: si el cuadro se atrasa, la misma tabla desde arriba */
     cv_point(0);
@@ -750,6 +762,9 @@ static void md_vblank_run(uint16 late) {
   uint16 sv = vb_enter(md_snd_frames != 0);
   md_vb_room = 0;
   md_vblank(late);
+#ifdef MD_HUDLOG
+  md_hud_el = VDP_VCOUNT >> 8;
+#endif
   vb_exit(sv);
   if (!md_vb_room) {
     int16 l1 = vb_lines_left();
@@ -767,6 +782,9 @@ static void md_vblank_run(uint16 late) {
 
 /* interrupción vertical: si hay un cuadro listo, su vblank; si no, lo que se puede adelantar (md_vblank_lag) */
 void md_vint(void) {
+#ifdef MD_HUDLOG
+  md_hud_vl = VDP_VCOUNT >> 8; md_hud_pub = md_pub; md_hud_tl = 0xFF;
+#endif
   if (!md_pub) md_vblank_lag();
   md_vint_top();
   if (md_pub) md_vblank_run(0);

@@ -167,3 +167,13 @@ esos 7334.
 
 Validación: la ROM normal arranca, pasa por el título y el menú y empieza la partida (la intro); regresión 0
 distintos; la pelea con Kraid dura lo mismo (1834 cuadros, uno más por el ritmo).
+
+## Uso: zona del jefe y registros de los congelados (Kraid)
+
+`md_boss_zone` (`md.h`, 4 KB en `.gamehi`): la usa la sala del momento. En las salas con objetos por cuadro (Kraid),
+`frz_get` copia los registros de cada congelado al ponerlo en su lugar (80 bytes por lugar, con el tile del lugar ya
+sumado; los 7 de 1321 que no entran quedan marcados y van por la página) y `zfrz_put` los dibuja desde la RAM con
+`md_putrecs`, sin cambiar a la página del depósito ni buscar en `kZebesFrz`. `zfrz_put`: ~11k → ~6,9k ciclos por
+cuadro de lógica. Subida de Kraid: 546 → 535 cuadros; pelea grande: 1833 → 1829. Libre mientras se juega: 3238 bytes.
+Imagen igual cuadro a cuadro salvo franjas de 1-6 líneas de las interrupciones horizontales (y un cuadro en que la
+versión anterior mostraba el fondo del HUD verde por una escritura de color tardía: la nueva no).

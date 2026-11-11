@@ -58,4 +58,9 @@ extern const char *volatile md_unimpl_msg;
    IntroGfx, Zebes al cargar cada sala (zebes_use). */
 #define MD_OVL_BYTES 2240
 extern uint16 md_ovl[MD_OVL_BYTES / 2];
+/* zona del jefe (docs/60): RAM de la partida (NT_GAMEHI) para las cachés de la sala del momento. Las salas de jefe
+   nunca coinciden: la prepara la sala al cargarse (hoy: las salas con objetos por cuadro, como Kraid, con los
+   registros de sus congelados, md_zebes.c frz_rec) y la siguiente la pisa. Nada que deba durar va aquí. */
+#define MD_BOSS_BYTES 4096
+extern uint16 md_boss_zone[MD_BOSS_BYTES / 2];
 #endif

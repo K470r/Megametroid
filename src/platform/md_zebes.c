@@ -1095,6 +1095,22 @@ void zebes_frz_reset(void) { frz_reset(); }   /* md_engine.c: la caja de mensaje
 /* por cuadro (frz_stream): lugar de cada entrada por número (n & 63), para no recorrer el depósito en cada dibujo
    (cinematic_text_tilemap + 2880..3007: libre en esas salas, entre kq_dst y las tablas del depósito) */
 #define frz_hc ((uint8 *)cinematic_text_tilemap + 2880)
+/* por cuadro (frz_stream): los registros de cada congelado puesto, copiados a la zona del jefe (md.h) con el tile de
+   su lugar ya sumado, en FRZ_REC palabras por lugar desde su cabeza: zfrz_put los dibuja sin cambiar a la página del
+   depósito. 0xFFFF: no entra (más de 8 sprites por lugar de 8 tiles: 7 congelados de 1321), por la página. */
+#define FRZ_REC 40
+_Static_assert(FRZ_NMAX * FRZ_REC * 2 <= MD_BOSS_BYTES, "frz_rec: no entra en la zona del jefe");
+#define frz_rec md_boss_zone
+static void frz_rec_fill(uint16 i, uint16 n, uint16 k) {   /* (con la página ZEBES_FRZ_PAGE puesta) */
+  uint16 *d = frz_rec + i * FRZ_REC;
+  const uint16 *s = kZebesFrzRecs + kZebesFrz[4 * n + 3];
+  uint16 c = s[0];
+  if (5 + 4 * c > FRZ_REC * k) { d[0] = 0xFFFF; return; }
+  uint16 t = frz_t0 + i * frz_slot;
+  for (uint16 j = 0; j < 5; j++) d[j] = s[j];      /* cuántos y la caja */
+  d += 5; s += 5;
+  for (uint16 j = 0; j < c; j++, d += 4, s += 4) { d[0] = s[0]; d[1] = s[1]; d[2] = s[2] + t; d[3] = s[3]; }
+}
 static uint16 frz_get(uint16 n) {
   uint16 now = md_frame_count;
   if (frz_stream) {
@@ -1132,7 +1148,7 @@ static uint16 frz_get(uint16 n) {
     if (i + k < frz_ns && frz_id[i + k] == 0xFFFE)   /* el resto de uno que se suelta: queda libre */
       for (uint16 j = i + k; j < frz_ns && frz_id[j] == 0xFFFE; j++) frz_id[j] = 0xFFFF;
     frz_id[i] = n; frz_last[i] = now;
-    if (frz_stream) frz_hc[n & 127] = (uint8)i;
+    if (frz_stream) { frz_hc[n & 127] = (uint8)i; frz_rec_fill(i, n, k); }
     for (m = 1; m < k; m++) frz_id[i + m] = 0xFFFE;
     if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i;
     return frz_t0 + i * frz_slot;
@@ -1259,7 +1275,22 @@ __asm__(
   "    bne 8f\n"
   "    movea.l frz_last,%a0\n"
   "    move.w md_frame_count,(%a0,%d3.w)\n"
-  "    moveq #0,%d4\n"
+  "    move.w %d3,%d4\n"                     /* sus registros en la zona del jefe (frz_rec: 80 bytes por lugar) */
+  "    lsl.w #3,%d4\n"
+  "    move.w %d4,%d2\n"
+  "    lsl.w #2,%d2\n"
+  "    add.w %d4,%d2\n"                      /* 80 c */
+  "    lea md_boss_zone,%a0\n"
+  "    adda.w %d2,%a0\n"
+  "    cmp.w #0xFFFF,(%a0)\n"
+  "    beq 5f\n"                              /* (no entró: por la página) */
+  "    move.l %a2,%d0\n"                     /* x */
+  "    move.l %a1,%d1\n"                     /* y */
+  "    jsr md_putrecs\n"
+  "    movem.l (%sp)+,%d2-%d4/%a2\n"
+  "    moveq #1,%d0\n"
+  "    rts\n"
+  "5:  moveq #0,%d4\n"
   "    move.w %d3,%d4\n"
   "    lsl.w #2,%d4\n"
   "    add.w frz_t0,%d4\n"                    /* frz_t0 + (c << 3) */

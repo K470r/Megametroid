@@ -954,9 +954,11 @@ void zebes_vblank(void) {
    de cada línea se busca por su altura en la sala (kHdmaScrollEntrys, $88:AEC1: arriba de cada franja). */
 uint8 zebes_sky_on(void) { return md_zebes && zg && zg->sky; }
 uint8 zebes_eye_room(void) { return md_zebes && zg && zg->eye; }   /* md_cone.c */
+const uint16 *sky_entries(void);
 void zebes_sky_lines(uint16 *h, uint16 ax, uint16 ay) {
   /* por franja del cielo: un tramo de líneas con el mismo par (plano A, plano B), escrito de a 32 bits */
-  #define SKYE(i, f) B88W(0xAEC1 + 8 * (i) + 2 * (f))
+  const uint16 *st = sky_entries();               /* (hdmaobj.c: la tabla en palabras alineadas) */
+  #define SKYE(i, f) st[4 * (i) + (f)]
   uint32 *p = (uint32 *)h;
   uint32 a16 = (uint32)(uint16)-ax << 16;
   int16 y = (int16)ay - 2, yend = y + 224;

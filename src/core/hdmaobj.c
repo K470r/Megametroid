@@ -811,12 +811,21 @@ static void HdmaobjPreInstr_WaterBG2XScroll(uint16 k) {  // 0x88C589
    23 franjas del BG2 (kHdmaScrollEntrys, $88:AEC1: arriba, velocidad) con su X en scrolling_sky_bg2_hdma_data
    (7E:9F80: pares fracción/píxel); la tabla indirecta (7E:9F00: líneas, dirección de la franja) dice qué franja va
    en cada línea de la pantalla. La Genesis lee ambas para el scroll por líneas del cielo. */
-#define SKY_ENTRY(i, f) B88W(0xAEC1 + 8 * (i) + 2 * (f))   /* f: 0 arriba, 1 subvelocidad, 2 velocidad, 3 franja */
+/* kHdmaScrollEntrys en palabras alineadas (en la ROM empieza en una dirección impar: cada palabra eran dos lecturas
+   de byte), copiada una vez: 24 franjas de 4 palabras (docs/60). También md_zebes.c (zebes_sky_lines). */
+static uint16 sky_tab[24 * 4];
+const uint16 *sky_entries(void) {
+  if (!sky_tab[3])                                 /* (la franja de la primera nunca es 0: 7E:9F80) */
+    for (uint16 i = 0; i < 24 * 4; i++) sky_tab[i] = B88W(0xAEC1 + 2 * i);
+  return sky_tab;
+}
+#define SKY_ENTRY(i, f) (sky_tab[4 * (i) + (f)])   /* f: 0 arriba, 1 subvelocidad, 2 velocidad, 3 franja */
 static void sky_put16(uint16 off, uint16 v) {
   scrolling_sky_bg2_indirect_hdma[off] = (uint8)v;
   scrolling_sky_bg2_indirect_hdma[off + 1] = (uint8)(v >> 8);
 }
 static void HdmaobjPreInstr_SkyLandBG2XscrollInner(void) {  // 0x88ADC2
+  sky_entries();
   reg_BG2SC = 74;
   for (int v = 0; v < 23; v++) {
     int e = (uint16)(SKY_ENTRY(v, 3) - 0x9F80) >> 1;

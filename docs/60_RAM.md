@@ -1,0 +1,82 @@
+# 60 — Plan de RAM: medición (paso 1)
+
+La RAM de la Genesis (64 KB) está casi llena: las variables llegan hasta 0xE0FFE388 y `md_ssf2.ld` no deja pasar de
+0xE0FFE3F0. Por encima quedan el montón de SGDK (hasta `MEMORY_HIGH` = 0xE0FFF600) y la pila (2560 bytes). Sin RAM
+no caben las cachés que harían falta para el rendimiento (docs/59). Este documento es el paso 1 del plan: medir antes
+de tocar. Los informes completos: `docs/60_ram/snes_uso.md` y `docs/60_ram/md_uso.md`.
+
+## Herramientas (`tools/ram/`)
+
+| Script | Qué hace |
+|---|---|
+| `medir_snes.sh [áreas]` | Graba en el SNES (`hlref`, como `tools/rooms/lote.sh`) las 194 salas con enemigos en lotes de 4 (1500 cuadros por sala, Samus invencible, patrón de disparos); cada grabación pasa por una tubería a `ram_uso.py` (no se guarda: ~800 MB por lote). Sale `work/ram/snes_salas.npz`. |
+| `ram_uso.py GRAB ACC` | Suma a un acumulado qué bytes de 7E:0000-7F:FFFF se usan (distinto de cero o cambió), en total y por estado del juego (`game_state`). También para las grabaciones largas que ya había (`work/inputs/ref_intro.bin`, `ref_full.bin`, `ref_tu.bin`). |
+| `informe.py vars.h salida ACC...` | Cruza las máscaras con las variables del motor (`vars.h`: dirección del SNES y el tamaño que les dio `gen_vars.py`) y con `enemy_ram7800`. Cuenta solo los estados de juego (no la carga de salas, 6 y 11: ahí el SNES usa 7E:7000-97FF como búfer y `host/check` tampoco la compara). |
+| `medir_md.sh [escenas]` + `md_uso.py` | Genesis: las ROM de la regresión (intro, ceres, zebes) con la RAM desde `_bend` por cuadro; recorre el montón de SGDK y mide hasta dónde baja la pila. |
+| `md_vars.sh` + `md_ram_uso.py` + `md_informe.py` | Genesis: qué bytes cambia el motor en cada modo (`game_state` y `md_zebes`), y por variable (con los símbolos de cada ROM). |
+
+Medido: 325.980 cuadros del SNES (las 194 salas, la intro, Ceres y el camino a Zebes) y 48.500 de la Genesis (las
+tres escenas de la regresión y la pelea con Kraid).
+
+## Resultados
+
+### Genesis: montón de SGDK y pila (lo más grande y lo más barato)
+
+| | Bytes |
+|---|---|
+| Montón (`_bend` a 0xF600) | 4624 |
+| Asignado de forma fija: la cola de DMA de SGDK (80 x 16 + cabecera) | 1282 |
+| Asignado un momento al arrancar (cuadro 14, liberado en el 17; por identificar) | 3082 |
+| **Libre todo el juego (0xE886-0xF600)** | **3450** |
+| Pila: lo más hondo (Ceres y Zebes; intro 1279, Kraid 1318) | 1615 de 2560 |
+
+El motor no usa la cola de DMA de SGDK (hace su propio DMA). Si la asignación del arranque se quita o se hace antes en
+otra parte, el límite de `_bend` puede subir ~3 KB. Hay que identificar quién pide esos 3082 bytes en el arranque (la
+nota de docs/46 dice que con menos montón la consola no arrancaba: probablemente era eso).
+
+### SNES: arreglos más largos que lo que se usa
+
+`gen_vars.py` da a cada arreglo el largo hasta la variable siguiente del SNES; cuando después hay un hueco, el
+arreglo sale más largo que lo que el juego usa. Los que importan (sin contar los que hay que dejar por las partidas
+guardadas o porque el código llega al final):
+
+| Variable | Declarado | Usado | Sobra | Nota |
+|---|---|---|---|---|
+| `sprite_*` (8 arreglos de objetos de sprite) | 8 x 128 | 8 x 64 | 512 | el SNES usa 32 lugares (`CreateSpriteAtPos` empieza en 62): seguro |
+| `eproj_flags`, `eproj_enemy_header_ptr` | 2 x 72 | 2 x 36 | 72 | 18 proyectiles: seguro |
+| `explored_map_tiles_saved` | 2048 | 1608 | 440 | el área 7 (256) nunca; confirmar en el código y las partidas |
+| `g_word_7E9C46`, `scrolling_sky_*`, `mother_brain_indirect_hdma`, `power_bomb_explosion_*_hdma` | 1026 | 567 | ~460 | tablas HDMA: confirmar el largo en el código |
+| `enemy_drawing_queue` | 228 | 104 | 124 | cola de dibujo: confirmar el máximo |
+
+### SNES: RAM extra de enemigos (`enemy_ram7800`, 8 KB)
+
+En juego (sin la carga de salas) se usan 7E:7800-8AB7 y 9000-953C y 9700-97FF. Sin usar en ninguna grabación:
+7E:8AB8-8FFF (1352 bytes) y 7E:953D-96FF (451). El segundo tramo **sí** se usa: `g_byte_7E9540...9610` son los tiles
+del Torizo muerto (`sm_a9.c`), que ninguna grabación llegó a ver. El primero no tiene ninguna dirección fija ni en el
+port ni en el decomp: candidato a quitar (1352 bytes), con la misma prueba de los índices.
+
+Esto muestra el límite de la medición: un caso que las grabaciones no tienen no aparece. Por eso cada recorte se
+confirma con el código.
+
+### Genesis: buffers por modo
+
+- Solo en Zebes: `zcache` 896, `qsky_buf` 512, `qrow_buf` 432, `qcol_buf` 384, `zfade` 256 (2480 bytes).
+- Solo en la intro (estados 30-31): `it_kc` 320, `it_cram_src`, `it_eyes`, `it_eyes_raw` 3 x 128 (704 bytes).
+- Nunca tocados en las escenas medidas pero sí usados en otros casos: el haz de la bomba de energía (`cone_sat` 704,
+  `cache_a` 352, `kRow` 324), la caja de mensajes (`mb_buf`, `mb_cells`, `mb_spr`: 592), el gancho (`gr_tiles` 160).
+  Son de un momento: candidatos a compartir RAM con otros de otro momento.
+- SGDK sin usar en el juego: los fundidos (`fadeR/G/B`, `fadeSR/SG/SB`, `fadeCurrentPal`: 896) y la caché de sprites
+  (`vdpSpriteCache` 768): solo los usan el título y el menú.
+
+## Lo que sigue (pasos 2 a 5), con lo medido
+
+| Paso | Qué | Bytes | Riesgo |
+|---|---|---|---|
+| 2 | `sprite_*` a 32, `eproj_flags`/`enemy_header_ptr` a 18 (`ARRAY_LEN` de `gen_vars.py`) | 584 | bajo |
+| 2b | tablas HDMA, `enemy_drawing_queue`, `explored_map_tiles_saved` tras mirar el código | ~1000 | medio |
+| 3 | `enemy_ram7800` sin 7E:8AB8-8FFF (dos arreglos o una traducción de dirección en `ERAM`) | 1352 | medio |
+| 4 | Intro con Zebes compartiendo RAM; buffers de momentos (haz, caja de mensajes) | ~1500 | medio |
+| 5 | SGDK: el montón del arranque, la cola de DMA, los fundidos y la caché de sprites en RAM del juego | ~3000-5000 | alto (arranque) |
+
+Validación de cada paso: la regresión, `host/check` en las salas (las variables se comparan con el SNES) y `pckeys.sh`
+en la sala de Kraid.

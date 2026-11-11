@@ -32,10 +32,11 @@ wait
 python3 - $W <<'P'
 import sys, glob, numpy as np
 w = sys.argv[1]
-nz = ch = None; fr = 0
+nz = ch = st = None; fr = 0
 for f in sorted(glob.glob(w + '/acc_lote_*.npz')):
     z = np.load(f)
     nz = z['nz'] if nz is None else nz | z['nz']; ch = z['ch'] if ch is None else ch | z['ch']; fr += int(z['frames'])
-np.savez_compressed(w + '/snes_salas.npz', nz=nz, ch=ch, frames=fr)
+    st = z['st'] if st is None else st | z['st']
+np.savez_compressed(w + '/snes_salas.npz', nz=nz, ch=ch, frames=fr, st=st)
 print('salas: %d cuadros; bytes usados 7E %d de 65536' % (fr, int((nz | ch)[:0x10000].sum())))
 P

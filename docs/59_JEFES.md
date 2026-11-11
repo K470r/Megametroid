@@ -520,3 +520,27 @@ de Kraid (`convert(own=...)`, A5B1) ahora:
 
 Queda: los sprites de la sala (polvo y rocas) con otro tono (la línea de los objetos: 41 colores en 15), y el
 rendimiento de la pelea grande (60 cuadros por segundo).
+
+### Kraid: rendimiento (2026-11-11, en curso)
+
+El SNES no pierde ningún cuadro en toda la pelea (`nmi_frame_counter_word` contra `nmi_frame_counter_including_lag`).
+Medición en la Genesis: `fightprof.sh` (perfil con `gpgx_mm_profile.patch` entre AE23 y C3F9, los mismos cuadros de
+lógica en cada versión). Hecho:
+- **La boca ya convertida**: los 4 cuadros ($A7:97C8-A0C8, 1408 palabras) van a la ROM como celdas de la Genesis
+  (`ZebesWall.mouth_cells`, mkzebes): `kq_frame` las copia sin buscar cada palabra en la tabla.
+- **Cajas de golpe y dibujo extendido** (`EnemyMain`): la base del banco se toma una vez por función (`BankBase`,
+  `RW`), no en cada palabra.
+- **`CallEnemyAi`**: caché de dos vías (las ~24 funciones de las piezas de Kraid chocaban); los despachadores
+  `Call*(uint32 ea)` de port.py van sobre 16 bits cuando todos los casos son del mismo banco.
+- **`KraidsFingernail_Fire`** a mano (la tabla del contorno sin recalcular las piezas en cada vuelta).
+- **`zebes_obj_colors`** sin la llamada por color; **`map_page`** no escribe el registro si la página ya está;
+  **`frz_get`** busca lugar en una pasada por bloques.
+Resultado: la pelea grande (de AE23 a C3F9, 1712 cuadros de lógica) pasó de 2011 a 1886 cuadros de consola (~10 %
+lenta); en la regresión ya no se pierden cuadros (antes 1-3).
+
+Lo que falta: **la salida de Kraid del piso** (estados C902-C924) y su transformación (AC4D) van a la mitad de
+velocidad: ~254 000 ciclos por cuadro de lógica (el presupuesto es ~127 000) con 10-11 rocas y el polvo, las mismas que
+en el SNES. Unos 85 000 son el dibujo de objetos por cuadro (`zebes_obj_draw` ~80 veces por cuadro con ~300 ciclos de
+sobrecosto cada una, `zebes_obj_ep_recs` copia los registros de cada roca en cada cuadro, `md_putrecs`); el resto es
+la lógica traducida (`EnemyMain` ~25 000, colisiones de las rocas con el nivel ~33 000). Llevarlo a 60 cuadros por
+segundo pide optimizar a fondo el dibujo de objetos y los proyectiles.

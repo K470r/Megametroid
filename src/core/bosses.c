@@ -201,6 +201,28 @@ NT_BOSS void Kraid_HealthBasedPaletteHandling(void) {  // 0xA7B394
   Kraid_PalRow(0xB513 + v0, 240);                 // kKraid_SprPalette7_KraidDeath
 }
 
+/* las uñas de Kraid (las dos, en cada cuadro): la tabla del contorno de Kraid ($A7:BF1D, pares x, y) se recorre hasta
+   la altura de la uña; como el original, sin volver a calcular las dos piezas en cada vuelta */
+NT_BOSS void KraidsFingernail_Fire(uint16 k) {  // 0xA7BE8E
+  EnemyData *v1 = gEnemyData(k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, __PAIR32__(v1->ai_var_C, v1->ai_var_B))) {
+    v1->ai_var_B = -v1->ai_var_B;
+    v1->ai_var_C = -v1->ai_var_C;
+  } else {
+    EnemyData *v3 = gEnemyData(0);
+    uint16 dy = (uint16)(v3->y_pos - v1->y_pos), a = 0xBF1D;
+    while ((int16)(BW_A7(a + 2) + dy) >= 0)          /* g_word_A7BF1D[(i >> 1) + 1] */
+      a += 4;
+    uint16 r18 = BW_A7(a) + v3->x_pos;
+    if (!sign16(v1->x_width + v1->x_pos - r18) && (v1->ai_var_C & 0x8000) == 0) {
+      v1->ai_var_B = -v1->ai_var_B;
+      v1->ai_var_C = -v1->ai_var_C;
+    }
+  }
+  if (Enemy_MoveDown(k, __PAIR32__(v1->ai_var_E, v1->ai_var_D)))
+    SetHiLo(&v1->ai_var_E, &v1->ai_var_D, -IPAIR32(v1->ai_var_E, v1->ai_var_D));
+}
+
 /* Al volver de la pausa la Genesis rehace su VRAM: el plano B sale del mapa inicial (zebes_load_vram). Los ganchos
    le mandan lo que el SNES copia por DMA, como entradas de la cola de VRAM (nt_vram_queue_flush, md_zebes.c, las
    convierte por filas): la mitad de arriba desde 7E:2000 (Kraid_TransferTopHalfToVram) y, como en la Genesis el

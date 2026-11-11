@@ -58,8 +58,11 @@ static uint8 drawn[2];
 static inline void map_page(uint8 p) {        /* con barreras: las lecturas de la página no cruzan el cambio */
   __asm__ volatile("" ::: "memory");
   md_cur_page = p;
-  md_hw_page = p;
-  *(volatile uint8 *)0xA130FF = p;
+  if (md_hw_page != p) {                      /* (ya puesta: casi siempre, en el dibujo de los objetos; la interrupción
+                                                 guarda y repone la suya) */
+    md_hw_page = p;
+    *(volatile uint8 *)0xA130FF = p;
+  }
   __asm__ volatile("" ::: "memory");
 }
 
@@ -669,10 +672,20 @@ static void kq_frame(void) {                      /* (zebes_frame) convierte has
     kq_r = (uint8)((kq_r + 1) % KQ_N);
     wgt += (j.cell & 0x8000) ? 4 : 1;
     uint16 *o = kq_buf + c * 32;
+    uint16 mo = (uint16)j.src - kKraidMouthSrc[0];
+    if ((uint8)(j.src >> 16) == 0xA7 && zw->mouth_cells && mo < 4 * 0x300 && mo % 0x300 < 704) {
+      /* un cuadro de la boca: sus celdas ya convertidas (mkzebes, ZebesWall.mouth_cells) */
+      map_page(ZEBES_BOSS_PAGE);
+      const uint16 *src = zw->mouth_cells + (mo / 0x300) * 352 + (mo % 0x300) / 2;
+      for (uint16 i = 0; i < j.n; i++) o[i] = src[i];
+      kq_dst[2 * c] = j.cell; kq_dst[2 * c + 1] = j.n;
+      c++;
+      continue;
+    }
     for (uint16 i = 0; i < j.n; i++) {
-      uint16 w = kq_word(j.src + 2 * i), cc = 0;
+      uint16 w = kq_word(j.src + 2 * i), cc = 0;  /* (kq_word puede cambiar de página: la ROM del origen) */
       if (zbb) {
-        map_page(ZEBES_BOSS_PAGE);
+        if (md_hw_page != ZEBES_BOSS_PAGE) map_page(ZEBES_BOSS_PAGE);
         cc = zbb->tab[(uint16)zbb->slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
         if (cc & 0x7FF) cc += ZT_BASE;
         cc ^= (w >> 3) & 0x1800;                  /* flips: SNES 15, 14 -> Genesis 12, 11 */
@@ -988,6 +1001,11 @@ void zebes_obj_colors(void) {
   if (zobj_srcp_of != zo) zobj_src_prepare();
   const uint16 **p = zobj_srcp;
   uint16 *o = zobj_col;
+  extern uint8 tint_on;
+  if (!tint_on) {                            /* (lo normal: sin la llamada por color) */
+    for (uint16 i = 0; i < 15; i++) *o++ = kCram555[**p++ & 0x7FFF];
+    return;
+  }
   for (uint16 i = 0; i < 15; i++) *o++ = md_tint_cram(**p++);
 }
 
@@ -1062,21 +1080,25 @@ static uint16 frz_get(uint16 n) {
     if (frz_id[i] == n) { frz_last[i] = now; if (frz_stream) frz_hc[n & 127] = (uint8)i; return frz_t0 + i * frz_slot; }
   uint16 k = (kZebesFrz[4 * n + 2] + frz_slot - 1) / frz_slot;   /* lugares que necesita */
   if (k > frz_ns) return 0;
-  /* libres: sin usar o sin dibujarse hace FRZ_KEEP cuadros (los del cuadro anterior no: puede no haberse visto) */
-  uint8 fr[FRZ_NMAX];
-  for (uint16 i = 0; i < frz_ns; i++) fr[i] = 0;
-  for (uint16 i = 0; i < frz_ns; i++) {
-    if (frz_id[i] == 0xFFFE) continue;
-    uint16 j = i + 1;
+  /* libres: sin usar o sin dibujarse hace FRZ_KEEP cuadros (los del cuadro anterior no: puede no haberse visto; por
+     cuadro: 1, los tiles y la lista de sprites cambian juntos en el vblank, frz_q). Una pasada por los bloques (cabeza
+     y su resto, 0xFFFE): el primer tramo de bloques libres seguidos con k lugares, desde su comienzo */
+  uint16 i = 0, run = 0, st = 0;
+  uint16 keep = frz_stream ? 1 : FRZ_KEEP;
+  for (uint16 h = 0; h < frz_ns; ) {
+    uint16 j = h + 1;
     while (j < frz_ns && frz_id[j] == 0xFFFE) j++;
-    /* (por cuadro: 1; los tiles y la lista de sprites cambian juntos en el vblank, frz_q) */
-    uint8 f = frz_id[i] == 0xFFFF || (uint16)(now - frz_last[i]) > (frz_stream ? 1 : FRZ_KEEP);
-    for (uint16 m = i; m < j; m++) fr[m] = f;
+    uint16 id = frz_id[h];
+    if (!(id >= 0xFFFE || (uint16)(now - frz_last[h]) > keep)) { run = 0; h = j; continue; }
+    if (!run) st = h;
+    run += j - h;
+    h = j;
+    if (run >= k) break;
   }
-  for (uint16 i = 0; i + k <= frz_ns; i++) {
-    uint16 m = 0;
-    while (m < k && fr[i + m]) m++;
-    if (m < k) continue;
+  if (run < k) return 0;
+  i = st;
+  {
+    uint16 m;
     if (frz_id[i] == 0xFFFE) {                    /* empieza a mitad de uno que se suelta: su cabeza ya no vale */
       uint16 h = i;
       while (h && frz_id[h] == 0xFFFE) h--;
@@ -1090,7 +1112,6 @@ static uint16 frz_get(uint16 n) {
     if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i;
     return frz_t0 + i * frz_slot;
   }
-  return 0;
 }
 static void frz_vblank(void) {
   uint8 lp = md_cur_page;

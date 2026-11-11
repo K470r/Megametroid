@@ -271,7 +271,7 @@ static uint8 zobj_hint;
    HUD, que en el SNES es el BG3): niebla (FX 0xC: el color medio de su BG3, kFogW), neblina del Bomb Torizo
    (LayerBlendFunc 0x2C: COLDATA medio de su degradado) y las restas de color fijo (LayerBlendFunc_28/2A) */
 static int8 tint_r, tint_g, tint_b;
-static uint8 tint_on;
+uint8 tint_on;                                /* (md_zebes.c lo lee: sin tinte, los colores de los objetos directos) */
 /* el color con el tinte, ya en la CRAM: kCram555 va canal por canal (comprobado en el PC para los 32768), así que al
    cambiar el tinte se arman tres tablas de 32 (cada canal sumado, recortado y convertido) y cada color son tres
    lecturas: la bomba de poder cambia el tinte casi en cada cuadro de su explosión (docs/58) */

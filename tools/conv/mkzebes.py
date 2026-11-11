@@ -1056,6 +1056,17 @@ def main():
                     if cache and r(0x8F0000 | (ra + 5), 1)[0] == 1:
                         cache = 3                 # sala de una pantalla de alto: también las filas 36-61 del plano A
                     res["boss"] = (slot_of, tab, hi_tiles, cache)
+                    if full64:                    # Kraid: los 4 cuadros de la boca ya en celdas de la Genesis (como
+                        cells_m = []              # kq_frame: tabla, ZT_BASE, volteos y prioridad de la palabra)
+                        for a_ in KRAID_MOUTH:
+                            for i_ in range(352):
+                                w_ = w16(a_ + 2 * i_)
+                                c_ = tab[slot_of[(w_ >> 10) & 7] << 10 | (w_ & 0x3FF)]
+                                if c_ & 0x7FF:
+                                    c_ += ZT_BASE
+                                c_ = (c_ ^ ((w_ >> 3) & 0x1800) | ((w_ & 0x2000) << 2)) & 0xFFFF
+                                cells_m.append(c_)
+                        res["mouth_cells"] = cells_m
                     if cache:
                         assert len(hi_tiles) // 32 <= 400, "caché del cuerpo: %d tiles, más de 400 (md_zebes.c, BC_K)" % (len(hi_tiles) // 32)
                 if eye:
@@ -1157,6 +1168,7 @@ def main():
     # la página de los jefes (port.py, BOSS_PAGE: su código, los niveles de sus salas y sus bancos, ~240 KB) también
     # sirve para Zebes en lo que sobra: se le reservan BOSS_RESERVE bytes (el enlazador avisa si la página se pasa)
     fill[BOSS_PAGE] = BOSS_RESERVE + sum(4096 + len(e["boss"][2]) + sum(len(f) for f in (e.get("mouth") or (0, []))[1])
+                                         + (2816 if e.get("mouth_cells") else 0)
                                          for e in entries if e.get("boss"))   # (y los cuerpos, y la boca de Kraid)
 
     def place(need):
@@ -1322,7 +1334,7 @@ def main():
     H.append('/* tiles propios (idx: de la Genesis); mouth: los tiles de cada cuadro de la boca de Kraid que solo usa ese cuadro')
     H.append('   (mouth_cnt[f] desde mouth + 32 * mouth_off[f], en la página de los jefes), a la VRAM desde mouth_t */')
     H.append('typedef struct { uint16 gfx, n; const uint16 *idx; const uint8 *tiles; uint16 mouth_t; const uint8 *mouth;')
-    H.append('                 uint16 mouth_off[4], mouth_cnt[4]; } ZebesWall;')
+    H.append('                 uint16 mouth_off[4], mouth_cnt[4]; const uint16 *mouth_cells; } ZebesWall;   /* mouth_cells: 4 x 352 celdas */')
     H.append(f'#define NT_ZEBES_NWALL {len(walls)}')
     H.append(f'extern const ZebesWall kZebesWall[{max(1, len(walls))}];')
     for i, ow in walls:
@@ -1333,15 +1345,17 @@ def main():
             mb = b''.join(entries[i]["mouth"][1])
             C.append(f'NT_BANK({BOSS_PAGE}) static const uint8 kZW{i}_mouth[{len(mb)}] __attribute__((aligned(2))) = {{' +
                      ','.join(str(b) for b in mb) + '};')
+            C.append(f'NT_BANK({BOSS_PAGE}) static const uint16 kZW{i}_mcells[1408] = {{' +
+                     ','.join('0x%X' % x for x in entries[i]["mouth_cells"]) + '};')
 
     def wall_c(i, ow):
         m = entries[i].get("mouth")
         if not m:
-            return f'{{ {i}, {len(ow)}, kZW{i}_idx, kZW{i}_tiles, 0, 0, {{ 0 }}, {{ 0 }} }}'
+            return f'{{ {i}, {len(ow)}, kZW{i}_idx, kZW{i}_tiles, 0, 0, {{ 0 }}, {{ 0 }}, 0 }}'
         cnt = [len(f) // 32 for f in m[1]]
         off = [sum(cnt[:k]) for k in range(len(cnt))]
         return (f'{{ {i}, {len(ow)}, kZW{i}_idx, kZW{i}_tiles, {m[0]}, kZW{i}_mouth, {{ {", ".join(map(str, off))} }}, '
-                f'{{ {", ".join(map(str, cnt))} }} }}')
+                f'{{ {", ".join(map(str, cnt))} }}, kZW{i}_mcells }}')
     C.append(f'const ZebesWall kZebesWall[{max(1, len(walls))}] = {{' +
              (', '.join(wall_c(i, ow) for i, ow in walls) or '{ 0xFFFF, 0, 0, 0 }') + '};')
     H.append(f'extern const ZebesGfx kZebesGfx[{len(entries)}];')

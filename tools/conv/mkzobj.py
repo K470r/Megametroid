@@ -779,7 +779,7 @@ def frozen_entry(rom, vram, k, islot, common):
 # del juego común (como los congelados: tiles desde 0 y registros) que la Genesis sube cuando se dibuja, a un depósito
 # de lugares en la zona de los objetos (md_zebes.c, frz_*). Kraid: su cuerpo y sus sprites no entran juntos.
 STREAM_ROOMS = {0xA59F}
-STREAM_EPROJ = True     # los proyectiles enemigos también por cuadro (md_zebes.c, zebes_obj_ep_recs)
+STREAM_EPROJ = os.environ.get("MM_STREAM_EPROJ", "1") == "1"   # los proyectiles enemigos también por cuadro (md_zebes.c, zebes_obj_ep_recs)
 
 
 def stream_entries(d, common, vbase):

@@ -139,3 +139,31 @@ de mensajes (`mb_*`). Los de SGDK del título (fundidos, `vdpSpriteCache`) van c
 Validación: regresión 0 distintos (intro, Ceres y Zebes: los dos usos); la pelea con Kraid cuadro a cuadro contra el
 paso 3: solo franjas de 1-6 líneas en los bordes de las interrupciones horizontales (degradado de Ceres, borde del
 HUD), las de siempre al cambiar la velocidad del código.
+
+## Paso 5 (hecho): el montón de SGDK
+
+Medido con la ROM normal (arranque, título, menú y partida; `work/ram/nt5.*`):
+- SGDK deja reservada su cola de DMA (80 entradas: 1282 bytes). `VDP_init` (al arrancar y al volver al título)
+  descomprime la fuente por defecto en el montón (96 tiles: 3082 bytes) y la suelta en el mismo cuadro. `DMA_init`
+  pide además un búfer de datos de 8 KB que, mientras el montón era chico, no entraba y quedaba en NULL.
+- Mientras se juega SGDK no pide nada. El título y el menú hacen su DMA directo (no usan la cola ni el búfer).
+
+Cambios:
+- `md_main.c` (`main`): suelta el búfer de datos de DMA (vuelve a NULL, el estado de siempre) y deja la cola en 32
+  entradas (`DMA_QUEUE_SIZE_MIN`: 514 bytes). Ojo: con el montón más grande el búfer de 8 KB sí entraba y ocupaba
+  justo la RAM de la partida.
+- RAM de la partida: la sección `.gamehi` (`NT_GAMEHI`, `nt.h`; `md_ssf2.ld`) va justo después de la cola, dentro
+  del montón. `play_game` la reserva con `MEM_allocAt` (y la pone a cero) y la suelta al terminar la partida, antes
+  del `VDP_init` del título. `MEM_allocAt` de libmd.a devuelve el puntero en d0 (m68k-elf) y este compilador lo
+  leería en a0: se declara con resultado entero (`mem_alloc_at_d0`). Si la reserva no da la dirección esperada, el
+  fondo se pone rojo y la consola se para (no pasa).
+- En `.gamehi`: `lvl_ov` (3072) y `md_scratch` (2880). `md_ssf2.ld` comprueba que fuera de la partida entren la cola y
+  la fuente (`_bend + 514 + 3082 + 256`) y que la RAM de la partida entre en el montón.
+
+Resultado (0xE0FF0000 + ...): `_bend` 0xC008, la cola 0xC008-0xC20A, la RAM de la partida 0xC218-0xD958 y **libre
+mientras se juega 0xD958-0xF5FE: 7334 bytes** (al empezar el plan quedaban 104). Se usa para variables nuevas del
+juego, en `.bss` (sube `_bend`) o en `.gamehi` (con `NT_GAMEHI`): lo que entre de cualquiera de los dos lados sale de
+esos 7334.
+
+Validación: la ROM normal arranca, pasa por el título y el menú y empieza la partida (la intro); regresión 0
+distintos; la pelea con Kraid dura lo mismo (1834 cuadros, uno más por el ritmo).

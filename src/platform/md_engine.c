@@ -70,7 +70,7 @@ typedef struct { int16 y; uint16 size_link; uint16 attr; int16 x; } GenSpr;
    la segunda parte del cuadro (md_post) lo pasa al lado "del vblank" cuando el vblank ya tomó el cuadro anterior. */
 /* RAM compartida: la usa uno solo de los modos a la vez (la intro, la capa del modo 7 de las cinemáticas, las salas
    de Zebes); cada uno la vuelve a armar al empezar */
-uint16 md_scratch[1440];
+NT_GAMEHI uint16 md_scratch[1440];
 static GenSpr spr_bank[2][MAX_SPR];
 GenSpr *spr = spr_bank[0], *spr_end = spr_bank[0] + MAX_SPR;   /* la lista que arma la lógica */
 static GenSpr *spr_out = spr_bank[1];          /* la que toma el vblank */

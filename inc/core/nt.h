@@ -5,6 +5,14 @@
  * Compila igual en el PC (comprobación contra el SNES, host) y en la Genesis (src/platform). */
 #ifndef NT_H
 #define NT_H
+/* RAM de la partida (docs/60, paso 5): búferes que solo usa el juego, en el montón de SGDK (md_ssf2.ld: .gamehi;
+   md_main.c la reserva al empezar cada partida, la pone a cero y la suelta al volver al título). Solo variables sin
+   valor inicial (se ponen a cero al reservarla). En el PC, una variable más. */
+#ifdef NT_SSF2
+#define NT_GAMEHI __attribute__((section(".gamehi")))
+#else
+#define NT_GAMEHI
+#endif
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>

@@ -4,7 +4,7 @@
 
 uint16 lvl_index = 0xFFFF;
 uint8 lvl_mod[ROOM_MAX_BLOCKS / 8];
-LvlMod lvl_ov[LVL_OV_N];
+NT_GAMEHI LvlMod lvl_ov[LVL_OV_N];
 const uint16 *lvl_rom;
 const uint8 *bts_rom;
 uint16 lvl_blocks;

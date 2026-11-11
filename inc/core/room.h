@@ -30,6 +30,8 @@ static inline LvlMod *lvl_find(uint16 i) {
   return (m->idx == i && m->used) ? m : lvl_find_slow(i);
 }
 void level_set(uint16 i, uint16 v);
+/* versión del nivel: cambia con cada bloque cambiado y cada sala (cachés de lo que depende de los bloques, eproj.c) */
+extern uint16 lvl_ver;
 void bts_set(uint16 i, uint8 v);
 /* página del mapeador SSF2 de cada nivel (Genesis: ventana 0x380000; en el PC no hace nada) */
 void nt_map_level_page(uint8 page);

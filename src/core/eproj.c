@@ -306,6 +306,13 @@ static inline uint8 EprojBlocksQuiet(uint16 bi, uint16 step, uint16 m) {   /* m 
   cur_block_index = bi & 0x7FFF;
   return 1;
 }
+/* lo que ya se vio (docs/60): por proyectil y dirección, el último tramo de bloques sin ninguno que reaccione (bloque
+   inicial, cuántos, la versión del nivel y el último índice, que EprojBlocksQuiet deja en cur_block_index). El
+   resultado depende solo de los bloques: con el mismo tramo y el nivel sin cambios es el mismo (la roca que cae dentro
+   de la misma fila de bloques, el polvo...). En la Genesis, el mismo en ensamblador (ep_qcache). */
+typedef struct { uint16 bi, ver, last; uint8 cnt1, pad; } EpQc;   /* cnt1: cuántos + 1 (0: vacía) */
+__attribute__((used)) EpQc ep_qc[2][18];
+_Static_assert(sizeof(EpQc) == 8, "ep_qc: el ensamblador (ep_qcache)");
 #ifdef __mc68000__
 /* Los caminos rápidos de abajo en ensamblador (el C de la rama #else es la referencia): ningún bloque tocado
    reacciona (y se lee de la ROM de la sala o es uno no cambiado) → mueve el proyectil y devuelve 0; si no, el
@@ -341,6 +348,32 @@ __asm__(
   "    beq 2b\n"
   "8:  moveq #1,%d2\n"                        /* reacciona o cambiado por un PLM: el original */
   "    rts\n"
+  /* ep_qcache: eproj_quiet con lo ya visto (EprojBlocksQuietC, la referencia en C): a0 = su entrada de ep_qc
+     (bi, versión, último, cuántos + 1); mismo tramo y nivel sin cambios -> ninguno reacciona, sin mirar */
+  "ep_qcache:\n"
+  "    cmp.w (%a0),%d4\n"
+  "    bne 1f\n"
+  "    move.w lvl_ver,%d2\n"
+  "    cmp.w 2(%a0),%d2\n"
+  "    bne 1f\n"
+  "    move.b %d3,%d2\n"
+  "    addq.b #1,%d2\n"
+  "    cmp.b 6(%a0),%d2\n"
+  "    bne 1f\n"
+  "    move.w 4(%a0),cur_block_index\n"
+  "    moveq #0,%d2\n"
+  "    rts\n"
+  "1:  movem.l %d3-%d4/%a0,-(%sp)\n"
+  "    bsr eproj_quiet\n"
+  "    movem.l (%sp)+,%d3-%d4/%a0\n"
+  "    tst.w %d2\n"
+  "    bne 2f\n"
+  "    move.w %d4,(%a0)\n"
+  "    move.w lvl_ver,2(%a0)\n"
+  "    move.w cur_block_index,4(%a0)\n"
+  "    move.b %d3,6(%a0)\n"
+  "    addq.b #1,6(%a0)\n"
+  "2:  rts\n"
   /* uint8 EprojBlockCollisition_Horiz(uint16 k)   // 0x8688B6 */
   "    .global EprojBlockCollisition_Horiz\n"
   "EprojBlockCollisition_Horiz:\n"
@@ -387,7 +420,12 @@ __asm__(
   "    move.w room_width_in_blocks,%d1\n"
   "    mulu.w %d1,%d4\n"
   "    add.w %d5,%d4\n"                       /* bi */
-  "    bsr eproj_quiet\n"
+  "    lea ep_qc,%a0\n"                       /* ep_qc[0][k / 2] */
+  "    move.w %a1,%d0\n"
+  "    add.w %d0,%d0\n"
+  "    add.w %d0,%d0\n"
+  "    adda.w %d0,%a0\n"
+  "    bsr ep_qcache\n"
   "    tst.w %d2\n"
   "    bne 90f\n"
   "    lea eproj_x_subpos,%a0\n"
@@ -445,7 +483,12 @@ __asm__(
   "    lsr.w #4,%d4\n"
   "    add.w %d5,%d4\n"                       /* bi */
   "    moveq #1,%d1\n"
-  "    bsr eproj_quiet\n"
+  "    lea ep_qc+144,%a0\n"                   /* ep_qc[1][k / 2] */
+  "    move.w %a1,%d0\n"
+  "    add.w %d0,%d0\n"
+  "    add.w %d0,%d0\n"
+  "    adda.w %d0,%a0\n"
+  "    bsr ep_qcache\n"
   "    tst.w %d2\n"
   "    bne 90f\n"
   "    lea eproj_y_subpos,%a0\n"
@@ -458,6 +501,13 @@ __asm__(
   "90: movem.l (%sp)+,%d2-%d7/%a2\n"
   "    jmp EprojBlockCollisition_Vertical_full\n");
 #else
+static inline uint8 EprojBlocksQuietC(uint16 k, uint8 dir, uint16 bi, uint16 step, uint16 m) {
+  EpQc *q = &ep_qc[dir][k >> 1];
+  if (q->bi == bi && q->cnt1 == (uint8)(m + 1) && q->ver == lvl_ver) { cur_block_index = q->last; return 1; }
+  if (!EprojBlocksQuiet(bi, step, m)) return 0;
+  q->bi = bi; q->cnt1 = (uint8)(m + 1); q->ver = lvl_ver; q->last = cur_block_index;
+  return 1;
+}
 uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
   uint16 vel = EPW(eproj_x_vel, k), rad = EPW(eproj_radius, k);
   uint16 R30 = rad >> 8, R28 = rad & 0xFF;
@@ -468,7 +518,7 @@ uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
     uint16 r24 = EPW(eproj_x_pos, k) + (uint16)((int16)vel >> 8) + (r22 < sub);
     uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R28) : (uint16)(R28 + r24 - 1);
     uint16 bi = Mul16((uint8)(t >> 4), room_width_in_blocks) + (v4 >> 4);
-    if (EprojBlocksQuiet(bi, room_width_in_blocks, r26)) {
+    if (EprojBlocksQuietC(k, 0, bi, room_width_in_blocks, r26)) {
       EPW(eproj_x_subpos, k) = r22;
       EPW(eproj_x_pos, k) = r24;
       return 0;
@@ -486,7 +536,7 @@ uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
     uint16 r24 = EPW(eproj_y_pos, k) + (uint16)((int16)vel >> 8) + (r22 < sub);
     uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R30) : (uint16)(R30 + r24 - 1);
     uint16 bi = Mul16((uint8)(v4 >> 4), room_width_in_blocks) + (xl >> 4);
-    if (EprojBlocksQuiet(bi, 1, n)) {
+    if (EprojBlocksQuietC(k, 1, bi, 1, n)) {
       EPW(eproj_y_subpos, k) = r22;
       EPW(eproj_y_pos, k) = r24;
       return 0;

@@ -19,7 +19,9 @@ static void lvl_fast_update(void) {
     if (lvl_ov[s].used) { lvl_fast = 0; break; }
 }
 
+uint16 lvl_ver;                                   /* (room.h) */
 void lvl_attach(void) {
+  lvl_ver++;
   lvl_fast = 0;
   if (lvl_index == 0xFFFF) { lvl_rom = 0; bts_rom = 0; lvl_blocks = 0; return; }
   if (lvl_index == LVL_INTRO_MB || lvl_index == LVL_INTRO_BABY) {   /* recuerdos de la intro (ver intro.c) */
@@ -78,6 +80,7 @@ void level_set(uint16 i, uint16 v) {
   if (!(lvl_mod[i >> 3] & (1 << (i & 7))) && v == (i < lvl_blocks ? lvl_rom[i] : 0x8000)) return;
   LvlMod *m = lvl_mod_entry(i);
   if (m) m->lvl = v;
+  lvl_ver++;
 }
 
 void bts_set(uint16 i, uint8 v) {

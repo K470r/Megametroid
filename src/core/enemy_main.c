@@ -483,6 +483,35 @@ void NormalEnemyTouchAiSkipDeathAnim(void) {  // 0xA0A4A1
   nt_unimpl("NormalEnemyTouchAiSkipDeathAnim (daño de contacto de Samus)");
 }
 
+/* caja que envuelve todas las cajas de golpe de un spritemap extendido (relativa a la posición del enemigo), para
+   descartar enseguida a Samus o a un disparo que no la toca: si tocara una caja, tocaría la envolvente (con las
+   coordenadas de las salas no hay desbordes de 16 bits), así que el resultado es el mismo. Caché de las últimas 8
+   (banco, spritemap); 0 si el spritemap no tiene piezas (el original con n = 0 hace otra cosa: sin atajo) */
+static struct { uint32 key; int16 l, r, t, b; } hb_box[8];
+static uint8 hb_rr;
+static const int16 *HitboxBounds(const EnemyData *E, const uint8 *bb_) {
+  uint32 key = (uint32)E->bank << 16 | E->spritemap_pointer;
+  for (uint16 i = 0; i < 8; i++)
+    if (hb_box[i].key == key) return &hb_box[i].l;
+  uint16 n = (uint8)RW(E->spritemap_pointer);
+  if (!n) return 0;
+  int16 l = 0x7FFF, r = -0x8000, t = 0x7FFF, b = -0x8000;
+  for (uint16 ep = E->spritemap_pointer + 2; n; n--, ep += 8) {
+    int16 ox = (int16)RW(ep), oy = (int16)RW(ep + 2);
+    uint16 hp = RW(ep + 6), m = RW(hp);
+    for (uint16 hb = hp + 2; m; m--, hb += 12) {
+      int16 v;
+      if ((v = ox + (int16)RW(hb)) < l) l = v;
+      if ((v = ox + (int16)RW(hb + 4)) > r) r = v;
+      if ((v = oy + (int16)RW(hb + 2)) < t) t = v;
+      if ((v = oy + (int16)RW(hb + 6)) > b) b = v;
+    }
+  }
+  uint8 i = hb_rr++ & 7;
+  hb_box[i].key = key; hb_box[i].l = l; hb_box[i].r = r; hb_box[i].t = t; hb_box[i].b = b;
+  return &hb_box[i].l;
+}
+
 static void EnemySamusCollHandler_Multibox(void) {  // 0xA09A5A
   EnemyData *E = gEnemyData(cur_enemy_index);
   enemy_processing_stage = 6;
@@ -500,6 +529,10 @@ static void EnemySamusCollHandler_Multibox(void) {  // 0xA09A5A
   uint16 sr = samus_x_radius + samus_x_pos, sl = samus_x_pos - samus_x_radius;
   uint16 sb = samus_y_radius + samus_y_pos, st = samus_y_pos - samus_y_radius;
   const uint8 *bb_ = BankBase(E->bank);   /* (las cajas: sin mirar el banco en cada palabra) */
+  const int16 *bx = HitboxBounds(E, bb_);
+  if (bx && !((int16)(bx[0] + E->x_pos - sr) < 0 && (int16)(bx[1] + E->x_pos - sl) >= 0 &&
+              (int16)(bx[2] + E->y_pos - sb) < 0 && (int16)(bx[3] + E->y_pos - st) >= 0))
+    return;                                        /* (no toca la envolvente: ninguna caja) */
   uint16 n = (uint8)RW(E->spritemap_pointer);       /* el original lee un byte */
   uint16 ep = E->spritemap_pointer + 2;
   do {
@@ -532,6 +565,12 @@ static void EprojCollHandler_Multibox(void) {  // 0xA09B7F
     if (!(v4 && (v4 & 0xF00) != 768 && (v4 & 0xF00) != 1280 && sign16((v4 & 0xF00) - 1792)))
       continue;
     const uint8 *bb_ = BankBase(E->bank);   /* (las cajas: sin mirar el banco en cada palabra) */
+    const int16 *bx = HitboxBounds(E, bb_);
+    if (bx && ((int16)(projectile_x_radius[pidx] + projectile_x_pos[pidx] - (E->x_pos + bx[0])) < 0 ||
+               (int16)(projectile_x_pos[pidx] - projectile_x_radius[pidx] - (E->x_pos + bx[1])) >= 0 ||
+               (int16)(projectile_y_radius[pidx] + projectile_y_pos[pidx] - (E->y_pos + bx[2])) < 0 ||
+               (int16)(projectile_y_pos[pidx] - projectile_y_radius[pidx] - (E->y_pos + bx[3])) >= 0))
+      continue;                                    /* (este disparo no toca la envolvente) */
     uint16 n = (uint8)RW(E->spritemap_pointer);    /* aquí el original lee un byte */
     for (uint16 ep = E->spritemap_pointer + 2; n; n--, ep += 8) {
       uint16 cx = RW(ep) + E->x_pos, cy = RW(ep + 2) + E->y_pos;

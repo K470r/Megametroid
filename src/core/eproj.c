@@ -218,7 +218,7 @@ static uint8 EprojBlockReact(EprojCollInfo *eci, uint8 vertical) {
    vertical por BTS (5, 0xD) y sólidos (8-0xC, 0xF); con los demás sigue de largo */
 #define EPROJ_REACTS ((1 << 1) | (1 << 5) | (1 << 8) | (1 << 9) | (1 << 0xA) | (1 << 0xB) | (1 << 0xC) | (1 << 0xD) | (1 << 0xF))
 
-uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
+static __attribute__((noinline)) uint8 EprojBlockCollisition_Horiz_full(uint16 k) {  // 0x8688B6
   int v1 = k >> 1;
   int32 amt = (int32)(int16)eproj_x_vel[v1] << 8;
   uint16 R30 = HI8(eproj_radius[v1]);
@@ -230,20 +230,6 @@ uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
   uint16 r24 = np >> 16, r22 = (uint16)np;
   uint16 v4 = (amt < 0) ? (uint16)(r24 - R28) : (uint16)(R28 + r24 - 1);
   uint16 v5 = 2 * (prod + (v4 >> 4));
-  {                                             /* lo común (rocas en el aire): ningún bloque reacciona */
-    uint16 bi = v5 >> 1, w = room_width_in_blocks, m = r26;
-    if (m > 16) goto slow;                      /* (radios raros: el camino de siempre) */
-    for (;;) {
-      if ((EPROJ_REACTS >> (level_block(bi) >> 12)) & 1) goto slow;
-      if (!m--) break;
-      bi += w;
-    }
-    cur_block_index = bi;
-    eproj_x_subpos[v1] = r22;
-    eproj_x_pos[v1] = r24;
-    return 0;
-  }
-slow:;
   EprojCollInfo eci = { (uint16)(amt >> 16), r24, r26, R28, R30, r26, v4 };
   for (;;) {
     cur_block_index = v5 >> 1;
@@ -269,7 +255,7 @@ slow:;
   return 1;
 }
 
-uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
+static __attribute__((noinline)) uint8 EprojBlockCollisition_Vertical_full(uint16 k) {  // 0x86897B
   /* lo mismo que el SNES con cuentas de 16 bits (la posición de 32 bits = y:subpos más la velocidad << 8) */
   int v1 = k >> 1;
   uint16 vel = eproj_y_vel[v1], rad = eproj_radius[v1];
@@ -281,20 +267,6 @@ uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
   uint16 r24 = eproj_y_pos[v1] + hi + (r22 < sub);
   uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R30) : (uint16)(R30 + r24 - 1);
   uint16 i = (uint16)(Mul16((uint8)(v4 >> 4), room_width_in_blocks) + (xl >> 4));
-  {                                             /* lo común (rocas en el aire): ningún bloque reacciona */
-    uint16 bi = i, m = n;
-    if (m > 16) goto slow;                      /* (radios raros: el camino de siempre) */
-    for (;;) {
-      if ((EPROJ_REACTS >> (level_block(bi & 0x7FFF) >> 12)) & 1) goto slow;
-      if (!m--) break;
-      bi++;
-    }
-    cur_block_index = bi & 0x7FFF;
-    eproj_y_subpos[v1] = r22;
-    eproj_y_pos[v1] = r24;
-    return 0;
-  }
-slow:;
   EprojCollInfo eci = { hi, r24, n, R28, R30, n, v4 };
   for (;; i++) {
     cur_block_index = i & 0x7FFF;
@@ -317,6 +289,58 @@ slow:;
       eproj_y_pos[v1] = v10;
   }
   return 1;
+}
+
+/* Lo común (rocas en el aire): ningún bloque del borde reacciona; entonces solo se mueve. Cuentas de 16 bits (en el
+   68000 las de 32 bits y los índices int eran la mitad del costo) y los arreglos por su desplazamiento en bytes (k).
+   Si algún bloque reacciona, la función completa (*_full) desde el principio: nada se cambió antes. */
+#define EPW(arr, k) (*(uint16 *)((uint8 *)(arr) + (k)))
+static inline uint8 EprojBlocksQuiet(uint16 bi, uint16 step, uint16 m) {   /* m + 1 bloques desde bi (de a step) */
+  for (;;) {
+    if ((EPROJ_REACTS >> (level_block(bi & 0x7FFF) >> 12)) & 1)
+      return 0;
+    if (!m--)
+      break;
+    bi += step;
+  }
+  cur_block_index = bi & 0x7FFF;
+  return 1;
+}
+uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
+  uint16 vel = EPW(eproj_x_vel, k), rad = EPW(eproj_radius, k);
+  uint16 R30 = rad >> 8, R28 = rad & 0xFF;
+  uint16 y = EPW(eproj_y_pos, k), t = y - R30;
+  uint16 r26 = (uint16)(R30 + y - 1 - (t & 0xFFF0)) >> 4;
+  if (r26 <= 16) {
+    uint16 sub = EPW(eproj_x_subpos, k), r22 = sub + (uint16)(vel << 8);
+    uint16 r24 = EPW(eproj_x_pos, k) + (uint16)((int16)vel >> 8) + (r22 < sub);
+    uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R28) : (uint16)(R28 + r24 - 1);
+    uint16 bi = Mul16((uint8)(t >> 4), room_width_in_blocks) + (v4 >> 4);
+    if (EprojBlocksQuiet(bi, room_width_in_blocks, r26)) {
+      EPW(eproj_x_subpos, k) = r22;
+      EPW(eproj_x_pos, k) = r24;
+      return 0;
+    }
+  }
+  return EprojBlockCollisition_Horiz_full(k);
+}
+uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
+  uint16 vel = EPW(eproj_y_vel, k), rad = EPW(eproj_radius, k);
+  uint16 R30 = rad >> 8, R28 = rad & 0xFF;
+  uint16 x = EPW(eproj_x_pos, k), xl = x - R28;
+  uint16 n = (uint16)(R28 + x - 1 - (xl & 0xFFF0)) >> 4;
+  if (n <= 16) {
+    uint16 sub = EPW(eproj_y_subpos, k), r22 = sub + (uint16)(vel << 8);
+    uint16 r24 = EPW(eproj_y_pos, k) + (uint16)((int16)vel >> 8) + (r22 < sub);
+    uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R30) : (uint16)(R30 + r24 - 1);
+    uint16 bi = Mul16((uint8)(v4 >> 4), room_width_in_blocks) + (xl >> 4);
+    if (EprojBlocksQuiet(bi, 1, n)) {
+      EPW(eproj_y_subpos, k) = r22;
+      EPW(eproj_y_pos, k) = r24;
+      return 0;
+    }
+  }
+  return EprojBlockCollisition_Vertical_full(k);
 }
 
 /* ------------------------------------------------------------------ bolas de fuego de Ridley ($86:93CA-9620) */

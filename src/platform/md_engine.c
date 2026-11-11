@@ -1070,14 +1070,14 @@ static inline __attribute__((always_inline)) uint16 drawkey(uint16 kind, uint16 
   return (uint16)r0;
 }
 
-uint16 md_missing_ring[32][4];                  /* pruebas: las últimas claves que faltaron (distintas) */
+uint16 md_missing_ring[8][4];                   /* pruebas: las últimas claves que faltaron (distintas; 8: la RAM es justa) */
 uint8 md_missing_rpos;
 static void missing(uint16 kind, uint16 a, uint16 b, uint16 c) {
   if (!md_missing) { md_missing_key[0] = kind; md_missing_key[1] = a; md_missing_key[2] = b; md_missing_key[3] = c; }
   md_missing++;
-  for (uint8 i = 0; i < 32; i++)
+  for (uint8 i = 0; i < 8; i++)
     if (md_missing_ring[i][0] == kind && md_missing_ring[i][1] == a && md_missing_ring[i][2] == b && md_missing_ring[i][3] == c) return;
-  uint16 *r = md_missing_ring[md_missing_rpos++ & 31];
+  uint16 *r = md_missing_ring[md_missing_rpos++ & 7];
   r[0] = kind; r[1] = a; r[2] = b; r[3] = c;
 }
 

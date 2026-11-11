@@ -668,6 +668,8 @@ uint16 CheckIfEprojIsOffScreen(uint16 k) {  // 0x86E6E0
   return 1;
 }
 
+static void CallEprojPreInstr(uint16 f, uint16 k);
+void ep_preinstr_c(uint16 f, uint16 k) { CallEprojPreInstr(f, k); }   /* (EprojRunAll en ensamblador) */
 static void CallEprojPreInstr(uint16 f, uint16 k) {
   int v1 = k >> 1;
   switch (f) {
@@ -747,12 +749,10 @@ static void CallEprojPreInstr(uint16 f, uint16 k) {
   }
 }
 
-static void EprojRunOne(uint16 k) {  // 0x868125
-  CallEprojPreInstr(eproj_pre_instr[k >> 1], k);
-  uint16 v1 = eproj_index;
-  int v2 = eproj_index >> 1;
-  if (eproj_instr_timers[v2]-- == 1) {
-    uint16 p = eproj_instr_list_ptr[v2];
+/* la lista de instrucciones del proyectil v1 cuando su temporizador llega a 0 (EprojRunOne) */
+void ep_instr_list(uint16 v1) {
+  {
+    uint16 p = eproj_instr_list_ptr[v1 >> 1];
     uint16 f;
     while ((f = b86(p)) & 0x8000) {
       switch (f) {
@@ -799,7 +799,77 @@ static void EprojRunOne(uint16 k) {  // 0x868125
     eproj_instr_list_ptr[v1 >> 1] = p + 4;
   }
 }
+static void EprojRunOne(uint16 k) {  // 0x868125
+  CallEprojPreInstr(eproj_pre_instr[k >> 1], k);
+  uint16 v1 = eproj_index;
+  if (eproj_instr_timers[v1 >> 1]-- == 1)
+    ep_instr_list(v1);
+}
 
+#ifdef __mc68000__
+/* EprojRunAll en ensamblador (el C de la rama #else es la referencia): el recorrido de los 18 proyectiles sin las
+   capas de C; las rocas de Kraid (EprojPreInstr_KraidRocks, $86:9D56) directas; las demás, ep_preinstr_c; la lista
+   de instrucciones (ep_instr_list) solo cuando el temporizador llega a 0 */
+__asm__(
+  "    .text\n"
+  "    .global EprojRunAll\n"
+  "EprojRunAll:\n"
+  "    tst.w eproj_enable_flag\n"
+  "    bpl 99f\n"
+  "    move.l %d2,-(%sp)\n"
+  "    moveq #34,%d2\n"
+  "1:  move.w %d2,eproj_index\n"
+  "    lea eproj_id,%a0\n"
+  "    tst.w (%a0,%d2.w)\n"
+  "    beq 9f\n"
+  "    lea eproj_pre_instr,%a0\n"
+  "    move.w (%a0,%d2.w),%d0\n"
+  "    cmp.w #0x9D56,%d0\n"
+  "    bne 5f\n"
+  /* EprojPreInstr_KraidRocks */
+  "    move.l %d2,-(%sp)\n"
+  "    jsr EprojBlockCollisition_Horiz\n"
+  "    btst #0,%d0\n"
+  "    bne 3f\n"
+  "    jsr EprojBlockCollisition_Vertical\n"
+  "    btst #0,%d0\n"
+  "    bne 3f\n"
+  "    addq.l #4,%sp\n"
+  "    lea eproj_x_vel,%a0\n"
+  "    move.w (%a0,%d2.w),%d0\n"
+  "    addq.w #8,%d0\n"
+  "    move.w %d0,%d1\n"
+  "    sub.w #256,%d1\n"
+  "    bmi 2f\n"
+  "    move.w #0xFF00,%d0\n"                  /* -256 */
+  "2:  move.w %d0,(%a0,%d2.w)\n"
+  "    lea eproj_y_vel,%a0\n"
+  "    add.w #64,(%a0,%d2.w)\n"
+  "    bra 6f\n"
+  "3:  addq.l #4,%sp\n"
+  "    lea eproj_id,%a0\n"
+  "    clr.w (%a0,%d2.w)\n"
+  "    bra 6f\n"
+  "5:  move.l %d2,-(%sp)\n"                  /* ep_preinstr_c(f, k) */
+  "    moveq #0,%d1\n"
+  "    move.w %d0,%d1\n"
+  "    move.l %d1,-(%sp)\n"
+  "    jsr ep_preinstr_c\n"
+  "    addq.l #8,%sp\n"
+  "6:  moveq #0,%d2\n"
+  "    move.w eproj_index,%d2\n"             /* (el de ahora: EprojRunOne lo vuelve a leer) */
+  "    lea eproj_instr_timers,%a0\n"
+  "    subq.w #1,(%a0,%d2.w)\n"
+  "    bne 8f\n"
+  "    move.l %d2,-(%sp)\n"
+  "    jsr ep_instr_list\n"
+  "    addq.l #4,%sp\n"
+  "8:  move.w eproj_index,%d2\n"             /* i = eproj_index */
+  "9:  subq.w #2,%d2\n"
+  "    bpl 1b\n"
+  "    move.l (%sp)+,%d2\n"
+  "99: rts\n");
+#else
 void EprojRunAll(void) {  // 0x868104
   if (eproj_enable_flag & 0x8000) {
     for (int i = 34; i >= 0; i -= 2) {
@@ -811,6 +881,7 @@ void EprojRunAll(void) {  // 0x868104
     }
   }
 }
+#endif
 
 void DrawEprojSpritemap(uint16 spritemap, uint16 x, uint16 y, uint16 gfx_idx);   /* capa de la Genesis (banco $8D) */
 void md_draw_eprojs(uint16 prio, uint16 bx, uint16 by);                          /* Genesis: el recorrido entero */

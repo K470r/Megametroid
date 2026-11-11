@@ -121,3 +121,21 @@ explosión de Ridley...) no la tocan. Se quita 7E:8AC0-8FFF (1344 bytes).
 
 Validación: las 194 salas con `check` igual que antes (47 lotes sin diferencias, 2 con Samus sin energía) y ningún
 aviso del tramo; regresión 0 distintos; Kraid en el PC igual (3, primero 191); la pelea grande dura lo mismo (1833).
+
+## Paso 4 (hecho): la intro y Zebes comparten RAM
+
+Por modo (`docs/60_ram/md_uso.md`): los búferes de la intro (`it_kc`, `it_eyes`, `it_eyes_raw`, `it_cram_src`,
+`it_slots`: 768 bytes) solo se tocan con la intro en pantalla (`intro_on`), y los grandes de Zebes (`zcache` y las
+colas del vblank `qcol_buf`, `qrow_buf`, `qsky_buf`: 2224) solo en Zebes. Van en `md_ovl` (2240 bytes, `md.h`):
+- Zebes (`ZebesOvl`, `md_zebes.c`): `zcache` primero (el ensamblador de `zebes_obj_draw` lo lee en `md_ovl`); al
+  preparar cada sala se borra (`zo = 0` en cada entrada: la intro pudo dejar cualquier cosa). Las colas se escriben
+  antes de leerse.
+- Intro (`IntroOvl`, `md_intro.c`): `IntroGfx` la pone a cero al empezar (como al arrancar la consola).
+- `_bend`: 0xE0FFDA34 → 0xE0FFD748 (**748 bytes**). Con los pasos 2 y 3: **3136 bytes libres**.
+
+No se comparten (pueden coincidir con Zebes): el haz de la bomba de energía (`cone_sat`, `cache_a`, `kRow`) y la caja
+de mensajes (`mb_*`). Los de SGDK del título (fundidos, `vdpSpriteCache`) van con el paso 5.
+
+Validación: regresión 0 distintos (intro, Ceres y Zebes: los dos usos); la pelea con Kraid cuadro a cuadro contra el
+paso 3: solo franjas de 1-6 líneas en los bordes de las interrupciones horizontales (degradado de Ceres, borde del
+HUD), las de siempre al cambiar la velocidad del código.

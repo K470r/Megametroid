@@ -1106,6 +1106,7 @@ static inline __attribute__((always_inline)) const uint16 *find_key(uint8 kind, 
   return r;
 }
 
+uint16 md_ovl[MD_OVL_BYTES / 2];                  /* (md.h: la intro y Zebes, docs/60) */
 #include "md_intro.c"                         /* la intro (docs/38): usa la lista de sprites y la CRAM */
 
 void DrawSamusSpritemap(uint16 idx, uint16 x, uint16 y) {  // 0x8189AE

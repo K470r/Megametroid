@@ -53,4 +53,9 @@ extern const char *volatile md_unimpl_msg;
 #define SNES_X 0x0040
 #define SNES_L 0x0020
 #define SNES_R 0x0010
+/* RAM compartida por modos que nunca coinciden (docs/60, paso 4): los búferes de la intro (md_intro.c, mientras
+   intro_on) y los de Zebes (md_zebes.c: zcache y las colas del vblank). Cada lado la prepara al empezar: la intro en
+   IntroGfx, Zebes al cargar cada sala (zebes_use). */
+#define MD_OVL_BYTES 2240
+extern uint16 md_ovl[MD_OVL_BYTES / 2];
 #endif

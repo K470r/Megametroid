@@ -11,6 +11,7 @@
  *
  * Paletas: líneas 0 y 1 de la CRAM para la sala (cada color sale de un índice de palette_buffer: kZebesGfx.src),
  * 2 Samus, 3 HUD y objetos (como en Ceres: de la sala base de Ceres). */
+#include <stddef.h>
 #include <string.h>
 #include "samus.h"
 #include "game.h"
@@ -58,8 +59,11 @@ static uint8 drawn[2];
 static inline void map_page(uint8 p) {        /* con barreras: las lecturas de la página no cruzan el cambio */
   __asm__ volatile("" ::: "memory");
   md_cur_page = p;
-  md_hw_page = p;
-  *(volatile uint8 *)0xA130FF = p;
+  if (md_hw_page != p) {                      /* (ya puesta: casi siempre, en el dibujo de los objetos; la interrupción
+                                                 guarda y repone la suya) */
+    md_hw_page = p;
+    *(volatile uint8 *)0xA130FF = p;
+  }
   __asm__ volatile("" ::: "memory");
 }
 
@@ -89,7 +93,10 @@ static uint8 nlanim;
 static void bt_dma(void) {                        /* los tiles que solo usa el cuerpo (mkzebes.py: BOSS_HI_TILE) */
   uint8 lp = md_cur_page;
   map_page(ZEBES_BOSS_PAGE);
-  vdp_dma_vram(zbb->tiles, ZEBES_BOSS_HI_TILE * 32, zbb->ntiles * 16);
+  uint16 n = zbb->ntiles, n1 = n > 123 ? 123 : n;   /* 0xF000: hasta el tile 2042; lo que sigue (Kraid), en las filas
+                                                      libres de la Window (1802: mkzebes.py BOSS_WIN_TILE) */
+  vdp_dma_vram(zbb->tiles, ZEBES_BOSS_HI_TILE * 32, n1 * 16);
+  if (n > n1) vdp_dma_vram(zbb->tiles + n1 * 16, 1802 * 32, (n - n1) * 16);
   map_page(lp);
 }
 /* caché de los tiles del cuerpo (zbb->cache: Crocomire, 312 tiles, ~155 a la vez): BC_N lugares de la VRAM (los 123
@@ -321,13 +328,41 @@ static void draw_window(uint8 L) {            /* (VDP libre) toda la ventana de 
 
 /* congelados (ver "enemigos congelados", más abajo) */
 #define FROZEN_REF 0x8000              /* (mkzobj.FROZEN_REF) */
-#define FRZ_TILE0 1802                  /* VRAM 0xE140: filas 5-31 del Window (54 tiles) */
+/* el depósito: 3 lugares de 18 tiles en las filas 5-31 del Window (VRAM 0xE140, 54 tiles); en las salas con los
+   objetos por cuadro (zo->stream, mkzobj.STREAM_ROOMS: Kraid) hasta FRZ_NMAX lugares de 8 tiles desde zo->base, con
+   sus tablas en cinematic_text_tilemap + 3200 (en esas salas libre: sin líquido) */
+#define FRZ_TILE0 1802
 #define FRZ_SLOT 18
 #define FRZ_NSLOT 3
+#define FRZ_NMAX 48
+static uint16 frz_t0 = FRZ_TILE0, frz_slot = FRZ_SLOT;
+static uint8 frz_ns = FRZ_NSLOT, frz_stream;
 #define FRZ_KEEP 8                      /* cuadros sin dibujarse antes de soltar el lugar (el parpadeo del final) */
-static uint16 frz_id[FRZ_NSLOT];        /* congelado del lugar (0xFFFF libre, 0xFFFE parte del anterior) */
-static uint16 frz_last[FRZ_NSLOT];      /* último cuadro del motor en que se dibujó */
-static uint8 frz_q_l[FRZ_NSLOT], frz_nq_l, frz_q[FRZ_NSLOT], frz_nq;   /* lugares por subir (lógica / vblank) */
+static uint16 frz_id_s[FRZ_NSLOT], frz_last_s[FRZ_NSLOT];
+static uint8 frz_q_l_s[FRZ_NSLOT], frz_q_s[FRZ_NSLOT];
+static uint16 *frz_id = frz_id_s;       /* congelado del lugar (0xFFFF libre, 0xFFFE parte del anterior) */
+static uint16 *frz_last = frz_last_s;   /* último cuadro del motor en que se dibujó */
+static uint8 *frz_q_l = frz_q_l_s, frz_nq_l, *frz_q = frz_q_s, frz_nq;   /* lugares por subir (lógica / vblank) */
+extern uint16 cinematic_text_tilemap[];
+/* Kraid: su cola de VRAM y su pared (más abajo, "Kraid") */
+static const ZebesWall *zw;
+static uint8 wall_on, wall_pend, kq_r, kq_w, kq_conv;
+static uint8 mouth_cur, mouth_pend;     /* cuadro de la boca de Kraid que está en la VRAM / por subir (1 + cuadro; 0: ninguno) */
+static void kq_frame(void);
+static void kq_vblank(void);
+static void frz_setup(void) {             /* al entrar a la sala: el depósito de los congelados o de los objetos */
+  if (zo && zo->stream) {
+    uint8 *m = (uint8 *)cinematic_text_tilemap + 3200;
+    frz_stream = 1; frz_t0 = zo->base + ((zo->ntiles + 7) & ~7); frz_slot = 8;   /* (después de los fijos) */
+    uint16 n = (1280 - frz_t0) / 8;
+    frz_ns = (uint8)(n > FRZ_NMAX ? FRZ_NMAX : n);
+    frz_id = (uint16 *)m; frz_last = (uint16 *)(m + 2 * FRZ_NMAX);
+    frz_q_l = m + 4 * FRZ_NMAX; frz_q = m + 5 * FRZ_NMAX;
+  } else {
+    frz_stream = 0; frz_t0 = FRZ_TILE0; frz_slot = FRZ_SLOT; frz_ns = FRZ_NSLOT;
+    frz_id = frz_id_s; frz_last = frz_last_s; frz_q_l = frz_q_l_s; frz_q = frz_q_s;
+  }
+}
 static void frz_reset(void);
 static void frz_vblank(void);
 
@@ -345,7 +380,15 @@ const MdRoom *zebes_use(void) {
   zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0; bb_rows = 0;
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
+  frz_setup();
   frz_reset();
+  zw = 0;
+  for (uint16 i = 0; i < NT_ZEBES_NWALL; i++)
+    if (kZebesWall[i].gfx == kZebesStates[f].gfx) zw = &kZebesWall[i];
+  if (game_state != 17) {                        /* (17: al volver de la pausa, ResumeGameplay: Kraid sigue igual) */
+    wall_on = 0; kq_r = kq_w = 0; mouth_cur = 0;
+  }
+  wall_pend = 0; kq_conv = 0; mouth_pend = 0;
   frz_nq = 0;
   zprio = 0; psweep = ZW;
   const MdRoom *base = &kMdRooms[ZEBES_BASE_ROOM];
@@ -422,6 +465,8 @@ static void zebes_dma_runs(uint8 rp, const uint16 *r, uint16 nr, uint16 vt) {
 /* (pantalla apagada) tiles de la sala, los de los objetos de la sala base y los planos */
 void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   const MdRoom *base = &kMdRooms[ZEBES_BASE_ROOM];
+  frz_reset();                                              /* (la VRAM se rehace: el depósito, de cero; y la pausa pisa
+                                                               sus tablas en cinematic_text_tilemap) */
   vdp_reg(0x10, 0x11);                                      /* 64x64 */
   if (base->tiles_total > base->bg_tiles)                   /* rayo, bombas...: donde los espera la sala base */
     vdp_dma_vram(base->tiles + base->bg_tiles * 32, (BG_BASE + base->bg_tiles) * 32,
@@ -432,6 +477,7 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   map_page(lp);
   if (zbb && zbb->cache) bc_reset();
   else if (zbb && zbb->ntiles) bt_dma();
+  if (zw) { wall_pend = wall_on ? 1 : 2; kq_conv = 0; mouth_pend = mouth_cur; }   /* la pared de Kraid como está (vacía al entrar) */
   vdp_fill_vram(MD_VRAM_PLANE_A, 0, 0x1000);
   vdp_fill_vram(MD_VRAM_PLANE_B, 0, 0x1000);
   /* capa 1: la ventana alrededor de la cámara */
@@ -449,7 +495,7 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
     map_page(zg->page);
     for (uint16 h = 0; h < 2; h++) {
       vdp_set_vram_write(MD_VRAM_PLANE_B + h * 32 * 128);
-      const uint16 *c = zg->bg2;
+      const uint16 *c = zg->bg2 + (zg->bg2h ? h * 64 * 32 : 0);   /* (Kraid: 64x64; las demás, 64x32 dos veces) */
       for (uint16 i = 0; i < 64 * 32; i++) VDP_DATA = tile_fix_b(*c++);
     }
     map_page(lp);
@@ -520,6 +566,7 @@ static void prio_sweep(void) {
 }
 void zebes_frame(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   melt_frame();
+  if (zw) kq_frame();
   if (bb_redo && zbb && bb_ever) { nt_enemy_bg2_transfer(); bb_redo = 0; }   /* la caché se vació: el cuerpo otra vez */
   if (drawn[0]) { follow(0, ax, ay); if (psweep < ZW) prio_sweep(); }
   if (drawn[1]) follow(1, bx, zg->sky ? ay : by);   /* el cielo baja con la capa 1 (BG2VOFS = layer1_y_pos) */
@@ -553,7 +600,137 @@ static void block_changed(uint16 i) {
    salen de ese trozo (ya convertidos en el PC: mkzebes.py) */
 /* la cola de escrituras a la VRAM del SNES (game.c, NMI): tiles de los jefes que suben por la cola (Crocomire,
    Phantoon, Mother Brain); falta convertirlos para la Genesis (docs/46) */
-void nt_vram_queue_flush(const uint8 *q, uint16 n) { (void)q; (void)n; }
+/* ---------------------------------------------------------------- Kraid (docs/59): lo que sube por la cola de VRAM */
+/* La cola de VRAM del SNES (game.c, NMI): en la sala de Kraid (zw: su pared) se interpretan sus entradas:
+   - al mapa del BG2 (las dos mitades desde 7E:2000/2800, la boca y el ojo desde $A7:97C8-A0C8, las filas del
+     hundimiento y el borrado del final): tareas por fila (origen, celda del plano B, palabras) que zebes_frame
+     convierte (como bb_convert, sin caché) de a KQ_ROWS y el vblank sube;
+   - a los tiles 1008-1023 del BG1 (la pared de la cueva): kKraidsRoomBg ($A7:A716) la enciende, 7E:4000 (ceros) la
+     apaga.
+   RAM: cinematic_text_tilemap + 1024 (tareas), + 1792 (filas convertidas), + 2816 (destinos). */
+typedef struct { uint32 src; uint16 cell, n; } KqJob;   /* (cell 0xFFFF: cuadro src de la boca) */
+static const uint16 kKraidMouthSrc[4] = { 0x97C8, 0x9AC8, 0x9DC8, 0xA0C8 };   /* $A7: Kraid_Shot_* */
+#define KQ_N 96
+#define KQ_ROWS 16
+#define kq_job ((KqJob *)((uint8 *)cinematic_text_tilemap + 1024))
+#define kq_buf ((uint16 *)((uint8 *)cinematic_text_tilemap + 1792))
+#define kq_dst ((uint16 *)((uint8 *)cinematic_text_tilemap + 2816))
+/* zw: la pared de la sala (kZebesWall) o 0; wall_pend: 1 subir sus tiles, 2 borrarlos (declarados arriba) */
+static void kq_push(uint32 src, uint16 cell, uint16 n) {
+  uint8 w = (uint8)((kq_w + 1) % KQ_N);
+  if (w == kq_r) return;                          /* (llena: se pierde; no debería pasar) */
+  kq_job[kq_w] = (KqJob){ src, cell, n };
+  kq_w = w;
+}
+void nt_vram_queue_flush(const uint8 *q, uint16 n) {
+  if (!md_zebes || !zw) return;
+  for (uint16 i = 0; i + 7 <= n; i += 7) {
+    uint16 size = q[i] | q[i + 1] << 8, src = q[i + 2] | q[i + 3] << 8, dst = q[i + 5] | q[i + 6] << 8;
+    uint8 bank = q[i + 4];
+    if (dst == ((reg_BG12NBA & 0xF) << 8) + 0x3F00 && size == 512) {   /* la pared */
+      wall_on = bank != 0x7E;
+      wall_pend = wall_on ? 1 : 2;
+      continue;
+    }
+    if (bank == 0xA7 && zw->mouth)                /* un cuadro de la boca: sus tiles propios con sus filas */
+      for (uint8 f = 0; f < 4; f++)
+        if (src == kKraidMouthSrc[f]) kq_push(f, 0xFFFF, 0);
+    uint16 base = (uint16)((reg_BG2SC & 0xFC) << 8), sz = reg_BG2SC & 3;
+    uint16 off = (uint16)(dst - base);
+    if (off >= 0x1000) continue;
+    uint32 a = (uint32)bank << 16 | src;
+    for (uint16 left = size >> 1; left; ) {     /* por filas de 32 palabras */
+      uint16 scr = off >> 10, y = (off >> 5) & 31, x = off & 31;
+      uint16 sx = scr & 1, sy = sz == 3 ? scr >> 1 : sz == 2 ? scr : 0;
+      if (sz == 2) sx = 0;
+      uint16 k = 32 - x;
+      if (k > left) k = left;
+      /* (BG2 de 32x32, la sala vencida: el SNES lo repite en toda la pantalla; la fila va a las cuatro pantallas del
+         plano B de 64x64: bit 15) */
+      kq_push(a, (uint16)((sy * 32 + y) * 64 + sx * 32 + x) | (sz == 0 ? 0x8000 : 0), k);
+      a += 2 * k; off += k; left -= k;
+    }
+  }
+}
+static inline uint16 kq_word(uint32 a) {          /* palabra del origen: la RAM del SNES (7E:2000-2FFF) o la ROM */
+  uint8 bank = a >> 16;
+  uint16 ad = (uint16)a;
+  if (bank == 0x7E) return (uint16)(ad - 0x2000) < 0x1000 ? tilemap_stuff[(uint16)(ad - 0x2000) >> 1] : 0;
+  return nt_bank_w(bank, ad);
+}
+static void kq_frame(void) {                      /* (zebes_frame) convierte hasta KQ_ROWS tareas */
+  if (kq_conv || kq_r == kq_w) return;
+  uint8 lp = md_cur_page;
+  uint16 c = 0, wgt = 0;                          /* (wgt: filas a subir; una de 32x32 va a 4 lugares) */
+  while (kq_r != kq_w && wgt < KQ_ROWS) {
+    KqJob j = kq_job[kq_r];
+    if (j.cell == 0xFFFF) {                       /* la boca: empieza una tanda (sus filas, 11, entran en ella) */
+      if (c) break;
+      mouth_pend = (uint8)j.src + 1;
+      kq_r = (uint8)((kq_r + 1) % KQ_N);
+      continue;
+    }
+    kq_r = (uint8)((kq_r + 1) % KQ_N);
+    wgt += (j.cell & 0x8000) ? 4 : 1;
+    uint16 *o = kq_buf + c * 32;
+    uint16 mo = (uint16)j.src - kKraidMouthSrc[0];
+    if ((uint8)(j.src >> 16) == 0xA7 && zw->mouth_cells && mo < 4 * 0x300 && mo % 0x300 < 704) {
+      /* un cuadro de la boca: sus celdas ya convertidas (mkzebes, ZebesWall.mouth_cells) */
+      map_page(ZEBES_BOSS_PAGE);
+      const uint16 *src = zw->mouth_cells + (mo / 0x300) * 352 + (mo % 0x300) / 2;
+      for (uint16 i = 0; i < j.n; i++) o[i] = src[i];
+      kq_dst[2 * c] = j.cell; kq_dst[2 * c + 1] = j.n;
+      c++;
+      continue;
+    }
+    for (uint16 i = 0; i < j.n; i++) {
+      uint16 w = kq_word(j.src + 2 * i), cc = 0;  /* (kq_word puede cambiar de página: la ROM del origen) */
+      if (zbb) {
+        if (md_hw_page != ZEBES_BOSS_PAGE) map_page(ZEBES_BOSS_PAGE);
+        cc = zbb->tab[(uint16)zbb->slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
+        if (cc & 0x7FF) cc += ZT_BASE;
+        cc ^= (w >> 3) & 0x1800;                  /* flips: SNES 15, 14 -> Genesis 12, 11 */
+        cc |= (w & 0x2000) << 2;                  /* prioridad */
+      }
+      o[i] = cc;
+    }
+    kq_dst[2 * c] = j.cell; kq_dst[2 * c + 1] = j.n;
+    c++;
+  }
+  map_page(lp);
+  kq_conv = (uint8)c;
+}
+static void kq_vblank(void) {
+  for (uint16 c = 0; c < kq_conv; c++) {
+    uint16 cell = kq_dst[2 * c];
+    if (cell & 0x8000)
+      for (uint16 q = 0; q < 4; q++)
+        vdp_dma_vram(kq_buf + c * 32, MD_VRAM_PLANE_B + ((cell & 0x7FFF) + (q & 1) * 32 + (q >> 1) * 2048) * 2,
+                     kq_dst[2 * c + 1]);
+    else vdp_dma_vram(kq_buf + c * 32, MD_VRAM_PLANE_B + cell * 2, kq_dst[2 * c + 1]);
+  }
+  kq_conv = 0;
+  if (mouth_pend && zw) {
+    uint8 f = mouth_pend - 1, lp = md_cur_page;
+    if (zw->mouth_cnt[f]) {
+      map_page(ZEBES_BOSS_PAGE);
+      vdp_dma_vram(zw->mouth + 32 * zw->mouth_off[f], zw->mouth_t * 32, zw->mouth_cnt[f] * 16);
+      map_page(lp);
+    }
+    mouth_cur = mouth_pend;
+    mouth_pend = 0;
+  }
+  if (wall_pend && zw) {
+    uint8 lp = md_cur_page;
+    map_page(ZEBES_BOSS_PAGE);
+    for (uint16 i = 0; i < zw->n; i++) {
+      if (wall_pend == 1) vdp_dma_vram(zw->tiles + 32 * i, zw->idx[i] * 32, 16);
+      else vdp_fill_vram(zw->idx[i] * 32, 0, 16);
+    }
+    map_page(lp);
+    wall_pend = 0;
+  }
+}
 /* ---------------------------------------------------------------- cuerpos de los jefes en el BG2 (docs/59)
    El SNES sube tilemap_stuff (enemy_bg2_tilemap_size bytes) al BG2 en $4800 ($A0:9726): la pantalla izquierda del
    fondo, filas de 32 celdas. Aquí cada palabra pasa a una celda de la Genesis por la tabla de la sala (mkzebes.py,
@@ -690,7 +867,7 @@ void zebes_take(void) {
   nlblk = 0;
   for (uint16 k = 0; k < nlanim && nanim < QANIM; k++) { qanim[nanim][0] = lanim[k][0]; qanim[nanim][1] = lanim[k][1]; nanim++; }
   nlanim = 0;
-  for (uint16 k = 0; k < frz_nq_l && frz_nq < FRZ_NSLOT; k++) frz_q[frz_nq++] = frz_q_l[k];   /* congelados */
+  for (uint16 k = 0; k < frz_nq_l && frz_nq < frz_ns; k++) frz_q[frz_nq++] = frz_q_l[k];   /* congelados */
   frz_nq_l = 0;
 }
 static void anim_vblank(void) {
@@ -725,7 +902,8 @@ void zebes_vblank(void) {
     else bc_vblank(96);
   }
   if (bb_n && !bc_npend) bb_vblank();
-  if (melt_n) melt_vblank();                    /* (después de la caché: los tiles de Crocomire derritiéndose) */
+  if (melt_n) melt_vblank();
+  if (zw && (kq_conv || wall_pend || mouth_pend)) kq_vblank();                    /* (después de la caché: los tiles de Crocomire derritiéndose) */
   if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();
   if (full_redraw) {                          /* salto grande: toda la ventana (rara vez: puertas, temblores) */
@@ -824,6 +1002,11 @@ void zebes_obj_colors(void) {
   if (zobj_srcp_of != zo) zobj_src_prepare();
   const uint16 **p = zobj_srcp;
   uint16 *o = zobj_col;
+  extern uint8 tint_on;
+  if (!tint_on) {                            /* (lo normal: sin la llamada por color) */
+    for (uint16 i = 0; i < 15; i++) *o++ = kCram555[**p++ & 0x7FFF];
+    return;
+  }
   for (uint16 i = 0; i < 15; i++) *o++ = md_tint_cram(**p++);
 }
 
@@ -850,13 +1033,26 @@ uint16 zebes_obj_end(void) { return zo ? zo->base + zo->ntiles : ZOBJ_BASE; }   
 
 /* claves ya buscadas (por dispersión del spritemap): casi siempre el mismo enemigo con el mismo cuadro */
 static struct { uint16 sm, pal, tiles; const uint16 *rec; const void *zo; } zcache[64];
+/* dos vías: 32 conjuntos de 2 (h, h + 1; las claves de un cuadro chocaban en la tabla directa y cada choque era una
+   búsqueda binaria); la nueva entra en h y la que estaba pasa a h + 1 */
+static inline int16 zc_find(uint16 sm, uint16 pal, uint16 tiles) {
+  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 62;      /* (el par h, h + 1 es un conjunto) */
+  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles) return h;
+  h ^= 1;
+  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles) return h;
+  return -1;
+}
+static inline void zc_put(uint16 sm, uint16 pal, uint16 tiles, const uint16 *r) {
+  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 62;
+  zcache[h ^ 1] = zcache[h];
+  zcache[h].sm = sm; zcache[h].pal = pal; zcache[h].tiles = tiles; zcache[h].rec = r; zcache[h].zo = zo;
+}
 /* con la página de los objetos puesta: los registros de la clave (de zcache o de la búsqueda) o 0 */
 const uint16 *zebes_obj_find_cached(uint16 sm, uint16 pal, uint16 tiles) {
-  uint16 h = (sm ^ (sm >> 6) ^ pal ^ tiles) & 63;
-  if (zcache[h].zo == zo && zcache[h].sm == sm && zcache[h].pal == pal && zcache[h].tiles == tiles)
-    return zcache[h].rec;
+  int16 h = zc_find(sm, pal, tiles);
+  if (h >= 0) return zcache[h].rec;
   const uint16 *r = zebes_obj_find(sm, pal, tiles);
-  zcache[h].sm = sm; zcache[h].pal = pal; zcache[h].tiles = tiles; zcache[h].rec = r; zcache[h].zo = zo;
+  zc_put(sm, pal, tiles, r);
   return r;
 }
 /* luz de la bomba de poder (md_cone.c): el plano A con prioridad alta (on) o la de cada celda. Las celdas que entran
@@ -879,39 +1075,57 @@ uint8 zebes_prio_busy(void) { return psweep < ZW; }
    tiene 16 o menos; uno más grande toma lugares seguidos). Sin lugar (o con la caja de mensaje, que usa esas filas,
    o en las salas del ojo, donde las usa el haz) se dibuja con su paleta (md_engine.c). */
 static void frz_reset(void) {
-  for (uint16 i = 0; i < FRZ_NSLOT; i++) frz_id[i] = 0xFFFF;
+  frz_nq = 0;
+  for (uint16 i = 0; i < frz_ns; i++) frz_id[i] = 0xFFFF;
   frz_nq_l = 0;
 }
 void zebes_frz_reset(void) { frz_reset(); }   /* md_engine.c: la caja de mensaje usó las filas del Window */
 /* (con la página ZEBES_FRZ_PAGE puesta) primer tile de la VRAM del congelado n, o 0 si no hay lugar */
+/* por cuadro (frz_stream): lugar de cada entrada por número (n & 63), para no recorrer el depósito en cada dibujo
+   (cinematic_text_tilemap + 2880..3007: libre en esas salas, entre kq_dst y las tablas del depósito) */
+#define frz_hc ((uint8 *)cinematic_text_tilemap + 2880)
 static uint16 frz_get(uint16 n) {
   uint16 now = md_frame_count;
-  for (uint16 i = 0; i < FRZ_NSLOT; i++)
-    if (frz_id[i] == n) { frz_last[i] = now; return FRZ_TILE0 + i * FRZ_SLOT; }
-  uint16 k = (kZebesFrz[4 * n + 2] + FRZ_SLOT - 1) / FRZ_SLOT;   /* lugares que necesita */
-  if (k > FRZ_NSLOT) return 0;
-  /* libres: sin usar o sin dibujarse hace FRZ_KEEP cuadros (los del cuadro anterior no: puede no haberse visto) */
-  uint8 fr[FRZ_NSLOT];
-  for (uint16 i = 0; i < FRZ_NSLOT; i++) fr[i] = 0;
-  for (uint16 i = 0; i < FRZ_NSLOT; i++) {
-    if (frz_id[i] == 0xFFFE) continue;
-    uint16 j = i + 1;
-    while (j < FRZ_NSLOT && frz_id[j] == 0xFFFE) j++;
-    uint8 f = frz_id[i] == 0xFFFF || (uint16)(now - frz_last[i]) > FRZ_KEEP;
-    for (uint16 m = i; m < j; m++) fr[m] = f;
+  if (frz_stream) {
+    uint8 c = frz_hc[n & 127];
+    if (c < frz_ns && frz_id[c] == n) { frz_last[c] = now; return frz_t0 + (c << 3); }   /* (por cuadro: lugares de 8) */
   }
-  for (uint16 i = 0; i + k <= FRZ_NSLOT; i++) {
-    uint16 m = 0;
-    while (m < k && fr[i + m]) m++;
-    if (m < k) continue;
-    if (i + k < FRZ_NSLOT && frz_id[i + k] == 0xFFFE)   /* el resto de uno que se suelta: queda libre */
-      for (uint16 j = i + k; j < FRZ_NSLOT && frz_id[j] == 0xFFFE; j++) frz_id[j] = 0xFFFF;
+  for (uint16 i = 0; i < frz_ns; i++)
+    if (frz_id[i] == n) { frz_last[i] = now; if (frz_stream) frz_hc[n & 127] = (uint8)i; return frz_t0 + i * frz_slot; }
+  uint16 k = (kZebesFrz[4 * n + 2] + frz_slot - 1) / frz_slot;   /* lugares que necesita */
+  if (k > frz_ns) return 0;
+  /* libres: sin usar o sin dibujarse hace FRZ_KEEP cuadros (los del cuadro anterior no: puede no haberse visto; por
+     cuadro: 1, los tiles y la lista de sprites cambian juntos en el vblank, frz_q). Una pasada por los bloques (cabeza
+     y su resto, 0xFFFE): el primer tramo de bloques libres seguidos con k lugares, desde su comienzo */
+  uint16 i = 0, run = 0, st = 0;
+  uint16 keep = frz_stream ? 1 : FRZ_KEEP;
+  for (uint16 h = 0; h < frz_ns; ) {
+    uint16 j = h + 1;
+    while (j < frz_ns && frz_id[j] == 0xFFFE) j++;
+    uint16 id = frz_id[h];
+    if (!(id >= 0xFFFE || (uint16)(now - frz_last[h]) > keep)) { run = 0; h = j; continue; }
+    if (!run) st = h;
+    run += j - h;
+    h = j;
+    if (run >= k) break;
+  }
+  if (run < k) return 0;
+  i = st;
+  {
+    uint16 m;
+    if (frz_id[i] == 0xFFFE) {                    /* empieza a mitad de uno que se suelta: su cabeza ya no vale */
+      uint16 h = i;
+      while (h && frz_id[h] == 0xFFFE) h--;
+      for (; h < i; h++) frz_id[h] = 0xFFFF;
+    }
+    if (i + k < frz_ns && frz_id[i + k] == 0xFFFE)   /* el resto de uno que se suelta: queda libre */
+      for (uint16 j = i + k; j < frz_ns && frz_id[j] == 0xFFFE; j++) frz_id[j] = 0xFFFF;
     frz_id[i] = n; frz_last[i] = now;
+    if (frz_stream) frz_hc[n & 127] = (uint8)i;
     for (m = 1; m < k; m++) frz_id[i + m] = 0xFFFE;
-    if (frz_nq_l < FRZ_NSLOT) frz_q_l[frz_nq_l++] = (uint8)i;
-    return FRZ_TILE0 + i * FRZ_SLOT;
+    if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i;
+    return frz_t0 + i * frz_slot;
   }
-  return 0;
 }
 static void frz_vblank(void) {
   uint8 lp = md_cur_page;
@@ -921,7 +1135,7 @@ static void frz_vblank(void) {
     uint16 n = frz_id[i];
     if (n >= 0xFFFE) continue;
     const uint16 *e = kZebesFrz + 4 * n;
-    zebes_dma_runs(ZEBES_FRZ_PAGE, kZebesFrzRuns + 2 * e[0], e[1], FRZ_TILE0 + i * FRZ_SLOT);
+    zebes_dma_runs(ZEBES_FRZ_PAGE, kZebesFrzRuns + 2 * e[0], e[1], frz_t0 + i * frz_slot);
   }
   frz_nq = 0;
   map_page(lp);
@@ -930,34 +1144,251 @@ typedef struct { int16 y; uint16 size_link; uint16 attr; int16 x; } GenSpr;   /*
 extern GenSpr *sp_ptr;
 extern uint8 nt_msgbox_active;
 /* congelado n en (x, y) */
-static uint8 frz_draw(uint16 n, int16 x, int16 y) {
-  if (nt_msgbox_active || zg->eye) return 0;
+/* registros de a0 en (x, y) con t sumado al atributo de cada sprite (md_engine.c, md_putrecs_t), sin llamada en C */
+static inline __attribute__((always_inline)) void put_recs_t(const uint16 *r, int16 x, int16 y, uint16 t) {
+  register int32_t d0 __asm__("d0") = x;
+  register int32_t d1 __asm__("d1") = y;
+  register const uint16 *a0 __asm__("a0") = r;
+  register uint32_t d4 __asm__("d4") = t;
+  __asm__ volatile("jsr md_putrecs_t" : "+d"(d0), "+d"(d1), "+a"(a0) : "d"(d4) : "a1", "cc", "memory");
+}
+static inline __attribute__((always_inline)) uint8 frz_draw(uint16 n, int16 x, int16 y) {
+  if (!frz_stream && (nt_msgbox_active || zg->eye)) return 0;   /* (la caja y el haz usan las filas del Window) */
   uint8 lp = md_cur_page;
   map_page(ZEBES_FRZ_PAGE);
   uint16 t = frz_get(n);
-  if (t) {
-    GenSpr *s0 = sp_ptr;
-    md_put_recs(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y);
-    for (GenSpr *q = s0; q < sp_ptr; q++) q->attr += t;
-  }
+  if (t) put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t);
   map_page(lp);
   return t != 0;
 }
 
-uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
+/* proyectiles enemigos con una clave por cuadro (md_engine.c, ep_lookup): el número de la entrada (o -1 si es una
+   clave fija), y su dibujo en (x, y) con el lugar del depósito sumado, desde la página del depósito */
+int16 zebes_ep_frozen(const uint16 *r) {   /* (-2: congelado en una sala sin depósito por cuadro: no se dibuja) */
+  if (!zo || (uint16)(r - zo->recs) < FROZEN_REF) return -1;
+  if (!frz_stream) return -2;
+  return (int16)((uint16)(r - zo->recs) - FROZEN_REF);
+}
+static __attribute__((noinline)) void zebes_ep_draw_slow(uint16 n, int16 x, int16 y) {
+  uint8 lp = md_cur_page;
+  map_page(ZEBES_FRZ_PAGE);
+  uint16 t = frz_get(n);
+  if (t) put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t);
+  map_page(lp);
+}
+void zebes_ep_draw(uint16 n, int16 x, int16 y) {   /* (lo común, corto: el lugar ya puesto) */
+  uint8 c = frz_hc[n & 127];
+  if (c < frz_ns && frz_id[c] == n) {
+    frz_last[c] = md_frame_count;
+    uint8 lp = md_cur_page;
+    map_page(ZEBES_FRZ_PAGE);
+    put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, frz_t0 + (c << 3));   /* (por cuadro: lugares de 8) */
+    map_page(lp);
+    return;
+  }
+  zebes_ep_draw_slow(n, x, y);
+}
+
+static __attribute__((noinline, noclone, used)) uint8 zebes_obj_draw_slow(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
   if (!zo) return 0;
   uint8 lp = md_cur_page;
-  map_page(zo->page);
-  const uint16 *r = zebes_obj_find_cached(sm, pal, tiles);
-  uint8 ok = r != 0;
-  if (r && (uint16)(r - zo->recs) >= FROZEN_REF) {   /* congelado: (0x8000 | número) */
-    uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
-    map_page(lp);
-    return frz_draw(n, x, y);
+  /* (un acierto de zcache no lee la página de los objetos: solo se pone para buscar o para sus registros) */
+  int16 h = zc_find(sm, pal, tiles);
+  const uint16 *r;
+  if (h >= 0) {
+    r = zcache[h].rec;
+  } else {
+    map_page(zo->page);
+    r = zebes_obj_find(sm, pal, tiles);
+    zc_put(sm, pal, tiles, r);
   }
-  if (r) md_put_recs(r, x, y);
+  uint8 ok = 0;
+  if (!r) {
+  } else if ((uint16)(r - zo->recs) >= FROZEN_REF) {   /* congelado o por cuadro: (0x8000 | número) */
+    uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
+    if (frz_stream || !(nt_msgbox_active || zg->eye)) {   /* (la caja y el haz usan las filas del Window) */
+      map_page(ZEBES_FRZ_PAGE);
+      uint16 t = frz_get(n);
+      if (t) { put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t); ok = 1; }
+    }
+  } else {
+    map_page(zo->page);
+    put_recs_t(r, x, y, 0);
+    ok = 1;
+  }
   map_page(lp);
   return ok;
 }
 
+#ifdef __mc68000__
+/* zebes_obj_draw en ensamblador (el C de la rama #else es la referencia): sin el guardado de once registros del C;
+   lo que no sea lo común salta a zebes_obj_draw_slow con los mismos argumentos */
+_Static_assert(sizeof(zcache[0]) == 14 && offsetof(__typeof__(zcache[0]), rec) == 6 &&
+               offsetof(__typeof__(zcache[0]), zo) == 10, "zcache: el ensamblador de zebes_obj_draw");
+_Static_assert(offsetof(ZebesObj, recs) == 20, "ZebesObj.recs: el ensamblador de zebes_obj_draw");
+_Static_assert(FROZEN_REF == 0x8000 && ZEBES_FRZ_PAGE == 18, "zebes_obj_draw: constantes del ensamblador");
+__asm__(
+  "    .text\n"
+  /* zfrz_put: el congelado n (d0.w) en (x d1.w, y a1.w) si ya tiene su lugar del cuadro (frz_hc): d0 = 1; si no, 0
+     (el camino lento lo busca o lo sube). Preserva d2-d7/a2-a6. (También md_draw_eprojs_asm, md_engine.c.) */
+  "    .global zfrz_put\n"
+  "zfrz_put:\n"
+  "    movem.l %d2-%d4/%a2,-(%sp)\n"
+  "    movea.w %d1,%a2\n"                     /* x */
+  "    moveq #127,%d2\n"
+  "    and.w %d0,%d2\n"
+  "    lea cinematic_text_tilemap+2880,%a0\n" /* frz_hc */
+  "    moveq #0,%d3\n"
+  "    move.b (%a0,%d2.w),%d3\n"              /* c */
+  "    cmp.b frz_ns,%d3\n"
+  "    bcc 8f\n"
+  "    add.w %d3,%d3\n"
+  "    movea.l frz_id,%a0\n"
+  "    cmp.w (%a0,%d3.w),%d0\n"
+  "    bne 8f\n"
+  "    movea.l frz_last,%a0\n"
+  "    move.w md_frame_count,(%a0,%d3.w)\n"
+  "    moveq #0,%d4\n"
+  "    move.w %d3,%d4\n"
+  "    lsl.w #2,%d4\n"
+  "    add.w frz_t0,%d4\n"                    /* frz_t0 + (c << 3) */
+  "    move.b md_cur_page,%d3\n"              /* la página de antes */
+  "    move.b #18,md_cur_page\n"              /* ZEBES_FRZ_PAGE */
+  "    cmp.b #18,md_hw_page\n"
+  "    beq 3f\n"
+  "    move.b #18,md_hw_page\n"
+  "    move.b #18,0xA130FF\n"
+  "3:  and.l #0xFFFF,%d0\n"
+  "    lsl.l #3,%d0\n"
+  "    lea kZebesFrz,%a0\n"
+  "    moveq #0,%d1\n"
+  "    move.w 6(%a0,%d0.l),%d1\n"             /* kZebesFrz[4 n + 3] */
+  "    add.l %d1,%d1\n"
+  "    move.l %a1,%d2\n"                      /* y */
+  "    lea kZebesFrzRecs,%a0\n"
+  "    adda.l %d1,%a0\n"
+  "    move.l %a2,%d0\n"
+  "    move.l %d2,%d1\n"
+  "    jsr md_putrecs_t\n"
+  "    move.b %d3,md_cur_page\n"
+  "    cmp.b md_hw_page,%d3\n"
+  "    beq 4f\n"
+  "    move.b %d3,md_hw_page\n"
+  "    move.b %d3,0xA130FF\n"
+  "4:  movem.l (%sp)+,%d2-%d4/%a2\n"
+  "    moveq #1,%d0\n"
+  "    rts\n"
+  "8:  movem.l (%sp)+,%d2-%d4/%a2\n"
+  "    moveq #0,%d0\n"
+  "    rts\n"
+  "    .global zebes_obj_draw\n"
+  "zebes_obj_draw:\n"                        /* sm 6(sp), pal 10, tiles 14, x 18, y 22 (palabras bajas) */
+  "    move.l zo,%d0\n"
+  "    beq 80f\n"
+  "    tst.b frz_stream\n"
+  "    beq 90f\n"
+  "    movea.l %d0,%a0\n"                     /* zo */
+  "    movem.l %d2-%d4,-(%sp)\n"              /* (los argumentos: + 12) */
+  "    move.w 18(%sp),%d1\n"                  /* sm */
+  "    move.w %d1,%d2\n"
+  "    lsr.w #6,%d2\n"
+  "    eor.w %d1,%d2\n"
+  "    move.w 22(%sp),%d3\n"                  /* pal */
+  "    eor.w %d3,%d2\n"
+  "    move.w 26(%sp),%d4\n"                  /* tiles */
+  "    eor.w %d4,%d2\n"
+  "    and.w #62,%d2\n"                       /* h (el par h, h + 1) */
+  "    add.w %d2,%d2\n"
+  "    move.w %d2,%d0\n"
+  "    lsl.w #3,%d0\n"
+  "    sub.w %d2,%d0\n"                       /* 14 h */
+  "    lea zcache,%a1\n"
+  "    adda.w %d0,%a1\n"
+  "    cmpa.l 10(%a1),%a0\n"
+  "    bne 1f\n"
+  "    cmp.w (%a1),%d1\n"
+  "    bne 1f\n"
+  "    cmp.w 2(%a1),%d3\n"
+  "    bne 1f\n"
+  "    cmp.w 4(%a1),%d4\n"
+  "    beq 2f\n"
+  "1:  lea 14(%a1),%a1\n"                     /* h + 1 */
+  "    cmpa.l 10(%a1),%a0\n"
+  "    bne 89f\n"
+  "    cmp.w (%a1),%d1\n"
+  "    bne 89f\n"
+  "    cmp.w 2(%a1),%d3\n"
+  "    bne 89f\n"
+  "    cmp.w 4(%a1),%d4\n"
+  "    bne 89f\n"
+  "2:  move.l 6(%a1),%d0\n"                   /* rec */
+  "    beq 89f\n"
+  "    sub.l 20(%a0),%d0\n"                   /* - zo->recs */
+  "    asr.l #1,%d0\n"
+  "    sub.w #0x8000,%d0\n"                   /* n = ... - FROZEN_REF */
+  "    bmi 89f\n"                             /* (n >= 0x8000) */
+  "    movem.l (%sp)+,%d2-%d4\n"
+  "    move.w 18(%sp),%d1\n"                  /* x */
+  "    movea.w 22(%sp),%a1\n"                 /* y */
+  "    bsr zfrz_put\n"
+  "    tst.w %d0\n"
+  "    beq 90f\n"
+  "    rts\n"
+  "80: moveq #0,%d0\n"
+  "    rts\n"
+  "89: movem.l (%sp)+,%d2-%d4\n"
+  "90: jmp zebes_obj_draw_slow\n");
+#else
+/* lo común, corto (sin el prólogo del camino lento): clave ya en zcache y, si es por cuadro, con su lugar puesto */
+uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
+  if (!zo) return 0;
+  int16 h = frz_stream ? zc_find(sm, pal, tiles) : -1;
+  if (h >= 0) {
+    const uint16 *r = zcache[h].rec;
+    uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
+    if (r && n < 0x8000) {
+      uint8 c = frz_hc[n & 127];
+      if (c < frz_ns && frz_id[c] == n) {
+        frz_last[c] = md_frame_count;
+        uint8 lp = md_cur_page;
+        map_page(ZEBES_FRZ_PAGE);
+        put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, frz_t0 + (c << 3));   /* (por cuadro: lugares de 8) */
+        map_page(lp);
+        return 1;
+      }
+    }
+  }
+  return zebes_obj_draw_slow(sm, pal, tiles, x, y);
+}
+#endif
+
 void map_page_ext(uint8 p) { map_page(p); }
+/* bancos del SNES que se leen poco (nmath.h, mkdata.py COLD_BANKS): en la página NT_COLD_PAGE; se pone un momento y
+   vuelve la que tenía el registro (md_hw_page: la intro cambia de página sin md_cur_page) */
+static inline uint8 cold_on(void) {
+  uint8 hw = md_hw_page;
+  __asm__ volatile("" ::: "memory");
+  md_hw_page = NT_COLD_PAGE;
+  *(volatile uint8 *)0xA130FF = NT_COLD_PAGE;
+  __asm__ volatile("" ::: "memory");
+  return hw;
+}
+static inline void cold_off(uint8 hw) {
+  __asm__ volatile("" ::: "memory");
+  md_hw_page = hw;
+  *(volatile uint8 *)0xA130FF = hw;
+  __asm__ volatile("" ::: "memory");
+}
+uint16 nt_paged_w(const uint8 *t, uint16 a) {
+  uint8 hw = cold_on();
+  const uint8 *q = t + (uint16)(a - 0x8000);
+  uint8 lo = q[0], hi = q[1];
+  cold_off(hw);
+  return (uint16)(lo | hi << 8);
+}
+uint8 nt_paged_b(const uint8 *t, uint16 a) {
+  uint8 hw = cold_on();
+  uint8 v = t[(uint16)(a - 0x8000)];
+  cold_off(hw);
+  return v;
+}

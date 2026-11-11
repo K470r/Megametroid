@@ -214,7 +214,11 @@ static uint8 EprojBlockReact(EprojCollInfo *eci, uint8 vertical) {
   }
 }
 
-uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
+/* tipos de bloque con los que un proyectil enemigo reacciona (EprojBlockReact): pendiente (1), salto horizontal y
+   vertical por BTS (5, 0xD) y sólidos (8-0xC, 0xF); con los demás sigue de largo */
+#define EPROJ_REACTS ((1 << 1) | (1 << 5) | (1 << 8) | (1 << 9) | (1 << 0xA) | (1 << 0xB) | (1 << 0xC) | (1 << 0xD) | (1 << 0xF))
+
+static __attribute__((noinline, noclone, used)) uint8 EprojBlockCollisition_Horiz_full(uint16 k) {  // 0x8688B6
   int v1 = k >> 1;
   int32 amt = (int32)(int16)eproj_x_vel[v1] << 8;
   uint16 R30 = HI8(eproj_radius[v1]);
@@ -225,8 +229,8 @@ uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
   uint32 np = (uint32)amt + PAIR32(eproj_x_pos[v1], eproj_x_subpos[v1]);
   uint16 r24 = np >> 16, r22 = (uint16)np;
   uint16 v4 = (amt < 0) ? (uint16)(r24 - R28) : (uint16)(R28 + r24 - 1);
-  EprojCollInfo eci = { (uint16)(amt >> 16), r24, r26, R28, R30, r26, v4 };
   uint16 v5 = 2 * (prod + (v4 >> 4));
+  EprojCollInfo eci = { (uint16)(amt >> 16), r24, r26, R28, R30, r26, v4 };
   for (;;) {
     cur_block_index = v5 >> 1;
     if (EprojBlockReact(&eci, 0) & 1)
@@ -251,7 +255,7 @@ uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
   return 1;
 }
 
-uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
+static __attribute__((noinline, noclone, used)) uint8 EprojBlockCollisition_Vertical_full(uint16 k) {  // 0x86897B
   /* lo mismo que el SNES con cuentas de 16 bits (la posición de 32 bits = y:subpos más la velocidad << 8) */
   int v1 = k >> 1;
   uint16 vel = eproj_y_vel[v1], rad = eproj_radius[v1];
@@ -262,8 +266,8 @@ uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
   uint16 hi = (uint16)((int16)vel >> 8);
   uint16 r24 = eproj_y_pos[v1] + hi + (r22 < sub);
   uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R30) : (uint16)(R30 + r24 - 1);
-  EprojCollInfo eci = { hi, r24, n, R28, R30, n, v4 };
   uint16 i = (uint16)(Mul16((uint8)(v4 >> 4), room_width_in_blocks) + (xl >> 4));
+  EprojCollInfo eci = { hi, r24, n, R28, R30, n, v4 };
   for (;; i++) {
     cur_block_index = i & 0x7FFF;
     if (EprojBlockReact(&eci, 1) & 1)
@@ -286,6 +290,211 @@ uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
   }
   return 1;
 }
+
+/* Lo común (rocas en el aire): ningún bloque del borde reacciona; entonces solo se mueve. Cuentas de 16 bits (en el
+   68000 las de 32 bits y los índices int eran la mitad del costo) y los arreglos por su desplazamiento en bytes (k).
+   Si algún bloque reacciona, la función completa (*_full) desde el principio: nada se cambió antes. */
+#define EPW(arr, k) (*(uint16 *)((uint8 *)(arr) + (k)))
+static inline uint8 EprojBlocksQuiet(uint16 bi, uint16 step, uint16 m) {   /* m + 1 bloques desde bi (de a step) */
+  for (;;) {
+    if ((EPROJ_REACTS >> (level_block(bi & 0x7FFF) >> 12)) & 1)
+      return 0;
+    if (!m--)
+      break;
+    bi += step;
+  }
+  cur_block_index = bi & 0x7FFF;
+  return 1;
+}
+#ifdef __mc68000__
+/* Los caminos rápidos de abajo en ensamblador (el C de la rama #else es la referencia): ningún bloque tocado
+   reacciona (y se lee de la ROM de la sala o es uno no cambiado) → mueve el proyectil y devuelve 0; si no, el
+   original completo (_full) con el mismo argumento. eproj_quiet: d4 bloque, d1 paso, d3 m (m + 1 bloques);
+   usa d0/d2/d5/a0/a2; d2 = 0 si ninguno reacciona (y cur_block_index = el último). */
+__asm__(
+  "    .text\n"
+  "eproj_quiet:\n"
+  "    movea.l lvl_rom,%a0\n"
+  "    lea lvl_mod,%a2\n"
+  "    move.l #0xBF22,%d0\n"                  /* EPROJ_REACTS: 1, 5, 8-0xD, 0xF */
+  "1:  move.w %d4,%d5\n"
+  "    and.w #0x7FFF,%d5\n"
+  "    cmp.w lvl_fast,%d5\n"
+  "    bcc 3f\n"
+  "2:  add.w %d5,%d5\n"
+  "    move.b (%a0,%d5.w),%d2\n"              /* el byte alto del bloque: el tipo en los 4 bits altos */
+  "    lsr.b #4,%d2\n"
+  "    btst %d2,%d0\n"
+  "    bne 8f\n"
+  "    add.w %d1,%d4\n"
+  "    dbra %d3,1b\n"
+  "    sub.w %d1,%d4\n"
+  "    and.w #0x7FFF,%d4\n"
+  "    move.w %d4,cur_block_index\n"
+  "    moveq #0,%d2\n"
+  "    rts\n"
+  "3:  cmp.w lvl_blocks,%d5\n"
+  "    bcc 8f\n"                              /* fuera del nivel */
+  "    move.w %d5,%d2\n"
+  "    lsr.w #3,%d2\n"
+  "    btst %d5,(%a2,%d2.w)\n"                /* lvl_mod (en memoria: el bit módulo 8) */
+  "    beq 2b\n"
+  "8:  moveq #1,%d2\n"                        /* reacciona o cambiado por un PLM: el original */
+  "    rts\n"
+  /* uint8 EprojBlockCollisition_Horiz(uint16 k)   // 0x8688B6 */
+  "    .global EprojBlockCollisition_Horiz\n"
+  "EprojBlockCollisition_Horiz:\n"
+  "    movem.l %d2-%d7/%a2,-(%sp)\n"
+  "    movea.w 34(%sp),%a1\n"                 /* k */
+  "    lea eproj_radius,%a0\n"
+  "    moveq #0,%d1\n"
+  "    move.b (%a0,%a1.w),%d1\n"              /* R30 (el byte alto) */
+  "    moveq #0,%d2\n"
+  "    move.b 1(%a0,%a1.w),%d2\n"             /* R28 */
+  "    lea eproj_y_pos,%a0\n"
+  "    move.w (%a0,%a1.w),%d3\n"
+  "    move.w %d3,%d4\n"
+  "    sub.w %d1,%d4\n"                       /* t = y - R30 */
+  "    add.w %d1,%d3\n"
+  "    subq.w #1,%d3\n"
+  "    move.w %d4,%d1\n"
+  "    and.w #0xFFF0,%d1\n"
+  "    sub.w %d1,%d3\n"
+  "    lsr.w #4,%d3\n"                        /* r26 */
+  "    cmp.w #16,%d3\n"
+  "    bhi 90f\n"
+  "    lea eproj_x_vel,%a0\n"
+  "    move.w (%a0,%a1.w),%d1\n"              /* vel */
+  "    move.b (%a0,%a1.w),%d5\n"
+  "    ext.w %d5\n"                          /* vel >> 8 con signo */
+  "    move.w %d1,%d6\n"
+  "    lsl.w #8,%d6\n"
+  "    lea eproj_x_subpos,%a0\n"
+  "    add.w (%a0,%a1.w),%d6\n"               /* r22; X = acarreo */
+  "    lea eproj_x_pos,%a0\n"
+  "    move.w (%a0,%a1.w),%d7\n"
+  "    addx.w %d5,%d7\n"                      /* r24 */
+  "    move.w %d7,%d5\n"
+  "    tst.w %d1\n"
+  "    bmi 1f\n"
+  "    add.w %d2,%d5\n"
+  "    subq.w #1,%d5\n"
+  "    bra 2f\n"
+  "1:  sub.w %d2,%d5\n"
+  "2:  lsr.w #4,%d5\n"
+  "    lsr.w #4,%d4\n"
+  "    and.w #0xFF,%d4\n"
+  "    move.w room_width_in_blocks,%d1\n"
+  "    mulu.w %d1,%d4\n"
+  "    add.w %d5,%d4\n"                       /* bi */
+  "    bsr eproj_quiet\n"
+  "    tst.w %d2\n"
+  "    bne 90f\n"
+  "    lea eproj_x_subpos,%a0\n"
+  "    move.w %d6,(%a0,%a1.w)\n"
+  "    lea eproj_x_pos,%a0\n"
+  "    move.w %d7,(%a0,%a1.w)\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    moveq #0,%d0\n"
+  "    rts\n"
+  "90: movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    jmp EprojBlockCollisition_Horiz_full\n"
+  /* uint8 EprojBlockCollisition_Vertical(uint16 k)   // 0x86897B */
+  "    .global EprojBlockCollisition_Vertical\n"
+  "EprojBlockCollisition_Vertical:\n"
+  "    movem.l %d2-%d7/%a2,-(%sp)\n"
+  "    movea.w 34(%sp),%a1\n"
+  "    lea eproj_radius,%a0\n"
+  "    moveq #0,%d2\n"
+  "    move.b (%a0,%a1.w),%d2\n"              /* R30 */
+  "    moveq #0,%d1\n"
+  "    move.b 1(%a0,%a1.w),%d1\n"             /* R28 */
+  "    lea eproj_x_pos,%a0\n"
+  "    move.w (%a0,%a1.w),%d3\n"
+  "    move.w %d3,%d4\n"
+  "    sub.w %d1,%d4\n"                       /* xl = x - R28 */
+  "    add.w %d1,%d3\n"
+  "    subq.w #1,%d3\n"
+  "    move.w %d4,%d1\n"
+  "    and.w #0xFFF0,%d1\n"
+  "    sub.w %d1,%d3\n"
+  "    lsr.w #4,%d3\n"                        /* n */
+  "    cmp.w #16,%d3\n"
+  "    bhi 90f\n"
+  "    lea eproj_y_vel,%a0\n"
+  "    move.w (%a0,%a1.w),%d1\n"
+  "    move.b (%a0,%a1.w),%d5\n"
+  "    ext.w %d5\n"                          /* vel >> 8 con signo */
+  "    move.w %d1,%d6\n"
+  "    lsl.w #8,%d6\n"
+  "    lea eproj_y_subpos,%a0\n"
+  "    add.w (%a0,%a1.w),%d6\n"               /* r22 */
+  "    lea eproj_y_pos,%a0\n"
+  "    move.w (%a0,%a1.w),%d7\n"
+  "    addx.w %d5,%d7\n"                      /* r24 */
+  "    move.w %d7,%d5\n"
+  "    tst.w %d1\n"
+  "    bmi 1f\n"
+  "    add.w %d2,%d5\n"
+  "    subq.w #1,%d5\n"
+  "    bra 2f\n"
+  "1:  sub.w %d2,%d5\n"
+  "2:  lsr.w #4,%d5\n"
+  "    and.w #0xFF,%d5\n"
+  "    mulu.w room_width_in_blocks,%d5\n"
+  "    lsr.w #4,%d4\n"
+  "    add.w %d5,%d4\n"                       /* bi */
+  "    moveq #1,%d1\n"
+  "    bsr eproj_quiet\n"
+  "    tst.w %d2\n"
+  "    bne 90f\n"
+  "    lea eproj_y_subpos,%a0\n"
+  "    move.w %d6,(%a0,%a1.w)\n"
+  "    lea eproj_y_pos,%a0\n"
+  "    move.w %d7,(%a0,%a1.w)\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    moveq #0,%d0\n"
+  "    rts\n"
+  "90: movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    jmp EprojBlockCollisition_Vertical_full\n");
+#else
+uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
+  uint16 vel = EPW(eproj_x_vel, k), rad = EPW(eproj_radius, k);
+  uint16 R30 = rad >> 8, R28 = rad & 0xFF;
+  uint16 y = EPW(eproj_y_pos, k), t = y - R30;
+  uint16 r26 = (uint16)(R30 + y - 1 - (t & 0xFFF0)) >> 4;
+  if (r26 <= 16) {
+    uint16 sub = EPW(eproj_x_subpos, k), r22 = sub + (uint16)(vel << 8);
+    uint16 r24 = EPW(eproj_x_pos, k) + (uint16)((int16)vel >> 8) + (r22 < sub);
+    uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R28) : (uint16)(R28 + r24 - 1);
+    uint16 bi = Mul16((uint8)(t >> 4), room_width_in_blocks) + (v4 >> 4);
+    if (EprojBlocksQuiet(bi, room_width_in_blocks, r26)) {
+      EPW(eproj_x_subpos, k) = r22;
+      EPW(eproj_x_pos, k) = r24;
+      return 0;
+    }
+  }
+  return EprojBlockCollisition_Horiz_full(k);
+}
+uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
+  uint16 vel = EPW(eproj_y_vel, k), rad = EPW(eproj_radius, k);
+  uint16 R30 = rad >> 8, R28 = rad & 0xFF;
+  uint16 x = EPW(eproj_x_pos, k), xl = x - R28;
+  uint16 n = (uint16)(R28 + x - 1 - (xl & 0xFFF0)) >> 4;
+  if (n <= 16) {
+    uint16 sub = EPW(eproj_y_subpos, k), r22 = sub + (uint16)(vel << 8);
+    uint16 r24 = EPW(eproj_y_pos, k) + (uint16)((int16)vel >> 8) + (r22 < sub);
+    uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R30) : (uint16)(R30 + r24 - 1);
+    uint16 bi = Mul16((uint8)(v4 >> 4), room_width_in_blocks) + (xl >> 4);
+    if (EprojBlocksQuiet(bi, 1, n)) {
+      EPW(eproj_y_subpos, k) = r22;
+      EPW(eproj_y_pos, k) = r24;
+      return 0;
+    }
+  }
+  return EprojBlockCollisition_Vertical_full(k);
+}
+#endif
 
 /* ------------------------------------------------------------------ bolas de fuego de Ridley ($86:93CA-9620) */
 static void SetAreaDependentEprojProperties(uint16 j) {  // 0x869402 (kRidleysFireball_Tab0 = $86:9408)

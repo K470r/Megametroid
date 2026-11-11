@@ -358,13 +358,17 @@ def main():
             out.append(',\n'.join('  {0x%06X, %s}' % (a, t) for a, t in ents) + '\n};')
             out.append('%s port_Find%s(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */' % (ft, d))
             out.append('  static uint32 cea[8]; static %s cf[8];   /* (8: la RAM no alcanza para más) */' % ft)
-            out.append('  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;')
+            # dos vías: los pares (h, h ^ 1); la última que se usó queda en h (las piezas de un jefe, ~8 funciones
+            # distintas por cuadro, chocaban en la tabla directa y cada choque era una búsqueda)
+            out.append('  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;')
             out.append('#ifdef NT_SSF2\n  if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];\n#else\n  if (cea[h] == ea) return cf[h];\n#endif')
+            out.append('#ifdef NT_SSF2\n  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {\n#else\n  if (cea[h | 1] == ea) {\n#endif')
+            out.append('    %s t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;\n  }' % ft)
             out.append('  %s f = 0;\n  int lo = 0, hi = %d;' % (ft, len(ents) - 1))
             out.append('  while (lo <= hi) {\n    int m = (lo + hi) >> 1;\n    uint32 e = kPort%s[m].ea;' % d)
             out.append('    if (e == ea) { f = kPort%s[m].f; break; }\n    if (e < ea) lo = m + 1; else hi = m - 1;\n  }' % d)
             out.append('#ifdef NT_SSF2\n  if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }\n#endif')
-            out.append('  cea[h] = ea; cf[h] = f;\n  return f;\n}')
+            out.append('  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;\n  return f;\n}')
             out.append('uint8 port_%s(uint32 ea%s) {  /* 0: no está traducida */' % (d, ', ' + params if params else ''))
             out.append('  %s f = port_Find%s(ea);\n  if (!f) return 0;\n  f(%s);\n  return 1;\n}\n'
                        % (ft, d, (params.split()[-1] if params else 'cur_enemy_index') if withk else ''))
@@ -373,6 +377,18 @@ def main():
     text = re.sub(r'(palette_buffer\[([^\]\n]+)\] = [^;\n]+;)',
                   lambda m: '{ %s nt_pal_dirty((uint8)(%s), (uint8)(%s)); }' % (m.group(1), m.group(2), m.group(2)),
                   '\n'.join(out))
+    # despachadores (CallKraidFunc...): si todos los casos de un switch (ea) son del mismo banco y el que llama siempre
+    # pasa banco | dirección, el switch va sobre los 16 bits de abajo (en el 68000 el de 32 bits es un árbol de
+    # comparaciones largas; el de las piezas de Kraid corría ~8 veces por cuadro)
+    def narrow(m):
+        body = m.group(2)
+        banks = set(re.findall(r'case 0x([0-9A-F]{2})[0-9A-F]{4}:', body))
+        if len(banks) != 1 or re.search(r'case (?!0x[0-9A-F]{6}:)', body):
+            return m.group(0)
+        return m.group(1) + 'switch ((uint16)ea) {  /* (todos del banco $%s) */' % banks.pop() + \
+            re.sub(r'case 0x[0-9A-F]{2}([0-9A-F]{4}):', r'case 0x\1:', body)
+    text = re.sub(r'(\n(?:NT_BOSS )?void Call\w+\(uint32 ea\) \{\n(?:  uint16 k = cur_enemy_index;\n)?  )switch \(ea\) \{(.*?\n  \})',
+                  narrow, text, flags=re.S)
     open(OUT, 'w').write(text + '\n')
     banks = sorted(x.used_banks | {(g.funcs[n][3] >> 16) for n in funcs if g.funcs[n][3]} | set(ROM_STRUCTS.values()))
     open(os.path.join(HERE, 'banks.txt'), 'w').write(' '.join('%02X' % b for b in banks) + '\n')

@@ -271,7 +271,7 @@ static uint8 zobj_hint;
    HUD, que en el SNES es el BG3): niebla (FX 0xC: el color medio de su BG3, kFogW), neblina del Bomb Torizo
    (LayerBlendFunc 0x2C: COLDATA medio de su degradado) y las restas de color fijo (LayerBlendFunc_28/2A) */
 static int8 tint_r, tint_g, tint_b;
-static uint8 tint_on;
+uint8 tint_on;                                /* (md_zebes.c lo lee: sin tinte, los colores de los objetos directos) */
 /* el color con el tinte, ya en la CRAM: kCram555 va canal por canal (comprobado en el PC para los 32768), así que al
    cambiar el tinte se arman tres tablas de 32 (cada canal sumado, recortado y convertido) y cada color son tres
    lecturas: la bomba de poder cambia el tinte casi en cada cuadro de su explosión (docs/58) */
@@ -1070,14 +1070,14 @@ static inline __attribute__((always_inline)) uint16 drawkey(uint16 kind, uint16 
   return (uint16)r0;
 }
 
-uint16 md_missing_ring[32][4];                  /* pruebas: las últimas claves que faltaron (distintas) */
+uint16 md_missing_ring[8][4];                   /* pruebas: las últimas claves que faltaron (distintas; 8: la RAM es justa) */
 uint8 md_missing_rpos;
 static void missing(uint16 kind, uint16 a, uint16 b, uint16 c) {
   if (!md_missing) { md_missing_key[0] = kind; md_missing_key[1] = a; md_missing_key[2] = b; md_missing_key[3] = c; }
   md_missing++;
-  for (uint8 i = 0; i < 32; i++)
+  for (uint8 i = 0; i < 8; i++)
     if (md_missing_ring[i][0] == kind && md_missing_ring[i][1] == a && md_missing_ring[i][2] == b && md_missing_ring[i][3] == c) return;
-  uint16 *r = md_missing_ring[md_missing_rpos++ & 31];
+  uint16 *r = md_missing_ring[md_missing_rpos++ & 7];
   r[0] = kind; r[1] = a; r[2] = b; r[3] = c;
 }
 
@@ -1221,11 +1221,29 @@ const uint16 *zebes_obj_find(uint16 sm, uint16 pal, uint16 tiles);
 const uint16 *zebes_obj_find_cached(uint16 sm, uint16 pal, uint16 tiles);
 uint8 zebes_obj_page(void);
 static uint8 ep_zebes;                          /* md_draw_eprojs en Zebes: claves de los objetos de la sala */
-uint32 ep_lookup(uint16 v2, uint16 sm, uint16 g) {
+static const uint16 kNoRecs[1] = { 0 };          /* (lista vacía: md_putrecs no dibuja nada) */
+uint32 ep_lookup(uint16 v2, uint16 sm, uint16 g, int16 x, int16 y) {
   if (sm == 0x8000) return 0;                   /* $8D:8000: spritemap vacío (el proyectil aún sin instrucción) */
+  struct EpCache *c = &ep_cache[v2 >> 1];
+  /* clave por cuadro (Kraid: las rocas): ep_cache la recuerda con el bit 31 (número de la entrada); se dibuja aquí,
+     desde la página del depósito, con el lugar sumado (md_zebes.c, zebes_ep_draw), sin copiar sus registros */
+  extern void zebes_ep_draw(uint16 n, int16 x, int16 y);
+  if (ep_zebes && ((uint32)c->rec & 0x80000000u) && c->sm == sm && c->g == g) {
+    zebes_ep_draw((uint16)(uint32)c->rec, x, y);
+    return (uint32)kNoRecs;
+  }
   const uint16 *r = ep_zebes ? zebes_obj_find_cached(sm, g, 0x8000) : find_key_q(2, sm, g, 0);
   if (!r) { missing(2, sm, g, 0); return 0; }
-  struct EpCache *c = &ep_cache[v2 >> 1];
+  if (ep_zebes) {
+    extern int16 zebes_ep_frozen(const uint16 *r);
+    int16 n = zebes_ep_frozen(r);
+    if (n == -2) return 0;
+    if (n >= 0) {
+      c->sm = sm; c->g = g; c->rec = (const uint16 *)(0x80000000u | (uint16)n);
+      zebes_ep_draw((uint16)n, x, y);
+      return (uint32)kNoRecs;
+    }
+  }
   c->sm = sm; c->g = g; c->rec = r;
   return (uint32)r;
 }
@@ -1235,7 +1253,7 @@ __asm__(
   "    .text\n"
   "    .global md_putrecs\n"
   "md_putrecs:\n"
-  "    movem.l %d2-%d7/%a2-%a3,-(%sp)\n"
+  "    movem.l %d2/%d4-%d7/%a2,-(%sp)\n"
   "    move.w %d0,%d6\n"
   "    move.w %d1,%d7\n"
   "    move.w (%a0)+,%d5\n"                   /* n */
@@ -1283,12 +1301,13 @@ __asm__(
   "    move.w %d0,(%a1)+\n"
   "    dbra %d5,6b\n"
   "    move.l %a1,sp_ptr\n"
-  "8:  movem.l (%sp)+,%d2-%d7/%a2-%a3\n"
+  "8:  movem.l (%sp)+,%d2/%d4-%d7/%a2\n"
   "    rts\n"
   "20: addq.l #2,%a0\n"
   "21: addq.l #2,%a0\n"
   "22: addq.l #2,%a0\n"
-  "23: move.l spr_end,%a3\n"
+  "23: movem.l %d3/%a3,-(%sp)\n"
+  "    move.l spr_end,%a3\n"
   "    move.w #224+31,%d3\n"
   "    move.l %a1,%d2\n"
   "    sub.l spr,%d2\n"
@@ -1322,7 +1341,109 @@ __asm__(
   "11: addq.l #6,%a0\n"
   "    dbra %d5,10b\n"
   "12: move.l %a1,sp_ptr\n"
-  "    movem.l (%sp)+,%d2-%d7/%a2-%a3\n"
+  "    movem.l (%sp)+,%d3/%a3\n"
+  "    movem.l (%sp)+,%d2/%d4-%d7/%a2\n"
+  "    rts\n");
+
+/* md_putrecs_t: lo mismo, con d4 sumado al atributo de cada sprite (el tile de un lugar del depósito por cuadro,
+   md_zebes.c: sin una segunda pasada por los sprites ya escritos) */
+__asm__(
+  "    .text\n"
+  "    .global md_putrecs_t\n"
+  "md_putrecs_t:\n"
+  "    movem.l %d2/%d5-%d7/%a2,-(%sp)\n"
+  "    move.w %d0,%d6\n"
+  "    move.w %d1,%d7\n"
+  "    move.w (%a0)+,%d5\n"                   /* n */
+  "    beq 8f\n"
+  "    movea.l sp_ptr,%a1\n"
+    "    move.w (%a0)+,%d0\n"
+  "    add.w %d7,%d0\n"
+  "    cmp.w #-31,%d0\n"
+  "    blt 20f\n"
+  "    move.w (%a0)+,%d0\n"
+  "    add.w %d7,%d0\n"
+  "    cmp.w #224,%d0\n"
+  "    bge 21f\n"
+  "    move.w (%a0)+,%d0\n"
+  "    add.w %d6,%d0\n"
+  "    cmp.w #-31,%d0\n"
+  "    blt 22f\n"
+  "    move.w (%a0)+,%d0\n"
+  "    add.w %d6,%d0\n"
+  "    cmp.w #256,%d0\n"
+  "    bge 23f\n"
+  "    move.w %d5,%d0\n"
+  "    lsl.w #3,%d0\n"
+  "    lea (%a1,%d0.w),%a2\n"
+  "    cmpa.l spr_end,%a2\n"
+  "    bhi 23f\n"
+  "    add.w #129,%d7\n"
+  "    add.w #128,%d6\n"
+  "    move.l %a1,%d2\n"
+  "    sub.l spr,%d2\n"
+  "    lsr.w #3,%d2\n"
+  "    addq.w #1,%d2\n"
+  "    subq.w #1,%d5\n"
+  "6:  move.w (%a0)+,%d0\n"
+  "    add.w %d7,%d0\n"
+  "    move.w %d0,(%a1)+\n"
+  "    move.w (%a0)+,%d0\n"
+  "    or.w %d2,%d0\n"
+  "    move.w %d0,(%a1)+\n"
+  "    addq.w #1,%d2\n"
+  "    move.w (%a0)+,%d0\n"
+  "    add.w %d4,%d0\n"
+  "    move.w %d0,(%a1)+\n"
+  "    move.w (%a0)+,%d0\n"
+  "    add.w %d6,%d0\n"
+  "    move.w %d0,(%a1)+\n"
+  "    dbra %d5,6b\n"
+  "    move.l %a1,sp_ptr\n"
+  "8:  movem.l (%sp)+,%d2/%d5-%d7/%a2\n"
+  "    rts\n"
+  "20: addq.l #2,%a0\n"
+  "21: addq.l #2,%a0\n"
+  "22: addq.l #2,%a0\n"
+  "23: movem.l %d3/%a3,-(%sp)\n"
+  "    move.l spr_end,%a3\n"
+  "    move.w #224+31,%d3\n"
+  "    move.l %a1,%d2\n"
+  "    sub.l spr,%d2\n"
+  "    lsr.w #3,%d2\n"
+  "    addq.w #1,%d2\n"
+  "    subq.w #1,%d5\n"
+  "10: move.w (%a0)+,%d0\n"
+  "    add.w %d7,%d0\n"
+  "    move.w %d0,%d1\n"
+  "    add.w #31,%d1\n"
+  "    cmp.w %d3,%d1\n"
+  "    bcc 11f\n"
+  "    move.w 4(%a0),%d1\n"
+  "    add.w %d6,%d1\n"
+  "    move.w %d1,%a2\n"
+  "    add.w #31,%d1\n"
+  "    cmp.w #287,%d1\n"
+  "    bcc 11f\n"
+  "    cmpa.l %a3,%a1\n"
+  "    beq 12f\n"
+  "    add.w #129,%d0\n"
+  "    move.w %d0,(%a1)+\n"
+  "    move.w (%a0),%d0\n"
+  "    or.w %d2,%d0\n"
+  "    move.w %d0,(%a1)+\n"
+  "    addq.w #1,%d2\n"
+  "    move.w 2(%a0),%d0\n"
+  "    add.w %d4,%d0\n"
+  "    move.w %d0,(%a1)+\n"
+  "    move.w %a2,%d0\n"
+  "    add.w #128,%d0\n"
+  "    move.w %d0,(%a1)+\n"
+  "11: addq.l #6,%a0\n"
+  "    dbra %d5,10b\n"
+  "12: move.l %a1,sp_ptr\n"
+  "    movem.l (%sp)+,%d3/%a3\n"
+  "    movem.l (%sp)+,%d2/%d5-%d7/%a2\n"
   "    rts\n");
 
 /* DrawLowPriorityEprojs / DrawHighPriorityEprojs ($86:8390/83B2) enteros en la Genesis, a mano: el recorrido de los
@@ -1374,6 +1495,8 @@ __asm__(
   "    bne 5f\n"
   "    cmp.w 2(%a6),%d7\n"
   "    bne 5f\n"
+  "    tst.l %d1\n"
+  "    bmi 6f\n"                            /* (por cuadro: zebes_ep_draw, sin ep_lookup) */
   "    movea.l %d1,%a0\n"
   "4:  move.w (%a5),%d1\n"
   "    add.w %d4,%d1\n"
@@ -1388,11 +1511,40 @@ __asm__(
   "    bpl 1b\n"
   "    movem.l (%sp)+,%d2-%d7/%a2-%a6\n"
   "    rts\n"
-  "5:  move.l %d7,-(%sp)\n"                /* ep_lookup(v2, sm, g) */
+  "6:  move.w %d1,%d7\n"                   /* n (la entrada de la caché) */
+  "    move.w %d1,%d0\n"
+  "    move.w (%a5),%d1\n"
+  "    add.w %d4,%d1\n"
+  "    movea.w %d1,%a1\n"                    /* y */
+  "    move.w %d6,%d1\n"                     /* x */
+  "    jsr zfrz_put\n"                       /* (md_zebes.c: con el lugar ya puesto) */
+  "    tst.w %d0\n"
+  "    bne 9b\n"
+  "    move.w (%a5),%d0\n"                   /* si no: zebes_ep_draw(n, x, y) */
+  "    add.w %d4,%d0\n"
+  "    ext.l %d0\n"
+  "    move.l %d0,-(%sp)\n"
+  "    move.w %d6,%d0\n"
+  "    ext.l %d0\n"
+  "    move.l %d0,-(%sp)\n"
+  "    moveq #0,%d1\n"
+  "    move.w %d7,%d1\n"
+  "    move.l %d1,-(%sp)\n"
+  "    jsr zebes_ep_draw\n"
+  "    lea 12(%sp),%sp\n"
+  "    bra 9b\n"
+  "5:  move.w (%a5),%d1\n"                 /* ep_lookup(v2, sm, g, x, y) */
+  "    add.w %d4,%d1\n"
+  "    ext.l %d1\n"
+  "    move.l %d1,-(%sp)\n"
+  "    move.w %d6,%d1\n"
+  "    ext.l %d1\n"
+  "    move.l %d1,-(%sp)\n"
+  "    move.l %d7,-(%sp)\n"
   "    move.l %d0,-(%sp)\n"
   "    move.l %d5,-(%sp)\n"
   "    jsr ep_lookup\n"
-  "    lea 12(%sp),%sp\n"
+  "    lea 20(%sp),%sp\n"
   "    tst.l %d0\n"
   "    beq 9b\n"
   "    movea.l %d0,%a0\n"
@@ -2763,7 +2915,11 @@ void md_post(void) {
   lq_wv_next[15] = scroll_by;
   if (cine_stage) cine_frame(); else hud_prepare();
   if (md_zebes && !cine_stage) {
-    zebes_frame(scroll_ax, scroll_ay, scroll_bx, scroll_by);
+    /* la ventana dibujada sigue a la cámara sin el temblor (unos píxeles: entra en su margen); con él se volvían a
+       dibujar columnas y filas en cada cuadro del temblor (Kraid hundiéndose) */
+    zebes_frame(scroll_ax - nt_shake_bg1x, scroll_ay - nt_shake_bg1y,
+                g_room->b_mode == 1 ? scroll_bx : scroll_bx - nt_shake_bg2x,
+                g_room->b_mode == 1 ? scroll_by : scroll_by - nt_shake_bg2y);
     if (zebes_sky_on()) zebes_sky_lines(rot_h, scroll_ax, scroll_ay);
   }
   /* modo 7 girado (pozo en la huida) */

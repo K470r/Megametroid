@@ -102,8 +102,11 @@ uint16 MoveEprojWithVelocity(uint16 k);
 uint16 Math_MultBySin(uint16 a, uint16 ang);
 uint16 Math_MultByCos(uint16 a, uint16 ang);
 PairU16 MakePairU16(uint16 k, uint16 j);
+NT_BOSS void KraidsFingernail_Fire(uint16 k);
 NT_BOSS CoroutineRet Kraid_UnpauseHook_IsSinking(void);
 NT_BOSS void Kraid_SetupGfxWithTilePrioClear(uint16 r18);
+NT_BOSS void Kraid_HurtFlash_Handling(void);
+NT_BOSS void Kraid_HealthBasedPaletteHandling(void);
 NT_BOSS void Kraid_Death_Fadeout(void);
 NT_BOSS uint16 HandleMotherBrainInstructionList(uint16 a);
 void GrappleBeam_Func2(void);
@@ -123,6 +126,7 @@ void CallEnemyAi(uint8 bank, uint16 f);
 void CalculatePlmBlockCoords(uint16 k);
 uint16 CalculateAngleFromXY(uint16 x, uint16 y);
 NT_BOSS int BabyMetroid_DBCB_DoubleRetEx(uint16 a);
+uint8 AdvancePaletteFade_BgPalette6(void);
 NT_BOSS void ClearEprojs(void);
 uint16 EprojInstr_Delete(uint16 k, uint16 epjp);
 uint16 EprojInstr_Sleep(uint16 k, uint16 epjp);
@@ -1630,8 +1634,6 @@ NT_BOSS void Kraid_SpawnExplosionEproj(uint16 k);
 NT_BOSS void Kraid_Enemy_Touch(void);
 NT_BOSS void Kraid_Shot_Body(void);
 NT_BOSS void Kraid_Palette_Handling(void);
-NT_BOSS void Kraid_HurtFlash_Handling(void);
-NT_BOSS void Kraid_HealthBasedPaletteHandling(void);
 NT_BOSS uint16 Kraid_Instr_1(uint16 k, uint16 jp);
 NT_BOSS uint16 Kraid_Instr_DecYpos(uint16 k, uint16 jp);
 NT_BOSS uint16 Kraid_Instr_IncrYpos_Shake(uint16 k, uint16 jp);
@@ -1675,7 +1677,6 @@ NT_BOSS void KraidsBadFingernail_Init(void);
 NT_BOSS void KraidsGoodFingernail_Main(void);
 NT_BOSS void KraidsBadFingernail_Main(void);
 NT_BOSS void KraidsFingernail_Init(void);
-NT_BOSS void KraidsFingernail_Fire(uint16 k);
 NT_BOSS void KraidsFoot_PrepareToLungeForward(void);
 NT_BOSS void KraidsFoot_FirstPhase_LungeForward(void);
 NT_BOSS void KraidsFoot_FirstPhase_RetreatFromLunge(void);
@@ -2961,7 +2962,6 @@ static Func_V *const off_A48C14[45];
 static Func_V *const off_A6CB21[9];
 static Func_V *const off_A9B887[4];
 static Func_CalcHdma *const off_ADE024[4];
-uint8 AdvancePaletteFade_BgPalette6(void);
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
 void DeadTorizo_Func_1(void);
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
@@ -2984,7 +2984,6 @@ void Torizo_CorpseRottingInitFunc(void);
 void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
 void WriteReg(uint16 reg, uint8 value);
 
-uint8 AdvancePaletteFade_BgPalette6(void) { nt_unimpl("AdvancePaletteFade_BgPalette6"); return 0; }
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) { nt_unimpl("DeadTorizo_CopyLineOfSandHeapTileData"); }
 void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22) { nt_unimpl("DrawSpritemap"); }
@@ -7657,9 +7656,9 @@ void sub_A29A6C(uint16 a) {  // 0xA29A6C
   v1->timer = 0;
 }
 void CallThinHoppingBlobs(uint32 ea) {
-  switch (ea) {
-  case 0xA29B65: ThinHoppingBlobs_Func6(cur_enemy_index); return;
-  case 0xA29B81: ThinHoppingBlobs_Func7(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A2) */
+  case 0x9B65: ThinHoppingBlobs_Func6(cur_enemy_index); return;
+  case 0x9B81: ThinHoppingBlobs_Func7(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -7731,13 +7730,13 @@ void ThinHoppingBlobs_Func6(uint16 k) {  // 0xA29B65
   }
 }
 void CallThinHoppingBlobsVarE(uint32 ea) {
-  switch (ea) {
-  case 0xA29D0B: ThinHoppingBlobs_Func11(); return;
-  case 0xA29D2B: ThinHoppingBlobs_Func12(); return;
-  case 0xA29D4B: ThinHoppingBlobs_Func13(); return;
-  case 0xA29D6B: ThinHoppingBlobs_Func14(); return;
-  case 0xA29D98: ThinHoppingBlobs_Func15(); return;
-  case 0xA29DCD: ThinHoppingBlobs_Func16(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A2) */
+  case 0x9D0B: ThinHoppingBlobs_Func11(); return;
+  case 0x9D2B: ThinHoppingBlobs_Func12(); return;
+  case 0x9D4B: ThinHoppingBlobs_Func13(); return;
+  case 0x9D6B: ThinHoppingBlobs_Func14(); return;
+  case 0x9D98: ThinHoppingBlobs_Func15(); return;
+  case 0x9DCD: ThinHoppingBlobs_Func16(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -8219,10 +8218,10 @@ void LavaquakeRocks_Init(void) {  // 0xA2B570
   random_number = 17;
 }
 void CallLavaQuakeRocksFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA2B596: LavaquakeRocks_1(); return;
-  case 0xA2B5B2: LavaquakeRocks_2(); return;
-  case 0xA2B5EA: LavaquakeRocks_3(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A2) */
+  case 0xB596: LavaquakeRocks_1(); return;
+  case 0xB5B2: LavaquakeRocks_2(); return;
+  case 0xB5EA: LavaquakeRocks_3(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -8554,12 +8553,12 @@ void Rio_Init(void) {  // 0xA2BBCD
 }
 void CallRioFunc(uint32 ea) {
   uint16 k = cur_enemy_index;
-  switch (ea) {
-  case 0xA2BBED: Rio_1(k); return;  // 0x7c30a
-  case 0xA2BC32: Rio_2(k); return;  // 0x7c396
-  case 0xA2BC48: Rio_3(k); return;  // 0x7c3d4
-  case 0xA2BCB7: Rio_4(k); return;  // 0x7c4dc
-  case 0xA2BCFF: Rio_5(k); return;  // 0x7c599
+  switch ((uint16)ea) {  /* (todos del banco $A2) */
+  case 0xBBED: Rio_1(k); return;  // 0x7c30a
+  case 0xBC32: Rio_2(k); return;  // 0x7c396
+  case 0xBC48: Rio_3(k); return;  // 0x7c3d4
+  case 0xBCB7: Rio_4(k); return;  // 0x7c4dc
+  case 0xBCFF: Rio_5(k); return;  // 0x7c599
   default: nt_unimpl("Unreachable");
   }
 }
@@ -9041,10 +9040,10 @@ void MaridiaLargeSnail_Init(void) {  // 0xA2CCD4
   E->ai_preinstr = 0xCF66 /* MaridiaLargeSnail_Func_7 */;
 }
 void CallMaridiaLargeSnailFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA2CDE6: MaridiaLargeSnail_Func_4(); return;
-  case 0xA2CE2B: MaridiaLargeSnail_Func_5(); return;
-  case 0xA2CF40: MaridiaLargeSnail_Func_6(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A2) */
+  case 0xCDE6: MaridiaLargeSnail_Func_4(); return;
+  case 0xCE2B: MaridiaLargeSnail_Func_5(); return;
+  case 0xCF40: MaridiaLargeSnail_Func_6(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -9294,11 +9293,11 @@ void HirisingSlowfalling_Func_3(uint16 a) {  // 0xA2E01E
   E->timer = 0;
 }
 void CallHirisingSlowfalling(uint32 ea) {
-  switch (ea) {
-  case 0xA2E035: HirisingSlowfalling_Func_4(); return;
-  case 0xA2E04F: HirisingSlowfalling_Func_5(); return;
-  case 0xA2E06A: HirisingSlowfalling_Func_6(); return;
-  case 0xA2E0CD: HirisingSlowfalling_Func_7(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A2) */
+  case 0xE035: HirisingSlowfalling_Func_4(); return;
+  case 0xE04F: HirisingSlowfalling_Func_5(); return;
+  case 0xE06A: HirisingSlowfalling_Func_6(); return;
+  case 0xE0CD: HirisingSlowfalling_Func_7(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -9882,21 +9881,21 @@ void RisingFallingPlatform_Func_1(uint16 k) {  // 0xA2EE1F
   ERAM(0x7814 + E_k) = 0;
 }
 void CallRisingFallingPlatformFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA2EF09: RisingFallingPlatform_Func_2(); return;
-  case 0xA2EF28: RisingFallingPlatform_Func_4(); return;
-  case 0xA2EF68: RisingFallingPlatform_Func_9(); return;
-  case 0xA2EFD4: RisingFallingPlatform_Func_10(); return;
-  case 0xA2F040: RisingFallingPlatform_Func_11(); return;
-  case 0xA2F072: RisingFallingPlatform_Func_12(); return;
-  case 0xA2F099: RisingFallingPlatform_Func_13(); return;
-  case 0xA2F224: HorizontalShootableShutter_Func_2(); return;
-  case 0xA2F243: HorizontalShootableShutter_Func_4(); return;
-  case 0xA2F272: HorizontalShootableShutter_Func_8(); return;
-  case 0xA2F2E4: HorizontalShootableShutter_Func_9(); return;
-  case 0xA2F38C: HorizontalShootableShutter_Func_12(); return;
-  case 0xA2F3B0: HorizontalShootableShutter_Func_13(); return;
-  case 0xA2F3D4: HorizontalShootableShutter_Func_14(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A2) */
+  case 0xEF09: RisingFallingPlatform_Func_2(); return;
+  case 0xEF28: RisingFallingPlatform_Func_4(); return;
+  case 0xEF68: RisingFallingPlatform_Func_9(); return;
+  case 0xEFD4: RisingFallingPlatform_Func_10(); return;
+  case 0xF040: RisingFallingPlatform_Func_11(); return;
+  case 0xF072: RisingFallingPlatform_Func_12(); return;
+  case 0xF099: RisingFallingPlatform_Func_13(); return;
+  case 0xF224: HorizontalShootableShutter_Func_2(); return;
+  case 0xF243: HorizontalShootableShutter_Func_4(); return;
+  case 0xF272: HorizontalShootableShutter_Func_8(); return;
+  case 0xF2E4: HorizontalShootableShutter_Func_9(); return;
+  case 0xF38C: HorizontalShootableShutter_Func_12(); return;
+  case 0xF3B0: HorizontalShootableShutter_Func_13(); return;
+  case 0xF3D4: HorizontalShootableShutter_Func_14(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -10224,11 +10223,11 @@ void Metalee_Init(void) {  // 0xA38960
   E->ai_var_B = 0x8987 /* Metalee_Func_1 */;
 }
 void CallMetaleeFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA38987: Metalee_Func_1(); return;
-  case 0xA389D4: Metalee_Func_3(cur_enemy_index); return;
-  case 0xA389F3: Metalee_Func_4(); return;
-  case 0xA38A5C: Metalee_Func_5(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A3) */
+  case 0x8987: Metalee_Func_1(); return;
+  case 0x89D4: Metalee_Func_3(cur_enemy_index); return;
+  case 0x89F3: Metalee_Func_4(); return;
+  case 0x8A5C: Metalee_Func_5(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -10501,11 +10500,11 @@ void MaridiaFish_Func_4(void) {  // 0xA39256
   }
 }
 void CallMaridiaFishFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA39132: MaridiaFish_Func_1(); return;
-  case 0xA391AB: MaridiaFish_Func_2(); return;
-  case 0xA39224: MaridiaFish_Func_3(); return;
-  case 0xA39256: MaridiaFish_Func_4(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A3) */
+  case 0x9132: MaridiaFish_Func_1(); return;
+  case 0x91AB: MaridiaFish_Func_2(); return;
+  case 0x9224: MaridiaFish_Func_3(); return;
+  case 0x9256: MaridiaFish_Func_4(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -10845,24 +10844,24 @@ void Roach_Func_8(uint16 k) {  // 0xA3A2B7
   ERAM(0x8004 + E_k) = 2 * ((uint8)(HIBYTE(E->parameter_1) - 48 + 32) >> 5);
 }
 void CallRoachFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA3A2D7: Roach_Func_9(); return;  // 0xa3a2d7
-  case 0xA3A301: Roach_Func_10(); return;  // 0xa3a301
-  case 0xA3A30B: Roach_Func_11(); return;  // 0xa3a30b
-  case 0xA3A315: Roach_Func_12(); return;  // 0xa3a315
-  case 0xA3A325: Roach_Func_13(); return;  // 0xa3a325
-  case 0xA3A33B: Roach_Func_14(); return;  // 0xa3a33b
-  case 0xA3A34B: Roach_Func_15(); return;  // 0xa3a34b
-  case 0xA3A380: Roach_Func_16(); return;  // 0xa3a380
-  case 0xA3A407: Roach_Func_19(); return;  // 0xa3a407
-  case 0xA3A40E: Roach_Func_20(); return;  // 0xa3a40e
-  case 0xA3A440: Roach_Func_21(); return;  // 0xa3a440
-  case 0xA3A447: Roach_Func_22(); return;  // 0xa3a447
-  case 0xA3A44E: Roach_Func_23(); return;  // 0xa3a44e
-  case 0xA3A462: Roach_Func_24(); return;  // 0xa3a462
-  case 0xA3A476: Roach_Func_25(); return;  // 0xa3a476
-  case 0xA3A4B6: Roach_Func_26(); return;  // 0xa3a4b6
-  case 0xA3A4F0: Roach_Func_27(); return;  // 0xa3a4f0
+  switch ((uint16)ea) {  /* (todos del banco $A3) */
+  case 0xA2D7: Roach_Func_9(); return;  // 0xa3a2d7
+  case 0xA301: Roach_Func_10(); return;  // 0xa3a301
+  case 0xA30B: Roach_Func_11(); return;  // 0xa3a30b
+  case 0xA315: Roach_Func_12(); return;  // 0xa3a315
+  case 0xA325: Roach_Func_13(); return;  // 0xa3a325
+  case 0xA33B: Roach_Func_14(); return;  // 0xa3a33b
+  case 0xA34B: Roach_Func_15(); return;  // 0xa3a34b
+  case 0xA380: Roach_Func_16(); return;  // 0xa3a380
+  case 0xA407: Roach_Func_19(); return;  // 0xa3a407
+  case 0xA40E: Roach_Func_20(); return;  // 0xa3a40e
+  case 0xA440: Roach_Func_21(); return;  // 0xa3a440
+  case 0xA447: Roach_Func_22(); return;  // 0xa3a447
+  case 0xA44E: Roach_Func_23(); return;  // 0xa3a44e
+  case 0xA462: Roach_Func_24(); return;  // 0xa3a462
+  case 0xA476: Roach_Func_25(); return;  // 0xa3a476
+  case 0xA4B6: Roach_Func_26(); return;  // 0xa3a4b6
+  case 0xA4F0: Roach_Func_27(); return;  // 0xa3a4f0
   default: nt_unimpl("Unreachable");
   }
 }
@@ -11523,11 +11522,11 @@ void Skree_Init(void) {  // 0xA3C6AE
   E->ai_var_B = 0xC6D5 /* Skree_Func_1 */;
 }
 void CallSkreeFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA3C6D5: Skree_Func_1(); return;
-  case 0xA3C6F7: Skree_Func_2(cur_enemy_index); return;
-  case 0xA3C716: Skree_Func_3(); return;
-  case 0xA3C77F: Skree_Func_4(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A3) */
+  case 0xC6D5: Skree_Func_1(); return;
+  case 0xC6F7: Skree_Func_2(cur_enemy_index); return;
+  case 0xC716: Skree_Func_3(); return;
+  case 0xC77F: Skree_Func_4(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -12935,7 +12934,7 @@ NT_BOSS void Crocomire_Init(void) {  // 0xA48A5A
     tilemap_stuff[v0 >> 1] = 824;
     v0 += 2;
   } while ((int16)(v0 - 4096) < 0);
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 2) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 2) != 0) {
     *(uint16 *)scrolls = 257;
     nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
     croco_target_0688 = 0;
@@ -14035,7 +14034,7 @@ NT_BOSS void Crocomire_Func_1(void) {  // 0xA4BAB4
 }
 NT_BOSS void CrocomireTongue_Init(void) {  // 0xA4F67A
   EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 2) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 2) != 0) {
     E->properties = E->properties & 0xDCFF | 0x300;
   } else {
     E->current_instruction = addr_kCrocomire_Ilist_BE56;
@@ -15325,12 +15324,12 @@ void SporeSpawn_Init(void) {  // 0xA5EA2A
   }
 }
 void CallSporeSpawnFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA5EB1A: return;
-  case 0xA5EB1B: SporeSpawn_Func_1(); return;
-  case 0xA5EB52: SporeSpawn_Func_2(cur_enemy_index); return;
-  case 0xA5EB9B: SporeSpawn_Func_3(); return;
-  case 0xA5EBEE: SporeSpawn_Func_4(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A5) */
+  case 0xEB1A: return;
+  case 0xEB1B: SporeSpawn_Func_1(); return;
+  case 0xEB52: SporeSpawn_Func_2(cur_enemy_index); return;
+  case 0xEB9B: SporeSpawn_Func_3(); return;
+  case 0xEBEE: SporeSpawn_Func_4(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -15547,13 +15546,13 @@ void Boulder_Init(void) {  // 0xA686F5
     ERAM(0x7802 + E_k) = 5;
 }
 void CallBoulderFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA6879A: Boulder_Func_1(); return;
-  case 0xA687ED: Boulder_Func_2(); return;
-  case 0xA68832: Boulder_Func_3(); return;
-  case 0xA6888B: Boulder_Func_4(); return;
-  case 0xA68942: Boulder_Func_5(); return;
-  case 0xA689FC: Boulder_Func_6(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A6) */
+  case 0x879A: Boulder_Func_1(); return;
+  case 0x87ED: Boulder_Func_2(); return;
+  case 0x8832: Boulder_Func_3(); return;
+  case 0x888B: Boulder_Func_4(); return;
+  case 0x8942: Boulder_Func_5(); return;
+  case 0x89FC: Boulder_Func_6(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -15980,9 +15979,9 @@ void FireGeyser_Init(void) {  // 0xA68FFC
   }
 }
 void CallFireGeyserFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA6902F: FireGeyser_Func_1(); return;
-  case 0xA69062: FireGeyser_Func_2(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A6) */
+  case 0x902F: FireGeyser_Func_1(); return;
+  case 0x9062: FireGeyser_Func_2(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -16064,9 +16063,9 @@ void NuclearWaffle_Init(void) {  // 0xA694C4
   } while (v15);
 }
 void CallNuclearWaffleFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA69615: NuclearWaffle_Func_1(); return;
-  case 0xA69682: NuclearWaffle_Func_2(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A6) */
+  case 0x9615: NuclearWaffle_Func_1(); return;
+  case 0x9682: NuclearWaffle_Func_2(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -16359,69 +16358,69 @@ void FakeKraid_9C50(void) {  // 0xA69C50
   }
 }
 void CallRidleyFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA6A354: CeresRidley_Func_2(); return;
-  case 0xA6A35B: CeresRidley_Func_3(); return;
-  case 0xA6A377: CeresRidley_A377(); return;
-  case 0xA6A389: CeresRidley_Func_4(); return;
-  case 0xA6A3DF: CeresRidley_Func_5(); return;
-  case 0xA6A455: CeresRidley_Func_6(); return;
-  case 0xA6A478: CeresRidley_Func_7(); return;
-  case 0xA6A6AF: CeresRidley_Func_9(); return;
-  case 0xA6A6C8: CeresRidley_Func_10(); return;
-  case 0xA6A6E8: CeresRidley_Func_11(); return;
-  case 0xA6A782: CeresRidley_Func_13(); return;
-  case 0xA6A7F9: CeresRidley_A7F9(); return;
-  case 0xA6A83C: CeresRidley_Func_14(); return;
-  case 0xA6A84E: CeresRidley_Func_15(); return;
-  case 0xA6A88D: CeresRidley_Func_16(); return;
-  case 0xA6A8A4: CeresRidley_Func_17(); return;
-  case 0xA6A8D4: CeresRidley_Func_18(); return;
-  case 0xA6A8F8: CeresRidley_Func_19(); return;
-  case 0xA6A923: CeresRidley_Func_20(); return;
-  case 0xA6A947: CeresRidley_Func_21(); return;
-  case 0xA6A971: CeresRidley_Func_22(); return;
-  case 0xA6A9A0: CeresRidley_Func_23(); return;
-  case 0xA6AA11: CeresRidley_Func_24(); return;
-  case 0xA6AA4F: return;
-  case 0xA6AA50: CeresRidley_Func_26(); return;
-  case 0xA6B2F3: Ridley_Func_3(); return;
-  case 0xA6B321: Ridley_Func_3b(); return;
-  case 0xA6B3EC: Ridley_Func_5(); return;
-  case 0xA6B3F8: Ridley_Func_6(); return;
-  case 0xA6B441: Ridley_Func_8(); return;
-  case 0xA6B455: Ridley_B455(); return;
-  case 0xA6B493: Ridley_Func_9(); return;
-  case 0xA6B4D1: Ridley_Func_10(); return;
-  case 0xA6B516: Ridley_Func_11(); return;
-  case 0xA6B554: Ridley_Func_12(); return;
-  case 0xA6B594: Ridley_Func_13(); return;
-  case 0xA6B5C4: Ridley_Func_14(); return;
-  case 0xA6B5E5: Ridley_Func_15(); return;
-  case 0xA6B613: Ridley_Func_16(); return;
-  case 0xA6B6A7: Ridley_Func_19(); return;
-  case 0xA6B6DD: Ridley_Func_20(); return;
-  case 0xA6B70E: Ridley_Func_21(); return;
-  case 0xA6B7B9: Ridley_Func_22(); return;
-  case 0xA6BAB7: Ridley_Func_33(); return;
-  case 0xA6BB8F: Ridley_Func_33b(); return;
-  case 0xA6BBC4: Ridley_Func_34(); return;
-  case 0xA6BBF1: Ridley_Func_35(); return;
-  case 0xA6BC2E: Ridley_Func_36(); return;
-  case 0xA6BD4E: Ridley_Func_43(); return;
-  case 0xA6BD9A: Ridley_Func_44(); return;
-  case 0xA6BDBC: Ridley_Func_45(); return;
-  case 0xA6BDF2: Ridley_Func_46(); return;
-  case 0xA6BE03: Ridley_Func_47(); return;
-  case 0xA6C04E: Ridley_Func_54(); return;
-  case 0xA6C538: Ridley_Func_63(); return;
-  case 0xA6C53E: Ridley_C53E(); return;
-  case 0xA6C551: Ridley_C551(); return;
-  case 0xA6C588: Ridley_Func_64(); return;
-  case 0xA6C5A8: Ridley_Func_65(); return;
-  case 0xA6C5C8: Ridley_Func_66(); return;
-  case 0xA6C5DA: Ridley_Func_67(); return;
-  case 0xA6C600: return;
+  switch ((uint16)ea) {  /* (todos del banco $A6) */
+  case 0xA354: CeresRidley_Func_2(); return;
+  case 0xA35B: CeresRidley_Func_3(); return;
+  case 0xA377: CeresRidley_A377(); return;
+  case 0xA389: CeresRidley_Func_4(); return;
+  case 0xA3DF: CeresRidley_Func_5(); return;
+  case 0xA455: CeresRidley_Func_6(); return;
+  case 0xA478: CeresRidley_Func_7(); return;
+  case 0xA6AF: CeresRidley_Func_9(); return;
+  case 0xA6C8: CeresRidley_Func_10(); return;
+  case 0xA6E8: CeresRidley_Func_11(); return;
+  case 0xA782: CeresRidley_Func_13(); return;
+  case 0xA7F9: CeresRidley_A7F9(); return;
+  case 0xA83C: CeresRidley_Func_14(); return;
+  case 0xA84E: CeresRidley_Func_15(); return;
+  case 0xA88D: CeresRidley_Func_16(); return;
+  case 0xA8A4: CeresRidley_Func_17(); return;
+  case 0xA8D4: CeresRidley_Func_18(); return;
+  case 0xA8F8: CeresRidley_Func_19(); return;
+  case 0xA923: CeresRidley_Func_20(); return;
+  case 0xA947: CeresRidley_Func_21(); return;
+  case 0xA971: CeresRidley_Func_22(); return;
+  case 0xA9A0: CeresRidley_Func_23(); return;
+  case 0xAA11: CeresRidley_Func_24(); return;
+  case 0xAA4F: return;
+  case 0xAA50: CeresRidley_Func_26(); return;
+  case 0xB2F3: Ridley_Func_3(); return;
+  case 0xB321: Ridley_Func_3b(); return;
+  case 0xB3EC: Ridley_Func_5(); return;
+  case 0xB3F8: Ridley_Func_6(); return;
+  case 0xB441: Ridley_Func_8(); return;
+  case 0xB455: Ridley_B455(); return;
+  case 0xB493: Ridley_Func_9(); return;
+  case 0xB4D1: Ridley_Func_10(); return;
+  case 0xB516: Ridley_Func_11(); return;
+  case 0xB554: Ridley_Func_12(); return;
+  case 0xB594: Ridley_Func_13(); return;
+  case 0xB5C4: Ridley_Func_14(); return;
+  case 0xB5E5: Ridley_Func_15(); return;
+  case 0xB613: Ridley_Func_16(); return;
+  case 0xB6A7: Ridley_Func_19(); return;
+  case 0xB6DD: Ridley_Func_20(); return;
+  case 0xB70E: Ridley_Func_21(); return;
+  case 0xB7B9: Ridley_Func_22(); return;
+  case 0xBAB7: Ridley_Func_33(); return;
+  case 0xBB8F: Ridley_Func_33b(); return;
+  case 0xBBC4: Ridley_Func_34(); return;
+  case 0xBBF1: Ridley_Func_35(); return;
+  case 0xBC2E: Ridley_Func_36(); return;
+  case 0xBD4E: Ridley_Func_43(); return;
+  case 0xBD9A: Ridley_Func_44(); return;
+  case 0xBDBC: Ridley_Func_45(); return;
+  case 0xBDF2: Ridley_Func_46(); return;
+  case 0xBE03: Ridley_Func_47(); return;
+  case 0xC04E: Ridley_Func_54(); return;
+  case 0xC538: Ridley_Func_63(); return;
+  case 0xC53E: Ridley_C53E(); return;
+  case 0xC551: Ridley_C551(); return;
+  case 0xC588: Ridley_Func_64(); return;
+  case 0xC5A8: Ridley_Func_65(); return;
+  case 0xC5C8: Ridley_Func_66(); return;
+  case 0xC5DA: Ridley_Func_67(); return;
+  case 0xC600: return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -17476,12 +17475,12 @@ uint8 Ridley_Func_48(Rect16U rect) {  // 0xA6BE61
   return result;
 }
 NT_BOSS void CallRidleyFunc_var40(uint32 ea) {
-  switch (ea) {
-  case 0xA6BE9C: Ridley_Func_50(); return;
-  case 0xA6BEB3: Ridley_Func_51(); return;  // 0xa6beb3
-  case 0xA6BECA: Ridley_Func_52(); return;  // 0xa6beca
-  case 0xA6BEDC: Ridley_Func_53(); return;  // 0xa6bedc
-  case 0xA6BF19: return;  // 0xa6bf19
+  switch ((uint16)ea) {  /* (todos del banco $A6) */
+  case 0xBE9C: Ridley_Func_50(); return;
+  case 0xBEB3: Ridley_Func_51(); return;  // 0xa6beb3
+  case 0xBECA: Ridley_Func_52(); return;  // 0xa6beca
+  case 0xBEDC: Ridley_Func_53(); return;  // 0xa6bedc
+  case 0xBF19: return;  // 0xa6bf19
   default: nt_unimpl("Unreachable");
   }
 }
@@ -19495,7 +19494,7 @@ NT_BOSS void Kraid_Arm_Shot(uint16 j) {  // 0xA794B6
   projectile_dir[j >> 1] |= 0x10;
 }
 NT_BOSS uint16 Kraid_CheckIfDead(void) {  // 0xA7A92C
-  return (nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0;
+  return (nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 1) != 0;
 }
 NT_BOSS void Kraid_SetEnemyPropsToDead(void) {  // 0xA7A943
   EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
@@ -19860,9 +19859,9 @@ NT_BOSS void KraidInstr_PlayDyingSfx(void) {  // 0xA7AF9F
   QueueSfx2_Max15(0x2E);
 }
 NT_BOSS void CallKraidInstr(uint32 ea) {
-  switch (ea) {
-  case 0xA7AF94: KraidInstr_PlayRoarSfx(); return;
-  case 0xA7AF9F: KraidInstr_PlayDyingSfx(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A7) */
+  case 0xAF94: KraidInstr_PlayRoarSfx(); return;
+  case 0xAF9F: KraidInstr_PlayDyingSfx(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -20077,40 +20076,6 @@ LABEL_6:
       goto LABEL_6;
     }
   }
-}
-NT_BOSS void Kraid_HurtFlash_Handling(void) {  // 0xA7B371
-  uint16 v0 = 0;
-  if ((ERAM(0x782A + (0)) & 1) == 0)
-    v0 = 32;
-  uint16 v1 = 0;
-  do {
-    { palette_buffer[(v1 >> 1) + 240] = ((uint16)BW_A7(0xB513 + 2 * (v0 >> 1))); nt_pal_dirty((uint8)((v1 >> 1) + 240), (uint8)((v1 >> 1) + 240)); }
-    v1 += 2;
-    v0 += 2;
-  } while ((int16)(v1 - 32) < 0);
-}
-NT_BOSS void Kraid_HealthBasedPaletteHandling(void) {  // 0xA7B394
-  uint16 v0 = 0;
-  EnemyData *E = gEnemyData(0); uint16 E_k = (0);
-  if ((ERAM(0x782A + E_k) & 1) == 0) {
-    uint16 v2 = 14;
-    uint16 health = E->health;
-    do {
-      if ((int16)(health - ERAM_ARR(0x780C + (v2))[0]) >= 0)
-        break;
-      v2 -= 2;
-    } while (v2);
-    v0 = 16 * (v2 + 2);
-  }
-  uint16 v4 = 0;
-  do {
-    int v5 = v0 >> 1;
-    int v6 = v4 >> 1;
-    { palette_buffer[v6 + 112] = ((uint16)BW_A7(0xB3D3 + 2 * (v5))); nt_pal_dirty((uint8)(v6 + 112), (uint8)(v6 + 112)); }
-    { palette_buffer[v6 + 240] = ((uint16)BW_A7(0xB513 + 2 * (v5))); nt_pal_dirty((uint8)(v6 + 240), (uint8)(v6 + 240)); }
-    v0 += 2;
-    v4 += 2;
-  } while ((int16)(v4 - 32) < 0);
 }
 NT_BOSS uint16 Kraid_Instr_1(uint16 k, uint16 jp) {  // 0xA7B633
   return jp;
@@ -20597,30 +20562,6 @@ LABEL_7:
     E->properties |= kEnemyProps_Tangible | kEnemyProps_Invisible;
   }
 }
-NT_BOSS void KraidsFingernail_Fire(uint16 k) {  // 0xA7BE8E
-  EnemyData *v1 = gEnemyData(k);
-  if (Enemy_MoveRight_IgnoreSlopes(k, __PAIR32__(v1->ai_var_C, v1->ai_var_B))) {
-    v1->ai_var_B = -v1->ai_var_B;
-    v1->ai_var_C = -v1->ai_var_C;
-  } else {
-    int i;
-    EnemyData *v3, *v4;
-    for (i = 0; ; i += 4) {
-      v3 = gEnemyData(0);
-      v4 = gEnemyData(k);
-      if ((int16)(((uint16)BW_A7(0xBF1D + 2 * ((i >> 1) + 1))) + v3->y_pos - v4->y_pos) < 0)
-        break;
-    }
-    uint16 r18 = ((uint16)BW_A7(0xBF1D + 2 * (i >> 1))) + v3->x_pos;
-    if (!sign16(v4->x_width + v4->x_pos - r18) && (v4->ai_var_C & 0x8000) == 0) {
-      v4->ai_var_B = -v4->ai_var_B;
-      v4->ai_var_C = -v4->ai_var_C;
-    }
-  }
-  EnemyData *v5 = gEnemyData(k);
-  if (Enemy_MoveDown(k, __PAIR32__(v5->ai_var_E, v5->ai_var_D)))
-    SetHiLo(&v5->ai_var_E, &v5->ai_var_D, -IPAIR32(v5->ai_var_E, v5->ai_var_D));
-}
 NT_BOSS void KraidsFoot_PrepareToLungeForward(void) {  // 0xA7BF2D
   Kraid_HandleFirstPhase();
   EnemyData *v0 = gEnemyData(0);
@@ -20871,14 +20812,14 @@ NT_BOSS void Kraid_CrumbleRightPlatform_Right(void) {  // 0xA7C6FF
   SpawnHardcodedPlm(0x10, 0x12, 0xb7af);
 }
 NT_BOSS void CallKraidSinkTableFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA7C691: Kraid_CrumbleLeftPlatform_Left(); return;
-  case 0xA7C6A6: return;
-  case 0xA7C6A7: Kraid_CrumbleRightPlatform_Middle(); return;
-  case 0xA7C6BD: Kraid_CrumbleRightPlatform_Left(); return;
-  case 0xA7C6D3: Kraid_CrumbleLeftPlatform_Right(); return;
-  case 0xA7C6E9: Kraid_CrumbleLeftPlatform_Middle(); return;
-  case 0xA7C6FF: Kraid_CrumbleRightPlatform_Right(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A7) */
+  case 0xC691: Kraid_CrumbleLeftPlatform_Left(); return;
+  case 0xC6A6: return;
+  case 0xC6A7: Kraid_CrumbleRightPlatform_Middle(); return;
+  case 0xC6BD: Kraid_CrumbleRightPlatform_Left(); return;
+  case 0xC6D3: Kraid_CrumbleLeftPlatform_Right(); return;
+  case 0xC6E9: Kraid_CrumbleLeftPlatform_Middle(); return;
+  case 0xC6FF: Kraid_CrumbleRightPlatform_Right(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -20963,7 +20904,7 @@ NT_BOSS void Kraid_FadeInBg_FadeInBp6(void) {  // 0xA7C815
 
   if (AdvancePaletteFade_BgPalette6() & 1) {
     QueueMusic_Delayed8(3);
-    v0 = nt_ram_w((uint16)(0xD828 + (area_index)));
+    v0 = nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828);
     if ((v0 & 1) != 0) {
       gEnemyData(0)->ai_var_A = 0xC851 /* Kraid_FadeInBg_SetEnemyDead_KraidWasDead */;
     } else {
@@ -21085,61 +21026,61 @@ NT_BOSS void Kraid_RestrictSamusXtoFirstScreen_2(void) {  // 0xA7C9EE
 }
 NT_BOSS void CallKraidFunc(uint32 ea) {
   uint16 k = cur_enemy_index;
-  switch (ea) {
-  case 0xA7AC4D: Kraid_GetsBig_BreakCeilingPlatforms(); return;  // 0x9bc35
-  case 0xA7AD3A: Kraid_GetsBig_SetBG2TilemapPrioBits(); return;  // 0x9bde6
-  case 0xA7AD61: Kraid_GetsBig_FinishUpdateBg2Tilemap(); return;  // 0x9be51
-  case 0xA7AD8E: Kraid_GetsBig_DrawRoomBg(); return;  // 0x9bee5
-  case 0xA7AE23: Kraid_GetsBig_FadeInRoomBg(); return;  // 0x9c08c
-  case 0xA7AEA4: Kraid_Mainloop_Thinking(); return;  // 0x9c1b8
-  case 0xA7AEC4: Kraid_GetsBig_Thinking(); return;  // 0x9c207
-  case 0xA7AEE4: Kraid_Shot_MouthIsOpen(); return;  // 0x9c256
-  case 0xA7B6BF: Kraid_InitEyeGlowing(); return;  // 0x9cf64
-  case 0xA7B6D7: Kraid_Shot_GlowHisEye(); return;  // 0x9cf9f
-  case 0xA7B73D: Kraid_Shot_UnglowEye(); return;  // 0x9d0b4
-  case 0xA7B832: KraidLint_ProduceLint(k); return;  // 0x9d371
-  case 0xA7B89B: KraidLint_FireLint(k); return;  // 0x9d44f
-  case 0xA7B907: KraidFingernail_WaitForLintXpos(k); return;  // 0x9d556
-  case 0xA7B923: Kraid_AlignEnemyToKraid(k); return;  // 0x9d5b5
-  case 0xA7B92D: KraidEnemy_HandleFunctionTimer(k); return;  // 0x9d5e5
-  case 0xA7B93F: KraidEnemy_DecrementEnemyFunctionTimer(); return;  // 0x9d61c
-  case 0xA7B960: KraidFoot_FirstPhase_Thinking(k); return;  // 0x9d66a
-  case 0xA7B965: KraidEnemy_ProcessInstrEnemyTimer(k); return;  // 0x9d67d
-  case 0xA7BA2E: KraidsFoot_SecondPhase_Thinking(); return;  // 0x9d8b2
-  case 0xA7BB45: KraidsFoot_SecondPhase_WalkingBackwards(); return;  // 0x9da2d
-  case 0xA7BB6E: KraidsFoot_SecondPhaseSetup_WalkToStartPt(); return;  // 0x9daa2
-  case 0xA7BBA4: KraidsFoot_SecondPhase_Init(); return;  // 0x9db2a
-  case 0xA7BBAE: KraidsFoot_SecondPhase_WalkForward(); return;  // 0x9db40
-  case 0xA7BBEA: Kraid_Main_AttackWithMouthOpen(); return;  // 0x9dbe0
-  case 0xA7BD60: KraidsFingernail_Init(); return;  // 0x9df94
-  case 0xA7BE8E: KraidsFingernail_Fire(k); return;  // 0x9e1ac
-  case 0xA7BF2D: KraidsFoot_PrepareToLungeForward(); return;  // 0x9e312
-  case 0xA7BFAB: KraidsFoot_FirstPhase_RetreatFromLunge(); return;  // 0x9e43a
-  case 0xA7C0A1: Kraid_GetsBig_ReleaseCamera(); return;  // 0x9e6a7
-  case 0xA7C360: Kraid_Death_Init(); return;  // 0x9ec0b
-  case 0xA7C3F9: Kraid_Death_Fadeout(); return;  // 0x9ed75
-  case 0xA7C4A4: Kraid_Death_UpdateBG2TilemapTopHalf(); return;  // 0x9ef19
-  case 0xA7C4C8: Kraid_Death_UpdateBG2TilemapBottomHalf(); return;  // 0x9ef92
-  case 0xA7C537: Kraid_Death_SinkThroughFloor(); return;  // 0x9f074
-  case 0xA7C715: Kraid_FadeInBg_ClearBg2TilemapTopHalf(); return;  // 0x9f369
-  case 0xA7C751: Kraid_FadeInBg_ClearBg2TilemapBottomHalf(); return;  // 0x9f3ed
-  case 0xA7C777: Kraid_FadeInBg_LoadBg3Tiles1of4(); return;  // 0x9f448
-  case 0xA7C7A3: Kraid_FadeInBg_LoadBg3Tiles2of4(); return;  // 0x9f4ad
-  case 0xA7C7C9: Kraid_FadeInBg_LoadBg3Tiles3of4(); return;  // 0x9f507
-  case 0xA7C7EF: Kraid_FadeInBg_LoadBg3Tiles4of4(); return;  // 0x9f561
-  case 0xA7C815: Kraid_FadeInBg_FadeInBp6(); return;  // 0x9f5bb
-  case 0xA7C843: Kraid_FadeInBg_SetEnemyDead_KraidWasAlive(); return;  // 0x9f62d
-  case 0xA7C851: Kraid_FadeInBg_SetEnemyDead_KraidWasDead(); return;  // 0x9f65b
-  case 0xA7C865: Kraid_RestrictSamusXtoFirstScreen(k); return;  // 0x9f694
-  case 0xA7C86B: Kraid_RaiseKraidThroughFloor(k); return;  // 0x9f6a7
-  case 0xA7C89A: Kraid_Raise_LoadTilemapBottomAndShake(); return;  // 0x9f71f
-  case 0xA7C8E0: Kraid_Raise_SpawnRandomEarthquakeProjs16(); return;  // 0x9f7b8
-  case 0xA7C902: Kraid_Raise_SpawnRandomEarthquakeProjs8(); return;  // 0x9f805
-  case 0xA7C924: Kraid_Raise_Handler(); return;  // 0x9f852
-  case 0xA7B868: KraidLint_ChargeLint(k); return;  // 0xa7b868
-  case 0xA7BA2D: return;  // 0xa7ba2d
-  case 0xA7BF5D: KraidsFoot_FirstPhase_LungeForward(); return;  // 0xa7bf5d
-  case 0xA7B831: return;
+  switch ((uint16)ea) {  /* (todos del banco $A7) */
+  case 0xAC4D: Kraid_GetsBig_BreakCeilingPlatforms(); return;  // 0x9bc35
+  case 0xAD3A: Kraid_GetsBig_SetBG2TilemapPrioBits(); return;  // 0x9bde6
+  case 0xAD61: Kraid_GetsBig_FinishUpdateBg2Tilemap(); return;  // 0x9be51
+  case 0xAD8E: Kraid_GetsBig_DrawRoomBg(); return;  // 0x9bee5
+  case 0xAE23: Kraid_GetsBig_FadeInRoomBg(); return;  // 0x9c08c
+  case 0xAEA4: Kraid_Mainloop_Thinking(); return;  // 0x9c1b8
+  case 0xAEC4: Kraid_GetsBig_Thinking(); return;  // 0x9c207
+  case 0xAEE4: Kraid_Shot_MouthIsOpen(); return;  // 0x9c256
+  case 0xB6BF: Kraid_InitEyeGlowing(); return;  // 0x9cf64
+  case 0xB6D7: Kraid_Shot_GlowHisEye(); return;  // 0x9cf9f
+  case 0xB73D: Kraid_Shot_UnglowEye(); return;  // 0x9d0b4
+  case 0xB832: KraidLint_ProduceLint(k); return;  // 0x9d371
+  case 0xB89B: KraidLint_FireLint(k); return;  // 0x9d44f
+  case 0xB907: KraidFingernail_WaitForLintXpos(k); return;  // 0x9d556
+  case 0xB923: Kraid_AlignEnemyToKraid(k); return;  // 0x9d5b5
+  case 0xB92D: KraidEnemy_HandleFunctionTimer(k); return;  // 0x9d5e5
+  case 0xB93F: KraidEnemy_DecrementEnemyFunctionTimer(); return;  // 0x9d61c
+  case 0xB960: KraidFoot_FirstPhase_Thinking(k); return;  // 0x9d66a
+  case 0xB965: KraidEnemy_ProcessInstrEnemyTimer(k); return;  // 0x9d67d
+  case 0xBA2E: KraidsFoot_SecondPhase_Thinking(); return;  // 0x9d8b2
+  case 0xBB45: KraidsFoot_SecondPhase_WalkingBackwards(); return;  // 0x9da2d
+  case 0xBB6E: KraidsFoot_SecondPhaseSetup_WalkToStartPt(); return;  // 0x9daa2
+  case 0xBBA4: KraidsFoot_SecondPhase_Init(); return;  // 0x9db2a
+  case 0xBBAE: KraidsFoot_SecondPhase_WalkForward(); return;  // 0x9db40
+  case 0xBBEA: Kraid_Main_AttackWithMouthOpen(); return;  // 0x9dbe0
+  case 0xBD60: KraidsFingernail_Init(); return;  // 0x9df94
+  case 0xBE8E: KraidsFingernail_Fire(k); return;  // 0x9e1ac
+  case 0xBF2D: KraidsFoot_PrepareToLungeForward(); return;  // 0x9e312
+  case 0xBFAB: KraidsFoot_FirstPhase_RetreatFromLunge(); return;  // 0x9e43a
+  case 0xC0A1: Kraid_GetsBig_ReleaseCamera(); return;  // 0x9e6a7
+  case 0xC360: Kraid_Death_Init(); return;  // 0x9ec0b
+  case 0xC3F9: Kraid_Death_Fadeout(); return;  // 0x9ed75
+  case 0xC4A4: Kraid_Death_UpdateBG2TilemapTopHalf(); return;  // 0x9ef19
+  case 0xC4C8: Kraid_Death_UpdateBG2TilemapBottomHalf(); return;  // 0x9ef92
+  case 0xC537: Kraid_Death_SinkThroughFloor(); return;  // 0x9f074
+  case 0xC715: Kraid_FadeInBg_ClearBg2TilemapTopHalf(); return;  // 0x9f369
+  case 0xC751: Kraid_FadeInBg_ClearBg2TilemapBottomHalf(); return;  // 0x9f3ed
+  case 0xC777: Kraid_FadeInBg_LoadBg3Tiles1of4(); return;  // 0x9f448
+  case 0xC7A3: Kraid_FadeInBg_LoadBg3Tiles2of4(); return;  // 0x9f4ad
+  case 0xC7C9: Kraid_FadeInBg_LoadBg3Tiles3of4(); return;  // 0x9f507
+  case 0xC7EF: Kraid_FadeInBg_LoadBg3Tiles4of4(); return;  // 0x9f561
+  case 0xC815: Kraid_FadeInBg_FadeInBp6(); return;  // 0x9f5bb
+  case 0xC843: Kraid_FadeInBg_SetEnemyDead_KraidWasAlive(); return;  // 0x9f62d
+  case 0xC851: Kraid_FadeInBg_SetEnemyDead_KraidWasDead(); return;  // 0x9f65b
+  case 0xC865: Kraid_RestrictSamusXtoFirstScreen(k); return;  // 0x9f694
+  case 0xC86B: Kraid_RaiseKraidThroughFloor(k); return;  // 0x9f6a7
+  case 0xC89A: Kraid_Raise_LoadTilemapBottomAndShake(); return;  // 0x9f71f
+  case 0xC8E0: Kraid_Raise_SpawnRandomEarthquakeProjs16(); return;  // 0x9f7b8
+  case 0xC902: Kraid_Raise_SpawnRandomEarthquakeProjs8(); return;  // 0x9f805
+  case 0xC924: Kraid_Raise_Handler(); return;  // 0x9f852
+  case 0xB868: KraidLint_ChargeLint(k); return;  // 0xa7b868
+  case 0xBA2D: return;  // 0xa7ba2d
+  case 0xBF5D: KraidsFoot_FirstPhase_LungeForward(); return;  // 0xa7bf5d
+  case 0xB831: return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -22959,11 +22900,11 @@ void MiniDraygon_Func_3(void) {  // 0xA888E5
   E->y_pos = gEnemyData((uint16)(cur_enemy_index + (-128)))->y_pos + 18;
 }
 void CallMiniDraygonFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA88922: MiniDraygon_Func_4(); return;
-  case 0xA88A34: MiniDraygon_Func_8(); return;
-  case 0xA88A3B: MiniDraygon_Func_9(); return;
-  case 0xA88A78: MiniDraygon_Func_10(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A8) */
+  case 0x8922: MiniDraygon_Func_4(); return;
+  case 0x8A34: MiniDraygon_Func_8(); return;
+  case 0x8A3B: MiniDraygon_Func_9(); return;
+  case 0x8A78: MiniDraygon_Func_10(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -23232,11 +23173,11 @@ void Fune_Init(void) {  // 0xA896E3
   E->ai_var_E = 0;
 }
 void CallFuneFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA89737: Fune_Func_1(); return;  // 0xa89737
-  case 0xA8975C: Fune_Func_2(); return;  // 0xa8975c
-  case 0xA8978E: return;  // 0xa8978e
-  case 0xA8978F: return;  // 0xa8978f
+  switch ((uint16)ea) {  /* (todos del banco $A8) */
+  case 0x9737: Fune_Func_1(); return;  // 0xa89737
+  case 0x975C: Fune_Func_2(); return;  // 0xa8975c
+  case 0x978E: return;  // 0xa8978e
+  case 0x978F: return;  // 0xa8978f
   default: nt_unimpl("Unreachable");
   }
 }
@@ -23619,11 +23560,11 @@ void YappingMaw_Init(void) {  // 0xA8A148
   ERAM(0x880C + E_k) = CreateSpriteAtPos(E->x_pos, R34 + E->y_pos, R36, v3);
 }
 void CallYappingMawFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA8A235: YappingMaw_Func_1(); return;  // 0xa8a235
-  case 0xA8A28C: YappingMaw_Func_2(); return;  // 0xa8a28c
-  case 0xA8A445: YappingMaw_Func_8(); return;  // 0xa8a445
-  case 0xA8A68A: YappingMaw_Func_11(); return;  // 0xa8a68a
+  switch ((uint16)ea) {  /* (todos del banco $A8) */
+  case 0xA235: YappingMaw_Func_1(); return;  // 0xa8a235
+  case 0xA28C: YappingMaw_Func_2(); return;  // 0xa8a28c
+  case 0xA445: YappingMaw_Func_8(); return;  // 0xa8a445
+  case 0xA68A: YappingMaw_Func_11(); return;  // 0xa8a68a
   default: nt_unimpl("Unreachable");
   }
 }
@@ -24745,34 +24686,34 @@ void Beetom_Func_36(void) {  // 0xA8BDC5
   Beetom_Func_37(cur_enemy_index);
 }
 void CallBeetomFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA8B814: Beetom_Func_3(); return;  // 0xa8b814
-  case 0xA8B82F: Beetom_Func_4(); return;  // 0xa8b82f
-  case 0xA8B84F: Beetom_Func_5(); return;  // 0xa8b84f
-  case 0xA8B85F: Beetom_Func_6(); return;  // 0xa8b85f
-  case 0xA8B873: Beetom_Func_7(); return;  // 0xa8b873
-  case 0xA8B887: Beetom_Func_8(); return;  // 0xa8b887
-  case 0xA8B8A9: Beetom_Func_9(); return;  // 0xa8b8a9
-  case 0xA8B8CB: Beetom_Func_10(); return;  // 0xa8b8cb
-  case 0xA8B8ED: Beetom_Func_11(); return;  // 0xa8b8ed
-  case 0xA8B90F: Beetom_Func_12(); return;  // 0xa8b90f
-  case 0xA8B952: Beetom_Func_13(); return;  // 0xa8b952
-  case 0xA8B966: Beetom_Func_14(); return;  // 0xa8b966
-  case 0xA8B97A: Beetom_Func_15(); return;  // 0xa8b97a
-  case 0xA8B9A2: Beetom_Func_16(); return;  // 0xa8b9a2
-  case 0xA8B9B2: Beetom_Func_17(); return;  // 0xa8b9b2
-  case 0xA8B9C1: Beetom_Func_18(); return;  // 0xa8b9c1
-  case 0xA8BA24: Beetom_Func_19(); return;  // 0xa8ba24
-  case 0xA8BA84: Beetom_Func_20(); return;  // 0xa8ba84
-  case 0xA8BAB7: Beetom_Func_21(); return;  // 0xa8bab7
-  case 0xA8BB55: Beetom_Func_24(); return;  // 0xa8bb55
-  case 0xA8BB88: Beetom_Func_25(); return;  // 0xa8bb88
-  case 0xA8BC26: Beetom_Func_28(); return;  // 0xa8bc26
-  case 0xA8BC5A: Beetom_Func_29(); return;  // 0xa8bc5a
-  case 0xA8BCF8: Beetom_Func_32(); return;  // 0xa8bcf8
-  case 0xA8BD42: Beetom_Func_33(); return;  // 0xa8bd42
-  case 0xA8BD9D: Beetom_Func_35(); return;  // 0xa8bd9d
-  case 0xA8BDC5: Beetom_Func_36(); return;  // 0xa8bdc5
+  switch ((uint16)ea) {  /* (todos del banco $A8) */
+  case 0xB814: Beetom_Func_3(); return;  // 0xa8b814
+  case 0xB82F: Beetom_Func_4(); return;  // 0xa8b82f
+  case 0xB84F: Beetom_Func_5(); return;  // 0xa8b84f
+  case 0xB85F: Beetom_Func_6(); return;  // 0xa8b85f
+  case 0xB873: Beetom_Func_7(); return;  // 0xa8b873
+  case 0xB887: Beetom_Func_8(); return;  // 0xa8b887
+  case 0xB8A9: Beetom_Func_9(); return;  // 0xa8b8a9
+  case 0xB8CB: Beetom_Func_10(); return;  // 0xa8b8cb
+  case 0xB8ED: Beetom_Func_11(); return;  // 0xa8b8ed
+  case 0xB90F: Beetom_Func_12(); return;  // 0xa8b90f
+  case 0xB952: Beetom_Func_13(); return;  // 0xa8b952
+  case 0xB966: Beetom_Func_14(); return;  // 0xa8b966
+  case 0xB97A: Beetom_Func_15(); return;  // 0xa8b97a
+  case 0xB9A2: Beetom_Func_16(); return;  // 0xa8b9a2
+  case 0xB9B2: Beetom_Func_17(); return;  // 0xa8b9b2
+  case 0xB9C1: Beetom_Func_18(); return;  // 0xa8b9c1
+  case 0xBA24: Beetom_Func_19(); return;  // 0xa8ba24
+  case 0xBA84: Beetom_Func_20(); return;  // 0xa8ba84
+  case 0xBAB7: Beetom_Func_21(); return;  // 0xa8bab7
+  case 0xBB55: Beetom_Func_24(); return;  // 0xa8bb55
+  case 0xBB88: Beetom_Func_25(); return;  // 0xa8bb88
+  case 0xBC26: Beetom_Func_28(); return;  // 0xa8bc26
+  case 0xBC5A: Beetom_Func_29(); return;  // 0xa8bc5a
+  case 0xBCF8: Beetom_Func_32(); return;  // 0xa8bcf8
+  case 0xBD42: Beetom_Func_33(); return;  // 0xa8bd42
+  case 0xBD9D: Beetom_Func_35(); return;  // 0xa8bd9d
+  case 0xBDC5: Beetom_Func_36(); return;  // 0xa8bdc5
   default: nt_unimpl("Unreachable");
   }
 }
@@ -25127,7 +25068,7 @@ void MaridiaFloater_Powerbomb(void) {  // 0xA8C63F
   }
 }
 void WreckedShipRobot_Init(void) {  // 0xA8CB77
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 1) != 0) {
     nt_gfx_hook_bank = -88;
     nt_gfx_hook_addr = 0xCC67 /* WreckedShipRobot_Func_1 */;
     EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
@@ -25457,7 +25398,7 @@ void WreckedShipRobotDeactivated_Shot(void) {  // 0xA8D18D
   NormalEnemyShotAi();
 }
 void WreckedShipRobot_Shot(void) {  // 0xA8D192
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 1) != 0) {
     NormalEnemyShotAi();
     EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
     if (E->health) {
@@ -25493,11 +25434,11 @@ void MaridiaPuffer_Init(void) {  // 0xA8D8C9
   ERAM(0x7800 + E_k) = ((int16)BW_A8(0xD885 + 2 * (E->parameter_2)));
 }
 void CallMaridiaPuffer(uint32 ea) {
-  switch (ea) {
-  case 0xA8D92B: MaridiaPuffer_Func_1(); return;
-  case 0xA8D940: MaridiaPuffer_Func_2(); return;
-  case 0xA8D963: MaridiaPuffer_Func_3(); return;
-  case 0xA8D97C: MaridiaPuffer_Func_4(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A8) */
+  case 0xD92B: MaridiaPuffer_Func_1(); return;
+  case 0xD940: MaridiaPuffer_Func_2(); return;
+  case 0xD963: MaridiaPuffer_Func_3(); return;
+  case 0xD97C: MaridiaPuffer_Func_4(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -25840,16 +25781,16 @@ void WreckedShipOrbs_Init(void) {  // 0xA8E388
   ERAM(0x7804 + E_k) = ((uint16)BW_A2(0x8187 + 2 * (v1 + 3)));
 }
 void CallWreckedShipOrbsA(uint32 ea) {
-  switch (ea) {
-  case 0xA8E405: WreckedShipOrbs_Func_3(); return;
-  case 0xA8E424: WreckedShipOrbs_Func_4(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A8) */
+  case 0xE405: WreckedShipOrbs_Func_3(); return;
+  case 0xE424: WreckedShipOrbs_Func_4(); return;
   default: nt_unimpl("Unreachable");
   }
 }
 void CallWreckedShipOrbsB(uint32 ea) {
-  switch (ea) {
-  case 0xA8E443: WreckedShipOrbs_Func_5(); return;
-  case 0xA8E462: WreckedShipOrbs_Func_6(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A8) */
+  case 0xE443: WreckedShipOrbs_Func_5(); return;
+  case 0xE462: WreckedShipOrbs_Func_6(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -26380,9 +26321,9 @@ void KiHunter_Shot(void) {  // 0xA8F701
   }
 }
 void CallKiHunterBFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA8F7DB: KiHunter_Func_11(); return;
-  case 0xA8F8AD: KiHunter_Func_14(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A8) */
+  case 0xF7DB: KiHunter_Func_11(); return;
+  case 0xF8AD: KiHunter_Func_14(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -26472,137 +26413,137 @@ void KiHunter_Func_17(void) {  // 0xA8F98D
   } while (sign16(v5 - 0x2000));
 }
 NT_BOSS void CallMotherBrainFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA987D0: MotherBrainsBrain_SetupBrainToDraw(); return;
-  case 0xA987E1: nt_unimpl("Unreachable"); return;
-  case 0xA98949: MotherBrainBody_0_Wait(); return;
-  case 0xA9896E: MotherBrainBody_1_ClearBottomLeftTube(); return;
-  case 0xA98983: MotherBrainBody_2_SpawnTopRightTubeFalling(); return;
-  case 0xA989A0: MotherBrainBody_3_ClearCeilingBlock9(); return;
-  case 0xA989B5: MotherBrainBody_4_SpawnTopLeftTubeFalling(); return;
-  case 0xA989D2: MotherBrainBody_4_ClearCeilingBlock6(); return;
-  case 0xA989E7: MotherBrainBody_5_SpawnTubeFallingEnemy1(); return;
-  case 0xA989FA: MotherBrainBody_6_ClearBottomRightTube(); return;
-  case 0xA98A0F: MotherBrainBody_7_SpawnTubeFallingEnemy2(); return;
-  case 0xA98A22: MotherBrainBody_8_ClearBottomMiddleLeftTube(); return;
-  case 0xA98A37: MotherBrainBody_9_SpawnTopMiddleLeftFalling(); return;
-  case 0xA98A54: MotherBrainBody_10_ClearCeilingTubeColumn7(); return;
-  case 0xA98A69: MotherBrainBody_11_SpawnTopMiddleRightFalling(); return;
-  case 0xA98A86: MotherBrainBody_12_ClearCeilingTubeColumn8(); return;
-  case 0xA98A9B: MotherBrainBody_13_SpawnTubeFallingEnemy3(); return;
-  case 0xA98AAE: MotherBrainBody_14_ClearBottomMiddleRightTube(); return;
-  case 0xA98AC3: MotherBrainBody_15_SpawnTubeFallingEnemy4(); return;
-  case 0xA98AD6: MotherBrainBody_16_ClearBottomMiddleTubes(); return;
-  case 0xA9881D: MotherBrainBody_FakeDeath_Descent_0_Pause(); return;
-  case 0xA98829: MotherBrainBody_FakeDeath_Descent_1(); return;
-  case 0xA9884D: MotherBrainBody_FakeDeath_Descent_2(); return;
-  case 0xA9886C: MotherBrainBody_FakeDeath_Descent_3(); return;
-  case 0xA98884: MotherBrainBody_FakeDeath_Descent_4(); return;
-  case 0xA988B2: MotherBrainBody_FakeDeath_Descent_5(); return;
-  case 0xA988D3: MotherBrainBody_FakeDeath_Descent_6(); return;
-  case 0xA98C87: MotherBrainBody_FakeDeath_Ascent_0_DrawBG1Row23(); return;
-  case 0xA98C9E: MotherBrainBody_FakeDeath_Ascent_1_DrawBG1Row45(); return;
-  case 0xA98CB5: MotherBrainBody_FakeDeath_Ascent_2_DrawBG1Row67(); return;
-  case 0xA98CCC: MotherBrainBody_FakeDeath_Ascent_3_DrawBG1Row89(); return;
-  case 0xA98CE3: MotherBrainBody_FakeDeath_Ascent_4_DrawBG1RowAB(); return;
-  case 0xA98CFA: MotherBrainBody_FakeDeath_Ascent_5_DrawBG1RowCD(); return;
-  case 0xA98D11: MotherBrainBody_FakeDeath_Ascent_6_SetupPhase2Gfx(); return;
-  case 0xA98D49: MotherBrainBody_FakeDeath_Ascent_7_SetupPhase2Brain(); return;
-  case 0xA98D79: MotherBrainBody_FakeDeath_Ascent_8_Pause(); return;
-  case 0xA98D8B: MotherBrainBody_FakeDeath_Ascent_9_PrepareRise(); return;
-  case 0xA98DB4: MotherBrainBody_FakeDeath_Ascent_10_LoadLegTiles(); return;
-  case 0xA98DC3: MotherBrainBody_FakeDeath_Ascent_11_ContinuePause(); return;
-  case 0xA98DEC: MotherBrainBody_FakeDeath_Ascent_12_StartMusic(); return;
-  case 0xA98E4D: MotherBrainBody_FakeDeath_Ascent_13_Raise(); return;
-  case 0xA98E95: MotherBrainBody_FakeDeath_Ascent_14_WaitForUncouching(); return;
-  case 0xA98EAA: MotherBrainBody_FakeDeath_Ascent_15_TransitionFromGrey(); return;
-  case 0xA98EF5: MotherBrainBody_2ndphase_16_ShakeHeadMenacingly(); return;
-  case 0xA98F14: MotherBrainBody_2ndphase_17_BringHeadBackUp(); return;
-  case 0xA98F33: MotherBrainBody_2ndphase_18_FinishStretching(); return;
-  case 0xA9AEE1: MotherBrain_Phase3_Death_0(); return;
-  case 0xA9AF12: MotherBrain_Phase3_Death_1(); return;
-  case 0xA9AF21: MotherBrain_Phase3_Death_2(); return;
-  case 0xA9AF54: MotherBrain_Phase3_Death_3(); return;
-  case 0xA9AF9D: MotherBrain_Phase3_Death_4(); return;
-  case 0xA9AFB6: MotherBrain_Phase3_Death_5(); return;
-  case 0xA9B013: MotherBrain_Phase3_Death_6(); return;
-  case 0xA9B115: MotherBrain_Phase3_Death_7(); return;
-  case 0xA9B12D: MotherBrain_Phase3_Death_8(); return;
-  case 0xA9B15E: MotherBrain_Phase3_Death_9(); return;
-  case 0xA9B173: MotherBrain_Phase3_Death_10(); return;
-  case 0xA9B189: MotherBrain_Phase3_Death_11(); return;
-  case 0xA9B1B8: MotherBrain_Phase3_Death_12(); return;
-  case 0xA9B1D5: MotherBrain_Phase3_Death_13(); return;
-  case 0xA9B211: MotherBrain_Phase3_Death_14_20framedelay(); return;
-  case 0xA9B258: MotherBrain_Phase3_Death_15_LoadEscapeTimerTiles(); return;
-  case 0xA9B26D: MotherBrain_Phase3_Death_16_StartEscape(); return;
-  case 0xA9B2D1: MotherBrain_Phase3_Death_17_SpawnTimeBomb(); return;
-  case 0xA9B2E3: MotherBrain_Phase3_Death_18_TypesZebesText(); return;
-  case 0xA9B2F9: MotherBrain_Phase3_Death_19_EscapeDoorExploding(); return;
-  case 0xA9B32A: MotherBrain_Phase3_Death_20_BlowUpEscapeDoor(); return;
-  case 0xA9B33C: MotherBrain_Phase3_Death_21_KeepEarthquakeGoing(); return;
-  case 0xA9B605: MotherBrain_Body_Phase2_Thinking(); return;
-  case 0xA9B64B: MotherBrain_Body_Phase2_TryAttack(); return;
-  case 0xA9B781: MotherBrain_FiringBomb_DecideOnWalking(); return;
-  case 0xA9B7AC: MotherBrain_FiringBomb_WalkingBackwards(); return;
-  case 0xA9B7C6: MotherBrain_FiringBomb_Crouch(); return;
-  case 0xA9B7E8: MotherBrain_FiringBomb_Fired(); return;
-  case 0xA9B7F8: MotherBrain_FiringBomb_Standup(); return;
-  case 0xA9B80E: MotherBomb_FiringLaser_PositionHead(); return;
-  case 0xA9B839: MotherBomb_FiringLaser_PositionHeadSlowlyFire(); return;
-  case 0xA9B863: MotherBomb_FiringLaser_FinishAttack(); return;
-  case 0xA9B87D: MotherBomb_FiringDeathBeam(); return;
-  case 0xA9B8EB: MotherBomb_FiringRainbowBeam_0(); return;
-  case 0xA9B91A: MotherBomb_FiringRainbowBeam_1_StartCharge(); return;
-  case 0xA9B92B: MotherBomb_FiringRainbowBeam_2_RetractNeck(); return;
-  case 0xA9B93F: MotherBomb_FiringRainbowBeam_3_Wait(); return;
-  case 0xA9B951: MotherBomb_FiringRainbowBeam_4_ExtendNeckDown(); return;
-  case 0xA9B975: MotherBomb_FiringRainbowBeam_5_StartFiring(); return;
-  case 0xA9B9E5: MotherBomb_FiringRainbowBeam_6_MoveSamusToWall(); return;
-  case 0xA9BA00: MotherBomb_FiringRainbowBeam_7_DelayFrame(); return;
-  case 0xA9BA27: MotherBomb_FiringRainbowBeam_8_StartDrainSamus(); return;
-  case 0xA9BA3C: MotherBomb_FiringRainbowBeam_9_DrainingSamus(); return;
-  case 0xA9BA5E: MotherBomb_FiringRainbowBeam_10_FinishFiringRainbow(); return;
-  case 0xA9BAC4: MotherBomb_FiringRainbowBeam_11_LetSamusFall(); return;
-  case 0xA9BAD1: MotherBomb_FiringRainbowBeam_12_WaitForSamusHitGround(); return;
-  case 0xA9BADD: MotherBomb_FiringRainbowBeam_13_LowerHead(); return;
-  case 0xA9BB06: MotherBomb_FiringRainbowBeam_14_DecideNextAction(); return;
-  case 0xA9BD45: MotherBrain_Phase2Cut_0(); return;
-  case 0xA9BD98: MotherBrain_Phase2Cut_1(); return;
-  case 0xA9BDA9: MotherBrain_Phase2Cut_2(); return;
-  case 0xA9BDC1: MotherBrain_Phase2Cut_3(); return;
-  case 0xA9BDD2: MotherBrain_Phase2Cut_4(); return;
-  case 0xA9BDED: MotherBrain_Phase2Cut_5(); return;
-  case 0xA9BE1A: return;
-  case 0xA9BE38: MotherBrain_DrainedByShitroid_0(); return;
-  case 0xA9BE5D: MotherBrain_DrainedByShitroid_1(); return;
-  case 0xA9BE96: MotherBrain_DrainedByShitroid_2(); return;
-  case 0xA9BF0E: MotherBrain_DrainedByShitroid_3(); return;
-  case 0xA9BF41: MotherBrain_DrainedByShitroid_4(); return;
-  case 0xA9BF56: MotherBrain_DrainedByShitroid_5(); return;
-  case 0xA9BF7D: MotherBrain_DrainedByShitroid_6(); return;
-  case 0xA9BF95: MotherBrain_DrainedByShitroid_7(); return;
-  case 0xA9C059: MotherBrain_Phase2_Revive_0(); return;
-  case 0xA9C066: MotherBrain_Phase2_Revive_1(); return;
-  case 0xA9C082: MotherBrain_Phase2_Revive_2(); return;
-  case 0xA9C08F: MotherBrain_Phase2_Revive_3(); return;
-  case 0xA9C0BA: MotherBrain_Phase2_Revive_4(); return;
-  case 0xA9C0E4: MotherBrain_Phase2_Revive_5(); return;
-  case 0xA9C0FB: MotherBrain_Phase2_Revive_6(); return;
-  case 0xA9C11E: MotherBrain_Phase2_Revive_7(); return;
-  case 0xA9C147: MotherBrain_Phase2_Revive_8(); return;
-  case 0xA9C15C: MotherBrain_Phase2_MurderShitroid_1(); return;
-  case 0xA9C182: MotherBrain_Phase2_MurderShitroid_2(); return;
-  case 0xA9C18E: MotherBrain_Phase2_PrepareForFinalShitroid(); return;
-  case 0xA9C19A: MotherBrain_Phase2_ExecuteFinalkShitroid(); return;
-  case 0xA9C1A6: return;
-  case 0xA9C1CF: MotherBrain_Phase3_Recover_MakeDistance(); return;
-  case 0xA9C1F0: MotherBrain_Phase3_Recover_SetupForFight(); return;
-  case 0xA9C209: MotherBrain_Phase3_Fighting_Main(); return;
-  case 0xA9C24E: MotherBrain_Phase3_Fighting_Cooldown(); return;
-  case 0xA98AE4: return;
-  case 0xA9C18D: return;
-  case 0xA987A2: MotherBrainsBrain_SetupBrainAndNeckToDraw(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A9) */
+  case 0x87D0: MotherBrainsBrain_SetupBrainToDraw(); return;
+  case 0x87E1: nt_unimpl("Unreachable"); return;
+  case 0x8949: MotherBrainBody_0_Wait(); return;
+  case 0x896E: MotherBrainBody_1_ClearBottomLeftTube(); return;
+  case 0x8983: MotherBrainBody_2_SpawnTopRightTubeFalling(); return;
+  case 0x89A0: MotherBrainBody_3_ClearCeilingBlock9(); return;
+  case 0x89B5: MotherBrainBody_4_SpawnTopLeftTubeFalling(); return;
+  case 0x89D2: MotherBrainBody_4_ClearCeilingBlock6(); return;
+  case 0x89E7: MotherBrainBody_5_SpawnTubeFallingEnemy1(); return;
+  case 0x89FA: MotherBrainBody_6_ClearBottomRightTube(); return;
+  case 0x8A0F: MotherBrainBody_7_SpawnTubeFallingEnemy2(); return;
+  case 0x8A22: MotherBrainBody_8_ClearBottomMiddleLeftTube(); return;
+  case 0x8A37: MotherBrainBody_9_SpawnTopMiddleLeftFalling(); return;
+  case 0x8A54: MotherBrainBody_10_ClearCeilingTubeColumn7(); return;
+  case 0x8A69: MotherBrainBody_11_SpawnTopMiddleRightFalling(); return;
+  case 0x8A86: MotherBrainBody_12_ClearCeilingTubeColumn8(); return;
+  case 0x8A9B: MotherBrainBody_13_SpawnTubeFallingEnemy3(); return;
+  case 0x8AAE: MotherBrainBody_14_ClearBottomMiddleRightTube(); return;
+  case 0x8AC3: MotherBrainBody_15_SpawnTubeFallingEnemy4(); return;
+  case 0x8AD6: MotherBrainBody_16_ClearBottomMiddleTubes(); return;
+  case 0x881D: MotherBrainBody_FakeDeath_Descent_0_Pause(); return;
+  case 0x8829: MotherBrainBody_FakeDeath_Descent_1(); return;
+  case 0x884D: MotherBrainBody_FakeDeath_Descent_2(); return;
+  case 0x886C: MotherBrainBody_FakeDeath_Descent_3(); return;
+  case 0x8884: MotherBrainBody_FakeDeath_Descent_4(); return;
+  case 0x88B2: MotherBrainBody_FakeDeath_Descent_5(); return;
+  case 0x88D3: MotherBrainBody_FakeDeath_Descent_6(); return;
+  case 0x8C87: MotherBrainBody_FakeDeath_Ascent_0_DrawBG1Row23(); return;
+  case 0x8C9E: MotherBrainBody_FakeDeath_Ascent_1_DrawBG1Row45(); return;
+  case 0x8CB5: MotherBrainBody_FakeDeath_Ascent_2_DrawBG1Row67(); return;
+  case 0x8CCC: MotherBrainBody_FakeDeath_Ascent_3_DrawBG1Row89(); return;
+  case 0x8CE3: MotherBrainBody_FakeDeath_Ascent_4_DrawBG1RowAB(); return;
+  case 0x8CFA: MotherBrainBody_FakeDeath_Ascent_5_DrawBG1RowCD(); return;
+  case 0x8D11: MotherBrainBody_FakeDeath_Ascent_6_SetupPhase2Gfx(); return;
+  case 0x8D49: MotherBrainBody_FakeDeath_Ascent_7_SetupPhase2Brain(); return;
+  case 0x8D79: MotherBrainBody_FakeDeath_Ascent_8_Pause(); return;
+  case 0x8D8B: MotherBrainBody_FakeDeath_Ascent_9_PrepareRise(); return;
+  case 0x8DB4: MotherBrainBody_FakeDeath_Ascent_10_LoadLegTiles(); return;
+  case 0x8DC3: MotherBrainBody_FakeDeath_Ascent_11_ContinuePause(); return;
+  case 0x8DEC: MotherBrainBody_FakeDeath_Ascent_12_StartMusic(); return;
+  case 0x8E4D: MotherBrainBody_FakeDeath_Ascent_13_Raise(); return;
+  case 0x8E95: MotherBrainBody_FakeDeath_Ascent_14_WaitForUncouching(); return;
+  case 0x8EAA: MotherBrainBody_FakeDeath_Ascent_15_TransitionFromGrey(); return;
+  case 0x8EF5: MotherBrainBody_2ndphase_16_ShakeHeadMenacingly(); return;
+  case 0x8F14: MotherBrainBody_2ndphase_17_BringHeadBackUp(); return;
+  case 0x8F33: MotherBrainBody_2ndphase_18_FinishStretching(); return;
+  case 0xAEE1: MotherBrain_Phase3_Death_0(); return;
+  case 0xAF12: MotherBrain_Phase3_Death_1(); return;
+  case 0xAF21: MotherBrain_Phase3_Death_2(); return;
+  case 0xAF54: MotherBrain_Phase3_Death_3(); return;
+  case 0xAF9D: MotherBrain_Phase3_Death_4(); return;
+  case 0xAFB6: MotherBrain_Phase3_Death_5(); return;
+  case 0xB013: MotherBrain_Phase3_Death_6(); return;
+  case 0xB115: MotherBrain_Phase3_Death_7(); return;
+  case 0xB12D: MotherBrain_Phase3_Death_8(); return;
+  case 0xB15E: MotherBrain_Phase3_Death_9(); return;
+  case 0xB173: MotherBrain_Phase3_Death_10(); return;
+  case 0xB189: MotherBrain_Phase3_Death_11(); return;
+  case 0xB1B8: MotherBrain_Phase3_Death_12(); return;
+  case 0xB1D5: MotherBrain_Phase3_Death_13(); return;
+  case 0xB211: MotherBrain_Phase3_Death_14_20framedelay(); return;
+  case 0xB258: MotherBrain_Phase3_Death_15_LoadEscapeTimerTiles(); return;
+  case 0xB26D: MotherBrain_Phase3_Death_16_StartEscape(); return;
+  case 0xB2D1: MotherBrain_Phase3_Death_17_SpawnTimeBomb(); return;
+  case 0xB2E3: MotherBrain_Phase3_Death_18_TypesZebesText(); return;
+  case 0xB2F9: MotherBrain_Phase3_Death_19_EscapeDoorExploding(); return;
+  case 0xB32A: MotherBrain_Phase3_Death_20_BlowUpEscapeDoor(); return;
+  case 0xB33C: MotherBrain_Phase3_Death_21_KeepEarthquakeGoing(); return;
+  case 0xB605: MotherBrain_Body_Phase2_Thinking(); return;
+  case 0xB64B: MotherBrain_Body_Phase2_TryAttack(); return;
+  case 0xB781: MotherBrain_FiringBomb_DecideOnWalking(); return;
+  case 0xB7AC: MotherBrain_FiringBomb_WalkingBackwards(); return;
+  case 0xB7C6: MotherBrain_FiringBomb_Crouch(); return;
+  case 0xB7E8: MotherBrain_FiringBomb_Fired(); return;
+  case 0xB7F8: MotherBrain_FiringBomb_Standup(); return;
+  case 0xB80E: MotherBomb_FiringLaser_PositionHead(); return;
+  case 0xB839: MotherBomb_FiringLaser_PositionHeadSlowlyFire(); return;
+  case 0xB863: MotherBomb_FiringLaser_FinishAttack(); return;
+  case 0xB87D: MotherBomb_FiringDeathBeam(); return;
+  case 0xB8EB: MotherBomb_FiringRainbowBeam_0(); return;
+  case 0xB91A: MotherBomb_FiringRainbowBeam_1_StartCharge(); return;
+  case 0xB92B: MotherBomb_FiringRainbowBeam_2_RetractNeck(); return;
+  case 0xB93F: MotherBomb_FiringRainbowBeam_3_Wait(); return;
+  case 0xB951: MotherBomb_FiringRainbowBeam_4_ExtendNeckDown(); return;
+  case 0xB975: MotherBomb_FiringRainbowBeam_5_StartFiring(); return;
+  case 0xB9E5: MotherBomb_FiringRainbowBeam_6_MoveSamusToWall(); return;
+  case 0xBA00: MotherBomb_FiringRainbowBeam_7_DelayFrame(); return;
+  case 0xBA27: MotherBomb_FiringRainbowBeam_8_StartDrainSamus(); return;
+  case 0xBA3C: MotherBomb_FiringRainbowBeam_9_DrainingSamus(); return;
+  case 0xBA5E: MotherBomb_FiringRainbowBeam_10_FinishFiringRainbow(); return;
+  case 0xBAC4: MotherBomb_FiringRainbowBeam_11_LetSamusFall(); return;
+  case 0xBAD1: MotherBomb_FiringRainbowBeam_12_WaitForSamusHitGround(); return;
+  case 0xBADD: MotherBomb_FiringRainbowBeam_13_LowerHead(); return;
+  case 0xBB06: MotherBomb_FiringRainbowBeam_14_DecideNextAction(); return;
+  case 0xBD45: MotherBrain_Phase2Cut_0(); return;
+  case 0xBD98: MotherBrain_Phase2Cut_1(); return;
+  case 0xBDA9: MotherBrain_Phase2Cut_2(); return;
+  case 0xBDC1: MotherBrain_Phase2Cut_3(); return;
+  case 0xBDD2: MotherBrain_Phase2Cut_4(); return;
+  case 0xBDED: MotherBrain_Phase2Cut_5(); return;
+  case 0xBE1A: return;
+  case 0xBE38: MotherBrain_DrainedByShitroid_0(); return;
+  case 0xBE5D: MotherBrain_DrainedByShitroid_1(); return;
+  case 0xBE96: MotherBrain_DrainedByShitroid_2(); return;
+  case 0xBF0E: MotherBrain_DrainedByShitroid_3(); return;
+  case 0xBF41: MotherBrain_DrainedByShitroid_4(); return;
+  case 0xBF56: MotherBrain_DrainedByShitroid_5(); return;
+  case 0xBF7D: MotherBrain_DrainedByShitroid_6(); return;
+  case 0xBF95: MotherBrain_DrainedByShitroid_7(); return;
+  case 0xC059: MotherBrain_Phase2_Revive_0(); return;
+  case 0xC066: MotherBrain_Phase2_Revive_1(); return;
+  case 0xC082: MotherBrain_Phase2_Revive_2(); return;
+  case 0xC08F: MotherBrain_Phase2_Revive_3(); return;
+  case 0xC0BA: MotherBrain_Phase2_Revive_4(); return;
+  case 0xC0E4: MotherBrain_Phase2_Revive_5(); return;
+  case 0xC0FB: MotherBrain_Phase2_Revive_6(); return;
+  case 0xC11E: MotherBrain_Phase2_Revive_7(); return;
+  case 0xC147: MotherBrain_Phase2_Revive_8(); return;
+  case 0xC15C: MotherBrain_Phase2_MurderShitroid_1(); return;
+  case 0xC182: MotherBrain_Phase2_MurderShitroid_2(); return;
+  case 0xC18E: MotherBrain_Phase2_PrepareForFinalShitroid(); return;
+  case 0xC19A: MotherBrain_Phase2_ExecuteFinalkShitroid(); return;
+  case 0xC1A6: return;
+  case 0xC1CF: MotherBrain_Phase3_Recover_MakeDistance(); return;
+  case 0xC1F0: MotherBrain_Phase3_Recover_SetupForFight(); return;
+  case 0xC209: MotherBrain_Phase3_Fighting_Main(); return;
+  case 0xC24E: MotherBrain_Phase3_Fighting_Cooldown(); return;
+  case 0x8AE4: return;
+  case 0xC18D: return;
+  case 0x87A2: MotherBrainsBrain_SetupBrainAndNeckToDraw(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -28890,11 +28831,11 @@ NT_BOSS void MotherBrain_DrainedByShitroid_1(void) {  // 0xA9BE5D
   }
 }
 NT_BOSS void CallMotherBrainPainfulWalk(uint32 ea) {
-  switch (ea) {
-  case 0xA9BFD0: MotherBrain_PainfulWalkForwards(); return;
-  case 0xA9BFE8: MotherBrain_PainfulWalkingForwards(); return;
-  case 0xA9C004: MotherBrain_PainfulWalkBackwards(); return;
-  case 0xA9C01C: MotherBrain_PainfulWalkingBackwards(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A9) */
+  case 0xBFD0: MotherBrain_PainfulWalkForwards(); return;
+  case 0xBFE8: MotherBrain_PainfulWalkingForwards(); return;
+  case 0xC004: MotherBrain_PainfulWalkBackwards(); return;
+  case 0xC01C: MotherBrain_PainfulWalkingBackwards(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -29170,10 +29111,10 @@ NT_BOSS void MotherBrain_Phase3_Fighting_Cooldown(void) {  // 0xA9C24E
     E->ai_var_A = 0xC209 /* MotherBrain_Phase3_Fighting_Main */;
 }
 NT_BOSS void CallMotherBrainWallkFunc1A(uint32 ea) {
-  switch (ea) {
-  case 0xA9C26A: MotherBrain_Phase3_Walk_TryToInchForward(); return;
-  case 0xA9C2B3: MotherBrain_Phase3_Walk_RetreatQuickly(); return;
-  case 0xA9C2D2: MotherBrain_Phase3_Walk_RetreatSlowly(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A9) */
+  case 0xC26A: MotherBrain_Phase3_Walk_TryToInchForward(); return;
+  case 0xC2B3: MotherBrain_Phase3_Walk_RetreatQuickly(); return;
+  case 0xC2D2: MotherBrain_Phase3_Walk_RetreatSlowly(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -29223,13 +29164,13 @@ NT_BOSS void MotherBrain_SetToTryToInchForward(uint16 a) {  // 0xA9C313
   ERAM(0x7836 + E1_k) = E->x_pos + 1;
 }
 NT_BOSS void CallMotherBrainNeckFunc(uint32 ea) {
-  switch (ea) {
-  case 0xA9C353: return;
-  case 0xA9C330: MotherBrain_Phase3_Neck_Normal(); return;
-  case 0xA9C354: MotherBrain_Phase3_Neck_SetupRecoilRecovery(); return;
-  case 0xA9C37B: MotherBrain_Phase3_Neck_RecoilRecovery(); return;
-  case 0xA9C395: MotherBrain_Phase3_Neck_SetupHyperBeamRecoil(); return;
-  case 0xA9C3CD: MotherBrain_Phase3_Neck_HyperBeamRecoil(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A9) */
+  case 0xC353: return;
+  case 0xC330: MotherBrain_Phase3_Neck_Normal(); return;
+  case 0xC354: MotherBrain_Phase3_Neck_SetupRecoilRecovery(); return;
+  case 0xC37B: MotherBrain_Phase3_Neck_RecoilRecovery(); return;
+  case 0xC395: MotherBrain_Phase3_Neck_SetupHyperBeamRecoil(); return;
+  case 0xC3CD: MotherBrain_Phase3_Neck_HyperBeamRecoil(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -29539,11 +29480,11 @@ NT_BOSS void CallShitroidCutsceneFuncA(uint32 ea, uint16 k) {
   }
 }
 NT_BOSS void CallShitroidCutsceneFunc0F(uint32 ea) {
-  switch (ea) {
-  case 0xA9CABC: return;
-  case 0xA9CC98: return;
-  case 0xA9F683: Shitroid_HandleCutscenePalette(); return;
-  case 0xA9F68F: Shitroid_HandleCutscenePalette_LowHealth(); return;
+  switch ((uint16)ea) {  /* (todos del banco $A9) */
+  case 0xCABC: return;
+  case 0xCC98: return;
+  case 0xF683: Shitroid_HandleCutscenePalette(); return;
+  case 0xF68F: Shitroid_HandleCutscenePalette_LowHealth(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -30148,11 +30089,11 @@ NT_BOSS void DeadTorizo_Init(void) {  // 0xA9D308
   InitializeEnemyCorpseRotting(0, addr_stru_A9DD58);
 }
 NT_BOSS void CallDeadTorizoFuncA(uint32 ea) {
-  switch (ea) {
-  case 0xA9D3AD: DeadTorizo_WaitForSamusColl(cur_enemy_index); return;
-  case 0xA9D3E6: DeadTorizo_Rotting(); return;
-  case 0xA9D3C8: DeadTorizo_PreRotDelay(); return;
-  case 0xA9D3C7: return;
+  switch ((uint16)ea) {  /* (todos del banco $A9) */
+  case 0xD3AD: DeadTorizo_WaitForSamusColl(cur_enemy_index); return;
+  case 0xD3E6: DeadTorizo_Rotting(); return;
+  case 0xD3C8: DeadTorizo_PreRotDelay(); return;
+  case 0xD3C7: return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -32481,7 +32422,7 @@ void ChozoStatue_Main(void) {  // 0xAAE7A7
   CallEnemyPreInstr(v0->ai_preinstr | 0xAA0000);
 }
 void Shaktool_PreInstr_0(uint16 k) {  // 0xAAE7AE
-  if ((nt_ram_w((uint16)(0xD828 + (area_index))) & 1) != 0) {
+  if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 1) != 0) {
     EnemyData *E = gEnemyData(k); uint16 E_k = (k);
     if (E->parameter_1) {
       E->current_instruction = addr_kShaktool_Ilist_E461;
@@ -34205,10 +34146,10 @@ NT_BOSS void CallBotwoonFuncVarD(uint32 ea, uint16 k) {
   }
 }
 NT_BOSS void CallBotwoonFuncVarE(uint32 ea) {
-  switch (ea) {
-  case 0xB39BB7: Botwoon_Func_19(); return;
-  case 0xB3E250: Botwoon_Func_32(); return;
-  case 0xB3E28C: Botwoon_Func_33(); return;
+  switch ((uint16)ea) {  /* (todos del banco $B3) */
+  case 0x9BB7: Botwoon_Func_19(); return;
+  case 0xE250: Botwoon_Func_32(); return;
+  case 0xE28C: Botwoon_Func_33(); return;
   default: nt_unimpl("Unreachable");
   }
 }
@@ -35242,12 +35183,19 @@ static const struct { uint32 ea; PortFnV f; } kPortCallEnemyAi[420] = {
 };
 PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[8]; static PortFnV cf[8];   /* (8: la RAM no alcanza para más) */
-  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;
+  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;
 #ifdef NT_SSF2
   if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];
 #else
   if (cea[h] == ea) return cf[h];
 #endif
+#ifdef NT_SSF2
+  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {
+#else
+  if (cea[h | 1] == ea) {
+#endif
+    PortFnV t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;
+  }
   PortFnV f = 0;
   int lo = 0, hi = 419;
   while (lo <= hi) {
@@ -35259,7 +35207,7 @@ PortFnV port_FindCallEnemyAi(uint32 ea) {  /* 0: no está traducida; las última
 #ifdef NT_SSF2
   if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }
 #endif
-  cea[h] = ea; cf[h] = f;
+  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;
   return f;
 }
 uint8 port_CallEnemyAi(uint32 ea) {  /* 0: no está traducida */
@@ -35886,12 +35834,19 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEnemyPreInstr[174] = {
 };
 PortFnK port_FindCallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[8]; static PortFnK cf[8];   /* (8: la RAM no alcanza para más) */
-  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;
+  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;
 #ifdef NT_SSF2
   if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];
 #else
   if (cea[h] == ea) return cf[h];
 #endif
+#ifdef NT_SSF2
+  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {
+#else
+  if (cea[h | 1] == ea) {
+#endif
+    PortFnK t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;
+  }
   PortFnK f = 0;
   int lo = 0, hi = 173;
   while (lo <= hi) {
@@ -35903,7 +35858,7 @@ PortFnK port_FindCallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida; las �
 #ifdef NT_SSF2
   if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }
 #endif
-  cea[h] = ea; cf[h] = f;
+  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;
   return f;
 }
 uint8 port_CallEnemyPreInstr(uint32 ea) {  /* 0: no está traducida */
@@ -36004,12 +35959,19 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojInit[87] = {
 };
 PortFnK port_FindCallEprojInit(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[8]; static PortFnK cf[8];   /* (8: la RAM no alcanza para más) */
-  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;
+  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;
 #ifdef NT_SSF2
   if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];
 #else
   if (cea[h] == ea) return cf[h];
 #endif
+#ifdef NT_SSF2
+  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {
+#else
+  if (cea[h | 1] == ea) {
+#endif
+    PortFnK t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;
+  }
   PortFnK f = 0;
   int lo = 0, hi = 86;
   while (lo <= hi) {
@@ -36021,7 +35983,7 @@ PortFnK port_FindCallEprojInit(uint32 ea) {  /* 0: no está traducida; las últi
 #ifdef NT_SSF2
   if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }
 #endif
-  cea[h] = ea; cf[h] = f;
+  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;
   return f;
 }
 uint8 port_CallEprojInit(uint32 ea, uint16 j) {  /* 0: no está traducida */
@@ -36139,12 +36101,19 @@ static const struct { uint32 ea; PortFnK f; } kPortCallEprojPreInstr[104] = {
 };
 PortFnK port_FindCallEprojPreInstr(uint32 ea) {  /* 0: no está traducida; las últimas, recordadas */
   static uint32 cea[8]; static PortFnK cf[8];   /* (8: la RAM no alcanza para más) */
-  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 7;
+  uint16 h = ((uint16)ea ^ ((uint16)ea >> 4)) & 6;
 #ifdef NT_SSF2
   if (cea[h] == ea && !(cf[h] && NT_BOSS_AWAY(cf[h]))) return cf[h];
 #else
   if (cea[h] == ea) return cf[h];
 #endif
+#ifdef NT_SSF2
+  if (cea[h | 1] == ea && !(cf[h | 1] && NT_BOSS_AWAY(cf[h | 1]))) {
+#else
+  if (cea[h | 1] == ea) {
+#endif
+    PortFnK t = cf[h | 1]; cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = t; return t;
+  }
   PortFnK f = 0;
   int lo = 0, hi = 103;
   while (lo <= hi) {
@@ -36156,7 +36125,7 @@ PortFnK port_FindCallEprojPreInstr(uint32 ea) {  /* 0: no está traducida; las �
 #ifdef NT_SSF2
   if (f && NT_BOSS_AWAY(f)) { nt_unimpl_v("codigo de jefe fuera de su pagina", (uint16)ea); return 0; }
 #endif
-  cea[h] = ea; cf[h] = f;
+  cea[h | 1] = cea[h]; cf[h | 1] = cf[h]; cea[h] = ea; cf[h] = f;
   return f;
 }
 uint8 port_CallEprojPreInstr(uint32 ea, uint16 k) {  /* 0: no está traducida */
@@ -36883,8 +36852,6 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA7B0F3: Kraid_Enemy_Touch(); return 1;
   case 0xA7B181: Kraid_Shot_Body(); return 1;
   case 0xA7B337: Kraid_Palette_Handling(); return 1;
-  case 0xA7B371: Kraid_HurtFlash_Handling(); return 1;
-  case 0xA7B394: Kraid_HealthBasedPaletteHandling(); return 1;
   case 0xA7B6BF: Kraid_InitEyeGlowing(); return 1;
   case 0xA7B6D7: Kraid_Shot_GlowHisEye(); return 1;
   case 0xA7B73D: Kraid_Shot_UnglowEye(); return 1;

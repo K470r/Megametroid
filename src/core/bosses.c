@@ -175,19 +175,95 @@ NT_BOSS void Kraid_Death_Fadeout(void) {  // 0xA7C3F9
   }
 }
 
-/* la mitad de arriba del cuerpo (7E:2000) por DMA al mapa del BG2 (al salir de la pausa): la Genesis rehace el
-   plano B a su manera */
-NT_BOSS void Kraid_TransferTopHalfToVram(void) {  // 0xA7C278
+/* colores de Kraid (líneas 7 del BG y de los sprites): como el SNES, pero solo se escriben (y se avisa a la Genesis)
+   los que cambian. Con la vida en 0 (muerte, sala vencida) corren en cada cuadro y antes rehacían la CRAM entera */
+static void Kraid_SetPal(uint16 i, uint16 c) {
+  if (palette_buffer[i] != c) { palette_buffer[i] = c; nt_pal_dirty((uint8)i, (uint8)i); }
 }
-/* ganchos de la pausa: solo copian VRAM del SNES (a la RAM y de vuelta); la Genesis rehace la VRAM al volver */
+static void Kraid_PalRow(uint16 a, uint16 dst) {   /* 16 colores de la ROM ($A7:a) a palette_buffer[dst] */
+  const uint8 *p = kBankA7B + (uint16)(a - 0x8000);   /* (con la vida en 0 corre en cada cuadro: con un puntero) */
+  uint16 *pb = palette_buffer + dst;
+  for (uint16 i = 0; i < 16; i++, p += 2) {
+    uint16 c = (uint16)(p[0] | p[1] << 8);
+    if (pb[i] != c) { pb[i] = c; nt_pal_dirty((uint8)(dst + i), (uint8)(dst + i)); }
+  }
+}
+NT_BOSS void Kraid_HurtFlash_Handling(void) {  // 0xA7B371
+  Kraid_PalRow(0xB513 + ((ERAM(0x782A) & 1) ? 0 : 32), 240);   // kraid_hurt_frame; kKraid_SprPalette7_KraidDeath
+}
+NT_BOSS void Kraid_HealthBasedPaletteHandling(void) {  // 0xA7B394
+  uint16 v0 = 0;
+  if ((ERAM(0x782A) & 1) == 0) {
+    uint16 v2 = 14, health = gEnemyData(0)->health;
+    do {
+      if ((int16)(health - ERAM_ARR(0x780C + v2)[0]) >= 0)   // kraid_healths_8ths
+        break;
+      v2 -= 2;
+    } while (v2);
+    v0 = 16 * (v2 + 2);
+  }
+  Kraid_PalRow(0xB3D3 + v0, 112);                 // kKraid_BgPalette7
+  Kraid_PalRow(0xB513 + v0, 240);                 // kKraid_SprPalette7_KraidDeath
+}
+
+/* las uñas de Kraid (las dos, en cada cuadro): la tabla del contorno de Kraid ($A7:BF1D, pares x, y) se recorre hasta
+   la altura de la uña; como el original, sin volver a calcular las dos piezas en cada vuelta */
+NT_BOSS void KraidsFingernail_Fire(uint16 k) {  // 0xA7BE8E
+  EnemyData *v1 = gEnemyData(k);
+  if (Enemy_MoveRight_IgnoreSlopes(k, __PAIR32__(v1->ai_var_C, v1->ai_var_B))) {
+    v1->ai_var_B = -v1->ai_var_B;
+    v1->ai_var_C = -v1->ai_var_C;
+  } else {
+    EnemyData *v3 = gEnemyData(0);
+    uint16 dy = (uint16)(v3->y_pos - v1->y_pos), a = 0xBF1D;
+    while ((int16)(BW_A7(a + 2) + dy) >= 0)          /* g_word_A7BF1D[(i >> 1) + 1] */
+      a += 4;
+    uint16 r18 = BW_A7(a) + v3->x_pos;
+    if (!sign16(v1->x_width + v1->x_pos - r18) && (v1->ai_var_C & 0x8000) == 0) {
+      v1->ai_var_B = -v1->ai_var_B;
+      v1->ai_var_C = -v1->ai_var_C;
+    }
+  }
+  if (Enemy_MoveDown(k, __PAIR32__(v1->ai_var_E, v1->ai_var_D)))
+    SetHiLo(&v1->ai_var_E, &v1->ai_var_D, -IPAIR32(v1->ai_var_E, v1->ai_var_D));
+}
+
+/* Al volver de la pausa la Genesis rehace su VRAM: el plano B sale del mapa inicial (zebes_load_vram). Los ganchos
+   le mandan lo que el SNES copia por DMA, como entradas de la cola de VRAM (nt_vram_queue_flush, md_zebes.c, las
+   convierte por filas): la mitad de arriba desde 7E:2000 (Kraid_TransferTopHalfToVram) y, como en la Genesis el
+   plano B entero se perdió, lo que el SNES conserva en su VRAM: la mitad de abajo (7E:2800) si Kraid ya es grande y
+   las filas que el hundimiento ya borró. */
+void nt_vram_queue_flush(const uint8 *q, uint16 n);
+static void Kraid_Bg2Copy(uint16 src, uint16 size, uint16 dst) {
+  uint8 e[7] = { (uint8)size, (uint8)(size >> 8), (uint8)src, (uint8)(src >> 8), 0x7E, (uint8)dst, (uint8)(dst >> 8) };
+  nt_vram_queue_flush(e, 7);
+}
+static uint8 Kraid_IsBig(void) {                  /* en la primera fase Kraid está abajo (y 0x250) */
+  return (int16)(gEnemyData(0)->y_pos - 0x250) < 0;
+}
+NT_BOSS void Kraid_TransferTopHalfToVram(void) {  // 0xA7C278
+  Kraid_Bg2Copy(0x2000, 0x800, (uint16)((reg_BG2SC & 0xFC) << 8));
+}
+/* gancho de la pausa: el SNES guarda en 7E:5000 la VRAM de la pared (la pausa la pisa); la Genesis la vuelve a subir
+   sola (wall_on) */
 NT_BOSS void PauseHook_Kraid(void) {  // 0xA7C325
 }
 NT_BOSS CoroutineRet UnpauseHook_Kraid_IsDead(void) {  // 0xA7C1FB
+  Kraid_TransferTopHalfToVram();
   return 0;
 }
 NT_BOSS CoroutineRet UnpauseHook_Kraid_IsAlive(void) {  // 0xA7C24E
+  Kraid_TransferTopHalfToVram();
+  if (Kraid_IsBig())                               /* (Genesis) */
+    Kraid_Bg2Copy(0x2800, 0x800, (uint16)(((reg_BG2SC & 0xFC) << 8) + 0x800));
   return 0;
 }
 NT_BOSS CoroutineRet Kraid_UnpauseHook_IsSinking(void) {  // 0xA7C2A0
+  uint16 base = (uint16)((reg_BG2SC & 0xFC) << 8);
+  Kraid_Bg2Copy(0x2000, 0x800, base);              /* (Genesis: las dos mitades, como las subió Kraid_Death_*) */
+  Kraid_Bg2Copy(0x2800, 0x800, (uint16)(base + 0x800));
+  uint16 y = gEnemyData(0)->y_pos;
+  for (uint16 a = 0xC5E7; BW_A7(a) != 0xFFFF && (int16)(y - BW_A7(a)) >= 0; a += 6)   /* kKraidSinkEntry */
+    Kraid_Bg2Copy(0x2FC0, 64, (uint16)(BW_A7(a + 2) + base));
   return 0;
 }

@@ -264,9 +264,9 @@ NT_LATE void md_pause_frame(void) {            /* md_post en los estados 12-18 *
     if (md_bright != 15 && md_zebes) {
       for (uint16 i = 0; i < 15; i++) pz_line3_save[i] = cram[49 + i];
       pz_scale(&cram[49], 15);
-      /* lo que la interrupción de la línea 31 pone en la línea 3 (zobj_col: colores 1-15): los mismos del HUD, ya
-         oscurecidos (los enemigos los usan unos cuadros, con la pantalla casi negra) */
-      for (uint16 i = 0; i < 15; i++) zobj_col[i] = cram[49 + i];
+      /* lo que la interrupción de la línea 31 pone en la línea 3 (zobj_col: colores 1-15) */
+      /* (en negro: la sala todavía no se ve; con los colores del HUD los sprites de Kraid salían rosados encima) */
+      for (uint16 i = 0; i < 15; i++) zobj_col[i] = 0;
       pz_line3 = 1;
     }
     pz_dim = (uint16)(game_state - 12) <= 6;   /* (18 -> 8: se terminó) */

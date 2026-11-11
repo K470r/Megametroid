@@ -1494,3 +1494,21 @@ uint8 sub_82DAF7(uint16 a) {  // 0x82DAF7
   palette_change_denom = 12;
   return sub_82DB0C(a);
 }
+
+/* fundido de la línea 6 del BG hacia target_palettes (Kraid: la pared de la cueva, Kraid_GetsBig_FadeInRoomBg) */
+uint8 AdvancePaletteFade_BgPalette6(void) {  // 0x82D96C
+  palette_change_denom = 12;
+  if (palette_change_num <= 0xD) {
+    for (int i = 192; i < 0xE0; i += 2)
+      palette_buffer[i >> 1] = CalculateNthTransitionColorFromXtoY(
+        palette_change_num,
+        palette_buffer[i >> 1],
+        target_palettes[i >> 1]);
+    nt_pal_dirty(96, 111);
+    ++palette_change_num;
+    return 0;
+  } else {
+    palette_change_num = 0;
+    return 1;
+  }
+}

@@ -91,6 +91,10 @@ def parse_rom_structs():
 # arreglos de bytes de la RAM del SNES (decomp: #define nombre ((uint8*)(g_ram+0xDIR))): nombre -> dirección
 U8_ARRAYS = {m.group(1): int(m.group(2), 16) for m in re.finditer(
     r'#define (\w+) \(\(uint8\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read())}
+# los arreglos de bytes que el port declara (res/gen/engine/vars.h: extern uint8 nombre[n];): nombre -> n
+NATIVE_U8_ARRAYS = {m.group(1): int(m.group(2)) for m in re.finditer(
+    r'extern uint8 (\w+)\[(\d+)\];', open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'res', 'gen',
+                                                         'engine', 'vars.h')).read())}
 # variables de un byte de la RAM del SNES (#define nombre (*(uint8*)(g_ram+0xDIR))): nombre -> dirección
 U8_SCALARS = {m.group(1): int(m.group(2), 16) for m in re.finditer(
     r'#define (\w+) \(\*\(uint8\*\)\(g_ram\+0x([0-9A-Fa-f]+)\)\)', open(os.path.join(SRC, 'variables.h')).read())}
@@ -304,9 +308,15 @@ class Xlate:
         # lo mismo al leer (*(uint16 *)&boss_bits_for_area[area_index] & 2, Crocomire_Init: en el 68000 miraba el byte
         # de al lado y la sala vencida tenía a Crocomire vivo) y con variables sueltas de un byte
         # (*(uint16 *)&reg_TM |= 2, wrecked_ship_robot_palanim_table_index): por su dirección del SNES
-        body = re.sub(r'\*\(uint16 \*\)&(\w+)\[([^\]]+)\]',
-                      lambda m: 'nt_ram_w((uint16)(0x%04X + (%s)))' % (U8_ARRAYS[m.group(1)], m.group(2))
-                      if m.group(1) in U8_ARRAYS else m.group(0), body)
+        # (los arreglos que el port tiene, vars.h: directo con nt_u8w; nt_ram_w busca la variable por su dirección)
+        def u8read(m):
+            if m.group(1) not in U8_ARRAYS:
+                return m.group(0)
+            if m.group(1) in NATIVE_U8_ARRAYS:
+                return 'nt_u8w(%s, %d, (uint16)(%s), 0x%04X)' % (m.group(1), NATIVE_U8_ARRAYS[m.group(1)], m.group(2),
+                                                              U8_ARRAYS[m.group(1)])
+            return 'nt_ram_w((uint16)(0x%04X + (%s)))' % (U8_ARRAYS[m.group(1)], m.group(2))
+        body = re.sub(r'\*\(uint16 \*\)&(\w+)\[([^\]]+)\]', u8read, body)
         def u8scalar(m):
             if m.group(1) not in U8_SCALARS:
                 return m.group(0)

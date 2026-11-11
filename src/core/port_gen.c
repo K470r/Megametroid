@@ -123,6 +123,7 @@ void CallEnemyAi(uint8 bank, uint16 f);
 void CalculatePlmBlockCoords(uint16 k);
 uint16 CalculateAngleFromXY(uint16 x, uint16 y);
 NT_BOSS int BabyMetroid_DBCB_DoubleRetEx(uint16 a);
+uint8 AdvancePaletteFade_BgPalette6(void);
 NT_BOSS void ClearEprojs(void);
 uint16 EprojInstr_Delete(uint16 k, uint16 epjp);
 uint16 EprojInstr_Sleep(uint16 k, uint16 epjp);
@@ -2961,7 +2962,6 @@ static Func_V *const off_A48C14[45];
 static Func_V *const off_A6CB21[9];
 static Func_V *const off_A9B887[4];
 static Func_CalcHdma *const off_ADE024[4];
-uint8 AdvancePaletteFade_BgPalette6(void);
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
 void DeadTorizo_Func_1(void);
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
@@ -2984,7 +2984,6 @@ void Torizo_CorpseRottingInitFunc(void);
 void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
 void WriteReg(uint16 reg, uint8 value);
 
-uint8 AdvancePaletteFade_BgPalette6(void) { nt_unimpl("AdvancePaletteFade_BgPalette6"); return 0; }
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) { nt_unimpl("DeadTorizo_CopyLineOfSandHeapTileData"); }
 void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22) { nt_unimpl("DrawSpritemap"); }

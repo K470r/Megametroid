@@ -168,10 +168,12 @@ def tileset(gs):
     a = 0x8FE6A2 + 9 * gs
     table_p, tiles_p, pal_p = ptr24(a), ptr24(a + 3), ptr24(a + 6)
     vram = bytearray(0x10000)
-    t = decompress(tiles_p)
-    vram[0:len(t)] = t
+    # como DoorTransitionFunction ($82): el CRE se descomprime primero (7E:7000) y el tileset después (7E:2000), encima:
+    # un tileset de más de 0x5000 bytes (Kraid, 26) pisa el CRE y sus tiles 640-1023 son los suyos (el cuerpo de Kraid)
     cre = decompress(0xB98000)
     vram[0x5000:0x5000 + len(cre)] = cre
+    t = decompress(tiles_p)
+    vram[0:len(t)] = t
     table = bytearray(0x2000)
     ct = decompress(0xB9A09D)
     table[0:len(ct)] = ct
@@ -352,7 +354,8 @@ def put_items(table, vram, items):
     return bytes(table), bytes(vram)
 
 
-def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None):
+def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None,
+            own=frozenset()):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
     para la sala (sin dar: MAX_PALS; 1 en las salas de jefes que usan la línea 1, mkzobj.BOSS_LINE); usage: veces que
@@ -428,12 +431,22 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     if c:
                         g = gc(p, int(c))
                         cw[g] = cw.get(g, 0) + 4 * int((a == c).sum())
+    # Kraid (own): sus líneas 6 (la pared, se funde) y 7 (el cuerpo, cambia con su vida) cambian en vivo; un color
+    # solo de ellas no se junta con uno solo de la sala (si no, uno de los dos sale del color del otro)
+    side = {}
+    if own:
+        live = set().union(*[cs for (t, p), cs in combos.items() if p >= 6] or [set()])
+        room = set().union(*[cs for (t, p), cs in combos.items() if p < 6] or [set()])
+        side = {c: 1 for c in live - room}
+        side.update({c: 2 for c in room - live})
     while bins is None:
         level = "tile+fusión"
         allc = sorted(set().union(*[{merges.get(c, c) for c in cs} for cs in combos.values()]))
         best = None
         for i in range(len(allc)):
             for j in range(i + 1, len(allc)):
+                if side.get(allc[i], 0) | side.get(allc[j], 0) == 3:
+                    continue
                 dd = color_dist(allc[i], allc[j])
                 if cw is not None:
                     dd *= min(cw.get(allc[i], 0), cw.get(allc[j], 0))
@@ -444,6 +457,8 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             a, b = b, a
         if cw is not None:
             cw[a] = cw.get(a, 0) + cw.pop(b, 0)
+        if side.get(a, 0) | side.get(b, 0):       # (el que queda lleva el lado de los dos)
+            side[a] = side.get(a, 0) | side.get(b, 0)
         for k, v in list(merges.items()):
             if v == b:
                 merges[k] = a
@@ -472,6 +487,10 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
         row = [0] * 16
         for i, g in enumerate(pl):
             u = uses.get((bi, g), {0: 1})
+            # (Kraid: la línea 6 de la pared se funde y la 7 del cuerpo cambia con su vida; un color que comparten
+            # con la sala, como el de sus púas, sigue al de la sala)
+            if own and any(k_ < 96 for k_ in u):
+                u = {k_: v_ for k_, v_ in u.items() if k_ < 96}
             row[slot(bi, i)] = max(u.items(), key=lambda kv: (kv[1], -kv[0]))[0]
         src.append(row)
     tile_list, tile_index = [], {}
@@ -503,7 +522,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 g = merges.get(gc(p, c), gc(p, c))
                 if g in palettes[bi]:
                     lut[c] = slot(bi, palettes[bi].index(g))
-            gtile[k] = ((own_tile if t in anim else add_tile)(lut[px(t)]), bi, lut)
+            gtile[k] = ((own_tile if t in anim or t in own else add_tile)(lut[px(t)]), bi, lut)
         (gi, fh, fv), bi, _ = gtile[k]
         return (pri << 15) | (bi << 13) | ((vf ^ fv) << 12) | ((hf ^ fh) << 11) | gi
     cells = []
@@ -526,8 +545,46 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     for (t, p), ((gi, _, _), bi, lut) in gtile.items():
         for key, fr in anim.get(t, {}).items():
             anims.setdefault(key, []).append((gi, genesis_tile_bytes(lut[snes_tile(fr, 0)])))
-    return {"n_before_extra": n_before_extra, "anims": anims, "bg2": bg2c, "tiles": b"".join(tile_list), "ntiles": len(tile_list), "src": src, "npal": len(palettes),
+    # tiles propios (own: la pared de Kraid, que su código sube y borra): (tile de la Genesis, sus bytes)
+    owns = sorted({gtile[k][0][0] for k in gtile if k[0] in own})
+    return {"own": [(gi, tile_list[gi]) for gi in owns], "n_before_extra": n_before_extra, "anims": anims, "bg2": bg2c, "tiles": b"".join(tile_list), "ntiles": len(tile_list), "src": src, "npal": len(palettes),
             "ids": blocks, "cells": cells, "level": level, "merges": len(merges)}
+
+
+def kraid_mouth_split(res, cells_b, words, mouth_f):
+    """Kraid: los tiles de la Genesis que solo usa un cuadro de la boca (las palabras de mouth_f[f] que no están en
+    otro lado) salen de res["tiles"]: quedan en {índice de su celda en cells_b: lugar en el cuadro} y la lista de sus
+    tiles por cuadro. Las celdas de los demás tiles se renumeran (los de la boca eran los últimos)"""
+    users = {}
+    for c in res["cells"]:
+        users.setdefault(c & 0x7FF, set()).add(-1)
+    sets_ = [set(m) for m in mouth_f]
+    for i, (w, c) in enumerate(zip(words, cells_b)):
+        fs = {f for f, m in enumerate(sets_) if (w & 0x1FFF) in m} if i >= 4096 else set()
+        if i < 4096 or not fs or 0 in fs:
+            fs = {-1}
+        users.setdefault(c & 0x7FF, set()).update(fs)
+    nt = res["ntiles"]
+    excl = {g: next(iter(u)) for g, u in users.items() if len(u) == 1 and next(iter(u)) > 0}
+    assert all(g >= res["n_before_extra"] for g in excl)
+    keep = [g for g in range(nt) if g not in excl]
+    newi = {g: i for i, g in enumerate(keep)}
+    frames = [[g for g in range(nt) if excl.get(g) == f] for f in range(len(mouth_f))]
+    slot_ = {g: r for fr in frames for r, g in enumerate(fr)}
+    T = res["tiles"]
+    pos = {}
+    for i, c in enumerate(cells_b):
+        g = c & 0x7FF
+        if g in excl:
+            pos[i] = slot_[g]
+            cells_b[i] = c & ~0x7FF
+        else:
+            cells_b[i] = (c & ~0x7FF) | newi[g]
+    res["tiles"] = b"".join(T[g * 32:g * 32 + 32] for g in keep)
+    res["ntiles"] = len(keep)
+    print(f"  Kraid: la boca, {[len(f) for f in frames]} tiles propios por cuadro (lugar de {max(len(f) for f in frames)})",
+          file=sys.stderr)
+    return pos, [b"".join(T[g * 32:g * 32 + 32] for g in fr) for fr in frames]
 
 
 # ------------------------------------------------------------------ fondo de biblioteca (LoadLibraryBackground $82:E97C)
@@ -678,7 +735,10 @@ def croco_melt_phases():
 # (copia de 7E:4000 a $4000 y $4800) y su código lo reescribe (sus dos mitades desde 7E:2000/2800, la boca y el ojo
 # desde $A7:97C8-A0C8). Sus tiles se copian a números de tile que la sala no usa (como el derretido de Crocomire) y la
 # tabla del cuerpo se arma con los números del SNES: el motor no cambia
-BOSS_BG2_64 = {0xA59F: 0}                        # sala: byte de la VRAM del tile 0 de su BG2
+BOSS_BG2_64 = {0xA59F: 0}
+# la pared de la cueva de Kraid: los tiles 1008-1023 del BG1 los sube su código (kKraidsRoomBg $A7:A716, al hacerse
+# grande; ceros al morir): en la Genesis son tiles propios que el motor llena o borra (kZebesWall, md_zebes.c)
+KRAID_WALL_ROOMS = {0xA59F}                        # sala: byte de la VRAM del tile 0 de su BG2
 KRAID_MOUTH = (0xA797C8, 0xA79AC8, 0xA79DC8, 0xA7A0C8)   # 352 palabras cada uno (filas de arriba del mapa)
 
 
@@ -791,20 +851,30 @@ def main():
                 bb_orig = None
                 if bb and full64:                 # Kraid: los tiles de su BG2 a números libres (BOSS_BG2_64)
                     cb = BOSS_BG2_64[ra]
-                    mouth = [w16(a + 2 * i) for a in KRAID_MOUTH for i in range(352)]
-                    words_k = sorted(set(w & 0x1FFF for w in list(bb[0]) + mouth))
+                    # la boca y el ojo: 4 cuadros de 352 palabras; los cuadros 2-4 tienen ~70 tiles cada uno que no usa
+                    # nada más. Sus palabras van al final, por cuadro: sus tiles quedan últimos y comparten un lugar
+                    # de la VRAM que el motor llena con el cuadro que Kraid sube (kraid_mouth_split, md_zebes.c)
+                    mouth_f = [sorted({w16(a + 2 * i) & 0x1FFF for i in range(352)}) for a in KRAID_MOUTH]
+                    words_k = sorted(set(w & 0x1FFF for w in bb[0]) | set(mouth_f[0]))
+                    for mf_ in mouth_f[1:]:
+                        words_k += [w for w in mf_ if w not in set(words_k)]
+                    mouth = [w for mf_ in mouth_f for w in mf_]
                     ts_ = tileset(gs)["table"]
                     used = set()
                     for mt in blocks:
                         used |= {struct.unpack_from('<H', ts_, mt * 8 + 2 * k)[0] & 0x3FF for k in range(4)}
                     free = [t for t in range(1023, 0, -1) if t not in used]
                     tiles_k = sorted({w & 0x3FF for w in words_k} | {w & 0x3FF for w in bg2})
-                    assert len(free) >= len(tiles_k), "Kraid: no hay números de tile libres para su BG2"
-                    remap = {t: free[i] for i, t in enumerate(tiles_k)}
-                    vram = bytearray(vram)
-                    for t, v in remap.items():
-                        vram[v * 32:v * 32 + 32] = vram[cb + t * 32:cb + t * 32 + 32]
-                    vram = bytes(vram)
+                    if cb == 0:                   # (BG12NBA 0: el BG2 ya lee los tiles del BG1; copiarlos a números
+                        remap = {t: t for t in tiles_k}   # "libres" pisaba tiles del cuerpo aún sin copiar)
+                    else:
+                        assert len(free) >= len(tiles_k), "Kraid: no hay números de tile libres para su BG2"
+                        remap = {t: free[i] for i, t in enumerate(tiles_k)}
+                        src_ = bytes(vram)
+                        vram = bytearray(vram)
+                        for t, v in remap.items():
+                            vram[v * 32:v * 32 + 32] = src_[cb + t * 32:cb + t * 32 + 32]
+                        vram = bytes(vram)
                     rw = lambda w: (w & ~0x3FF) | remap[w & 0x3FF]
                     # el mapa inicial (el de la biblioteca: su cuerpo) también es del cuerpo: sus tiles van con los
                     # del cuerpo (BOSS_HI_N + la Window) y el plano B de 64x64 se rearma con sus celdas
@@ -835,9 +905,22 @@ def main():
                                 extra_w.append(bpal << 10 | f_)
                     vram = bytes(vram)
                     bb = (bb[0] + extra_w, bb[1])
-                res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items,
+                own = frozenset()
+                if ra in KRAID_WALL_ROOMS:        # la pared de la cueva (BG1 1008-1023): con kKraidsRoomBg, tiles propios
+                    own = frozenset(range(1008, 1024))
+                    vram = bytearray(vram or tileset(gs)["vram"])
+                    vram[1008 * 32:1024 * 32] = r(0xA7A716, 512)
+                    vram = bytes(vram)
+                    # y sus colores: la paleta 6 = kKraid_Palette2 ($A7:86C7, Kraid_DrawRoomBg); en la sala empieza en
+                    # negro y se funde: en la Genesis esos lugares leen palette_buffer en vivo
+                    wall_pal = {96 + c: w16(0xA786C7 + 2 * c) for c in range(16)}
+                    bb = (bb[0], {**bb[1], **wall_pal}) if bb else None
+                    if not bb:
+                        wall_over = wall_pal
+                res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items, own=own,
                               max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
-                              pal_over=bb[1] if bb else None, nbg2=nbg2 if bb else None)
+                              pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
+                              nbg2=nbg2 if bb else None)
                 res["boss"] = None
                 if bb:                            # celdas del cuerpo: tabla por (línea del SNES, tile)
                     cells_b = res["bg2"][nbg2:]
@@ -845,6 +928,8 @@ def main():
                     # (BOSS_HI_TILE: libre en estas salas, sin el ojo ni cajas de mensaje): no ocupan la de los objetos
                     nt_ = res["ntiles"]
                     cache = ra in BOSS_BG2_CACHE
+                    mouth_x = kraid_mouth_split(res, cells_b, bb_orig, mouth_f) if full64 else None
+                    nt_ = res["ntiles"]
                     hi_n = BOSS_HI_N + (BOSS_WIN_N if full64 else 0)   # (Kraid: también las filas libres de la Window)
                     hi = nt_ - res["n_before_extra"] if cache else min(nt_ - res["n_before_extra"], hi_n)
                     keep = nt_ - hi
@@ -859,6 +944,14 @@ def main():
                             return BOSS_HI_TILE - ZT_BASE + i if i < BOSS_HI_N else BOSS_WIN_TILE - ZT_BASE + i - BOSS_HI_N
                         cells_b = [(c_ & ~0x7FF) | hi_cell((c_ & 0x7FF) - keep)
                                    if (c_ & 0x7FF) >= keep else c_ for c_ in cells_b]
+                    if mouth_x:                   # la boca: su lugar, justo después de los tiles de la sala
+                        pos_, frames_ = mouth_x
+                        for i_, r_ in pos_.items():
+                            cells_b[i_] = (cells_b[i_] & ~0x7FF) | (keep + r_)
+                        mn_ = max(len(f_) for f_ in frames_) // 32
+                        res["tiles"] += bytes(32 * mn_)   # (vacío al entrar: Kraid empieza con la boca cerrada)
+                        res["ntiles"] = keep + mn_
+                        res["mouth"] = (ZT_BASE + keep, frames_)
                     res["bg2"] = res["bg2"][:nbg2] or None
                     if full64:                    # Kraid: el plano B (64x64) con las celdas de su mapa inicial
                         res["bg2"] = cells_b[:4096]
@@ -867,6 +960,9 @@ def main():
                     slot_of = [pals.index(p_) if p_ in pals else 0 for p_ in range(8)]
                     tab = [0] * 2048
                     for w_, c_ in zip(bb_orig or bb[0], cells_b):   # (Kraid: con los números de tile del SNES)
+                        # (sin los volteos ni la prioridad de la palabra: el motor los pone de la palabra que llega;
+                        # las palabras del registro ya vienen sin ellos, las del mapa inicial de Kraid no)
+                        c_ = (c_ ^ ((w_ >> 3) & 0x1800)) & (0xFFFF if cache else 0x7FFF)
                         tab[slot_of[(w_ >> 10) & 7] << 10 | (w_ & 0x3FF)] = c_
                     if cache and r(0x8F0000 | (ra + 5), 1)[0] == 1:
                         cache = 3                 # sala de una pantalla de alto: también las filas 36-61 del plano A
@@ -969,7 +1065,8 @@ def main():
     fill[22] = fill.get(22, 0) + title_sz
     # la página de los jefes (port.py, BOSS_PAGE: su código, los niveles de sus salas y sus bancos, ~240 KB) también
     # sirve para Zebes en lo que sobra: se le reservan BOSS_RESERVE bytes (el enlazador avisa si la página se pasa)
-    fill[BOSS_PAGE] = BOSS_RESERVE + sum(4096 + len(e["boss"][2]) for e in entries if e.get("boss"))   # (y los cuerpos)
+    fill[BOSS_PAGE] = BOSS_RESERVE + sum(4096 + len(e["boss"][2]) + sum(len(f) for f in (e.get("mouth") or (0, []))[1])
+                                         for e in entries if e.get("boss"))   # (y los cuerpos, y la boca de Kraid)
 
     def place(need):
         for pg in sorted(fill):
@@ -1130,6 +1227,32 @@ def main():
     C.append('};')
     H.append(f'#define NT_ZEBES_PAGE0 {page0}')
     H.append(f'#define NT_ZEBES_PAGES {max(fill) - page0 + 1}')
+    walls = [(i, e["own"]) for i, e in enumerate(entries) if e.get("own")]
+    H.append('/* tiles propios (idx: de la Genesis); mouth: los tiles de cada cuadro de la boca de Kraid que solo usa ese cuadro')
+    H.append('   (mouth_cnt[f] desde mouth + 32 * mouth_off[f], en la página de los jefes), a la VRAM desde mouth_t */')
+    H.append('typedef struct { uint16 gfx, n; const uint16 *idx; const uint8 *tiles; uint16 mouth_t; const uint8 *mouth;')
+    H.append('                 uint16 mouth_off[4], mouth_cnt[4]; } ZebesWall;')
+    H.append(f'#define NT_ZEBES_NWALL {len(walls)}')
+    H.append(f'extern const ZebesWall kZebesWall[{max(1, len(walls))}];')
+    for i, ow in walls:
+        C.append(f'static const uint16 kZW{i}_idx[{len(ow)}] = {{' + ','.join(str(ZT_BASE + gi) for gi, _ in ow) + '};')
+        tb = b''.join(t for _, t in ow)
+        C.append(f'static const uint8 kZW{i}_tiles[{len(tb)}] __attribute__((aligned(2))) = {{' + ','.join(str(b) for b in tb) + '};')
+        if entries[i].get("mouth"):
+            mb = b''.join(entries[i]["mouth"][1])
+            C.append(f'NT_BANK({BOSS_PAGE}) static const uint8 kZW{i}_mouth[{len(mb)}] __attribute__((aligned(2))) = {{' +
+                     ','.join(str(b) for b in mb) + '};')
+
+    def wall_c(i, ow):
+        m = entries[i].get("mouth")
+        if not m:
+            return f'{{ {i}, {len(ow)}, kZW{i}_idx, kZW{i}_tiles, 0, 0, {{ 0 }}, {{ 0 }} }}'
+        cnt = [len(f) // 32 for f in m[1]]
+        off = [sum(cnt[:k]) for k in range(len(cnt))]
+        return (f'{{ {i}, {len(ow)}, kZW{i}_idx, kZW{i}_tiles, {m[0]}, kZW{i}_mouth, {{ {", ".join(map(str, off))} }}, '
+                f'{{ {", ".join(map(str, cnt))} }} }}')
+    C.append(f'const ZebesWall kZebesWall[{max(1, len(walls))}] = {{' +
+             (', '.join(wall_c(i, ow) for i, ow in walls) or '{ 0xFFFF, 0, 0, 0 }') + '};')
     H.append(f'extern const ZebesGfx kZebesGfx[{len(entries)}];')
     C.append(f'const ZebesGfx kZebesGfx[{len(entries)}] = {{')
     for i, e in enumerate(entries):

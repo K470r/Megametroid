@@ -438,3 +438,31 @@ del cuerpo en su propia línea y el rendimiento con el depósito.
   tabla del cuerpo), con `BG2SC` como esté (64x64 o 64x32).
 - **Tabla del cuerpo sin volteos**: las palabras del mapa inicial y de la boca traen sus volteos y la prioridad; la
   tabla los tenía grabados y el motor los volvía a aplicar (la barriga salía revuelta). Ahora la tabla va sin ellos.
+- **El cuerpo con BG12NBA 0**: el bloque de Kraid en `mkzebes` copiaba cada tile del cuerpo a un número "libre" (era
+  para un BG2 con tiles desde otra base). Con base 0 esos números libres eran otros tiles del cuerpo aún sin copiar:
+  la barriga de la fase grande salía revuelta. Con base 0 los números quedan como están.
+- **El fundido de la pared no terminaba**: `AdvancePaletteFade_BgPalette6` ($82:D96C) estaba sin traducir (el stub
+  devolvía 0): Kraid se quedaba en `Kraid_GetsBig_FadeInRoomBg` para siempre (no caminaba, no tiraba uñas ni pelusas,
+  la pared quedaba negra). Ahora está escrita a mano en door.c (con `nt_pal_dirty(96, 111)`).
+- **La boca por cuadro**: los 4 cuadros de la boca y del ojo ($A7:97C8-A0C8, 352 palabras, una entrada de 704 bytes
+  en la cola de VRAM, `Kraid_ExecuteInstr`) tienen 0, 69, 71 y 65 tiles que no usa nada más. Van a un lugar común de
+  71 tiles justo después de la sala (`kraid_mouth_split` en mkzebes; `ZebesWall.mouth*`), y el motor sube los del
+  cuadro que Kraid pide en el mismo vblank que sus 11 filas (`kKraidMouthSrc`, `mouth_pend`). Ahorra 134 tiles: la sala
+  con Kraid vivo pasó de 744 a 607 (con la boca) y el depósito de sprites de 11 a 28 lugares.
+- **Depósito por cuadro**: en las salas por cuadro un lugar se suelta si no se dibujó en el cuadro anterior (antes 8:
+  los cuadros viejos del pie y del brazo, de 32-37 tiles, llenaban el depósito). Arreglo: un lugar nuevo que empezaba
+  a mitad de uno que se soltaba dejaba válida la cabeza del viejo.
+- **Colores de las púas y del cuerpo**: el color 5 de la línea 0 salía del índice 115 (línea 7, el cuerpo, que
+  cambia en vivo: `Kraid_HealthBasedPaletteHandling`, el destello al recibir daño): las púas se volvían amarillas.
+  En la sala de Kraid (`convert(own=...)`) un color que solo usan las líneas 6-7 (pared y cuerpo) ya no se junta con
+  uno que solo usa la sala, y un color que comparten exacto sigue al índice de la sala.
+- **Pendiente, colores de la sala**: la sala, la pared y el cuerpo comparten 2 líneas (30 colores) y se juntan 21: los
+  bloques azules junto a la puerta salen con puntos rosados y la puerta más magenta que en el SNES (ya pasaba antes).
+- **Claves de las pelusas** (`kKraid_Ilist_8B04`: 8C6C quieta y A617-A689 volando; 9608, 9632, 965C): agregadas a
+  zdraw.log a mano desde lo que faltó en la Genesis (la corrida del PC con `HL_ENEMIES` no registra enemigos; queda
+  por revisar).
+- **La pared muy oscura** es del SNES: sus colores (`kKraid_Palette2`) valen 1-6 de 31 y la Genesis los lleva al
+  nivel del DAC más cercano (casi negro, con puntos). Fiel; se puede aclarar si se prefiere.
+
+Falta: la vuelta de la pausa (el plano B se rearma con el mapa inicial, no con el estado de Kraid:
+`Kraid_TransferTopHalfToVram`), la muerte y el hundimiento contra el SNES, la sala vencida y el rendimiento.

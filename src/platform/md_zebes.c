@@ -340,6 +340,12 @@ static uint16 *frz_id = frz_id_s;       /* congelado del lugar (0xFFFF libre, 0x
 static uint16 *frz_last = frz_last_s;   /* último cuadro del motor en que se dibujó */
 static uint8 *frz_q_l = frz_q_l_s, frz_nq_l, *frz_q = frz_q_s, frz_nq;   /* lugares por subir (lógica / vblank) */
 extern uint16 cinematic_text_tilemap[];
+/* Kraid: su cola de VRAM y su pared (más abajo, "Kraid") */
+static const ZebesWall *zw;
+static uint8 wall_on, wall_pend, kq_r, kq_w, kq_conv;
+static uint8 mouth_cur, mouth_pend;     /* cuadro de la boca de Kraid que está en la VRAM / por subir (1 + cuadro; 0: ninguno) */
+static void kq_frame(void);
+static void kq_vblank(void);
 static void frz_setup(void) {             /* al entrar a la sala: el depósito de los congelados o de los objetos */
   if (zo && zo->stream) {
     uint8 *m = (uint8 *)cinematic_text_tilemap + 3200;
@@ -372,6 +378,10 @@ const MdRoom *zebes_use(void) {
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
   frz_setup();
   frz_reset();
+  zw = 0;
+  for (uint16 i = 0; i < NT_ZEBES_NWALL; i++)
+    if (kZebesWall[i].gfx == kZebesStates[f].gfx) zw = &kZebesWall[i];
+  wall_on = 0; wall_pend = 0; kq_r = kq_w = 0; kq_conv = 0; mouth_cur = 0; mouth_pend = 0;
   frz_nq = 0;
   zprio = 0; psweep = ZW;
   const MdRoom *base = &kMdRooms[ZEBES_BASE_ROOM];
@@ -460,6 +470,7 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   map_page(lp);
   if (zbb && zbb->cache) bc_reset();
   else if (zbb && zbb->ntiles) bt_dma();
+  if (zw) { wall_pend = wall_on ? 1 : 2; kq_conv = 0; mouth_pend = mouth_cur; }   /* la pared de Kraid como está (vacía al entrar) */
   vdp_fill_vram(MD_VRAM_PLANE_A, 0, 0x1000);
   vdp_fill_vram(MD_VRAM_PLANE_B, 0, 0x1000);
   /* capa 1: la ventana alrededor de la cámara */
@@ -548,6 +559,7 @@ static void prio_sweep(void) {
 }
 void zebes_frame(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   melt_frame();
+  if (zw) kq_frame();
   if (bb_redo && zbb && bb_ever) { nt_enemy_bg2_transfer(); bb_redo = 0; }   /* la caché se vació: el cuerpo otra vez */
   if (drawn[0]) { follow(0, ax, ay); if (psweep < ZW) prio_sweep(); }
   if (drawn[1]) follow(1, bx, zg->sky ? ay : by);   /* el cielo baja con la capa 1 (BG2VOFS = layer1_y_pos) */
@@ -581,7 +593,118 @@ static void block_changed(uint16 i) {
    salen de ese trozo (ya convertidos en el PC: mkzebes.py) */
 /* la cola de escrituras a la VRAM del SNES (game.c, NMI): tiles de los jefes que suben por la cola (Crocomire,
    Phantoon, Mother Brain); falta convertirlos para la Genesis (docs/46) */
-void nt_vram_queue_flush(const uint8 *q, uint16 n) { (void)q; (void)n; }
+/* ---------------------------------------------------------------- Kraid (docs/59): lo que sube por la cola de VRAM */
+/* La cola de VRAM del SNES (game.c, NMI): en la sala de Kraid (zw: su pared) se interpretan sus entradas:
+   - al mapa del BG2 (las dos mitades desde 7E:2000/2800, la boca y el ojo desde $A7:97C8-A0C8, las filas del
+     hundimiento y el borrado del final): tareas por fila (origen, celda del plano B, palabras) que zebes_frame
+     convierte (como bb_convert, sin caché) de a KQ_ROWS y el vblank sube;
+   - a los tiles 1008-1023 del BG1 (la pared de la cueva): kKraidsRoomBg ($A7:A716) la enciende, 7E:4000 (ceros) la
+     apaga.
+   RAM: cinematic_text_tilemap + 1024 (tareas), + 1792 (filas convertidas), + 2816 (destinos). */
+typedef struct { uint32 src; uint16 cell, n; } KqJob;   /* (cell 0xFFFF: cuadro src de la boca) */
+static const uint16 kKraidMouthSrc[4] = { 0x97C8, 0x9AC8, 0x9DC8, 0xA0C8 };   /* $A7: Kraid_Shot_* */
+#define KQ_N 96
+#define KQ_ROWS 16
+#define kq_job ((KqJob *)((uint8 *)cinematic_text_tilemap + 1024))
+#define kq_buf ((uint16 *)((uint8 *)cinematic_text_tilemap + 1792))
+#define kq_dst ((uint16 *)((uint8 *)cinematic_text_tilemap + 2816))
+/* zw: la pared de la sala (kZebesWall) o 0; wall_pend: 1 subir sus tiles, 2 borrarlos (declarados arriba) */
+static void kq_push(uint32 src, uint16 cell, uint16 n) {
+  uint8 w = (uint8)((kq_w + 1) % KQ_N);
+  if (w == kq_r) return;                          /* (llena: se pierde; no debería pasar) */
+  kq_job[kq_w] = (KqJob){ src, cell, n };
+  kq_w = w;
+}
+void nt_vram_queue_flush(const uint8 *q, uint16 n) {
+  if (!md_zebes || !zw) return;
+  for (uint16 i = 0; i + 7 <= n; i += 7) {
+    uint16 size = q[i] | q[i + 1] << 8, src = q[i + 2] | q[i + 3] << 8, dst = q[i + 5] | q[i + 6] << 8;
+    uint8 bank = q[i + 4];
+    if (dst == ((reg_BG12NBA & 0xF) << 8) + 0x3F00 && size == 512) {   /* la pared */
+      wall_on = bank != 0x7E;
+      wall_pend = wall_on ? 1 : 2;
+      continue;
+    }
+    if (bank == 0xA7 && zw->mouth)                /* un cuadro de la boca: sus tiles propios con sus filas */
+      for (uint8 f = 0; f < 4; f++)
+        if (src == kKraidMouthSrc[f]) kq_push(f, 0xFFFF, 0);
+    uint16 base = (uint16)((reg_BG2SC & 0xFC) << 8), sz = reg_BG2SC & 3;
+    uint16 off = (uint16)(dst - base);
+    if (off >= 0x1000) continue;
+    uint32 a = (uint32)bank << 16 | src;
+    for (uint16 left = size >> 1; left; ) {     /* por filas de 32 palabras */
+      uint16 scr = off >> 10, y = (off >> 5) & 31, x = off & 31;
+      uint16 sx = scr & 1, sy = sz == 3 ? scr >> 1 : sz == 2 ? scr : 0;
+      if (sz == 2) sx = 0;
+      uint16 k = 32 - x;
+      if (k > left) k = left;
+      kq_push(a, (uint16)((sy * 32 + y) * 64 + sx * 32 + x), k);
+      a += 2 * k; off += k; left -= k;
+    }
+  }
+}
+static inline uint16 kq_word(uint32 a) {          /* palabra del origen: la RAM del SNES (7E:2000-2FFF) o la ROM */
+  uint8 bank = a >> 16;
+  uint16 ad = (uint16)a;
+  if (bank == 0x7E) return (uint16)(ad - 0x2000) < 0x1000 ? tilemap_stuff[(uint16)(ad - 0x2000) >> 1] : 0;
+  return nt_bank_w(bank, ad);
+}
+static void kq_frame(void) {                      /* (zebes_frame) convierte hasta KQ_ROWS tareas */
+  if (kq_conv || kq_r == kq_w) return;
+  uint8 lp = md_cur_page;
+  uint16 c = 0;
+  while (kq_r != kq_w && c < KQ_ROWS) {
+    KqJob j = kq_job[kq_r];
+    if (j.cell == 0xFFFF) {                       /* la boca: empieza una tanda (sus filas, 11, entran en ella) */
+      if (c) break;
+      mouth_pend = (uint8)j.src + 1;
+      kq_r = (uint8)((kq_r + 1) % KQ_N);
+      continue;
+    }
+    kq_r = (uint8)((kq_r + 1) % KQ_N);
+    uint16 *o = kq_buf + c * 32;
+    for (uint16 i = 0; i < j.n; i++) {
+      uint16 w = kq_word(j.src + 2 * i), cc = 0;
+      if (zbb) {
+        map_page(ZEBES_BOSS_PAGE);
+        cc = zbb->tab[(uint16)zbb->slot[(w >> 10) & 7] << 10 | (w & 0x3FF)];
+        if (cc & 0x7FF) cc += ZT_BASE;
+        cc ^= (w >> 3) & 0x1800;                  /* flips: SNES 15, 14 -> Genesis 12, 11 */
+        cc |= (w & 0x2000) << 2;                  /* prioridad */
+      }
+      o[i] = cc;
+    }
+    kq_dst[2 * c] = j.cell; kq_dst[2 * c + 1] = j.n;
+    c++;
+  }
+  map_page(lp);
+  kq_conv = (uint8)c;
+}
+static void kq_vblank(void) {
+  for (uint16 c = 0; c < kq_conv; c++)
+    vdp_dma_vram(kq_buf + c * 32, MD_VRAM_PLANE_B + kq_dst[2 * c] * 2, kq_dst[2 * c + 1]);
+  kq_conv = 0;
+  if (mouth_pend && zw) {
+    uint8 f = mouth_pend - 1, lp = md_cur_page;
+    if (zw->mouth_cnt[f]) {
+      map_page(ZEBES_BOSS_PAGE);
+      vdp_dma_vram(zw->mouth + 32 * zw->mouth_off[f], zw->mouth_t * 32, zw->mouth_cnt[f] * 16);
+      map_page(lp);
+    }
+    mouth_cur = mouth_pend;
+    mouth_pend = 0;
+  }
+  if (wall_pend && zw) {
+    uint8 lp = md_cur_page;
+    map_page(ZEBES_BOSS_PAGE);
+    for (uint16 i = 0; i < zw->n; i++) {
+      if (wall_pend == 1) vdp_dma_vram(zw->tiles + 32 * i, zw->idx[i] * 32, 16);
+      else vdp_fill_vram(zw->idx[i] * 32, 0, 16);
+    }
+    map_page(lp);
+    wall_pend = 0;
+  }
+}
 /* ---------------------------------------------------------------- cuerpos de los jefes en el BG2 (docs/59)
    El SNES sube tilemap_stuff (enemy_bg2_tilemap_size bytes) al BG2 en $4800 ($A0:9726): la pantalla izquierda del
    fondo, filas de 32 celdas. Aquí cada palabra pasa a una celda de la Genesis por la tabla de la sala (mkzebes.py,
@@ -753,7 +876,8 @@ void zebes_vblank(void) {
     else bc_vblank(96);
   }
   if (bb_n && !bc_npend) bb_vblank();
-  if (melt_n) melt_vblank();                    /* (después de la caché: los tiles de Crocomire derritiéndose) */
+  if (melt_n) melt_vblank();
+  if (zw && (kq_conv || wall_pend || mouth_pend)) kq_vblank();                    /* (después de la caché: los tiles de Crocomire derritiéndose) */
   if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();
   if (full_redraw) {                          /* salto grande: toda la ventana (rara vez: puertas, temblores) */
@@ -926,13 +1050,19 @@ static uint16 frz_get(uint16 n) {
     if (frz_id[i] == 0xFFFE) continue;
     uint16 j = i + 1;
     while (j < frz_ns && frz_id[j] == 0xFFFE) j++;
-    uint8 f = frz_id[i] == 0xFFFF || (uint16)(now - frz_last[i]) > FRZ_KEEP;
+    /* (por cuadro: 1; los tiles y la lista de sprites cambian juntos en el vblank, frz_q) */
+    uint8 f = frz_id[i] == 0xFFFF || (uint16)(now - frz_last[i]) > (frz_stream ? 1 : FRZ_KEEP);
     for (uint16 m = i; m < j; m++) fr[m] = f;
   }
   for (uint16 i = 0; i + k <= frz_ns; i++) {
     uint16 m = 0;
     while (m < k && fr[i + m]) m++;
     if (m < k) continue;
+    if (frz_id[i] == 0xFFFE) {                    /* empieza a mitad de uno que se suelta: su cabeza ya no vale */
+      uint16 h = i;
+      while (h && frz_id[h] == 0xFFFE) h--;
+      for (; h < i; h++) frz_id[h] = 0xFFFF;
+    }
     if (i + k < frz_ns && frz_id[i + k] == 0xFFFE)   /* el resto de uno que se suelta: queda libre */
       for (uint16 j = i + k; j < frz_ns && frz_id[j] == 0xFFFE; j++) frz_id[j] = 0xFFFF;
     frz_id[i] = n; frz_last[i] = now;

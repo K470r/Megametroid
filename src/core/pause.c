@@ -26,7 +26,7 @@ void PauseGfx(uint16 what);           /* Genesis: lo que el SNES pasa a la VRAM 
 void ResumeGameplay(void);            /* gamestart.c */
 void HandleHudTilemap(void);          /* hud.c */
 
-static inline uint8 B82B(uint16 a) { return kBank82B[(uint16)(a - 0x8000)]; }
+static inline uint8 B82B(uint16 a) { return nt_paged_b(kBank82B, a); }
 /* 7E:3000-3FFF (dirección del SNES) en el arreglo de palabras */
 static inline uint16 *R3(uint16 a) { return &cinematic_text_tilemap[(uint16)(a - 0x3000) >> 1]; }
 #define PMT cinematic_text_tilemap                      /* ram3000.pause_menu_map_tilemap */

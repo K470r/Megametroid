@@ -1217,3 +1217,32 @@ uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
 }
 
 void map_page_ext(uint8 p) { map_page(p); }
+/* bancos del SNES que se leen poco (nmath.h, mkdata.py COLD_BANKS): en la página NT_COLD_PAGE; se pone un momento y
+   vuelve la que tenía el registro (md_hw_page: la intro cambia de página sin md_cur_page) */
+static inline uint8 cold_on(void) {
+  uint8 hw = md_hw_page;
+  __asm__ volatile("" ::: "memory");
+  md_hw_page = NT_COLD_PAGE;
+  *(volatile uint8 *)0xA130FF = NT_COLD_PAGE;
+  __asm__ volatile("" ::: "memory");
+  return hw;
+}
+static inline void cold_off(uint8 hw) {
+  __asm__ volatile("" ::: "memory");
+  md_hw_page = hw;
+  *(volatile uint8 *)0xA130FF = hw;
+  __asm__ volatile("" ::: "memory");
+}
+uint16 nt_paged_w(const uint8 *t, uint16 a) {
+  uint8 hw = cold_on();
+  const uint8 *q = t + (uint16)(a - 0x8000);
+  uint8 lo = q[0], hi = q[1];
+  cold_off(hw);
+  return (uint16)(lo | hi << 8);
+}
+uint8 nt_paged_b(const uint8 *t, uint16 a) {
+  uint8 hw = cold_on();
+  uint8 v = t[(uint16)(a - 0x8000)];
+  cold_off(hw);
+  return v;
+}

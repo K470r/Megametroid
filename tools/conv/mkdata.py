@@ -642,8 +642,12 @@ _k4 = decompress(0xB9FA38)
 arr('uint16', 'kKraidMap2000', [_k2[2 * i] | _k2[2 * i + 1] << 8 for i in range(2048)], fmt='0x{:04X}', attr='NT_BANK(%d) ' % BOSS_PAGE)
 arr('uint16', 'kKraidMap4000', [_k4[2 * i] | _k4[2 * i + 1] << 8 for i in range(1024)], fmt='0x{:04X}', attr='NT_BANK(%d) ' % BOSS_PAGE)
 # bancos poco usados: bytes (la mitad de ROM que las palabras; nmath.h los lee de a dos)
+COLD_PAGE = 7   # página del SSF2 de los bancos que se leen poco (nmath.h: nt_paged_w la pone un momento)
+COLD_BANKS = {0x81, 0x82, 0x8B, 0x8C}   # fin de juego, pausa, cinemáticas, intro: fuera de la ROM fija (que está llena)
+H.append('#define NT_COLD_PAGE %d   /* (mkdata.py, COLD_BANKS: kBank81B, 82B, 8BB, 8CB) */' % COLD_PAGE)
 def bankbytes(name, bank):
-    arr('uint8', name, list(r((bank << 16) | 0x8000, 0x8000) + r(((bank + 1) << 16) | 0x8000, 1)), per=32)
+    arr('uint8', name, list(r((bank << 16) | 0x8000, 0x8000) + r(((bank + 1) << 16) | 0x8000, 1)), per=32,
+        attr='NT_BANK(%d) ' % COLD_PAGE if bank in COLD_BANKS else '')
 # cinemáticas: listas de instrucciones ($8B), efectos de paleta ($8D), objetos de HDMA y tablas del power bomb ($88)
 bankbytes('kBank81B', 0x81)   # menú de fin de juego: tilemaps y objetos de HDMA
 bankbytes('kBank82B', 0x82)   # menú de fin de juego: la bebé metroide (instrucciones y paletas)

@@ -14,17 +14,26 @@ static inline uint16 bankb_w(const uint8 *t, uint16 a) {
   return (uint16)(lo | hi << 8);
 }
 #define BANKB_W(t, a) bankb_w((t), (a))
+/* bancos que se leen poco, en la página NT_COLD_PAGE (mkdata.py): en la Genesis la plataforma la pone un momento
+   (md_zebes.c); en el PC, directo */
+#ifdef NT_SSF2
+uint16 nt_paged_w(const uint8 *t, uint16 a);
+uint8 nt_paged_b(const uint8 *t, uint16 a);
+#else
+static inline uint16 nt_paged_w(const uint8 *t, uint16 a) { return bankb_w(t, a); }
+static inline uint8 nt_paged_b(const uint8 *t, uint16 a) { return t[(uint16)(a - 0x8000)]; }
+#endif
 static inline uint16 A6W(uint16 a) { return BANKB_W(kBankA6B, a); }
 static inline uint8 A6B(uint16 a) { return kBankA6B[(uint16)(a - 0x8000)]; }
 static inline uint16 B86W(uint16 a) { return BANKB_W(kBank86B, a); }
-static inline uint16 B81W(uint16 a) { return BANKB_W(kBank81B, a); }
-static inline uint16 B82W(uint16 a) { return BANKB_W(kBank82B, a); }
+static inline uint16 B81W(uint16 a) { return nt_paged_w(kBank81B, a); }
+static inline uint16 B82W(uint16 a) { return nt_paged_w(kBank82B, a); }
 static inline uint16 B88W(uint16 a) { return BANKB_W(kBank88B, a); }
 static inline uint8 B88B(uint16 a) { return kBank88B[(uint16)(a - 0x8000)]; }
-static inline uint16 B8BW(uint16 a) { return BANKB_W(kBank8BB, a); }
-static inline uint8 B8BB(uint16 a) { return kBank8BB[(uint16)(a - 0x8000)]; }
-static inline uint16 B8CW(uint16 a) { return BANKB_W(kBank8CB, a); }
-static inline uint8 B8CB(uint16 a) { return kBank8CB[(uint16)(a - 0x8000)]; }
+static inline uint16 B8BW(uint16 a) { return nt_paged_w(kBank8BB, a); }
+static inline uint8 B8BB(uint16 a) { return nt_paged_b(kBank8BB, a); }
+static inline uint16 B8CW(uint16 a) { return nt_paged_w(kBank8CB, a); }
+static inline uint8 B8CB(uint16 a) { return nt_paged_b(kBank8CB, a); }
 static inline uint16 B8DW(uint16 a) { return BANKB_W(kBank8DB, a); }
 static inline uint16 B87W(uint16 a) { return BANKB_W(kBank87B, a); }
 static inline uint16 B84W(uint16 a) { return BANKB_W(kBank84B, a); }

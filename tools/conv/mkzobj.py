@@ -80,7 +80,10 @@ def init_palettes(rom, st):
                         src = int(g.group(1), 16) if g else defs.get(arr)
                         if src is None:
                             continue
-                        for c in range(16):
+                        # cuántos: el bucle de antes (for (int i = 48; i >= 0; i -= 2): 25, Draygon_Init); si no, 16
+                        lp = re.findall(r"for \(\w* ?\w+ = (\d+); [^;]*>= 0; \w+ -= 2\)", m.group(0)[:mm.start()])
+                        n = int(lp[-1]) // 2 + 1 if lp else 16
+                        for c in range(n):
                             res[base + c] = rom.w(src + 2 * c)
                 _init_pal_cache[name] = res
             out.update(_init_pal_cache[name])
@@ -117,6 +120,10 @@ def vram_copy_ops(rom, bank):
             out.add((src, size, dst))
     return sorted(out)
 
+
+# copias a la VRAM de los sprites que hace un jefe por la cola de VRAM al empezar y que quedan (origen, tamaño,
+# destino en bytes): Draygon_Func_1 ($A5:871B) sube los tiles de sus crías ($B1:9400, 0x600 bytes a 0xDA00)
+BOSS_VRAM_COPIES = {0xDA60: [(0xB19400, 0x600, 0xDA00)]}
 
 # copias de tiles por jefe (banco): el Torizo ($AA, ojos y boca); docs/59
 VRAM_COPY_BANKS = {0xAA}
@@ -788,8 +795,11 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             recs_all += list(r)
         index.append(zkey(k) + (off,))
     tiles = bank.data()
-    if len(tiles) // 32 > 1280 - base:
-        print(f"  objetos {tilesets_ptr:04X}: {len(tiles) // 32} tiles, más de {1280 - base}: no entran", file=sys.stderr)
+    # (base 0: objetos por cuadro, STREAM_ROOMS: no van juntos en la VRAM; cada entrada se renumera desde 0 y aquí solo
+    # cuenta el número de tile de 11 bits de los registros)
+    lim = 2047 if base == 0 else 1280 - base
+    if len(tiles) // 32 > lim:
+        print(f"  objetos {tilesets_ptr:04X}: {len(tiles) // 32} tiles, más de {lim}: no entran", file=sys.stderr)
         return None
     if vops:
         print(f"  copias de tiles: {len(vops)}, parches {sum(len(pt) for pt in patches)} tiles", file=sys.stderr)
@@ -860,7 +870,7 @@ def frozen_entry(rom, vram, k, islot, common):
 # salas con los objetos "por cuadro" (docs/59): sus claves no tienen tiles fijos en la VRAM; cada una es una entrada
 # del juego común (como los congelados: tiles desde 0 y registros) que la Genesis sube cuando se dibuja, a un depósito
 # de lugares en la zona de los objetos (md_zebes.c, frz_*). Kraid: su cuerpo y sus sprites no entran juntos.
-STREAM_ROOMS = {0xA59F}
+STREAM_ROOMS = {0xA59F, 0xDA60}
 STREAM_EPROJ = os.environ.get("MM_STREAM_EPROJ", "1") == "1"   # los proyectiles enemigos también por cuadro (md_zebes.c, zebes_obj_ep_recs)
 
 
@@ -943,7 +953,7 @@ def build(rom_path, log_paths, states, frozen=None):
         low = min(ZOBJ_BASE, 448 + ((room_tiles + 7) & ~7))   # justo después de los tiles de la sala (md_zebes.c)
         bk = boss_line(rom, st, k)
         boss = (bk[0], boss_moments(rom, bk, rom.d[rom.off(0x8F0000 | (room + 1))])) if bk else None
-        vc = plm_sprite_copies(rom, st)
+        vc = plm_sprite_copies(rom, st) + [(dst, rom.bytes(src, size)) for (src, size, dst) in BOSS_VRAM_COPIES.get(room, ())]
         fb = frozen_banks(rom, st) - ({boss_of(rom, st)[0]} if boss_of(rom, st) else set())
         an = hook_moments(rom, st, ts)
         vo = vram_copy_ops(rom, boss[0]) if boss and boss[0] in VRAM_COPY_BANKS and room not in STREAM_ROOMS else ()

@@ -711,3 +711,22 @@ Golden Torizo) y la lógica cuadro a cuadro en toda la pelea y la muerte:
   (`zdraw.log`), registradas en el PC con `MM_DRAWLOG` sobre esta pelea. Ojo: no sumar las líneas `bg2pal` de la
   muerte (el cuerpo está rojo: sus colores quedan iguales y la conversión los junta en una silueta).
 - Queda: el color de la compuerta de la puerta (el pendiente general de las puertas).
+
+## Draygon (2026-11-12)
+
+Lado a lado (`PAT=tools/compare/draygon_in.txt DOOR=A924 X=100 Y=400`, las variables de rayos y energía del Golden
+Torizo) y la lógica cuadro a cuadro: igual al SNES en la Genesis y en el PC (13 mil cuadros, con Draygon agarrando a
+Samus varias veces).
+- **Samus agarrada**: `Samus_SetGrabbedByDraygonPose`, `Samus_ReleaseFromDraygon(_)`,
+  `Samus_GrabbedByDraygonFrameHandler` (frame_handler_gamma) y `Samus_InputHandler_E913/E91D` escritas a mano
+  (samus_codes.c, $90:E23B-E91D); antes eran avisos vacíos.
+- **Objetos por cuadro**: con lo que se dibuja en la pelea (claves de `zdraw.log` y palabras de `zbg2.log` registradas en
+  el PC con `MM_DRAWLOG`) los objetos del estado de pelea ya no entraban ni sueltos (503 tiles de 456). DA60 va en
+  `STREAM_ROOMS` (como Kraid): el límite de tiles para base 0 es el de 11 bits (2047) y las tablas del depósito van en
+  `cinematic_text_tilemap + 1024` en las salas sin la cola de Kraid (+ 3200 es del agua). Las claves `enemyext` no se
+  suman: en Zebes los spritemaps extendidos se dibujan pieza por pieza (con las `enemy`).
+- **Las crías**: `Draygon_Func_1` ($A5:871B) sube por la cola de VRAM sus tiles ($B1:9400, 0x600 bytes a 0xDA00):
+  `mkzobj.BOSS_VRAM_COPIES`.
+- **Las burbujas**: la paleta 2 de sprites la pone `Draygon_Init` (25 colores desde $A5:A217, 144-168);
+  `mkzobj.init_palettes` tomaba siempre 16: ahora lee la cuenta del bucle. Salen verdosas (sus grises se juntan con los
+  verdes de Draygon: 52 colores en 15 lugares); a Edwin le gustaron así.

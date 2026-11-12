@@ -346,8 +346,8 @@ static void draw_window(uint8 L) {            /* (VDP libre) toda la ventana de 
 /* congelados (ver "enemigos congelados", más abajo) */
 #define FROZEN_REF 0x8000              /* (mkzobj.FROZEN_REF) */
 /* el depósito: 3 lugares de 18 tiles en las filas 5-31 del Window (VRAM 0xE140, 54 tiles); en las salas con los
-   objetos por cuadro (zo->stream, mkzobj.STREAM_ROOMS: Kraid) hasta FRZ_NMAX lugares de 8 tiles desde zo->base, con
-   sus tablas en cinematic_text_tilemap + 3200 (en esas salas libre: sin líquido) */
+   objetos por cuadro (zo->stream, mkzobj.STREAM_ROOMS: Kraid, Draygon) hasta FRZ_NMAX lugares de 8 tiles desde
+   zo->base, con sus tablas en cinematic_text_tilemap + 3200 (Kraid: sin líquido) o + 1024 (Draygon) */
 #define FRZ_TILE0 1802
 #define FRZ_SLOT 18
 #define FRZ_NSLOT 3
@@ -369,7 +369,9 @@ static void kq_frame(void);
 static void kq_vblank(void);
 static void frz_setup(void) {             /* al entrar a la sala: el depósito de los congelados o de los objetos */
   if (zo && zo->stream) {
-    uint8 *m = (uint8 *)cinematic_text_tilemap + 3200;
+    /* (Kraid: + 3200, su sala no tiene líquido; las demás, como Draygon con su agua: + 1024, libre sin la cola de Kraid
+       ni la caché del cuerpo) */
+    uint8 *m = (uint8 *)cinematic_text_tilemap + (zw ? 3200 : 1024);
     frz_stream = 1; frz_t0 = zo->base + ((zo->ntiles + 7) & ~7); frz_slot = 8;   /* (después de los fijos) */
     uint16 n = (1280 - frz_t0) / 8;
     frz_ns = (uint8)(n > FRZ_NMAX ? FRZ_NMAX : n);
@@ -398,11 +400,11 @@ const MdRoom *zebes_use(void) {
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
   for (uint16 i = 0; i < 64; i++) zcache[i].zo = 0;   /* (md_ovl: la intro pudo dejar cualquier cosa, docs/60) */
-  frz_setup();
-  frz_reset();
   zw = 0;
   for (uint16 i = 0; i < NT_ZEBES_NWALL; i++)
     if (kZebesWall[i].gfx == kZebesStates[f].gfx) zw = &kZebesWall[i];
+  frz_setup();                                   /* (después de zw: dónde van sus tablas) */
+  frz_reset();
   if (game_state != 17) {                        /* (17: al volver de la pausa, ResumeGameplay: Kraid sigue igual) */
     wall_on = 0; kq_r = kq_w = 0; mouth_cur = 0;
   }

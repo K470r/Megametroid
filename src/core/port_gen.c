@@ -66,11 +66,15 @@ NT_BOSS void ShitroidInCutscene_GetIntoFace(uint16 k);
 NT_BOSS void SetGoldenTorizoPalette(uint16 a);
 void SetEventHappened(uint16 a);
 void SetBossBitForCurArea(uint16 a);
+void Samus_SetGrabbedByDraygonPose(uint16 a);
 void Samus_ScrollFinishedHook_SporeSpawnFight(void);
 void Samus_RestoreSuperMissiles(uint16 a);
 void Samus_RestorePowerBombs(uint16 a);
 void Samus_RestoreMissiles(uint16 a);
 void Samus_RestoreHealth(uint16 a);
+void Samus_ReleaseFromDraygon_(void);
+void Samus_InputHandler_E91D(void);
+void Samus_InputHandler_E913(void);
 void Samus_DealDamage(uint16 a);
 NT_BOSS void Ridley_Func_93(uint16 j, uint16 k);
 void ResetProjectileData(void);
@@ -3051,10 +3055,6 @@ void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22)
 uint16 PrepareBitAccess(uint16 a);
 uint8 ProcessCorpseRotting(uint16 k);
 void ProcessCorpseRottingVramTransfers(uint16 k);
-void Samus_InputHandler_E913(void);
-void Samus_InputHandler_E91D(void);
-void Samus_ReleaseFromDraygon_(void);
-void Samus_SetGrabbedByDraygonPose(uint16 a);
 void SomeMotherBrainScripts(uint16 a);
 uint16 SpawnMotherBrainRainbowBeamHdma(void);
 void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k);
@@ -3073,10 +3073,6 @@ void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22)
 uint16 PrepareBitAccess(uint16 a) { nt_unimpl("PrepareBitAccess"); return 0; }
 uint8 ProcessCorpseRotting(uint16 k) { nt_unimpl("ProcessCorpseRotting"); return 0; }
 void ProcessCorpseRottingVramTransfers(uint16 k) { nt_unimpl("ProcessCorpseRottingVramTransfers"); }
-void Samus_InputHandler_E913(void) { nt_unimpl("Samus_InputHandler_E913"); }
-void Samus_InputHandler_E91D(void) { nt_unimpl("Samus_InputHandler_E91D"); }
-void Samus_ReleaseFromDraygon_(void) { nt_unimpl("Samus_ReleaseFromDraygon_"); }
-void Samus_SetGrabbedByDraygonPose(uint16 a) { nt_unimpl("Samus_SetGrabbedByDraygonPose"); }
 void SomeMotherBrainScripts(uint16 a) { nt_unimpl("SomeMotherBrainScripts"); }
 uint16 SpawnMotherBrainRainbowBeamHdma(void) { nt_unimpl("SpawnMotherBrainRainbowBeamHdma"); return 0; }
 void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_CorpseRottingCopyFunc"); }

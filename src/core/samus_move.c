@@ -2418,6 +2418,7 @@ static void RunFrameHandlerGamma(void) {  // 0x90E097
     break;
   case FUNC16(DrawTimer_): DrawTimer(); break;
   case FUNC16(Samus_PushOutOfRidleysWay): Samus_PushOutOfRidleysWay(); break;
+  case FUNC16(Samus_GrabbedByDraygonFrameHandler): { void Samus_GrabbedByDraygonFrameHandler(void); Samus_GrabbedByDraygonFrameHandler(); } break;
   case FUNC16(Samus_Func4): Samus_Func4(); break;
   default: nt_unimpl("RunFrameHandlerGamma"); break;
   }

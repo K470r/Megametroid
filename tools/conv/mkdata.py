@@ -350,7 +350,8 @@ ceres_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if hb[1] == 6 for 
 # los niveles de las salas de los jefes van en la página de su código (tools/port/port.py, BOSS_PAGE: en esas salas la
 # ventana 7 muestra el nivel, así que el código del jefe está siempre a mano; docs/46)
 BOSS_PAGE = 25
-BOSS_ROOMS = {0x9DC7, 0xA59F, 0xA98D, 0xB283, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDC65, 0xDCB1, 0xDD58}   # (DC65: cadáveres de Tourian)
+# (DC65: cadáveres de Tourian; 9804: el Bomb Torizo, su contacto es GoldTorizo_Touch, código de jefe; docs/59)
+BOSS_ROOMS = {0x9804, 0x9DC7, 0xA59F, 0xA98D, 0xB283, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDC65, 0xDCB1, 0xDD58}
 boss_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if ra in BOSS_ROOMS for _, _, st in sels}
 page, used, lvl_page = LEVEL_PAGE0, 0, {}
 for i, lvl in enumerate(sorted(levels)):

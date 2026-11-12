@@ -613,3 +613,22 @@ Pendiente (lo que todavía se puede hacer):
 - Base de todas las salas: `md_post` (~6-12k; la comparación del HUD, 1,4k), `md_vblank` (~5k).
 - Herramientas: perfil `segprof.sh` (estados de Kraid), `flines.py` (por línea), imagen cuadro a cuadro (`imgcmp.sh`,
   con `REF=` un commit), regresión y las 194 salas con `check`.
+
+## Bomb Torizo (2026-11-12)
+
+Comparado lado a lado con el SNES (`tools/compare/lado_a_lado.sh`, que por omisión es esta pelea) y la lógica cuadro a
+cuadro (estado completo de la Genesis con `MD_STOP_AT` contra la grabación de `hlref`: `work/lado/stop.sh`,
+`cmpstop.py`):
+- **La lógica se separaba del SNES en el cuadro 16582**: en el SNES el Torizo golpea a Samus por contacto y en la
+  Genesis no. Su función de contacto es `GoldTorizo_Touch` (la cabecera del Bomb Torizo apunta a ella), código de jefe
+  (`NT_BOSS`, página 25), y la sala 9804 no estaba en `BOSS_ROOMS` (mkdata.py): con la ventana 7 en otra página el
+  despachador no la llama ("código de jefe fuera de su página"). En el PC no pasa (no hay páginas): `check` daba 0
+  diferencias. Arreglo: 9804 en `BOSS_ROOMS` (su nivel va a la página 25). Ahora la lógica es igual en toda la pelea.
+  Recorrido estático de todas las salas que no son de jefe con la cabecera de sus enemigos: ninguna otra llama código
+  de jefe.
+- **Los ojos**: índices 156-158 de palette_buffer (rosados en la estatua; naranjas al despertar; cian en el Golden).
+  Al juntar colores se iban con un marrón: `mkzobj.BOSS_SOLO` los deja para el final. Se encienden en las poses en
+  que el tile del ojo va solo; en algunas (el salto) el sprite compuesto de la cabeza sale con los índices del cuerpo
+  en el ojo: pendiente revisar `mkzobj.compose` con ese componente.
+- **Los aros marrones** al final: también están en el SNES (restos de la pelea); allí se ven más tenues por la
+  neblina azul (`SpawnBombTorizoHaze`, suma de color por franjas), que la Genesis no hace todavía: pendiente.

@@ -227,6 +227,10 @@ BOSS_PALETTES = {
     },
 }
 BOSS_LINE = 1
+# índices de palette_buffer de un jefe que no se juntan con otros hasta el final (merge_colors, solo): pocos píxeles que
+# cambian mucho entre momentos. El Torizo (banco $AA): los ojos, 156-158 (rosados de estatua; naranjas al despertar el
+# Bomb Torizo, cian el Golden): se juntaban con un marrón y en la Genesis nunca se encendían (docs/59)
+BOSS_SOLO = {0xAA: frozenset({156, 157, 158})}
 # salas de jefes cuyos objetos no entran en la VRAM con las copias del destello (el jefe dibujado con la paleta 0000,
 # la línea 0 de sprites, blanca, cuando recibe daño): sin ellas, el destello no se ve (Crocomire: 796 tiles -> 592)
 FLASH_DROP = {0xA98D}
@@ -335,7 +339,7 @@ def boss_moments(rom, boss, area):
     return moments
 
 
-def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset()):
+def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset(), solo=frozenset()):
     """agrupa los índices de counts (índice -> píxeles) en a lo sumo cap colores: los de igual color (en todos los
     momentos, vec) se comparten; si sobran, se juntan los dos más parecidos (pesando por píxeles). Al juntar, queda
     el de keep si hay uno (los colores que cicla un enemigo: así el lugar sigue cambiando como en el SNES). Devuelve
@@ -361,6 +365,8 @@ def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset()):
             for b_ in range(a_ + 1, len(al)):
                 d = sum(color_dist(x, y) for x, y in zip(va, vec(al[b_])))
                 w = d * (min(alive[al[a_]], alive[al[b_]]) ** 0.5 if sqrt_w else min(alive[al[a_]], alive[al[b_]]))
+                if al[a_] in solo or al[b_] in solo:     # (BOSS_SOLO: al final)
+                    w = w * 1e6 + 1e6
                 if best is None or w < best[0]:
                     best = (w, al[a_], al[b_])
         w, ia, ib = best
@@ -589,6 +595,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     moments = boss[1] if boss else [{}]
     moments = moments + [{**moments[-1], **a} for a in anim]
     akeep = frozenset(i for a in anim for i in a)
+    solo = BOSS_SOLO.get(boss[0], frozenset()) if boss else frozenset()
     bank = mkmd.TileBank(base)
     # piezas de cada clave y colores que usan (por paleta del SNES de las piezas del jefe, para repartir las líneas)
     pieces = {}
@@ -636,11 +643,11 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             continue
         # (con jefe o ciclos de color, la fusión pesa con la raíz de los píxeles: un color chico y llamativo, como el
         # ojo del Torizo o el brillo de las caras de 9F11, no se pierde contra las superficies grandes)
-        r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss or anim), keep=akeep)
+        r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss or anim), keep=akeep, solo=solo)
         if os.environ.get("MM_ZOBJ_STATS"):
             c3e = Counter({i: n for i, n in c3.items() if n >= 1})       # sin los proyectiles de Samus (peso 1/64)
             print("  colores de enemigos distintos:", len(merge_colors(c3e, vec, 99)[1]), "de", len(slots), file=sys.stderr)
-        r1 = merge_colors(c1, vec, 15, sqrt_w=True) if c1 else ({}, {}, 0, 0.0)
+        r1 = merge_colors(c1, vec, 15, sqrt_w=True, solo=solo) if c1 else ({}, {}, 0, 0.0)
         cost = r3[3] + r1[3]
         if best is None or cost < best[0]:
             best = (cost, s1, r3, r1)

@@ -1274,6 +1274,12 @@ __asm__(
   "    .global md_putrecs\n"
   "md_putrecs:\n"
   "    movem.l %d2/%d4-%d7/%a2,-(%sp)\n"
+  "    bsr md_putrecs_ns\n"
+  "    movem.l (%sp)+,%d2/%d4-%d7/%a2\n"
+  "    rts\n"
+  /* md_putrecs_ns: lo mismo sin guardar d2/d4-d7/a2 (los guarda quien llama: zfrz_put, md_zebes.c) */
+  "    .global md_putrecs_ns\n"
+  "md_putrecs_ns:\n"
   "    move.w %d0,%d6\n"
   "    move.w %d1,%d7\n"
   "    move.w (%a0)+,%d5\n"                   /* n */
@@ -1321,8 +1327,7 @@ __asm__(
   "    move.w %d0,(%a1)+\n"
   "    dbra %d5,6b\n"
   "    move.l %a1,sp_ptr\n"
-  "8:  movem.l (%sp)+,%d2/%d4-%d7/%a2\n"
-  "    rts\n"
+  "8:  rts\n"
   "20: addq.l #2,%a0\n"
   "21: addq.l #2,%a0\n"
   "22: addq.l #2,%a0\n"
@@ -1362,7 +1367,6 @@ __asm__(
   "    dbra %d5,10b\n"
   "12: move.l %a1,sp_ptr\n"
   "    movem.l (%sp)+,%d3/%a3\n"
-  "    movem.l (%sp)+,%d2/%d4-%d7/%a2\n"
   "    rts\n");
 
 /* md_putrecs_t: lo mismo, con d4 sumado al atributo de cada sprite (el tile de un lugar del depósito por cuadro,

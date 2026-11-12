@@ -1262,7 +1262,7 @@ __asm__(
      (el camino lento lo busca o lo sube). Preserva d2-d7/a2-a6. (También md_draw_eprojs_asm, md_engine.c.) */
   "    .global zfrz_put\n"
   "zfrz_put:\n"
-  "    movem.l %d2-%d4/%a2,-(%sp)\n"
+  "    movem.l %d2-%d7/%a2,-(%sp)\n"
   "    movea.w %d1,%a2\n"                     /* x */
   "    moveq #127,%d2\n"
   "    and.w %d0,%d2\n"
@@ -1288,8 +1288,8 @@ __asm__(
   "    beq 5f\n"                              /* (no entró: por la página) */
   "    move.l %a2,%d0\n"                     /* x */
   "    move.l %a1,%d1\n"                     /* y */
-  "    jsr md_putrecs\n"
-  "    movem.l (%sp)+,%d2-%d4/%a2\n"
+  "    jsr md_putrecs_ns\n"                  /* (d2/d4-d7/a2 ya guardados) */
+  "    movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #1,%d0\n"
   "    rts\n"
   "5:  moveq #0,%d4\n"
@@ -1319,10 +1319,10 @@ __asm__(
   "    beq 4f\n"
   "    move.b %d3,md_hw_page\n"
   "    move.b %d3,0xA130FF\n"
-  "4:  movem.l (%sp)+,%d2-%d4/%a2\n"
+  "4:  movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #1,%d0\n"
   "    rts\n"
-  "8:  movem.l (%sp)+,%d2-%d4/%a2\n"
+  "8:  movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #0,%d0\n"
   "    rts\n"
   "    .global zebes_obj_draw\n"

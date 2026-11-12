@@ -27,10 +27,26 @@ _Static_assert(sizeof(EnemyData) == 64, "EnemyData: 64 bytes, como en el SNES");
 /* (k & ~63 en lugar de k >> 6 * 64: en el 68000 son dos desplazamientos de 6 menos por acceso) */
 static inline EnemyData *gEnemyData(uint16 k) { return (EnemyData *)((uint8 *)enemy_data + (k & 0xFFC0)); }
 extern EnemySpawnData enemy_spawn_data[ENEMY_COUNT];
-/* RAM extra de los enemigos (7E:7800-97FF): variables de jefes como Ridley */
-extern uint16 enemy_ram7800[0x1000];
-#define ERAM(addr) (enemy_ram7800[(uint16)((addr) - 0x7800) >> 1])
-#define ERAM_ARR(addr) (&enemy_ram7800[(uint16)((addr) - 0x7800) >> 1])   /* arreglo de palabras en la RAM extra: ERAM_ARR(a)[i] */
+/* RAM extra de los enemigos (7E:7800-97FF): variables de jefes como Ridley. Sin el tramo 7E:8AC0-8FFF (docs/60): es
+   la parte alta de los bloques de 64 bytes por enemigo de 7E:8800 (0x8800 + índice), y el más alto que puede usar un
+   enemigo es 7E:8ABF (Yapping Maw con índice 10 en la sala A293; las demás especies que usan 7E:88xx van con índice
+   0). Las direcciones desde 7E:9000 bajan 0x540 bytes; en el PC, tocar el tramo quitado avisa (check). */
+#define ERAM_GAP_LO 0x8AC0
+#define ERAM_GAP_HI 0x9000
+#define ERAM_WORDS ((0x9800 - 0x7800 - (ERAM_GAP_HI - ERAM_GAP_LO)) >> 1)
+extern uint16 enemy_ram7800[ERAM_WORDS];
+#ifndef NT_SSF2
+void nt_eram_gap(uint16 a);                    /* (nt_ram.c) */
+#endif
+static inline uint16 eram_idx(uint16 a) {      /* palabra de enemy_ram7800 de la dirección a (par) del SNES */
+#ifndef NT_SSF2
+  if (a >= ERAM_GAP_LO && a < ERAM_GAP_HI) nt_eram_gap(a);
+#endif
+  uint16 i = (uint16)(a - 0x7800) >> 1;
+  return a >= ERAM_GAP_HI ? (uint16)(i - ((ERAM_GAP_HI - ERAM_GAP_LO) >> 1)) : i;
+}
+#define ERAM(addr) (enemy_ram7800[eram_idx(addr)])
+#define ERAM_ARR(addr) (&enemy_ram7800[eram_idx(addr)])   /* arreglo de palabras en la RAM extra: ERAM_ARR(a)[i] */
 /* 7E:9000: el decomp la nombra aparte, pero es la misma RAM que ERAM(0x9000) (Draygon_Instr_22 $A5:E872 la escribe y
    EprojPreInstr_SporeSpawners $86:DD46 la lee; check la compara como parte de enemy_ram7800) */
 #define kraid_unk9000 ERAM(0x9000)
@@ -40,7 +56,7 @@ static inline EnemySpawnData *gEnemySpawnData(uint16 k) { return &enemy_spawn_da
 static inline uint16 *nt_spawn_p(uint16 a) {
   if (a < 0x7800)
     return (uint16 *)((uint8 *)enemy_spawn_data + (uint16)(a - 0x7000));
-  return &enemy_ram7800[(uint16)(a - 0x7800) >> 1];
+  return &enemy_ram7800[eram_idx(a)];
 }
 
 #include "tables.h"
@@ -57,6 +73,9 @@ void LoadEnemies(void);                        /* $A0:8A1E */
 void InitializeEnemies(void);                  /* $A0:8A9E */
 void TransferEnemyTilesToVramAndInit(void);    /* $A0:8CD7 */
 void EnemyMain(void);
+extern uint16 enemy_hw;
+extern uint8 sprobj_lw;                        /* (enemy_main.c) el lugar de objeto de sprite más bajo usado */
+void sprobj_note(uint16 i);                        /* (game.c) los lugares hasta el más alto usado, en bytes */
 void SamusProjectileInteractionHandler(void);
 void DrawEnemyQueue(uint16 phase);
 /* enemigos */

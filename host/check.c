@@ -127,7 +127,7 @@ static void load_spawn(const uint8_t *r) {
     uint16_t *w = &enemy_spawn_data[k].some_flag;
     for (int i = 0; i < 32; i++) w[i] = rw(r, 0x7000 + 64 * k + 2 * i);
   }
-  for (int i = 0; i < 0x1000; i++) enemy_ram7800[i] = rw(r, 0x7800 + 2 * i);
+  for (unsigned a = 0x7800; a < 0x9800; a += 2) if (a < ERAM_GAP_LO || a >= ERAM_GAP_HI) ERAM(a) = rw(r, a);
 }
 /* compara enemy_data y enemy_spawn_data con la RAM del SNES */
 static int cmp_enemies(long f, const uint8_t *r, int nd) {
@@ -290,11 +290,19 @@ int main(int argc, char **argv) {
     nd = cmp_enemies(f, ram_cur, nd);
     /* RAM extra de enemigos (7E:7800-97FF: variables de jefes como Ridley); como 7E:7000, no durante la carga */
     if (game_state != 11 && game_state != 6)
-      for (int i = 0; i < 0x1000; i++)
-        if (enemy_ram7800[i] != rw(ram_cur, 0x7800 + 2 * i)) {
-          if (nd < max_nd) printf("cuadro %ld: ERAM 7E:%04X nativo %04X snes %04X\n", f, 0x7800 + 2 * i, enemy_ram7800[i], rw(ram_cur, 0x7800 + 2 * i));
+      for (unsigned a = 0x7800; a < 0x9800; a += 2) {
+        if (a >= ERAM_GAP_LO && a < ERAM_GAP_HI) {   /* (el tramo quitado, docs/60: el SNES no debe usarlo en juego) */
+          if (rw(ram_cur, a) != rw(ram_prev, a)) {
+            if (nd < max_nd) printf("cuadro %ld: ERAM 7E:%04X (tramo quitado) cambió en el SNES: %04X\n", f, a, rw(ram_cur, a));
+            nd++;
+          }
+          continue;
+        }
+        if (ERAM(a) != rw(ram_cur, a)) {
+          if (nd < max_nd) printf("cuadro %ld: ERAM 7E:%04X nativo %04X snes %04X\n", f, a, ERAM(a), rw(ram_cur, a));
           nd++;
         }
+      }
     if (nd) { bad_frames++; if (first_bad < 0) first_bad = f; if (bad_frames >= 3 && mode == 0) break;  /* modo 2: libre sin parar (la sala de Ridley es distinta a propósito) */ }
     memcpy(ram_prev, ram_cur, sizeof ram_cur);
   }

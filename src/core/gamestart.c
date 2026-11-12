@@ -37,6 +37,7 @@ static void ClearTimerRam(void) {  // 0x809E93
 }
 
 void SaveExploredMapTilesToSaved(void) {  // 0x8085C6
+  if (area_index > 6) return;                     /* (el área de depuración no tiene lugar: docs/60) */
   uint16 base = area_index << 7;
   for (int i = 0; i < 128; i++)
     explored_map_tiles_saved[base + i] = map_tiles_explored[2 * i] | map_tiles_explored[2 * i + 1] << 8;
@@ -51,6 +52,7 @@ void SetElevatorsAsUsed(void) {  // 0x80CD07: kElevatorUsedBits = $80:CD46
 }
 
 void LoadMirrorOfExploredMapTiles(void) {  // 0x80858C: el mapa explorado del área (copia de la partida)
+  if (area_index > 6) return;                     /* (el área de depuración no tiene lugar: docs/60) */
   uint16 base = area_index << 7;
   for (int i = 0; i < 128; i++) {
     uint16 w = explored_map_tiles_saved[base + i];

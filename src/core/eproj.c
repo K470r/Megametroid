@@ -306,6 +306,13 @@ static inline uint8 EprojBlocksQuiet(uint16 bi, uint16 step, uint16 m) {   /* m 
   cur_block_index = bi & 0x7FFF;
   return 1;
 }
+/* lo que ya se vio (docs/60): por proyectil y dirección, el último tramo de bloques sin ninguno que reaccione (bloque
+   inicial, cuántos, la versión del nivel y el último índice, que EprojBlocksQuiet deja en cur_block_index). El
+   resultado depende solo de los bloques: con el mismo tramo y el nivel sin cambios es el mismo (la roca que cae dentro
+   de la misma fila de bloques, el polvo...). En la Genesis, el mismo en ensamblador (ep_qcache). */
+typedef struct { uint16 bi, ver, last; uint8 cnt1, pad; } EpQc;   /* cnt1: cuántos + 1 (0: vacía) */
+__attribute__((used)) EpQc ep_qc[2][18];
+_Static_assert(sizeof(EpQc) == 8, "ep_qc: el ensamblador (ep_qcache)");
 #ifdef __mc68000__
 /* Los caminos rápidos de abajo en ensamblador (el C de la rama #else es la referencia): ningún bloque tocado
    reacciona (y se lee de la ROM de la sala o es uno no cambiado) → mueve el proyectil y devuelve 0; si no, el
@@ -341,11 +348,42 @@ __asm__(
   "    beq 2b\n"
   "8:  moveq #1,%d2\n"                        /* reacciona o cambiado por un PLM: el original */
   "    rts\n"
+  /* ep_qcache: eproj_quiet con lo ya visto (EprojBlocksQuietC, la referencia en C): a0 = su entrada de ep_qc
+     (bi, versión, último, cuántos + 1); mismo tramo y nivel sin cambios -> ninguno reacciona, sin mirar */
+  "ep_qcache:\n"
+  "    cmp.w (%a0),%d4\n"
+  "    bne 1f\n"
+  "    move.w lvl_ver,%d2\n"
+  "    cmp.w 2(%a0),%d2\n"
+  "    bne 1f\n"
+  "    move.b %d3,%d2\n"
+  "    addq.b #1,%d2\n"
+  "    cmp.b 6(%a0),%d2\n"
+  "    bne 1f\n"
+  "    move.w 4(%a0),cur_block_index\n"
+  "    moveq #0,%d2\n"
+  "    rts\n"
+  "1:  movem.l %d3-%d4/%a0,-(%sp)\n"
+  "    bsr eproj_quiet\n"
+  "    movem.l (%sp)+,%d3-%d4/%a0\n"
+  "    tst.w %d2\n"
+  "    bne 2f\n"
+  "    move.w %d4,(%a0)\n"
+  "    move.w lvl_ver,2(%a0)\n"
+  "    move.w cur_block_index,4(%a0)\n"
+  "    move.b %d3,6(%a0)\n"
+  "    addq.b #1,6(%a0)\n"
+  "2:  rts\n"
   /* uint8 EprojBlockCollisition_Horiz(uint16 k)   // 0x8688B6 */
   "    .global EprojBlockCollisition_Horiz\n"
   "EprojBlockCollisition_Horiz:\n"
   "    movem.l %d2-%d7/%a2,-(%sp)\n"
   "    movea.w 34(%sp),%a1\n"                 /* k */
+  "    bsr ep_h_body\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    rts\n"
+  /* el cuerpo: a1 = k; usa d0-d7/a0/a2 (EprojRunAll lo llama así, con los registros ya guardados) */
+  "ep_h_body:\n"
   "    lea eproj_radius,%a0\n"
   "    moveq #0,%d1\n"
   "    move.b (%a0,%a1.w),%d1\n"              /* R30 (el byte alto) */
@@ -387,23 +425,36 @@ __asm__(
   "    move.w room_width_in_blocks,%d1\n"
   "    mulu.w %d1,%d4\n"
   "    add.w %d5,%d4\n"                       /* bi */
-  "    bsr eproj_quiet\n"
+  "    lea ep_qc,%a0\n"                       /* ep_qc[0][k / 2] */
+  "    move.w %a1,%d0\n"
+  "    add.w %d0,%d0\n"
+  "    add.w %d0,%d0\n"
+  "    adda.w %d0,%a0\n"
+  "    bsr ep_qcache\n"
   "    tst.w %d2\n"
   "    bne 90f\n"
   "    lea eproj_x_subpos,%a0\n"
   "    move.w %d6,(%a0,%a1.w)\n"
   "    lea eproj_x_pos,%a0\n"
   "    move.w %d7,(%a0,%a1.w)\n"
-  "    movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #0,%d0\n"
   "    rts\n"
-  "90: movem.l (%sp)+,%d2-%d7/%a2\n"
-  "    jmp EprojBlockCollisition_Horiz_full\n"
+  "90: moveq #0,%d0\n"                        /* el original completo: _full(k) */
+  "    move.w %a1,%d0\n"
+  "    move.l %d0,-(%sp)\n"
+  "    jsr EprojBlockCollisition_Horiz_full\n"
+  "    addq.l #4,%sp\n"
+  "    rts\n"
   /* uint8 EprojBlockCollisition_Vertical(uint16 k)   // 0x86897B */
   "    .global EprojBlockCollisition_Vertical\n"
   "EprojBlockCollisition_Vertical:\n"
   "    movem.l %d2-%d7/%a2,-(%sp)\n"
-  "    movea.w 34(%sp),%a1\n"
+  "    movea.w 34(%sp),%a1\n"                 /* k */
+  "    bsr ep_v_body\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    rts\n"
+  /* el cuerpo: a1 = k; usa d0-d7/a0/a2 (EprojRunAll lo llama así, con los registros ya guardados) */
+  "ep_v_body:\n"
   "    lea eproj_radius,%a0\n"
   "    moveq #0,%d2\n"
   "    move.b (%a0,%a1.w),%d2\n"              /* R30 */
@@ -445,19 +496,34 @@ __asm__(
   "    lsr.w #4,%d4\n"
   "    add.w %d5,%d4\n"                       /* bi */
   "    moveq #1,%d1\n"
-  "    bsr eproj_quiet\n"
+  "    lea ep_qc+144,%a0\n"                   /* ep_qc[1][k / 2] */
+  "    move.w %a1,%d0\n"
+  "    add.w %d0,%d0\n"
+  "    add.w %d0,%d0\n"
+  "    adda.w %d0,%a0\n"
+  "    bsr ep_qcache\n"
   "    tst.w %d2\n"
   "    bne 90f\n"
   "    lea eproj_y_subpos,%a0\n"
   "    move.w %d6,(%a0,%a1.w)\n"
   "    lea eproj_y_pos,%a0\n"
   "    move.w %d7,(%a0,%a1.w)\n"
-  "    movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #0,%d0\n"
   "    rts\n"
-  "90: movem.l (%sp)+,%d2-%d7/%a2\n"
-  "    jmp EprojBlockCollisition_Vertical_full\n");
+  "90: moveq #0,%d0\n"                        /* el original completo: _full(k) */
+  "    move.w %a1,%d0\n"
+  "    move.l %d0,-(%sp)\n"
+  "    jsr EprojBlockCollisition_Vertical_full\n"
+  "    addq.l #4,%sp\n"
+  "    rts\n");
 #else
+static inline uint8 EprojBlocksQuietC(uint16 k, uint8 dir, uint16 bi, uint16 step, uint16 m) {
+  EpQc *q = &ep_qc[dir][k >> 1];
+  if (q->bi == bi && q->cnt1 == (uint8)(m + 1) && q->ver == lvl_ver) { cur_block_index = q->last; return 1; }
+  if (!EprojBlocksQuiet(bi, step, m)) return 0;
+  q->bi = bi; q->cnt1 = (uint8)(m + 1); q->ver = lvl_ver; q->last = cur_block_index;
+  return 1;
+}
 uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
   uint16 vel = EPW(eproj_x_vel, k), rad = EPW(eproj_radius, k);
   uint16 R30 = rad >> 8, R28 = rad & 0xFF;
@@ -468,7 +534,7 @@ uint8 EprojBlockCollisition_Horiz(uint16 k) {  // 0x8688B6
     uint16 r24 = EPW(eproj_x_pos, k) + (uint16)((int16)vel >> 8) + (r22 < sub);
     uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R28) : (uint16)(R28 + r24 - 1);
     uint16 bi = Mul16((uint8)(t >> 4), room_width_in_blocks) + (v4 >> 4);
-    if (EprojBlocksQuiet(bi, room_width_in_blocks, r26)) {
+    if (EprojBlocksQuietC(k, 0, bi, room_width_in_blocks, r26)) {
       EPW(eproj_x_subpos, k) = r22;
       EPW(eproj_x_pos, k) = r24;
       return 0;
@@ -486,7 +552,7 @@ uint8 EprojBlockCollisition_Vertical(uint16 k) {  // 0x86897B
     uint16 r24 = EPW(eproj_y_pos, k) + (uint16)((int16)vel >> 8) + (r22 < sub);
     uint16 v4 = (vel & 0x8000) ? (uint16)(r24 - R30) : (uint16)(R30 + r24 - 1);
     uint16 bi = Mul16((uint8)(v4 >> 4), room_width_in_blocks) + (xl >> 4);
-    if (EprojBlocksQuiet(bi, 1, n)) {
+    if (EprojBlocksQuietC(k, 1, bi, 1, n)) {
       EPW(eproj_y_subpos, k) = r22;
       EPW(eproj_y_pos, k) = r24;
       return 0;
@@ -618,6 +684,8 @@ uint16 CheckIfEprojIsOffScreen(uint16 k) {  // 0x86E6E0
   return 1;
 }
 
+static void CallEprojPreInstr(uint16 f, uint16 k);
+void ep_preinstr_c(uint16 f, uint16 k) { CallEprojPreInstr(f, k); }   /* (EprojRunAll en ensamblador) */
 static void CallEprojPreInstr(uint16 f, uint16 k) {
   int v1 = k >> 1;
   switch (f) {
@@ -697,12 +765,10 @@ static void CallEprojPreInstr(uint16 f, uint16 k) {
   }
 }
 
-static void EprojRunOne(uint16 k) {  // 0x868125
-  CallEprojPreInstr(eproj_pre_instr[k >> 1], k);
-  uint16 v1 = eproj_index;
-  int v2 = eproj_index >> 1;
-  if (eproj_instr_timers[v2]-- == 1) {
-    uint16 p = eproj_instr_list_ptr[v2];
+/* la lista de instrucciones del proyectil v1 cuando su temporizador llega a 0 (EprojRunOne) */
+void ep_instr_list(uint16 v1) {
+  {
+    uint16 p = eproj_instr_list_ptr[v1 >> 1];
     uint16 f;
     while ((f = b86(p)) & 0x8000) {
       switch (f) {
@@ -749,7 +815,77 @@ static void EprojRunOne(uint16 k) {  // 0x868125
     eproj_instr_list_ptr[v1 >> 1] = p + 4;
   }
 }
+static void EprojRunOne(uint16 k) {  // 0x868125
+  CallEprojPreInstr(eproj_pre_instr[k >> 1], k);
+  uint16 v1 = eproj_index;
+  if (eproj_instr_timers[v1 >> 1]-- == 1)
+    ep_instr_list(v1);
+}
 
+#ifdef __mc68000__
+/* EprojRunAll en ensamblador (el C de la rama #else es la referencia): el recorrido de los 18 proyectiles sin las
+   capas de C; las rocas de Kraid (EprojPreInstr_KraidRocks, $86:9D56) directas; las demás, ep_preinstr_c; la lista
+   de instrucciones (ep_instr_list) solo cuando el temporizador llega a 0 */
+__asm__(
+  "    .text\n"
+  "    .global EprojRunAll\n"
+  "EprojRunAll:\n"
+  "    tst.w eproj_enable_flag\n"
+  "    bpl 99f\n"
+  "    movem.l %d2-%d7/%a2-%a3,-(%sp)\n"     /* (una vez: los cuerpos de H y V los usan) */
+  "    movea.w #34,%a3\n"                     /* i */
+  "1:  move.w %a3,eproj_index\n"
+  "    lea eproj_id,%a0\n"
+  "    tst.w (%a0,%a3.w)\n"
+  "    beq 9f\n"
+  "    lea eproj_pre_instr,%a0\n"
+  "    move.w (%a0,%a3.w),%d0\n"
+  "    cmp.w #0x9D56,%d0\n"
+  "    bne 5f\n"
+  /* EprojPreInstr_KraidRocks */
+  "    movea.l %a3,%a1\n"
+  "    bsr ep_h_body\n"
+  "    btst #0,%d0\n"
+  "    bne 3f\n"
+  "    movea.l %a3,%a1\n"
+  "    bsr ep_v_body\n"
+  "    btst #0,%d0\n"
+  "    bne 3f\n"
+  "    lea eproj_x_vel,%a0\n"
+  "    move.w (%a0,%a3.w),%d0\n"
+  "    addq.w #8,%d0\n"
+  "    move.w %d0,%d1\n"
+  "    sub.w #256,%d1\n"
+  "    bmi 2f\n"
+  "    move.w #0xFF00,%d0\n"                  /* -256 */
+  "2:  move.w %d0,(%a0,%a3.w)\n"
+  "    lea eproj_y_vel,%a0\n"
+  "    add.w #64,(%a0,%a3.w)\n"
+  "    bra 6f\n"
+  "3:  lea eproj_id,%a0\n"
+  "    clr.w (%a0,%a3.w)\n"
+  "    bra 6f\n"
+  "5:  move.l %a3,-(%sp)\n"                  /* ep_preinstr_c(f, k) */
+  "    moveq #0,%d1\n"
+  "    move.w %d0,%d1\n"
+  "    move.l %d1,-(%sp)\n"
+  "    jsr ep_preinstr_c\n"
+  "    addq.l #8,%sp\n"
+  "6:  moveq #0,%d2\n"
+  "    move.w eproj_index,%d2\n"             /* (el de ahora: EprojRunOne lo vuelve a leer) */
+  "    lea eproj_instr_timers,%a0\n"
+  "    subq.w #1,(%a0,%d2.w)\n"
+  "    bne 8f\n"
+  "    move.l %d2,-(%sp)\n"
+  "    jsr ep_instr_list\n"
+  "    addq.l #4,%sp\n"
+  "8:  movea.w eproj_index,%a3\n"            /* i = eproj_index */
+  "9:  subq.w #2,%a3\n"
+  "    move.w %a3,%d0\n"
+  "    bpl 1b\n"
+  "    movem.l (%sp)+,%d2-%d7/%a2-%a3\n"
+  "99: rts\n");
+#else
 void EprojRunAll(void) {  // 0x868104
   if (eproj_enable_flag & 0x8000) {
     for (int i = 34; i >= 0; i -= 2) {
@@ -761,6 +897,7 @@ void EprojRunAll(void) {  // 0x868104
     }
   }
 }
+#endif
 
 void DrawEprojSpritemap(uint16 spritemap, uint16 x, uint16 y, uint16 gfx_idx);   /* capa de la Genesis (banco $8D) */
 void md_draw_eprojs(uint16 prio, uint16 bx, uint16 by);                          /* Genesis: el recorrido entero */

@@ -70,7 +70,7 @@ typedef struct { int16 y; uint16 size_link; uint16 attr; int16 x; } GenSpr;
    la segunda parte del cuadro (md_post) lo pasa al lado "del vblank" cuando el vblank ya tomó el cuadro anterior. */
 /* RAM compartida: la usa uno solo de los modos a la vez (la intro, la capa del modo 7 de las cinemáticas, las salas
    de Zebes); cada uno la vuelve a armar al empezar */
-uint16 md_scratch[1440];
+NT_GAMEHI uint16 md_scratch[1440];
 static GenSpr spr_bank[2][MAX_SPR];
 GenSpr *spr = spr_bank[0], *spr_end = spr_bank[0] + MAX_SPR;   /* la lista que arma la lógica */
 static GenSpr *spr_out = spr_bank[1];          /* la que toma el vblank */
@@ -250,6 +250,8 @@ __asm__(
   "md_hint_obj:\n"
   "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank (interrupción pendiente de antes): nada */
   "    bcc.s 1f\n"
+  "    cmpi.b #30,0xC00008\n"             /* antes de la línea 30 (la primera es la 31): la que salta al volver a */
+  "    bcs.s 1f\n"                         /* activarlas si el vblank se pasó al HUD; nada (docs/60) */
   "    move.l %a0,-(%sp)\n"
   "    lea zobj_col,%a0\n"
   "    move.l #0xC0620000,0xC00004\n"
@@ -318,6 +320,8 @@ __asm__(
   "md_hint_lq:\n"
   "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank: nada */
   "    bcc.s 9f\n"
+  "    cmpi.b #30,0xC00008\n"             /* antes de la línea 30 (la primera es la 31): la que salta al volver a */
+  "    bcs.s 9f\n"                         /* activarlas si el vblank se pasó al HUD; nada (docs/60) */
   "    movem.l %d0/%a0-%a1,-(%sp)\n"
   "    movea.l lq_hp,%a0\n"
   "    cmpi.b #40,0xC00008\n"             /* arriba (la primera del cuadro, línea 31): desde el primer paso */
@@ -498,6 +502,8 @@ __asm__(
   "md_hint_msg:\n"
   "    cmpi.b #0xE0,0xC00008\n"           /* aún en el vblank: nada */
   "    bcc.s 9f\n"
+  "    cmpi.b #30,0xC00008\n"             /* antes de la línea 30 (la primera es la 31): la que salta al volver a */
+  "    bcs.s 9f\n"                         /* activarlas si el vblank se pasó al HUD; nada (docs/60) */
   "    movem.l %a0-%a1,-(%sp)\n"
   "    movea.l mb_hp,%a0\n"
   "    move.l (%a0)+,%a1\n"
@@ -667,6 +673,9 @@ static void cv_point(uint16 line) {   /* la interrupción de la línea "line" es
 
 /* inicio del vblank (interrupción vertical de SGDK): el color de fondo vuelve al de arriba */
 static volatile uint8 md_vdp_busy;
+#ifdef MD_HUDLOG
+volatile uint8 md_hud_vl, md_hud_tl, md_hud_pub, md_hud_el;   /* (medición) línea de entrada al vblank, de la reposición; md_pub */
+#endif
 static void md_vint_top(void) {
   if (zobj_hint == 2) mb_hp = mb_steps;
   if (zobj_hint && !md_vdp_busy) {             /* Zebes: aunque el cuadro se atrase, el HUD con sus colores arriba */
@@ -680,6 +689,9 @@ static void md_vint_top(void) {
     for (uint16 i = 0; i < 15; i++) VDP_DATA = cram[49 + i];
     vdp_reg(0x0A, 31);   /* cambio de colores en la línea 32 (la primera del juego): no en el HUD */
     vdp_reg(0x00, 0x14);
+#ifdef MD_HUDLOG
+    md_hud_tl = VDP_VCOUNT >> 8;
+#endif
   }
   if (cv_active && !md_vdp_busy) {           /* círculo: si el cuadro se atrasa, la misma tabla desde arriba */
     cv_point(0);
@@ -750,6 +762,9 @@ static void md_vblank_run(uint16 late) {
   uint16 sv = vb_enter(md_snd_frames != 0);
   md_vb_room = 0;
   md_vblank(late);
+#ifdef MD_HUDLOG
+  md_hud_el = VDP_VCOUNT >> 8;
+#endif
   vb_exit(sv);
   if (!md_vb_room) {
     int16 l1 = vb_lines_left();
@@ -767,6 +782,9 @@ static void md_vblank_run(uint16 late) {
 
 /* interrupción vertical: si hay un cuadro listo, su vblank; si no, lo que se puede adelantar (md_vblank_lag) */
 void md_vint(void) {
+#ifdef MD_HUDLOG
+  md_hud_vl = VDP_VCOUNT >> 8; md_hud_pub = md_pub; md_hud_tl = 0xFF;
+#endif
   if (!md_pub) md_vblank_lag();
   md_vint_top();
   if (md_pub) md_vblank_run(0);
@@ -1106,6 +1124,8 @@ static inline __attribute__((always_inline)) const uint16 *find_key(uint8 kind, 
   return r;
 }
 
+uint16 md_ovl[MD_OVL_BYTES / 2];                  /* (md.h: la intro y Zebes, docs/60) */
+NT_GAMEHI uint16 md_boss_zone[MD_BOSS_BYTES / 2];   /* (md.h: la sala del jefe, docs/60) */
 #include "md_intro.c"                         /* la intro (docs/38): usa la lista de sprites y la CRAM */
 
 void DrawSamusSpritemap(uint16 idx, uint16 x, uint16 y) {  // 0x8189AE
@@ -1254,6 +1274,12 @@ __asm__(
   "    .global md_putrecs\n"
   "md_putrecs:\n"
   "    movem.l %d2/%d4-%d7/%a2,-(%sp)\n"
+  "    bsr md_putrecs_ns\n"
+  "    movem.l (%sp)+,%d2/%d4-%d7/%a2\n"
+  "    rts\n"
+  /* md_putrecs_ns: lo mismo sin guardar d2/d4-d7/a2 (los guarda quien llama: zfrz_put, md_zebes.c) */
+  "    .global md_putrecs_ns\n"
+  "md_putrecs_ns:\n"
   "    move.w %d0,%d6\n"
   "    move.w %d1,%d7\n"
   "    move.w (%a0)+,%d5\n"                   /* n */
@@ -1301,8 +1327,7 @@ __asm__(
   "    move.w %d0,(%a1)+\n"
   "    dbra %d5,6b\n"
   "    move.l %a1,sp_ptr\n"
-  "8:  movem.l (%sp)+,%d2/%d4-%d7/%a2\n"
-  "    rts\n"
+  "8:  rts\n"
   "20: addq.l #2,%a0\n"
   "21: addq.l #2,%a0\n"
   "22: addq.l #2,%a0\n"
@@ -1342,7 +1367,6 @@ __asm__(
   "    dbra %d5,10b\n"
   "12: move.l %a1,sp_ptr\n"
   "    movem.l (%sp)+,%d3/%a3\n"
-  "    movem.l (%sp)+,%d2/%d4-%d7/%a2\n"
   "    rts\n");
 
 /* md_putrecs_t: lo mismo, con d4 sumado al atributo de cada sprite (el tile de un lugar del depósito por cuadro,
@@ -1458,25 +1482,25 @@ __asm__(
   "    move.w 50(%sp),%d2\n"                /* prio */
   "    move.w 54(%sp),%d3\n"                /* bx */
   "    move.w 58(%sp),%d4\n"                /* by */
-  "    lea eproj_id+34,%a2\n"
-  "    lea eproj_properties+34,%a3\n"
-  "    lea eproj_x_pos+34,%a4\n"
-  "    lea eproj_y_pos+34,%a5\n"
-  "    lea ep_cache+136,%a6\n"
+  "    lea eproj_id,%a2\n"                    /* (bases: un solo índice, d5) */
+  "    lea eproj_properties,%a3\n"
+  "    lea eproj_x_pos,%a4\n"
+  "    lea eproj_y_pos,%a5\n"
+  "    lea ep_cache,%a6\n"
   "    moveq #34,%d5\n"
-  "1:  tst.w (%a2)\n"
+  "1:  tst.w (%a2,%d5.w)\n"
   "    beq 9f\n"
-  "    move.w (%a3),%d0\n"
+  "    move.w (%a3,%d5.w),%d0\n"
   "    and.w #0x1000,%d0\n"
   "    cmp.w %d2,%d0\n"
   "    bne 9f\n"
-  "    move.w (%a4),%d6\n"
+  "    move.w (%a4,%d5.w),%d6\n"
   "    add.w %d3,%d6\n"                     /* x */
   "    move.w %d6,%d0\n"
   "    add.w #128,%d0\n"
   "    and.w #0xFE00,%d0\n"
   "    bne 9f\n"
-  "    move.w (%a5),%d1\n"
+  "    move.w (%a5,%d5.w),%d1\n"
   "    add.w %d4,%d1\n"                     /* y */
   "    move.w %d1,%d0\n"
   "    and.w #0xFF00,%d0\n"
@@ -1489,38 +1513,37 @@ __asm__(
   "    move.w (%a0,%d5.w),%d0\n"            /* spritemap */
   "    lea eproj_gfx_idx,%a0\n"
   "    move.w (%a0,%d5.w),%d7\n"            /* tiles y paleta */
-  "    move.l 4(%a6),%d1\n"
+  "    move.w %d5,%d1\n"
+  "    add.w %d1,%d1\n"
+  "    add.w %d1,%d1\n"
+  "    lea (%a6,%d1.w),%a0\n"              /* su entrada de ep_cache (8 bytes) */
+  "    move.l 4(%a0),%d1\n"
   "    beq 5f\n"
-  "    cmp.w (%a6),%d0\n"
+  "    cmp.w (%a0),%d0\n"
   "    bne 5f\n"
-  "    cmp.w 2(%a6),%d7\n"
+  "    cmp.w 2(%a0),%d7\n"
   "    bne 5f\n"
   "    tst.l %d1\n"
   "    bmi 6f\n"                            /* (por cuadro: zebes_ep_draw, sin ep_lookup) */
   "    movea.l %d1,%a0\n"
-  "4:  move.w (%a5),%d1\n"
+  "4:  move.w (%a5,%d5.w),%d1\n"
   "    add.w %d4,%d1\n"
   "    move.w %d6,%d0\n"
   "    jsr md_putrecs\n"
-  "9:  subq.l #2,%a2\n"
-  "    subq.l #2,%a3\n"
-  "    subq.l #2,%a4\n"
-  "    subq.l #2,%a5\n"
-  "    subq.l #8,%a6\n"
-  "    subq.w #2,%d5\n"
+  "9:  subq.w #2,%d5\n"
   "    bpl 1b\n"
   "    movem.l (%sp)+,%d2-%d7/%a2-%a6\n"
   "    rts\n"
   "6:  move.w %d1,%d7\n"                   /* n (la entrada de la caché) */
   "    move.w %d1,%d0\n"
-  "    move.w (%a5),%d1\n"
+  "    move.w (%a5,%d5.w),%d1\n"
   "    add.w %d4,%d1\n"
   "    movea.w %d1,%a1\n"                    /* y */
   "    move.w %d6,%d1\n"                     /* x */
   "    jsr zfrz_put\n"                       /* (md_zebes.c: con el lugar ya puesto) */
   "    tst.w %d0\n"
   "    bne 9b\n"
-  "    move.w (%a5),%d0\n"                   /* si no: zebes_ep_draw(n, x, y) */
+  "    move.w (%a5,%d5.w),%d0\n"                   /* si no: zebes_ep_draw(n, x, y) */
   "    add.w %d4,%d0\n"
   "    ext.l %d0\n"
   "    move.l %d0,-(%sp)\n"
@@ -1533,7 +1556,7 @@ __asm__(
   "    jsr zebes_ep_draw\n"
   "    lea 12(%sp),%sp\n"
   "    bra 9b\n"
-  "5:  move.w (%a5),%d1\n"                 /* ep_lookup(v2, sm, g, x, y) */
+  "5:  move.w (%a5,%d5.w),%d1\n"                 /* ep_lookup(v2, sm, g, x, y) */
   "    add.w %d4,%d1\n"
   "    ext.l %d1\n"
   "    move.l %d1,-(%sp)\n"

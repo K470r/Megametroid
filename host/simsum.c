@@ -27,7 +27,7 @@ static uint16_t state_sum(void) {
     uint16_t *w = &enemy_spawn_data[k].some_flag;
     for (int i = 0; i < 32; i++) sw(w[i]);
   }
-  for (int i = 0; i < 0x1000; i++) sw(enemy_ram7800[i]);
+  for (int i = 0; i < ERAM_WORDS; i++) sw(enemy_ram7800[i]);
   sw(lvl_index);
   for (unsigned i = 0; i < sizeof lvl_mod; i++) sb(lvl_mod[i]);
   for (unsigned i = 0; i < LVL_OV_N; i++) { sw(lvl_ov[i].idx); sw(lvl_ov[i].lvl); sb(lvl_ov[i].bts); sb(lvl_ov[i].used); }

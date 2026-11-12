@@ -39,8 +39,21 @@ static uint8 it_eyes_n;                         /* ojos por escribir */
 static uint8 it_bplane_a;                       /* "SPACE COLONY": el plano B muestra el mismo mapa que el A */
 static uint16 it_ah, it_av, it_bh, it_bv;      /* scroll */
 static uint8 it_hide_a;                         /* fundido cruzado hacia/desde un recuerdo: sin el plano A (texto) */
-static uint16 it_eyes_raw[64], it_eyes[64];
-static uint16 it_cram_src[64];                  /* color del SNES de cada ranura la última vez (para no rehacer) */
+/* los búferes de la intro van en la RAM compartida con Zebes (md.h: md_ovl, docs/60); se borran en IntroGfx */
+typedef struct { uint16 a, b; uint8 kind, grp; const uint16 *rec; } ItKc;
+typedef struct {
+  ItKc kc[32];                                    /* claves ya buscadas (it_draw) */
+  uint16 eyes_raw[64], eyes[64];
+  uint16 cram_src[64];                            /* color del SNES de cada ranura la última vez (para no rehacer) */
+  uint8 slots[64];                                /* ranuras de la CRAM con color en el grupo */
+} IntroOvl;
+_Static_assert(sizeof(IntroOvl) <= MD_OVL_BYTES, "md_ovl: no entran los búferes de la intro");
+#define IOV ((IntroOvl *)md_ovl)
+#define it_kc (IOV->kc)
+#define it_eyes_raw (IOV->eyes_raw)
+#define it_eyes (IOV->eyes)
+#define it_cram_src (IOV->cram_src)
+#define it_slots (IOV->slots)
 static uint8 it_cram_bright = 0xFF;
 static uint16 it_cram_fixed = 0xFFFF;
 typedef union {
@@ -94,7 +107,6 @@ static inline uint16 it_cell(const uint16 *idx, const uint16 *val, uint16 e, uin
 }
 
 /* ------------------------------------------------------------------ sprites (ganchos del motor) */
-static struct { uint16 a, b; uint8 kind, grp; const uint16 *rec; } it_kc[32];   /* claves ya buscadas */
 static void it_draw(uint8 kind, uint16 a, uint16 b, int16 x, int16 y) {
   if (!it_draw_ok) {                            /* la escena del momento del dibujo: la de sus tablas */
     uint16 f;
@@ -306,7 +318,7 @@ static uint16 it_fixed(void) {
   return f;
 }
 
-static uint8 it_slots[64], it_nslots;            /* ranuras de la CRAM con color en el grupo */
+static uint8 it_nslots;
 static const IntroGroup *it_cram_group;
 
 static void it_build_cram(const IntroGroup *G, uint8 bright, uint16 fixed, uint8 all) {
@@ -518,6 +530,7 @@ void IntroGfx(uint16 which) {
     it_page_back();
     it_dirty = 0xFFFFFFFF;
     it_cram_bright = 0xFF;
+    for (uint16 i = 0; i < sizeof(IntroOvl) / 2; i++) md_ovl[i] = 0;   /* (md_ovl: como al arrancar, docs/60) */
     for (uint16 i = 0; i < 64; i++) it_eyes_raw[i] = 0xFFFF;
   }
 }

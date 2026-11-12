@@ -53,4 +53,14 @@ extern const char *volatile md_unimpl_msg;
 #define SNES_X 0x0040
 #define SNES_L 0x0020
 #define SNES_R 0x0010
+/* RAM compartida por modos que nunca coinciden (docs/60, paso 4): los búferes de la intro (md_intro.c, mientras
+   intro_on) y los de Zebes (md_zebes.c: zcache y las colas del vblank). Cada lado la prepara al empezar: la intro en
+   IntroGfx, Zebes al cargar cada sala (zebes_use). */
+#define MD_OVL_BYTES 2240
+extern uint16 md_ovl[MD_OVL_BYTES / 2];
+/* zona del jefe (docs/60): RAM de la partida (NT_GAMEHI) para las cachés de la sala del momento. Las salas de jefe
+   nunca coinciden: la prepara la sala al cargarse (hoy: las salas con objetos por cuadro, como Kraid, con los
+   registros de sus congelados, md_zebes.c frz_rec) y la siguiente la pisa. Nada que deba durar va aquí. */
+#define MD_BOSS_BYTES 4096
+extern uint16 md_boss_zone[MD_BOSS_BYTES / 2];
 #endif

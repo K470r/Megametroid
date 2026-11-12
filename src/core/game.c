@@ -45,11 +45,16 @@ static void ReadJoypadInputs(uint16 joy) {  // 0x809459
   joypad1_prev = joypad1_lastkeys;
 }
 
+/* los lugares de enemigo hasta el más alto que se llenó desde que se cargó la sala (docs/60): los de más arriba
+   están vacíos (enemy_ptr 0) y el recorrido los salta. Lo suben LoadEnemies, SpawnEnemy y RespawnEnemy; lo baja a 0 el
+   borrado de enemy_data al cargar la sala. Empieza en todos (un estado cargado de afuera: el inicial, check). */
+uint16 enemy_hw = 2048;
 void DetermineWhichEnemiesToProcess(void) {  // 0xA08EB6
   ++UNUSED_word_7E0E46;
   uint16 aw = 0, iw = 0;                          /* active/interactive_enemy_indexes_write_ptr */
   EnemyData *v1 = enemy_data;
-  for (uint16 v0 = 0; v0 != 2048; v0 += 64, v1++) {
+  uint16 hw = enemy_hw > 2048 ? 2048 : enemy_hw;
+  for (uint16 v0 = 0; v0 != hw; v0 += 64, v1++) {
     if (v1->enemy_ptr && v1->enemy_ptr != 0xDAFF) {
       uint16 properties = v1->properties;
       if (properties & 0x200) {

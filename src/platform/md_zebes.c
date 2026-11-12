@@ -70,10 +70,23 @@ static inline void map_page(uint8 p) {        /* con barreras: las lecturas de l
 /* ---------------------------------------------------------------- colas para el vblank */
 #define QCOL 6
 #define QROW 6
-static uint16 qcol_buf[QCOL][ZH];
+#define QSKY 4
+/* los búferes grandes de Zebes van en la RAM compartida con la intro (md.h: md_ovl, docs/60): la caché de claves de
+   los objetos (zcache, se borra en zebes_use) y las colas del vblank (se escriben antes de leerse) */
+typedef struct { uint16 sm, pal, tiles; const uint16 *rec; const void *zo; } ZcEnt;
+typedef struct {
+  ZcEnt zc[64];                                   /* zcache (primero: el ensamblador de zebes_obj_draw lo lee en md_ovl) */
+  uint16 qcol_buf[QCOL][ZH], qrow_buf[QROW][ZW], qsky_buf[QSKY][64];
+} ZebesOvl;
+_Static_assert(sizeof(ZebesOvl) <= MD_OVL_BYTES, "md_ovl: no entran los búferes de Zebes");
+#define ZOV ((ZebesOvl *)md_ovl)
+#define zcache (ZOV->zc)
+#define qcol_buf (ZOV->qcol_buf)
+#define qrow_buf (ZOV->qrow_buf)
+#define qsky_buf (ZOV->qsky_buf)
 static int16 qcol_x[QCOL], qcol_y[QCOL];
 static uint8 qcol_l[QCOL], qrow_l[QROW];
-static uint16 qrow_buf[QROW][ZW], qrow_addr[QROW], qrow_n[QROW];
+static uint16 qrow_addr[QROW], qrow_n[QROW];
 static uint8 ncol, nrow;
 #define QBLK 24
 static uint16 qblk_addr[QBLK], qblk_c[QBLK][4];
@@ -299,8 +312,6 @@ static void sky_row(int16 R, uint16 *buf) {      /* con la página de gráficos 
   const uint16 *c = zg->bg2 + (uint16)R * 32;
   for (uint16 i = 0; i < 32; i++) buf[i] = buf[i + 32] = tile_fix_b(c[i]);
 }
-#define QSKY 4
-static uint16 qsky_buf[QSKY][64];
 static int16 qsky_r[QSKY];
 static uint8 nsky;
 static void draw_sky(void) {                   /* (VDP libre) las ZH filas de la ventana */
@@ -380,6 +391,7 @@ const MdRoom *zebes_use(void) {
   zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0; bb_rows = 0;
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
+  for (uint16 i = 0; i < 64; i++) zcache[i].zo = 0;   /* (md_ovl: la intro pudo dejar cualquier cosa, docs/60) */
   frz_setup();
   frz_reset();
   zw = 0;
@@ -942,9 +954,11 @@ void zebes_vblank(void) {
    de cada línea se busca por su altura en la sala (kHdmaScrollEntrys, $88:AEC1: arriba de cada franja). */
 uint8 zebes_sky_on(void) { return md_zebes && zg && zg->sky; }
 uint8 zebes_eye_room(void) { return md_zebes && zg && zg->eye; }   /* md_cone.c */
+const uint16 *sky_entries(void);
 void zebes_sky_lines(uint16 *h, uint16 ax, uint16 ay) {
   /* por franja del cielo: un tramo de líneas con el mismo par (plano A, plano B), escrito de a 32 bits */
-  #define SKYE(i, f) B88W(0xAEC1 + 8 * (i) + 2 * (f))
+  const uint16 *st = sky_entries();               /* (hdmaobj.c: la tabla en palabras alineadas) */
+  #define SKYE(i, f) st[4 * (i) + (f)]
   uint32 *p = (uint32 *)h;
   uint32 a16 = (uint32)(uint16)-ax << 16;
   int16 y = (int16)ay - 2, yend = y + 224;
@@ -1032,7 +1046,6 @@ uint8 zebes_obj_page(void) { return zo ? zo->page : 0xFF; }
 uint16 zebes_obj_end(void) { return zo ? zo->base + zo->ntiles : ZOBJ_BASE; }   /* md_cone.c: tiles libres hasta 1279 */
 
 /* claves ya buscadas (por dispersión del spritemap): casi siempre el mismo enemigo con el mismo cuadro */
-static struct { uint16 sm, pal, tiles; const uint16 *rec; const void *zo; } zcache[64];
 /* dos vías: 32 conjuntos de 2 (h, h + 1; las claves de un cuadro chocaban en la tabla directa y cada choque era una
    búsqueda binaria); la nueva entra en h y la que estaba pasa a h + 1 */
 static inline int16 zc_find(uint16 sm, uint16 pal, uint16 tiles) {
@@ -1084,6 +1097,22 @@ void zebes_frz_reset(void) { frz_reset(); }   /* md_engine.c: la caja de mensaje
 /* por cuadro (frz_stream): lugar de cada entrada por número (n & 63), para no recorrer el depósito en cada dibujo
    (cinematic_text_tilemap + 2880..3007: libre en esas salas, entre kq_dst y las tablas del depósito) */
 #define frz_hc ((uint8 *)cinematic_text_tilemap + 2880)
+/* por cuadro (frz_stream): los registros de cada congelado puesto, copiados a la zona del jefe (md.h) con el tile de
+   su lugar ya sumado, en FRZ_REC palabras por lugar desde su cabeza: zfrz_put los dibuja sin cambiar a la página del
+   depósito. 0xFFFF: no entra (más de 8 sprites por lugar de 8 tiles: 7 congelados de 1321), por la página. */
+#define FRZ_REC 40
+_Static_assert(FRZ_NMAX * FRZ_REC * 2 <= MD_BOSS_BYTES, "frz_rec: no entra en la zona del jefe");
+#define frz_rec md_boss_zone
+static void frz_rec_fill(uint16 i, uint16 n, uint16 k) {   /* (con la página ZEBES_FRZ_PAGE puesta) */
+  uint16 *d = frz_rec + i * FRZ_REC;
+  const uint16 *s = kZebesFrzRecs + kZebesFrz[4 * n + 3];
+  uint16 c = s[0];
+  if (5 + 4 * c > FRZ_REC * k) { d[0] = 0xFFFF; return; }
+  uint16 t = frz_t0 + i * frz_slot;
+  for (uint16 j = 0; j < 5; j++) d[j] = s[j];      /* cuántos y la caja */
+  d += 5; s += 5;
+  for (uint16 j = 0; j < c; j++, d += 4, s += 4) { d[0] = s[0]; d[1] = s[1]; d[2] = s[2] + t; d[3] = s[3]; }
+}
 static uint16 frz_get(uint16 n) {
   uint16 now = md_frame_count;
   if (frz_stream) {
@@ -1121,7 +1150,7 @@ static uint16 frz_get(uint16 n) {
     if (i + k < frz_ns && frz_id[i + k] == 0xFFFE)   /* el resto de uno que se suelta: queda libre */
       for (uint16 j = i + k; j < frz_ns && frz_id[j] == 0xFFFE; j++) frz_id[j] = 0xFFFF;
     frz_id[i] = n; frz_last[i] = now;
-    if (frz_stream) frz_hc[n & 127] = (uint8)i;
+    if (frz_stream) { frz_hc[n & 127] = (uint8)i; frz_rec_fill(i, n, k); }
     for (m = 1; m < k; m++) frz_id[i + m] = 0xFFFE;
     if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i;
     return frz_t0 + i * frz_slot;
@@ -1223,7 +1252,7 @@ static __attribute__((noinline, noclone, used)) uint8 zebes_obj_draw_slow(uint16
 #ifdef __mc68000__
 /* zebes_obj_draw en ensamblador (el C de la rama #else es la referencia): sin el guardado de once registros del C;
    lo que no sea lo común salta a zebes_obj_draw_slow con los mismos argumentos */
-_Static_assert(sizeof(zcache[0]) == 14 && offsetof(__typeof__(zcache[0]), rec) == 6 &&
+_Static_assert(offsetof(ZebesOvl, zc) == 0 && sizeof(zcache[0]) == 14 && offsetof(__typeof__(zcache[0]), rec) == 6 &&
                offsetof(__typeof__(zcache[0]), zo) == 10, "zcache: el ensamblador de zebes_obj_draw");
 _Static_assert(offsetof(ZebesObj, recs) == 20, "ZebesObj.recs: el ensamblador de zebes_obj_draw");
 _Static_assert(FROZEN_REF == 0x8000 && ZEBES_FRZ_PAGE == 18, "zebes_obj_draw: constantes del ensamblador");
@@ -1233,7 +1262,7 @@ __asm__(
      (el camino lento lo busca o lo sube). Preserva d2-d7/a2-a6. (También md_draw_eprojs_asm, md_engine.c.) */
   "    .global zfrz_put\n"
   "zfrz_put:\n"
-  "    movem.l %d2-%d4/%a2,-(%sp)\n"
+  "    movem.l %d2-%d7/%a2,-(%sp)\n"
   "    movea.w %d1,%a2\n"                     /* x */
   "    moveq #127,%d2\n"
   "    and.w %d0,%d2\n"
@@ -1248,7 +1277,22 @@ __asm__(
   "    bne 8f\n"
   "    movea.l frz_last,%a0\n"
   "    move.w md_frame_count,(%a0,%d3.w)\n"
-  "    moveq #0,%d4\n"
+  "    move.w %d3,%d4\n"                     /* sus registros en la zona del jefe (frz_rec: 80 bytes por lugar) */
+  "    lsl.w #3,%d4\n"
+  "    move.w %d4,%d2\n"
+  "    lsl.w #2,%d2\n"
+  "    add.w %d4,%d2\n"                      /* 80 c */
+  "    lea md_boss_zone,%a0\n"
+  "    adda.w %d2,%a0\n"
+  "    cmp.w #0xFFFF,(%a0)\n"
+  "    beq 5f\n"                              /* (no entró: por la página) */
+  "    move.l %a2,%d0\n"                     /* x */
+  "    move.l %a1,%d1\n"                     /* y */
+  "    jsr md_putrecs_ns\n"                  /* (d2/d4-d7/a2 ya guardados) */
+  "    movem.l (%sp)+,%d2-%d7/%a2\n"
+  "    moveq #1,%d0\n"
+  "    rts\n"
+  "5:  moveq #0,%d4\n"
   "    move.w %d3,%d4\n"
   "    lsl.w #2,%d4\n"
   "    add.w frz_t0,%d4\n"                    /* frz_t0 + (c << 3) */
@@ -1275,10 +1319,10 @@ __asm__(
   "    beq 4f\n"
   "    move.b %d3,md_hw_page\n"
   "    move.b %d3,0xA130FF\n"
-  "4:  movem.l (%sp)+,%d2-%d4/%a2\n"
+  "4:  movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #1,%d0\n"
   "    rts\n"
-  "8:  movem.l (%sp)+,%d2-%d4/%a2\n"
+  "8:  movem.l (%sp)+,%d2-%d7/%a2\n"
   "    moveq #0,%d0\n"
   "    rts\n"
   "    .global zebes_obj_draw\n"
@@ -1302,7 +1346,7 @@ __asm__(
   "    move.w %d2,%d0\n"
   "    lsl.w #3,%d0\n"
   "    sub.w %d2,%d0\n"                       /* 14 h */
-  "    lea zcache,%a1\n"
+  "    lea md_ovl,%a1\n"                     /* zcache (ZebesOvl, al principio de md_ovl) */
   "    adda.w %d0,%a1\n"
   "    cmpa.l 10(%a1),%a0\n"
   "    bne 1f\n"

@@ -811,12 +811,21 @@ static void HdmaobjPreInstr_WaterBG2XScroll(uint16 k) {  // 0x88C589
    23 franjas del BG2 (kHdmaScrollEntrys, $88:AEC1: arriba, velocidad) con su X en scrolling_sky_bg2_hdma_data
    (7E:9F80: pares fracción/píxel); la tabla indirecta (7E:9F00: líneas, dirección de la franja) dice qué franja va
    en cada línea de la pantalla. La Genesis lee ambas para el scroll por líneas del cielo. */
-#define SKY_ENTRY(i, f) B88W(0xAEC1 + 8 * (i) + 2 * (f))   /* f: 0 arriba, 1 subvelocidad, 2 velocidad, 3 franja */
+/* kHdmaScrollEntrys en palabras alineadas (en la ROM empieza en una dirección impar: cada palabra eran dos lecturas
+   de byte), copiada una vez: 24 franjas de 4 palabras (docs/60). También md_zebes.c (zebes_sky_lines). */
+static uint16 sky_tab[24 * 4];
+const uint16 *sky_entries(void) {
+  if (!sky_tab[3])                                 /* (la franja de la primera nunca es 0: 7E:9F80) */
+    for (uint16 i = 0; i < 24 * 4; i++) sky_tab[i] = B88W(0xAEC1 + 2 * i);
+  return sky_tab;
+}
+#define SKY_ENTRY(i, f) (sky_tab[4 * (i) + (f)])   /* f: 0 arriba, 1 subvelocidad, 2 velocidad, 3 franja */
 static void sky_put16(uint16 off, uint16 v) {
   scrolling_sky_bg2_indirect_hdma[off] = (uint8)v;
   scrolling_sky_bg2_indirect_hdma[off + 1] = (uint8)(v >> 8);
 }
 static void HdmaobjPreInstr_SkyLandBG2XscrollInner(void) {  // 0x88ADC2
+  sky_entries();
   reg_BG2SC = 74;
   for (int v = 0; v < 23; v++) {
     int e = (uint16)(SKY_ENTRY(v, 3) - 0x9F80) >> 1;
@@ -1748,7 +1757,7 @@ void beam_job_start(void) {
 void beam_params(uint16 *p) { for (uint16 i = 0; i < 4; i++) p[i] = beam_memo[i]; }   /* md_cone.c */
 static uint8 beam_memo_ok;
 static inline uint8 get_byte(const uint16 *a, uint16 b) { return (b & 1) ? a[b >> 1] >> 8 : (uint8)a[b >> 1]; }
-static void eram_set_byte(uint16 addr, uint8 v) { set_byte(enemy_ram7800, addr - 0x7800, v); }
+static void eram_set_byte(uint16 addr, uint8 v) { set_byte(&ERAM(addr & ~1), addr & 1, v); }
 
 void SpawnMorphBallEyeBeamHdma(void) {  // 0x88E8D9 (DMAP 0x41, BBAD 0x26: ventana 1 del SNES)
   SpawnHdmaObject(0x88, 0xE8EC);

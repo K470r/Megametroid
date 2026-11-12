@@ -11,7 +11,7 @@
 #include "nmath.h"
 
 EnemySpawnData enemy_spawn_data[ENEMY_COUNT];
-uint16 enemy_ram7800[0x1000];
+uint16 enemy_ram7800[ERAM_WORDS];
 
 static inline uint16 abs16(uint16 t) { return sign16(t) ? (uint16)-t : t; }
 
@@ -77,10 +77,10 @@ typedef void (*PortFnV)(void);
 PortFnV port_FindCallEnemyAi(uint32 ea);
 void port_nop_v(void);
 uint8 Enemy_GrappleReact(uint16 f);
+static uint32 cea[16];                           /* traducidas ya buscadas (casi siempre las mismas cada cuadro) */
+static PortFnV cfn[16];
 void CallEnemyAi(uint8 bank, uint16 f) {
   uint32 ea = (uint32)bank << 16 | f;
-  static uint32 cea[16];                         /* traducidas ya buscadas (casi siempre las mismas cada cuadro) */
-  static PortFnV cfn[16];
   uint16 h = (f ^ (f >> 4) ^ bank) & 14;         /* dos vías: (h, h + 1); la nueva entra en h, la de h pasa a h + 1 */
   if (cea[h] == ea) { if (cfn[h] != port_nop_v) cfn[h](); return; }
   if (cea[h + 1] == ea) { if (cfn[h + 1] != port_nop_v) cfn[h + 1](); return; }
@@ -136,11 +136,13 @@ void ProcessExtendedTilemap(uint8 db, uint16 r22) {  // 0xA096CA
 
 /* ------------------------------------------------------------------ carga ($A0:8A1E) */
 static void ClearSpriteObjects(void) {  // 0xB4BD97 (el original borra 511 palabras: los 8 arreglos menos la primera)
-  for (int i = 1; i < 64; i++) sprite_instr_list_ptrs[i] = 0;
-  for (int i = 0; i < 64; i++) {
+  /* (cada arreglo tiene aquí los 32 lugares que se usan, docs/60: el resto del tramo del SNES no lo lee nadie) */
+  for (int i = 1; i < 32; i++) sprite_instr_list_ptrs[i] = 0;
+  for (int i = 0; i < 32; i++) {
     sprite_instr_timer[i] = 0; sprite_palettes[i] = 0; sprite_x_pos[i] = 0; sprite_x_subpos[i] = 0;
     sprite_y_pos[i] = 0; sprite_y_subpos[i] = 0; sprite_disable_flag[i] = 0;
   }
+  sprobj_lw = sprite_instr_list_ptrs[0] ? 0 : 32;
 }
 
 static void ProcessEnemyTilesets(void) {  // 0xA08D64
@@ -174,6 +176,7 @@ void LoadEnemies(void) {  // 0xA08A1E
   enemy_bg2_tilemap_size = 2048;
   boss_id = 0;
   memset(enemy_data, 0, sizeof enemy_data);                  // ClearEnemyDataAndProcessEnemySet
+  enemy_hw = 0;
   if (enemy_population(room_enemy_population_ptr)->n)
     ProcessEnemyTilesets();
   enemy_tile_load_data_write_pos = 0;                        // LoadEnemyTileData (los tiles: la Genesis)
@@ -223,8 +226,9 @@ void InitializeEnemies(void) {  // 0xA08A9E
   num_enemies_killed_in_room = 0;
   flag_process_all_enemies = 0;
   /* el original borra 144 palabras desde eproj_flags (7E:F380-F49F): eproj_flags, eproj_enemy_header_ptr,
-     eproj_killed_enemy_index y el origen de la caída de objetos especiales */
-  for (int i = 0; i < 36; i++) {
+     eproj_killed_enemy_index y el origen de la caída de objetos especiales (lo demás de ese tramo no se usa: los dos
+     primeros tienen 18 entradas, docs/60) */
+  for (int i = 0; i < 18; i++) {
     eproj_flags[i] = 0;
     eproj_enemy_header_ptr[i] = 0;
   }
@@ -252,6 +256,7 @@ void InitializeEnemies(void) {  // 0xA08A9E
     if (ED->boss_fight_value)
       boss_id = ED->boss_fight_value;
     E->enemy_ptr = EP->enemy_ptr;
+    if (enemy_hw < v5 + 64) enemy_hw = v5 + 64;
     E->x_pos = EP->x_pos;
     E->y_pos = EP->y_pos;
     E->current_instruction = EP->init_param;
@@ -318,6 +323,7 @@ uint16 SpawnEnemy(uint8 db, uint16 k) {  // 0xA09275: población de un solo enem
     E->bank = ED->bank;
     E->field_2F = ED->hurt_ai_time;
     E->enemy_ptr = ep;
+    if (enemy_hw < ni + 64) enemy_hw = ni + 64;
     E->x_pos = BankW(db, varE20 + 2);
     E->y_pos = BankW(db, varE20 + 4);
     E->current_instruction = BankW(db, varE20 + 6);
@@ -633,7 +639,7 @@ static void EnemyBombCollHandler_Multibox(void) {  // 0xA09D23
   }
 }
 
-static void EnemyCollisionHandler(void) {  // 0xA09758
+static inline __attribute__((always_inline)) void EnemyCollisionHandler(void) {  // 0xA09758 (una sola llamada)
   if (gEnemyData(cur_enemy_index)->extra_properties & 4) {
     EprojCollHandler_Multibox();
     EnemyBombCollHandler_Multibox();
@@ -703,12 +709,19 @@ static uint8 sprite_objs_live = 1;
 #define SPRITE_OBJS_LIVE(v) ((void)0)
 #define SPRITE_OBJS_NONE() 0
 #endif
+/* el lugar de objeto de sprite más bajo usado desde que se cargó la sala (docs/60): CreateSpriteAtPos busca libre
+   desde el 31 hacia abajo, así que los vivos están arriba y los recorridos paran aquí. Lo bajan CreateSpriteAtPos y
+   los Metroid (sprobj_note); ClearSpriteObjects lo sube (salvo que el lugar 0 quede vivo: el original no lo borra).
+   Empieza en 0 (todos: un estado cargado de afuera). */
+uint8 sprobj_lw = 0;
+void sprobj_note(uint16 i) { if (i < sprobj_lw) sprobj_lw = (uint8)i; }
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal) {  // 0xB4BC26
   SPRITE_OBJS_LIVE(1);
   int i = 31;
   while (sprite_instr_list_ptrs[i])
     if (--i < 0)
       return 0xFFFF;
+  if (i < sprobj_lw) sprobj_lw = (uint8)i;
   sprite_x_subpos[i] = 0;
   sprite_y_subpos[i] = 0;
   sprite_disable_flag[i] = 0;
@@ -747,7 +760,7 @@ static void HandleSpriteObjects(void) {  // 0xB4BC82
   }
   uint8 live = 0;
   const uint16 *pl = &sprite_instr_list_ptrs[31];   /* (la mayoría de los 32 lugares, vacíos: con un puntero) */
-  for (int i = 31; i >= 0; i--, pl--) {
+  for (int i = 31; i >= sprobj_lw; i--, pl--) {   /* (sprobj_lw: los de abajo, vacíos) */
     if (!*pl)
       continue;
     sprite_object_index = 2 * i;                   /* (solo lo leen las instrucciones de un objeto vivo) */
@@ -779,7 +792,7 @@ void DrawSpriteObjects(void) {  // 0xB4BD32
   if (SPRITE_OBJS_NONE())
     return;
   const uint16 *pl = &sprite_instr_list_ptrs[31];
-  for (int i = 31; i >= 0; i--, pl--) {
+  for (int i = 31; i >= sprobj_lw; i--, pl--) {
     if (!*pl)
       continue;
     uint16 x = sprite_x_pos[i] - layer1_x_pos;
@@ -790,6 +803,8 @@ void DrawSpriteObjects(void) {  // 0xB4BD32
   }
 }
 
+typedef struct { uint16 ptr; uint8 bits, bank; PortFnV fn; } AiSlot;
+static AiSlot ai_slot[ENEMY_COUNT];
 void EnemyMain(void) {  // 0xA08FD4
   if (first_free_enemy_index) {
     if (enemy_index_to_shake != 0xFFFF) {
@@ -825,7 +840,23 @@ void EnemyMain(void) {  // 0xA08FD4
             do { ++v6; c = bits & 1; bits >>= 1; } while (!c);
           }
           if (v6 > 4) nt_unimpl("EnemyMain (bit de IA fuera de tabla)");
-          CallEnemyAi(E->bank, enemy_def(E->enemy_ptr)->ai_bits[v6 > 4 ? 0 : v6]);
+          /* la IA de este lugar ya resuelta (docs/60: RAM del plan): mismo enemigo y mismo bit -> la misma función;
+             si no, la definición y CallEnemyAi, y se guarda si es una traducida (no los casos del switch ni el
+             gancho, que se deciden en cada llamada) */
+          AiSlot *S = &ai_slot[cur_enemy_index >> 6];
+          if (S->fn && S->ptr == E->enemy_ptr && S->bits == v6 && S->bank == E->bank) {
+            if (S->fn != port_nop_v) S->fn();
+          } else {
+            uint8 bank = E->bank;
+            uint16 ptr = E->enemy_ptr, f = enemy_def(ptr)->ai_bits[v6 > 4 ? 0 : v6];
+            CallEnemyAi(bank, f);
+            uint32 ea = (uint32)bank << 16 | f;
+            uint16 h = (f ^ (f >> 4) ^ bank) & 14;
+            S->fn = 0;
+            if (!(f >= 0x8000 && f <= 0x801E) && cea[h] == ea) {
+              S->fn = cfn[h]; S->ptr = ptr; S->bits = (uint8)v6; S->bank = bank;
+            }
+          }
           ++E->frame_counter;
           if (E->properties & 0x2000) {
             enemy_processing_stage = 2;

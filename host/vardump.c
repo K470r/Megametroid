@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     uint16_t *w = &enemy_spawn_data[k].some_flag;
     for (int i = 0; i < 32; i++) printf("enemy_spawn_data %u 2 %X\n", k * 32 + i, w[i]);
   }
-  for (int i = 0; i < 0x1000; i++) printf("enemy_ram7800 %u 2 %X\n", i, enemy_ram7800[i]);
+  for (int i = 0; i < ERAM_WORDS; i++) printf("enemy_ram7800 %u 2 %X\n", i, enemy_ram7800[i]);
   printf("lvl_index 0 2 %X\n", lvl_index);
   for (unsigned i = 0; i < sizeof lvl_mod; i++) printf("lvl_mod %u 1 %X\n", i, lvl_mod[i]);
   return 0;

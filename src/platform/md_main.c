@@ -210,6 +210,28 @@ static void map_normal_page(void) {             /* la ventana 7 del SSF2 con su 
   *(volatile u8 *)0xA130FF = 7;
   __asm__ volatile("" ::: "memory");
 }
+/* RAM de la partida (docs/60, paso 5: md_ssf2.ld .gamehi, NT_GAMEHI): reservada en el montón de SGDK mientras se
+   juega, para que nada de SGDK la pida; a cero, como la de las variables */
+extern u8 __gamehi_start[], __gamehi_end[];
+static void *gamehi;
+/* MEM_allocAt de libmd.a devuelve el puntero en d0 (m68k-elf); este compilador (m68k-linux) lo leería en a0: se
+   declara con resultado entero */
+extern u32 mem_alloc_at_d0(u32 addr, u16 size) __asm__("MEM_allocAt");
+static void gamehi_take(void) {
+  u16 n = (u16)(__gamehi_end - __gamehi_start);
+  if (!n) return;
+  gamehi = (void *)mem_alloc_at_d0((u32)__gamehi_start - 2, n);   /* (la cabecera del bloque va justo antes) */
+  if (gamehi != __gamehi_start) {                   /* no pasa: el montón tiene algo pedido ahí (rojo y parada) */
+    SYS_disableInts();
+    PAL_setColor(0, 0x000E);
+    for (;;) {}
+  }
+  memset(__gamehi_start, 0, n);
+}
+static void gamehi_give(void) {
+  if (gamehi) { MEM_free(gamehi); gamehi = 0; }
+}
+
 static void reset_game_vars(void) {
   map_normal_page();
   memcpy(_game_data_start, _game_data_rom, _game_data_end - _game_data_start);
@@ -221,6 +243,7 @@ static void reset_game_vars(void) {
    (la intro terminó, o YES en el fin de juego) y 0 para ir al título (NO). */
 static u16 play_game(u16 intro) {
   SYS_disableInts();
+  gamehi_take();
   reset_game_vars();
   six = JOY_getJoypadType(JOY_1) == JOY_TYPE_PAD6;
   md_init(intro);
@@ -248,6 +271,7 @@ static u16 play_game(u16 intro) {
         SYS_setHIntCallback(NULL);
         VDP_setHInterrupt(FALSE);
         SYS_enableInts();
+        gamehi_give();                            /* (antes de VDP_init en el título: la fuente usa el montón) */
         return again;
       } }
     md_wait_free();                               /* el vblank tomó el cuadro anterior */
@@ -285,6 +309,11 @@ static void front_screens(void) {
 
 int main(bool hard) {
   (void)hard;
+  /* el DMA de SGDK con lo mínimo (docs/60, paso 5): el juego no usa su cola y el título y el menú hacen su DMA
+     directo. El búfer de datos (8 KB que pide DMA_init) se suelta: antes el montón no tenía lugar para él y quedaba
+     en NULL, y así funcionó siempre. La cola, a 32 entradas (514 bytes al principio del montón). */
+  if (dmaDataBuffer) { MEM_free(dmaDataBuffer); dmaDataBuffer = NULL; }
+  DMA_setMaxQueueSize(DMA_QUEUE_SIZE_MIN);        /* (también vacía la cola: el puntero del búfer vuelve a NULL) */
   { extern void md_snd_init(void); md_snd_init(); }
   JOY_setSupport(PORT_2, JOY_SUPPORT_OFF);
 #if !defined(MD_TEST_INPUT) && !defined(MD_NO_TITLE)

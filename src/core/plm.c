@@ -31,7 +31,7 @@ static uint16 PrepareBitAccess(uint16 a) {  // 0x80818E
 int DisplayMessageBox_Poll(uint16 a);   /* msgbox.c */
 static void nt_ram_write16(uint16 a, uint16 v) {   /* la RAM que nombra el argumento del PLM */
   if (a >= 0x7800 && a < 0x9800 && !(a & 1))
-    enemy_ram7800[(a - 0x7800) >> 1] = v;           /* variables de los jefes (Draygon: sus cañones) */
+    ERAM(a) = v;                                    /* variables de los jefes (Draygon: sus cañones) */
   else
     nt_unimpl_v("SetPlmVarPtr (dirección de RAM sin preparar)", a);
 }

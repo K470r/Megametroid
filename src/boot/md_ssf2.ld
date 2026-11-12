@@ -196,9 +196,21 @@ SECTIONS
     *(COMMON)
     _bend = . ;
   } > ram
-  /* la memoria de SGDK (búfer de DMA, etc.) va de _bend a la pila: con menos de ~4.5 KB la consola no arranca
-     (2026-10-21: con _bend en 0xE0FFE644 se quedaba en VDP_init; con 0xE0FFE3FC arrancaba) */
-  ASSERT(_bend <= 0xE0FFE3F0, "MegaMetroid: falta RAM para SGDK (las variables pasan de 0xE0FFE3F0)")
+  /* El montón de SGDK va de _bend a 0xE0FFF600 (MEMORY_HIGH: 0xE1000000 - STACK_SIZE). Medido (docs/60): lo único que
+     queda reservado es la cola de DMA (md_main.c la deja en 32 entradas: 514 bytes, al principio del montón); lo
+     demás lo pide VDP_init un momento (la fuente por defecto descomprimida: 3082 bytes) al arrancar y al volver al
+     título. Con menos que eso la consola no arranca (2026-10-21: se quedaba en VDP_init). */
+  ASSERT(_bend + 514 + 3082 + 256 <= 0xE0FFF5FE, "MegaMetroid: falta RAM para SGDK (la cola de DMA y la fuente de VDP_init)")
+  /* RAM de la partida (NT_GAMEHI, nt.h): después de la cola de DMA, dentro del montón; md_main.c la reserva con
+     MEM_allocAt al empezar cada partida (SGDK no pide nada mientras se juega) y la suelta al volver al título */
+  .gamehi ALIGN(_bend + 0x210, 4) (NOLOAD) :
+  {
+    __gamehi_start = .;
+    *(.gamehi .gamehi.*)
+    . = ALIGN(4);
+    __gamehi_end = .;
+  } > ram
+  ASSERT(__gamehi_end + 64 <= 0xE0FFF5FE, "MegaMetroid: la RAM de la partida (.gamehi) no entra en el montón de SGDK")
 
   .stab 0 (NOLOAD) :
   {

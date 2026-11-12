@@ -171,6 +171,54 @@ Enemy_NormalShotAI_*
 Enemy_NormalTouchAI_*
 Enemy_NormalFrozenAI_*
 NorfairSlowFireball_*
+# proyectiles enemigos ($86): todo lo de los despachadores de inicio y pre-instrucción del decomp que faltaba
+# (huevos y supermisiles del Golden Torizo, Mother Brain, estatuas y puerta-ojo de Tourian, tubo de Maridia...)
+Eproj_Init_0x8aaf
+EprojInit_A379
+EprojInit_CeresElevatorPad
+EprojInit_CeresElevatorPlatform
+EprojInit_A977
+EprojInit_AB07
+EprojInit_TourianEscapeShaftFakeWallExplode
+EprojInit_EyeDoorSweat
+sub_86BB30
+EprojInit_MotherBrainGlassShatteringShard
+EprojInit_MotherBrainGlassShatteringSparkle
+EprojInit_N00bTubeCrack
+EprojInit_N00bTubeShards
+EprojInit_N00bTubeReleasedAirBubbles
+EprojInit_DBF2
+EprojInit_EyeDoorSmoke
+EprojInit_SaveStationElectricity
+Eproj_PreInit_0x8aaf
+EprojPreInstr_96A4
+EprojPreInstr_96C0
+EprojPreInstr_96CE
+sub_869DA5
+EprojPreInstr_PirateClawThrownLeft
+EprojPreInstr_PirateClawThrownRight
+EprojPreInstr_AB07
+sub_86B0B9
+sub_86B0DD
+EprojPreInstr_B237
+EprojPreInstr_EyeDoorProjectile
+EprojPreInstr_EyeDoorSweat
+EprojPreInstr_TourianStatueSoul
+EprojPreInstr_BE12
+EprojInit_MotherBrainsDrool_Falling
+EprojPreInstr_MotherBrainGlassShatteringShard
+sub_86D7BF
+sub_86D7DE
+EprojPreInstr_N00bTubeShards
+sub_86D83D
+sub_86D89F
+sub_86D8DF
+EprojPreInstr_DBF2
+EprojPreInstr_DBF2_MoveX1
+EprojPreInstr_DBF2_MoveX2
+EprojPreInstr_DBF2_Func1
+EprojInit_EyeDoorProjectile
+
 # jefes (docs/46): su código va en la página del SSF2 de los niveles de sus salas (port.py, BOSS_PAGE); también los
 # cadáveres de Tourian (DC65, DCB1): leen el banco $A9, que va en esa página
 DeadSidehopper_*

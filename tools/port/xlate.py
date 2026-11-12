@@ -631,7 +631,7 @@ class Xlate:
             off = 64 * int(fm.group(1) or 0) + 2 * (int(fm.group(2), 16) - 0x20)
             body = body[:m.start()] + 'ERAM(0x%04X + (%s))' % (0x8000 + off, body[m.end():e]) + body[e + 1 + len(fm.group(0)):]
         # ExtraEnemyRam8000 *v = gExtraEnemyRam8000(k); ... *(uint16 *)&v->pad[n] -> ERAM(0x8000 + n + k)
-        for m in list(re.finditer(r'\n\s*ExtraEnemyRam8000 \*(\w+) = gExtraEnemyRam8000\(([^;]+)\);', body)):
+        for m in list(re.finditer(r'(?:^|\n)\s*ExtraEnemyRam8000 \*(\w+) = gExtraEnemyRam8000\(([^;]+)\);', body)):
             v, k = m.group(1), m.group(2)
             body = body.replace(m.group(0), '', 1)
             body = re.sub(r'\*\(uint16 \*\)&%s->pad\[(\d+)\]' % v, lambda mm: 'ERAM(0x8000 + %s + (%s))' % (mm.group(1), k), body)

@@ -1290,7 +1290,7 @@ static __attribute__((noinline, noclone, used)) uint8 zebes_obj_draw_slow(uint16
    lo que no sea lo común salta a zebes_obj_draw_slow con los mismos argumentos */
 _Static_assert(offsetof(ZebesOvl, zc) == 0 && sizeof(zcache[0]) == 14 && offsetof(__typeof__(zcache[0]), rec) == 6 &&
                offsetof(__typeof__(zcache[0]), zo) == 10, "zcache: el ensamblador de zebes_obj_draw");
-_Static_assert(offsetof(ZebesObj, recs) == 20, "ZebesObj.recs: el ensamblador de zebes_obj_draw");
+_Static_assert(offsetof(ZebesObj, recs) == 20 && offsetof(ZebesObj, page) == 0, "ZebesObj.recs y .page: el ensamblador de zebes_obj_draw");
 _Static_assert(FROZEN_REF == 0x8000, "zebes_obj_draw: constantes del ensamblador");
 #define ZFP_S1(x) #x
 #define ZFP_S(x) ZFP_S1(x)   /* ZEBES_FRZ_PAGE en el ensamblador */
@@ -1367,8 +1367,6 @@ __asm__(
   "zebes_obj_draw:\n"                        /* sm 6(sp), pal 10, tiles 14, x 18, y 22 (palabras bajas) */
   "    move.l zo,%d0\n"
   "    beq 80f\n"
-  "    tst.b frz_stream\n"
-  "    beq 90f\n"
   "    movea.l %d0,%a0\n"                     /* zo */
   "    movem.l %d2-%d4,-(%sp)\n"              /* (los argumentos: + 12) */
   "    move.w 18(%sp),%d1\n"                  /* sm */
@@ -1405,16 +1403,42 @@ __asm__(
   "    bne 89f\n"
   "2:  move.l 6(%a1),%d0\n"                   /* rec */
   "    beq 89f\n"
+  "    movea.l %d0,%a1\n"
   "    sub.l 20(%a0),%d0\n"                   /* - zo->recs */
   "    asr.l #1,%d0\n"
   "    sub.w #0x8000,%d0\n"                   /* n = ... - FROZEN_REF */
-  "    bmi 89f\n"                             /* (n >= 0x8000) */
+  "    bmi 50f\n"                             /* registros de la ROM (sin FROZEN_REF) */
+  "    tst.b frz_stream\n"                    /* congelado: lo rápido solo con los objetos por cuadro */
+  "    beq 89f\n"
   "    movem.l (%sp)+,%d2-%d4\n"
   "    move.w 18(%sp),%d1\n"                  /* x */
   "    movea.w 22(%sp),%a1\n"                 /* y */
   "    bsr zfrz_put\n"
   "    tst.w %d0\n"
   "    beq 90f\n"
+  "    rts\n"
+  /* los registros de la clave en la página de los objetos (zo->page): esa página un momento y md_putrecs_t */
+  "50: move.b md_cur_page,%d3\n"
+  "    move.b (%a0),%d2\n"                    /* zo->page */
+  "    move.b %d2,md_cur_page\n"
+  "    cmp.b md_hw_page,%d2\n"
+  "    beq 51f\n"
+  "    move.b %d2,md_hw_page\n"
+  "    move.b %d2,0xA130FF\n"
+  "51: movea.l %a1,%a0\n"
+  "    move.w 30(%sp),%d0\n"                  /* x */
+  "    ext.l %d0\n"
+  "    move.w 34(%sp),%d1\n"                  /* y */
+  "    ext.l %d1\n"
+  "    moveq #0,%d4\n"
+  "    jsr md_putrecs_t\n"
+  "    move.b %d3,md_cur_page\n"
+  "    cmp.b md_hw_page,%d3\n"
+  "    beq 52f\n"
+  "    move.b %d3,md_hw_page\n"
+  "    move.b %d3,0xA130FF\n"
+  "52: movem.l (%sp)+,%d2-%d4\n"
+  "    moveq #1,%d0\n"
   "    rts\n"
   "80: moveq #0,%d0\n"
   "    rts\n"

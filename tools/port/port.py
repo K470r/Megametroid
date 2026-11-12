@@ -67,7 +67,7 @@ def roots_from(path, g, section=None):
         if line.endswith('*'):                      # familia: Roach_* (solo las de los bancos de enemigos)
             pre = line[:-1]
             roots += [n for n in g.funcs if n.startswith(pre) and not n.startswith('off_') and 'CorpseRotting' not in n
-                      and (pre != 'EprojInstr_' or g.funcs[n][3] and g.funcs[n][3] < 0x868300) and fbank(g, n) in ({0xA0} if pre == 'EnemyInstr_' else {0x86} if pre.startswith('Eproj') else ENEMY_BANKS | {0xA0})]
+                      and (pre != 'EprojInstr_' or g.funcs[n][3]) and fbank(g, n) in ({0xA0} if pre == 'EnemyInstr_' else {0x86} if pre.startswith('Eproj') else ENEMY_BANKS | {0xA0})]
         else:
             roots.append(line)
     return roots
@@ -82,6 +82,20 @@ XLATE_BANKS = ENEMY_BANKS | {0xA0, 0x86}
 MANUAL_STUBS = {'EprojInstr_GotoIfFunc1', 'Torizo_CorpseRottingInitFunc', 'Torizo_CorpseRottingMoveFunc', 'Torizo_CorpseRottingCopyFunc',
                 # cadáveres de Tourian: escriben en la cola de VRAM y en la OAM del SNES (falta hacerlos para la Genesis)
                 'DeadTorizo_Func_1', 'MotherBrain_AddSpritemapToOam', 'DeadTorizo_CopyLineOfSandHeapTileData'}
+
+# cambios después de traducir (texto exacto -> texto nuevo): marcas que necesita el motor nativo
+POST_PATCHES = [
+    ('  E->enemy_ptr = BW_A1(v1);\n  E->x_pos = BW_A1(v1 + 2);\n',
+     '  E->enemy_ptr = BW_A1(v1);\n  if (enemy_hw < (uint16)((v0 & 0xFFC0) + 64)) enemy_hw = (v0 & 0xFFC0) + 64;   /* (game.c) */\n'
+     '  E->x_pos = BW_A1(v1 + 2);\n'),
+    ('  sprite_instr_list_ptrs[v1] = addr_kSpriteObject_Ilist_C3BA;\n',
+     '  sprite_instr_list_ptrs[v1] = addr_kSpriteObject_Ilist_C3BA;\n  sprobj_note((uint16)v1);\n'),
+    ('  sprite_instr_list_ptrs[v2] = addr_kSpriteObject_Ilist_C4B6;\n',
+     '  sprite_instr_list_ptrs[v2] = addr_kSpriteObject_Ilist_C4B6;\n  sprobj_note((uint16)v2);\n'),
+    # el despachador de pre-instrucciones de los proyectiles es el del motor (eproj.c)
+    ('  CallEprojPreInstr(eproj_E[k >> 1] | 0x860000, k);\n',
+     '  { void ep_preinstr_c(uint16 f, uint16 k); ep_preinstr_c(eproj_E[k >> 1], k); }\n'),
+]
 
 # estructuras de la ROM que lee el decomp con get_X(dirección): en el motor, una copia con los mismos campos
 ROM_STRUCTS = {'EnemyDef': 0xA0, 'Vulnerability': 0xB4}
@@ -389,6 +403,11 @@ def main():
             re.sub(r'case 0x[0-9A-F]{2}([0-9A-F]{4}):', r'case 0x\1:', body)
     text = re.sub(r'(\n(?:NT_BOSS )?void Call\w+\(uint32 ea\) \{\n(?:  uint16 k = cur_enemy_index;\n)?  )switch \(ea\) \{(.*?\n  \})',
                   narrow, text, flags=re.S)
+    # marcas del motor nativo en lo traducido (docs/60): el enemigo más alto en uso (enemy_hw, game.c) y los objetos de
+    # sprite de los Metroid congelados (sprobj_note, enemy_main.c)
+    for old_, new_ in POST_PATCHES:
+        assert text.count(old_) == 1, 'port.py: POST_PATCHES no encuentra ' + old_[:60]
+        text = text.replace(old_, new_)
     open(OUT, 'w').write(text + '\n')
     banks = sorted(x.used_banks | {(g.funcs[n][3] >> 16) for n in funcs if g.funcs[n][3]} | set(ROM_STRUCTS.values()))
     open(os.path.join(HERE, 'banks.txt'), 'w').write(' '.join('%02X' % b for b in banks) + '\n')

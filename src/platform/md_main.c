@@ -113,7 +113,9 @@ static u16 read_joy(void) {
       } }
 #endif
 #ifdef MD_TEST_GOD
-    if (game_state == 8) samus_health = samus_max_health;   /* como HL_GOD de hlref: Samus no muere */
+    /* como HL_GOD de hlref: Samus no muere (allí solo desde el cuadro grabado: aquí desde el salto; antes cambiaba la
+       pelea con Ridley de Ceres) */
+    if (game_state == 8 && warped) samus_health = samus_max_health;
 #endif
   }
 #endif

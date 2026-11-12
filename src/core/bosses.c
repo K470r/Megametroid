@@ -267,3 +267,20 @@ NT_BOSS CoroutineRet Kraid_UnpauseHook_IsSinking(void) {  // 0xA7C2A0
     Kraid_Bg2Copy(0x2FC0, 64, (uint16)(BW_A7(a + 2) + base));
   return 0;
 }
+
+/* colores del Golden Torizo según su vida (byte alto & 0x78, hasta 56): 16 de cada tabla a las paletas de sprites
+   1 y 2 (palette_buffer 144-175) */
+NT_BOSS void SetGoldenTorizoPalette(uint16 a) {  // 0x848000
+  uint16 v1 = (a >> 8) & 0x78;
+  if (v1 & 0x40)
+    v1 = 56;
+  uint16 v2 = (uint16)((4 * v1) | 0x1E);
+  uint8 ch = 0;                                  /* (se llama en cada cuadro: la Genesis convierte solo si cambió) */
+  for (int16 i = 15; i >= 0; i--, v2 -= 2) {
+    uint16 c2 = B84W((uint16)(0x8132 + v2)), c1 = B84W((uint16)(0x8032 + v2));   // kGoldenTorizoPalette2 / 1
+    if (palette_buffer[i + 160] != c2 || palette_buffer[i + 144] != c1) ch = 1;
+    palette_buffer[i + 160] = c2;
+    palette_buffer[i + 144] = c1;
+  }
+  if (ch) nt_pal_dirty(144, 175);
+}

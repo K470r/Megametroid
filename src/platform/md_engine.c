@@ -270,8 +270,8 @@ void md_hint_obj(void);
 static uint8 zobj_hint;
 
 /* matemática de color del SNES que la Genesis no tiene: un color que se suma (o resta) a todos los de la sala (no al
-   HUD, que en el SNES es el BG3): niebla (FX 0xC: el color medio de su BG3, kFogW), neblina del Bomb Torizo
-   (LayerBlendFunc 0x2C: COLDATA medio de su degradado) y las restas de color fijo (LayerBlendFunc_28/2A) */
+   HUD, que en el SNES es el BG3): niebla (FX 0xC: el color medio de su BG3, kFogW) y las restas de color fijo
+   (LayerBlendFunc_28/2A). La neblina del Bomb Torizo (LayerBlendFunc 0x2C) va por franjas: lq_prepare */
 static int8 tint_r, tint_g, tint_b;
 uint8 tint_on;                                /* (md_zebes.c lo lee: sin tinte, los colores de los objetos directos) */
 /* el color con el tinte, ya en la CRAM: kCram555 va canal por canal (comprobado en el PC para los 32768), así que al
@@ -314,6 +314,7 @@ extern uint16 cinematic_text_tilemap[];
 #define lq_wv ((uint16 *)((uint8 *)cinematic_text_tilemap + 3488))
 static uint8 lq_wn;                               /* pasos de la onda en lq_wv_next (md_post les suma scroll_by) */
 static uint8 lq_on;                             /* este cuadro lleva líquido (lq_steps listos) */
+static uint8 lq_haze;                           /* lq_on es la neblina del Bomb Torizo */
 __asm__(
   "    .text\n"
   "    .global md_hint_lq\n"
@@ -387,7 +388,52 @@ static void lq_prepare(void) {
 #endif
   uint8 water = fx_type == 6 || fx_type == 0x26;  /* (0x26: el agua de la estatua de Tourian, el mismo tilemap) */
   uint8 rain = fx_type == 0xA;                  /* lluvia: su bruma (línea 6 del BG3, como la lava) en toda la imagen */
-  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4 && !water && !rain)) return;
+  /* neblina del Bomb Torizo (SpawnBombTorizoHaze: el COLDATA crece hacia abajo desde la línea MD_TORIZO_HAZE_L1 del
+     SNES, mkmd.py): nada arriba y dos franjas con su color medio (la primera en lq_cols, la segunda en lq_col) */
+  uint8 haze = !water && !rain && fx_type != 2 && fx_type != 4 && (uint8)fx_layer_blending_config_c == 0x2C;
+  if (!md_zebes || cine_stage || md_bright != 15 || (fx_type != 2 && fx_type != 4 && !water && !rain && !haze)) return;
+  if (haze) {
+    { extern uint8 nt_msgbox_active; if (nt_msgbox_active) { lq_pal_dirty = 1; return; } }   /* (su RAM es de la caja) */
+    if (lq_pal_dirty || lq_last[0] != 127 - 1) {
+      lq_pal_dirty = 0; lq_last[0] = 127 - 1;   /* (marca: las tablas son las de la neblina) */
+      lq_tables(MD_TORIZO_HAZE1_R, MD_TORIZO_HAZE1_G, MD_TORIZO_HAZE1_B, lq_tab + 96);
+      lq_tables(MD_TORIZO_HAZE2_R, MD_TORIZO_HAZE2_G, MD_TORIZO_HAZE2_B, lq_tab);
+      lq_palette(lq_tab, lq_col);
+      lq_palette(lq_tab + 96, lq_cols);
+    } else if (lq_lo <= lq_hi) {
+      const uint8 *pbb = (const uint8 *)palette_buffer;
+      const uint8 *t = lq_tab, *u = lq_tab + 96;
+      for (uint16 i = lq_lo; i <= (uint16)lq_hi; i++)
+        for (uint8 sl = cram_rev[i]; sl != 0xFF; sl = cram_next[sl]) {
+          if (sl >= 48) continue;
+          uint16 c = *(const uint16 *)(pbb + cram_off[sl]);
+          lq_col[sl] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
+          lq_cols[sl] = u[c & 31] | (uint16)u[32 + ((c >> 5) & 31)] << 4 | (uint16)u[64 + ((c >> 10) & 31)] << 8;
+        }
+      if (lq_hi >= 128) {
+        zebes_obj_colors_tab(t, lq_col + 49);
+        zebes_obj_colors_tab(u, lq_cols + 49);
+      }
+    }
+    lq_lo = 255; lq_hi = 0;
+    static const LqStep kEndH = { 0, 0xFFFF, 0, 0x8A1F };
+    /* líneas: 31 (los colores de los objetos), 63, y cada franja una línea antes de la suya en la Genesis (la imagen
+       va 2 líneas más abajo que en el SNES; los colores tardan unas líneas en escribirse) */
+    static const int16 kHzLn[4] = { 31, 63, MD_TORIZO_HAZE_L1 + 2 - 1, MD_TORIZO_HAZE_L2 + 2 - 1 };
+    LqStep st[4] = { { zobj_col, 15, 0xC0620000u, 0 }, { 0, 0, 0, 0 }, { lq_cols, 64, 0xC0000000u, 0 },
+                     { lq_col, 64, 0xC0000000u, 0 } };
+    for (uint16 k = 0; k < 4; k++) {
+      st[k].reg = k + 2 < 4 ? (uint16)(0x8A00 | (uint16)(kHzLn[k + 2] - kHzLn[k + 1] - 1)) : 0x8A1F;
+      lq_next[k] = st[k];
+    }
+    lq_next[4] = kEndH;
+    lq_wn = 0;
+    lq_wv_next[14] = 0;
+    lq_on = 1; lq_haze = 1;
+    return;
+  }
+  lq_haze = 0;
+  if (lq_last[0] == 127 - 1) lq_pal_dirty = 1;
   uint16 ly = rain ? layer1_y_pos : water ? fx_y_pos : lava_acid_y_pos;   /* superficie: el agua usa fx_y_pos */
   if (ly & 0x8000) return;
   int16 S = (int16)(ly - layer1_y_pos) - 2;     /* línea de la Genesis (medido contra el SNES: la interrupción y la escritura de colores llegan unas líneas tarde) */
@@ -614,6 +660,7 @@ static void md_msgbox_post(void) {
       md_cone_room();                             /* los tiles de 0xF000 eran del haz: se vuelven a cargar */
       { void zebes_boss_tiles_again(void); zebes_boss_tiles_again(); }   /* (o del cuerpo del jefe, docs/59) */
       if (md_zebes) zebes_frz_reset();            /* y los de los congelados (filas del Window) */
+      lq_pal_dirty = 1;                           /* (la caja pisó las paletas del líquido o de la neblina) */
     }
     mb_prev_n = 0;
     mb_top = mb_bot = 0;
@@ -2802,7 +2849,7 @@ void md_post(void) {
       uint8 cfg = (uint8)fx_layer_blending_config_c;
       if (cfg == 0x2A) { r = -6; g = -2; }                      /* LayerBlendFunc_2A: COLDATA 38/66/0x80, resta */
       else if (cfg == 0x28) { r = -5; }                         /* LayerBlendFunc_28: COLDATA 37/64/0x80, resta */
-      else if (cfg == 0x2C) { r = MD_TORIZO_HAZE_R; g = MD_TORIZO_HAZE_G; b = MD_TORIZO_HAZE_B; }
+      /* (0x2C, la neblina del Bomb Torizo: por franjas, lq_prepare) */
       if (fx_type == 0x0C) {                                    /* niebla: su BG3 sumado */
         uint32 sr = 0, sg = 0, sb = 0;
         for (uint16 i = 0; i < 32; i++) {
@@ -2862,7 +2909,9 @@ void md_post(void) {
     rl_pal_dirty = 1;
   }
   if (md_zebes) { zebes_obj_colors(); boss_flash_post(); md_cone_color(); }
-  if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6 || fx_type == 0x26)) lq_prepare(); else lq_on = 0;
+  if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6 || fx_type == 0x26 || (uint8)fx_layer_blending_config_c == 0x2C))
+    lq_prepare();
+  else lq_on = 0;
   /* (la bruma de la lluvia, FX 0x0A, no: suma G+1 B+2 de 5 bits, en la Genesis casi nada, y en la sala de aterrizaje
      la paleta cambia casi cada cuadro: rehacer las paletas atrasaba el juego) */
   if (rain_slot && !rain_fixed) {               /* el color de las motas de la lluvia (rain_post) */
@@ -3228,7 +3277,8 @@ void md_vblank(uint16_t late) {
       mb_steps[3].col = zobj_col; mb_steps[3].reg = 0x8004;
       mb_hp = mb_steps;
     }
-    if (want == 1 && lq_on) {                   /* líquido (md_hint_lq) y la onda de Crocomire */
+    /* (con la caja de mensaje la neblina no: sus paletas comparten la RAM con la caja y el juego está parado) */
+    if (want == 1 && lq_on && !(lq_haze && nt_msgbox_active)) {   /* líquido (md_hint_lq) y la onda de Crocomire */
       want = 3; memcpy(lq_steps, lq_next, LQ_MAXSTEP * sizeof(LqStep)); memcpy(lq_wv, lq_wv_next, 32); lq_hp = lq_steps;
     }   /* líquido (md_hint_lq) */
     if (zobj_hint != want) { SYS_setHIntCallback(want == 2 ? md_hint_msg : want == 3 ? md_hint_lq : md_hint_obj); zobj_hint = want; }

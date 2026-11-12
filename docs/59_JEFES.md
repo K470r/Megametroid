@@ -613,3 +613,45 @@ Pendiente (lo que todavía se puede hacer):
 - Base de todas las salas: `md_post` (~6-12k; la comparación del HUD, 1,4k), `md_vblank` (~5k).
 - Herramientas: perfil `segprof.sh` (estados de Kraid), `flines.py` (por línea), imagen cuadro a cuadro (`imgcmp.sh`,
   con `REF=` un commit), regresión y las 194 salas con `check`.
+
+## Bomb Torizo (2026-11-12)
+
+Comparado lado a lado con el SNES (`tools/compare/lado_a_lado.sh`, que por omisión es esta pelea) y la lógica cuadro a
+cuadro (estado completo de la Genesis con `MD_STOP_AT` contra la grabación de `hlref`: `work/lado/stop.sh`,
+`cmpstop.py`):
+- **La lógica se separaba del SNES en el cuadro 16582**: en el SNES el Torizo golpea a Samus por contacto y en la
+  Genesis no. Su función de contacto es `GoldTorizo_Touch` (la cabecera del Bomb Torizo apunta a ella), código de jefe
+  (`NT_BOSS`, página 25), y la sala 9804 no estaba en `BOSS_ROOMS` (mkdata.py): con la ventana 7 en otra página el
+  despachador no la llama ("código de jefe fuera de su página"). En el PC no pasa (no hay páginas): `check` daba 0
+  diferencias. Arreglo: 9804 en `BOSS_ROOMS` (su nivel va a la página 25). Ahora la lógica es igual en toda la pelea.
+  Recorrido estático de todas las salas que no son de jefe con la cabecera de sus enemigos: ninguna otra llama código
+  de jefe.
+- **Los ojos**: índices 156-158 de palette_buffer (rosados en la estatua; naranjas al despertar; cian en el Golden).
+  Al juntar colores se iban con un marrón: `mkzobj.BOSS_SOLO` los deja para el final. Se encienden en las poses en
+  que el tile del ojo va solo; en algunas (el salto) el sprite compuesto de la cabeza sale con los índices del cuerpo
+  en el ojo: pendiente. El reparto de colores está bien (`MM_ZOBJ_REP=155,156,157,158` en `mkzobj.build` muestra
+  156-158 a sí mismos en la línea 1); hay que comparar el tile del ojo (456, componente $AA:9786) de la Genesis con el
+  del SNES en el mismo cuadro exacto (el volcado `HL_VRAM` y la captura de la Genesis quedaron a un cuadro: el Torizo
+  salta y todo sale corrido 6 píxeles).
+- **El ojo, resuelto (copias de tiles)**: el ojo es una animación de 4 cuadros que las listas de instrucciones suben a
+  la VRAM en el momento (`EnemyInstr_CopyToVram`, $A0:814B: $AA:B279/B2B9/B2F9/B339 a 7D80, tiles 472-473; también
+  borrados desde $AA:B0A5 y otras animaciones a 7300/7400). La ROM de la estatua no trae esos píxeles y la Genesis
+  ignoraba la copia. Ahora `mkzobj.vram_copy_ops` busca las copias del banco del jefe (`VRAM_COPY_BANKS`: $AA, los dos
+  Torizos); las piezas que usan esos tiles tienen tiles propios en la Genesis (no se comparten por contenido y no
+  entran en los sprites compuestos: van sueltas, encima) y para cada copia se guardan esos tiles reconvertidos con el
+  mismo reparto de colores (`kZO*_vcp`, ~3 KB por sala). El motor avisa (`nt_enemy_vram_copy`) y `md_zebes.c` sube
+  los tiles en el vblank. Para que entrara, `mkzebes.py` usa también lo que dejan libre los niveles en su última
+  página (la 10, `NT_LEVEL_LAST_USED` de mkdata.py): 140 KB libres en total; el ensamblador de `zebes_obj_draw` toma
+  `ZEBES_FRZ_PAGE` del encabezado generado (antes fijo en 18).
+- **La estatua "corrida"**: no es un fallo. La estatua es parte del nivel (bloques 12-14 de las filas 10-12, x
+  192-240) y la Genesis la dibuja ahí. En la captura del SNES de la comparación sale 61 píxeles a la izquierda porque
+  el salto de prueba de `hlref` (HL_WARP) deja el BG1 desalineado (`bg1_x_offset` = 0xB3B con el mapa escrito con otro
+  desplazamiento); en el juego de verdad está a la derecha.
+- **Los aros marrones** al final: también están en el SNES (restos de la pelea); allí se ven más tenues por la
+  neblina (`SpawnBombTorizoHaze`).
+- **La neblina, por franjas**: son dos objetos de HDMA al COLDATA, uno con rojo y verde ($88:DD75) y otro con azul
+  ($88:DDA6): nada en las primeras 72 líneas y después crece hacia abajo (hasta 5/5/8). Antes la Genesis sumaba a
+  toda la imagen el promedio de la primera tabla sola (2/2/0: amarillento, sin el azul). Ahora `lq_prepare`
+  (md_engine.c) usa la interrupción horizontal del líquido: arriba la paleta normal y dos franjas (desde las líneas 72
+  y 147 del SNES) con el color medio de cada una (2/2/2 y 4/4/6, `MD_TORIZO_HAZE*` de mkmd.py). Con la caja de
+  mensaje (las bombas) no: sus paletas comparten la RAM con la caja; al cerrarse se rehacen.

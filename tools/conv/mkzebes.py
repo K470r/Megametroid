@@ -1109,7 +1109,7 @@ def main():
          '   de 32 celdas (la fila R, píxel R * 8 de la sala) */',
          'typedef struct { uint16 state; uint16 gfx; uint16 obj; } ZebesState;   /* obj: 0xFFFF sin objetos */',
          'typedef struct { uint8 page; uint16 ntiles, nkeys, nruns; const uint16 *runs; const uint16 *src; const uint16 *keys;',
-         '                 const uint16 *recs; uint16 base; uint8 stream; } ZebesObj;   /* base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala); stream: objetos por cuadro desde base (mkzobj.STREAM_ROOMS) */',
+         '                 const uint16 *recs; uint16 base; uint8 stream; const uint16 *vcp; } ZebesObj;   /* base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala); stream: objetos por cuadro desde base (mkzobj.STREAM_ROOMS); vcp: copias de tiles (EnemyInstr_CopyToVram, mkzobj.vram_copy_ops) o NULL: [n, por copia: origen bajo, banco, destino, ntiles, por tile: tile y sus 16 palabras] */',
          '/* objetos: tiles desde ZOBJ_BASE; src: 30 índices de palette_buffer, colores 1-15 de la línea 3 debajo del HUD (9-13 el rayo)',
          '   y 1-15 de la línea 1 (solo con un jefe de colores propios, la sala en una línea: mkzobj.BOSS_LINE), 0xFFFF sin uso;',
          '   keys: (spritemap, paleta, tiles, desplazamiento en recs) ordenadas; recs: como los de md_data */',
@@ -1153,6 +1153,18 @@ def main():
     for pg, u in busy_used.items():
         if pg > page0:
             fill[pg] = u + 16384                    # margen
+    # la última página de los niveles (mkdata.py: NT_LEVEL_LAST_USED) también sirve, con lo que dejan los niveles y
+    # los tiles de la bomba de poder (md_pbomb_data.c), si van ahí
+    m_ = re.search(r'#define NT_LEVEL_LAST_USED (\d+)', th)
+    if m_:
+        lp = page0 - 1
+        u = int(m_.group(1))
+        pb = HERE.parent.parent / "res" / "gen" / "md" / "md_pbomb_data.c"
+        if pb.exists():
+            for m in re.finditer(r'section\("\.bank(\d+)"\)\)\)\s+(?:static\s+)?const\s+(\w+)\s+\w+\[(\d+)\]', pb.read_text()):
+                if int(m.group(1)) == lp:
+                    u += tsz.get(m.group(2).replace('_t', ''), 8) * int(m.group(3)) + 2
+        fill[lp] = u + 16384 + (busy_used.get(lp, 0) if lp in busy_used else 0)
     for pg, u in pause_pages.items():
         fill[pg] = fill.get(pg, 0) + u + 4096
     # el título va al final de la página 22 (md_ssf2.ld, .rodata_title): lo que miden sus archivos si ya se generaron
@@ -1221,7 +1233,17 @@ def main():
     g_need = [2 * len(e["runs"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
               sum(8 + 34 * len(v) for v in e["anims"].values()) +
               2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries]
-    o_need = [2 * len(d["runs"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(d["recs"]) for d in obj_list]
+    def vcp_words(d):
+        if not d.get("patches"):
+            return []
+        w = [len(d["patches"])]
+        for src, dst, tl in d["patches"]:
+            w += [src & 0xFFFF, src >> 16, dst, len(tl)]
+            for t, b in tl:
+                w += [t] + [b[j] << 8 | b[j + 1] for j in range(0, 32, 2)]
+        return w
+    o_need = [2 * len(d["runs"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(d["recs"]) + 2 * len(vcp_words(d))
+              for d in obj_list]
     p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
     f_need = [2 * (len(frz_idx) + len(frz_runs) + len(frz_recs)) + 64]
     # cinemáticas de Ceres (mkm7.py, mkgetaway.py: corren antes): se usan una vez por partida, van en páginas y no en
@@ -1321,10 +1343,13 @@ def main():
                  ','.join('0x%X' % v for k in d["keys"] for v in k) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_recs[{len(d["recs"])}] = {{' +
                  ','.join('0x%X' % v for v in d["recs"]) + '};')
+        if vcp_words(d):
+            C.append(f'NT_BANK({page}) static const uint16 kZO{i}_vcp[{len(vcp_words(d))}] = {{' +
+                     ','.join('0x%X' % v for v in vcp_words(d)) + '};')
     H.append(f'extern const ZebesObj kZebesObj[{max(1, len(obj_list))}];')
     C.append(f'const ZebesObj kZebesObj[{max(1, len(obj_list))}] = {{')
     for i, d in enumerate(obj_list):
-        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["runs"]) // 2}, kZO{i}_runs, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]}, {d.get("stream", 0)} }},')
+        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["runs"]) // 2}, kZO{i}_runs, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]}, {d.get("stream", 0)}, {f"kZO{i}_vcp" if vcp_words(d) else "0"} }},')
     if not obj_list:
         C.append('  { 0 },')
     C.append('};')

@@ -721,20 +721,30 @@ def main():
     carray("uint16", "kFogW", fog_w)
     Hh.append("extern const uint16 kFogW[32];  /* niebla: píxeles de cada color del BG3 en 32x32 tiles (de 65536) */")
     print("niebla: cobertura %.2f" % (sum(fog_w) / 65536))
-    # neblina del Bomb Torizo (SpawnBombTorizoHaze, $88:DD62 -> tabla $88:DD74 del COLDATA): el color medio
-    hz = [0, 0, 0]
-    a, lines = 0x88DD75, 0
-    while rom.b(a) and lines < 224:
-        n = min(rom.b(a), 224 - lines)
-        for bb in (rom.b(a + 1), rom.b(a + 2)):
-            for k, bit in enumerate((0x20, 0x40, 0x80)):
-                if bb & bit:
-                    hz[k] += (bb & 31) * n
-        lines += n
-        a += 3
-    Hh.append("#define MD_TORIZO_HAZE_R %d" % round(hz[0] / 224))
-    Hh.append("#define MD_TORIZO_HAZE_G %d" % round(hz[1] / 224))
-    Hh.append("#define MD_TORIZO_HAZE_B %d   /* neblina del Bomb Torizo: COLDATA medio (5 bits) */" % round(hz[2] / 224))
+    # neblina del Bomb Torizo (SpawnBombTorizoHaze, $88:DD32): dos objetos de HDMA al COLDATA, uno con la tabla
+    # $88:DD75 (rojo y verde: dos bytes por línea) y otro con la $88:DDA6 (azul: uno). Arriba nada; desde la línea
+    # HZ0 crece hacia abajo. La Genesis lo hace en dos franjas (md_engine.c, lq_prepare): el color medio de cada una
+    col = [[0, 0, 0] for _ in range(224)]
+    for a, nb in ((0x88DD75, 2), (0x88DDA6, 1)):
+        lines = 0
+        while rom.b(a) and lines < 224:
+            n = min(rom.b(a) & 0x7F, 224 - lines)
+            for j in range(nb):
+                bb = rom.b(a + 1 + j)
+                for k, bit in enumerate((0x20, 0x40, 0x80)):
+                    if bb & bit:
+                        for l_ in range(lines, lines + n):
+                            col[l_][k] = bb & 31
+            lines += n
+            a += 1 + nb
+    hz0 = next(l_ for l_ in range(224) if any(col[l_]))
+    hz_end = max(l_ for l_ in range(224) if any(col[l_])) + 1
+    hz1 = (hz0 + hz_end) // 2
+    for nm, (l0, l1) in (("1", (hz0, hz1)), ("2", (hz1, hz_end))):
+        for k, ch in enumerate("RGB"):
+            Hh.append("#define MD_TORIZO_HAZE%s_%s %d" % (nm, ch, round(sum(col[l_][k] for l_ in range(l0, l1)) / (l1 - l0))))
+    Hh.append("#define MD_TORIZO_HAZE_L1 %d\n#define MD_TORIZO_HAZE_L2 %d   /* neblina del Bomb Torizo: líneas del SNES de "
+              "las dos franjas y su COLDATA medio (5 bits) */" % (hz0, hz1))
 
     # ---------- 4) salas
     room_recs = []

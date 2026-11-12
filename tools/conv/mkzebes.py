@@ -38,6 +38,19 @@ from convert_rooms import snes_to_genesis, gen_to_cram, gen_to_rgb, color_dist, 
     pack_palettes  # noqa: E402
 from plmscan import PlmScan  # noqa: E402
 
+
+class LiveCol(tuple):
+    """color de la Genesis de una paleta que cambia en vivo (el cuerpo del jefe en el BG2: Phantoon se desvanece y
+    se pone rojo): distinto de un color igual de la sala, así no comparten lugar en la CRAM"""
+    def __eq__(self, o):
+        return type(o) is LiveCol and tuple.__eq__(self, o)
+
+    def __ne__(self, o):
+        return not self.__eq__(o)
+
+    def __hash__(self):
+        return hash(('vivo',) + tuple(self))
+
 rom = Path(sys.argv[1]).read_bytes()
 out = Path(sys.argv[2])
 HDR = len(rom) % 0x8000
@@ -383,10 +396,16 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             tcache[t] = snes_tile(vram, t)
         return tcache[t]
 
+    # paletas del SNES del cuerpo del jefe en el BG2 que no usa la sala: cambian en vivo (LiveCol)
+    live = set()
+    if bg2 and nbg2 is not None and not own:
+        live = {(e >> 10) & 7 for e in bg2[nbg2:] if e & 0x3FF} - {(e >> 10) & 7 for mt in blocks for e in ent[mt]}
+
     def gc(p, c):
         k = (p, c)
         if k not in gcol:
-            gcol[k] = snes_to_genesis(pal[p * 16 + c], COLOR_MODE)
+            g = snes_to_genesis(pal[p * 16 + c], COLOR_MODE)
+            gcol[k] = LiveCol(g) if p in live else g
         return gcol[k]
     combos = {}
     extra = list(bg2 or [])
@@ -434,6 +453,8 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     # Kraid (own): sus líneas 6 (la pared, se funde) y 7 (el cuerpo, cambia con su vida) cambian en vivo; un color
     # solo de ellas no se junta con uno solo de la sala (si no, uno de los dos sale del color del otro)
     side = {}
+    if live:                                      # (los del cuerpo no se juntan con los de la sala)
+        side = {c: 1 if isinstance(c, LiveCol) else 2 for cs in combos.values() for c in cs}
     if own and os.environ.get("MM_KRAID_SIDES"):
         live = set().union(*[cs for (t, p), cs in combos.items() if p >= 6] or [set()])
         room = set().union(*[cs for (t, p), cs in combos.items() if p < 6] or [set()])
@@ -509,6 +530,9 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     dd *= min(cw.get(allc[i], 0), cw.get(allc[j], 0))
                 if best is None or dd < best[0]:
                     best = (dd, allc[i], allc[j])
+        if best is None:                          # (solo quedan pares de los dos lados: se permiten)
+            side = {}
+            continue
         _, a, b = best
         if cw is not None and cw.get(b, 0) > cw.get(a, 0):   # se queda el que más se ve
             a, b = b, a
@@ -551,6 +575,10 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 g = mg(p, gc(p, int(c)))
                 uses.setdefault((bi, g), {}).setdefault(p * 16 + int(c), 0)
                 uses[(bi, g)][p * 16 + int(c)] += 1
+    # paletas del SNES del cuerpo del jefe en el BG2 que no usa la sala (cambian en vivo)
+    body_pals = set()
+    if bg2 and nbg2 is not None:
+        body_pals = {(e >> 10) & 7 for e in bg2[nbg2:] if e & 0x3FF} - {(e >> 10) & 7 for mt in blocks for e in ent[mt]}
     src = []
     for bi, pl in enumerate(palettes):
         row = [0] * 16
@@ -570,6 +598,11 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     u = ex
             elif own and any(k_ < 96 for k_ in u):
                 u = {k_: v_ for k_, v_ in u.items() if k_ < 96}
+            elif body_pals and any((k_ >> 4) not in body_pals for k_ in u):
+                # cuerpo del jefe en el BG2 (Phantoon, Draygon, Crocomire): sus paletas cambian en vivo (Phantoon se
+                # pone rojo al enojarse, se desvanece); un color igual de la sala sale de un índice de la sala (si no,
+                # todo el fondo negro de Phantoon se ponía rojo)
+                u = {k_: v_ for k_, v_ in u.items() if (k_ >> 4) not in body_pals}
             row[slot(bi, i)] = max(u.items(), key=lambda kv: (kv[1], -kv[0]))[0]
         src.append(row)
         if os.environ.get("MM_COLDBG") and own:
@@ -1404,4 +1437,5 @@ def main():
     print(f"zebes: {len(entries)} gráficos de sala, {tot // 1024} KB, páginas {page0}-{max(fill)}, libre {sum(0x80000 - v for v in fill.values()) // 1024} KB", file=sys.stderr)
 
 
-main()
+if __name__ == "__main__":
+    main()

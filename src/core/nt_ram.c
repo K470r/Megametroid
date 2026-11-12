@@ -27,6 +27,8 @@ void nt_clear_ram(uint16 from, uint16 to) {   /* [from, to), direcciones del SNE
 
 /* un byte de la RAM del SNES por su dirección (las variables que el motor no tiene valen 0) */
 static uint8 nt_ram_b(uint16 a) {
+  if ((uint16)(a - 0x7800) < 0x2000)            /* la RAM extra de los enemigos (ver nt_ram_set_b) */
+    return (uint8)(ERAM(a & ~1) >> ((a & 1) << 3));
   int lo = 0, hi = NT_RAM_VARS - 1;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
@@ -44,6 +46,11 @@ static uint8 nt_ram_b(uint16 a) {
 
 /* escribir un byte de la RAM del SNES por su dirección (las variables que el motor no tiene: nada) */
 static void nt_ram_set_b(uint16 a, uint8 x) {
+  if ((uint16)(a - 0x7800) < 0x2000) {          /* la RAM extra de los enemigos (7E:7800-97FF): palabras del SNES */
+    uint16 *w = &ERAM(a & ~1);
+    *w = (a & 1) ? (uint16)((*w & 0x00FF) | x << 8) : (uint16)((*w & 0xFF00) | x);
+    return;
+  }
   int lo = 0, hi = NT_RAM_VARS - 1;
   while (lo <= hi) {
     int m = (lo + hi) >> 1;
@@ -61,6 +68,7 @@ static void nt_ram_set_b(uint16 a, uint8 x) {
 /* una palabra de la RAM del SNES por su dirección: Crocomire_Func_60 ($A4:943D) copia tablas a direcciones que da
    una lista */
 void nt_ram_set_w(uint16 a, uint16 x) {
+  if (!(a & 1) && (uint16)(a - 0x7800) < 0x2000) { ERAM(a) = x; return; }   /* (Botwoon: la historia de su cuerpo) */
   nt_ram_set_b(a, (uint8)x);
   nt_ram_set_b((uint16)(a + 1), x >> 8);
 }

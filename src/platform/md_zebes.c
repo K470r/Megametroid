@@ -40,6 +40,7 @@ static uint16 bb_sum;                             /* largo del último mapa conv
 static void bb_convert(uint16 n, uint16 rows);
 #define bb_rsum ((uint32 *)((uint8 *)cinematic_text_tilemap + 3904))   /* suma de cada fila del último mapa (16) */
 static uint16 bb_rows;                            /* filas convertidas que esperan al vblank (bits) */
+static uint8 bb_hide;                             /* el BG2 no está en ninguna pantalla del SNES: el plano B vacío */
 static void bb_vblank(void);
 static uint8 bt_pending;                          /* volver a subir los tiles del cuerpo (0xF000) en el vblank */
 static void bt_dma(void);
@@ -345,8 +346,8 @@ static void draw_window(uint8 L) {            /* (VDP libre) toda la ventana de 
 /* congelados (ver "enemigos congelados", más abajo) */
 #define FROZEN_REF 0x8000              /* (mkzobj.FROZEN_REF) */
 /* el depósito: 3 lugares de 18 tiles en las filas 5-31 del Window (VRAM 0xE140, 54 tiles); en las salas con los
-   objetos por cuadro (zo->stream, mkzobj.STREAM_ROOMS: Kraid) hasta FRZ_NMAX lugares de 8 tiles desde zo->base, con
-   sus tablas en cinematic_text_tilemap + 3200 (en esas salas libre: sin líquido) */
+   objetos por cuadro (zo->stream, mkzobj.STREAM_ROOMS: Kraid, Draygon) hasta FRZ_NMAX lugares de 8 tiles desde
+   zo->base, con sus tablas en cinematic_text_tilemap + 3200 (Kraid: sin líquido) o + 1024 (Draygon) */
 #define FRZ_TILE0 1802
 #define FRZ_SLOT 18
 #define FRZ_NSLOT 3
@@ -368,7 +369,9 @@ static void kq_frame(void);
 static void kq_vblank(void);
 static void frz_setup(void) {             /* al entrar a la sala: el depósito de los congelados o de los objetos */
   if (zo && zo->stream) {
-    uint8 *m = (uint8 *)cinematic_text_tilemap + 3200;
+    /* (Kraid: + 3200, su sala no tiene líquido; las demás, como Draygon con su agua: + 1024, libre sin la cola de Kraid
+       ni la caché del cuerpo) */
+    uint8 *m = (uint8 *)cinematic_text_tilemap + (zw ? 3200 : 1024);
     frz_stream = 1; frz_t0 = zo->base + ((zo->ntiles + 7) & ~7); frz_slot = 8;   /* (después de los fijos) */
     uint16 n = (1280 - frz_t0) / 8;
     frz_ns = (uint8)(n > FRZ_NMAX ? FRZ_NMAX : n);
@@ -393,15 +396,15 @@ const MdRoom *zebes_use(void) {
   if (f < 0) { md_zebes = 0; return 0; }
   zg = &kZebesGfx[kZebesStates[f].gfx];
   zo = kZebesStates[f].obj != 0xFFFF ? &kZebesObj[kZebesStates[f].obj] : 0;
-  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0; bb_rows = 0;
+  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0; bb_rows = 0; bb_hide = 0;
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
   for (uint16 i = 0; i < 64; i++) zcache[i].zo = 0;   /* (md_ovl: la intro pudo dejar cualquier cosa, docs/60) */
-  frz_setup();
-  frz_reset();
   zw = 0;
   for (uint16 i = 0; i < NT_ZEBES_NWALL; i++)
     if (kZebesWall[i].gfx == kZebesStates[f].gfx) zw = &kZebesWall[i];
+  frz_setup();                                   /* (después de zw: dónde van sus tablas) */
+  frz_reset();
   if (game_state != 17) {                        /* (17: al volver de la pausa, ResumeGameplay: Kraid sigue igual) */
     wall_on = 0; kq_r = kq_w = 0; mouth_cur = 0;
   }
@@ -584,6 +587,16 @@ static void prio_sweep(void) {
 void zebes_frame(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   melt_frame();
   if (zw) kq_frame();
+  /* el BG2 fuera de las dos pantallas del SNES (TM/TS: Phantoon invisible, LayerBlendFunc_4): el cuerpo se borra del
+     plano B; al volver, se sube otra vez */
+  if (zbb && bb_ever) {
+    uint8 h = !((reg_TM | reg_TS) & 2);
+    if (h != bb_hide) {
+      bb_hide = h;
+      if (h) { memset(bb_buf, 0, (bb_sum & ~31) * 2); bb_n = bb_sum & ~31; bb_rows = 0xFFFF; }
+      else bb_redo = 1;
+    }
+  }
   if (bb_redo && zbb && bb_ever) { nt_enemy_bg2_transfer(); bb_redo = 0; }   /* la caché se vació: el cuerpo otra vez */
   if (drawn[0]) { follow(0, ax, ay); if (psweep < ZW) prio_sweep(); }
   if (drawn[1]) follow(1, bx, zg->sky ? ay : by);   /* el cielo baja con la capa 1 (BG2VOFS = layer1_y_pos) */
@@ -839,7 +852,7 @@ static void bb_convert(uint16 n, uint16 rows) {   /* rows: filas (de 32) que cam
 }
 
 void nt_enemy_bg2_transfer(void) {
-  if (!md_zebes || !zbb) return;
+  if (!md_zebes || !zbb || bb_hide) return;
   uint16 n = enemy_bg2_tilemap_size >> 1;
   if (n > BB_MAX) n = BB_MAX;
   /* suma por fila (32 palabras): solo se convierten y se suben las filas que cambiaron (la boca, los brazos) */

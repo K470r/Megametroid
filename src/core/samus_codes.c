@@ -383,3 +383,70 @@ uint16 CallSomeSamusCode(uint16 a) {  // 0x90F084
   samus_hurt_switch_index = 0;
   return 0xFFFF;
 }
+
+/* ------------------------------------------------------------------ agarrada por Draygon ($90:E23B-E2DE) */
+void Samus_SetGrabbedByDraygonPose(uint16 a) {  // 0x90E23B
+  samus_pose = (a & 1) ? kPose_EC_FaceR_Draygon_NoMove_NoAim : kPose_BA_FaceL_Draygon_NoMove_NoAim;
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  frame_handler_gamma = FUNC16(Samus_GrabbedByDraygonFrameHandler);
+  samus_movement_handler = FUNC16(nullsub_152);
+  substate = 0;
+  suit_pickup_light_beam_pos = 0;
+  suit_pickup_color_math_R = 0;                 /* (la palabra en 7E:0DF0: R y G) */
+  suit_pickup_color_math_G = 0;
+  Samus_UpdatePreviousPose();
+  samus_new_pose = -1;
+  samus_new_pose_interrupted = -1;
+  samus_new_pose_transitional = -1;
+  samus_momentum_routine_index = 0;
+  samus_special_transgfx_index = 0;
+  samus_hurt_switch_index = 0;
+}
+
+void Samus_ReleaseFromDraygon(void) {  // 0x90E2DE
+  samus_pose = samus_pose_x_dir == 4 ? kPose_02_FaceL_Normal : kPose_01_FaceR_Normal;
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
+  frame_handler_gamma = FUNC16(nullsub_152);
+  Samus_UpdatePreviousPose();
+  samus_x_base_speed = 0;
+  samus_x_base_subspeed = 0;
+  samus_new_pose = -1;
+  samus_new_pose_interrupted = -1;
+  samus_new_pose_transitional = -1;
+  samus_momentum_routine_index = 0;
+  samus_special_transgfx_index = 0;
+  samus_hurt_switch_index = 0;
+  samus_y_speed = 0;
+  samus_y_subspeed = 0;
+  samus_y_dir = 0;
+  used_for_ball_bounce_on_landing = 0;
+  samus_x_accel_mode = 0;
+  samus_grapple_flags = (samus_grapple_flags & 0xFFFD) | 2;
+}
+
+void Samus_ReleaseFromDraygon_(void) {  // 0x90E2D4
+  Samus_ReleaseFromDraygon();
+}
+
+void Samus_GrabbedByDraygonFrameHandler(void) {  // 0x90E2A1 (frame_handler_gamma)
+  if (grapple_beam_function == FUNC16(GrappleBeamFunc_ConnectedLockedInPlace)) {
+    samus_new_pose = -1;
+    samus_momentum_routine_index = 0;
+  }
+  uint16 d = joypad1_newkeys & (kButton_Up | kButton_Down | kButton_Left | kButton_Right);
+  if (d && d != suit_pickup_light_beam_pos) {
+    suit_pickup_light_beam_pos = d;
+    if ((int16)(++substate - 60) >= 0)
+      Samus_ReleaseFromDraygon();
+  }
+}
+
+void Samus_InputHandler_E913(void) { Samus_InputHandler(); }   // 0x90E913
+void Samus_InputHandler_E91D(void) {                            // 0x90E91D
+  void DemoObjectInputHandler(void);
+  DemoObjectInputHandler();
+  Samus_InputHandler();
+}

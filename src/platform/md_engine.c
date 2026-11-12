@@ -2656,6 +2656,33 @@ static void hud_prepare(void) {
   hud_rows |= rows;
 }
 
+/* la onda de Phantoon (HDMA $88:E4A8, pre-instrucción E567): HDMA indirecto al BG2HOFS (modo 2) con la tabla de
+   7E:9000 en la RAM extra de los enemigos: entradas (cuenta, puntero) con la cuenta 0xC0 o 0xA0 (64 o 32 líneas, una
+   palabra por línea) a las tablas de 7E:9100/9140/9180 que llena la pre-instrucción. Aquí: el scroll del plano B por
+   línea (como el cielo); la línea g de la Genesis es la g - 2 del SNES */
+static uint8 pw_on;
+static inline uint8 eram_b(uint16 a) { return (uint8)(ERAM(a & ~1) >> ((a & 1) << 3)); }
+static uint8 phantoon_wave(uint16 *h, uint16 ax) {
+  if (!md_zebes || cine_stage || room_ptr != 0xCD13 || !enemy_data[1].parameter_1) return 0;
+  uint16 k = 0;
+  while (k < 6 && !((hdma_object_channels_bitmask[k] & 0xFF) && hdma_object_pre_instructions[k] == 0xE567)) k++;
+  if (k == 6) return 0;
+  uint16 sl[224];                               /* BG2HOFS de cada línea del SNES */
+  uint16 line = 0, e = 0x9000, v = reg_BG2HOFS;
+  while (line < 224 && e < 0x9030) {
+    uint8 cnt = eram_b(e);
+    if (!cnt) break;
+    uint16 ptr = (uint16)(eram_b((uint16)(e + 1)) | eram_b((uint16)(e + 2)) << 8);
+    e += 3;
+    for (uint16 i = 0, n = cnt & 0x7F; i < n && line < 224; i++)
+      sl[line++] = v = (cnt & 0x80) ? ERAM((uint16)(ptr + 2 * i)) : ERAM(ptr);
+  }
+  while (line < 224) sl[line++] = v;
+  uint16 a = (uint16)-ax;
+  for (uint16 g = 0; g < 224; g++) { *h++ = a; *h++ = (uint16)-sl[g < 2 ? 0 : g - 2]; }
+  return 1;
+}
+
 /* primera parte del cuadro: la lógica del motor (puede correr antes de que el vblank tome el cuadro anterior) */
 uint8 zebes_eye_room(void);
 uint8 md_spr_reserved;
@@ -2992,8 +3019,10 @@ void md_post(void) {
     zebes_frame(scroll_ax - nt_shake_bg1x, scroll_ay - nt_shake_bg1y,
                 g_room->b_mode == 1 ? scroll_bx : scroll_bx - nt_shake_bg2x,
                 g_room->b_mode == 1 ? scroll_by : scroll_by - nt_shake_bg2y);
+    pw_on = 0;
     if (zebes_sky_on()) zebes_sky_lines(rot_h, scroll_ax, scroll_ay);
-  }
+    else pw_on = phantoon_wave(rot_h, scroll_ax);
+  } else pw_on = 0;
   /* modo 7 girado (pozo en la huida) */
   if (g_room->wall) ring_follow();
   rot_on = g_room->wall && reg_M7B != 0;
@@ -3219,7 +3248,7 @@ void md_vblank(uint16_t late) {
   }
   VBS(5);
   /* scroll */
-  uint8 zsky = !cine_stage && zebes_sky_on();
+  uint8 zsky = !cine_stage && (zebes_sky_on() || pw_on);   /* (o la onda de Phantoon: también por línea) */
   uint8 smode = rot_on ? 0x07 : (cv_line || zsky) ? 0x03 : 0x00;   /* por línea y por columna, por línea, o la pantalla entera */
   uint8 smode_changed = smode != rot_shown;
   if (smode_changed) {

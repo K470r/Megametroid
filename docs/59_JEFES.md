@@ -686,3 +686,72 @@ carga, 999 de energía; el Golden desvía los disparos sin cargar, el patrón ca
   (las olas de la lava, `B88W` en un bucle de 16), las estelas de los rayos, PaletteFxHandler, los PLM. Ya hecho:
   `zebes_obj_draw` en ensamblador también fuera de las salas por cuadro (9.7k -> 5.6k ciclos). Como Kraid: los objetos
   por cuadro (`STREAM_ROOMS`) permitirían juntar piezas, pero chocan con las copias de tiles del ojo (`vram_copy_ops`).
+
+## Phantoon (2026-11-12)
+
+Lado a lado (`PAT=tools/compare/phantoon_in.txt DOOR=A2AC X=80 Y=150`, las mismas variables de rayos y energía que el
+Golden Torizo) y la lógica cuadro a cuadro en toda la pelea y la muerte:
+- **Lógica**: en la Genesis las bolas de fuego del principio salían en otro lugar: `Eproj_PhantomFireballs_Func2` lee
+  bytes sueltos de una tabla de palabras (`(uint8 *)&kSinCosTable8bit_Sext[64] + k`); en el 68000 el orden de los
+  bytes es el otro. `port.py` (`POST_PATCHES`) la pasa a la palabra k / 2 (byte bajo y alto). Ahora 0 diferencias en
+  la Genesis y en el PC.
+- **El fondo rojo**: el relleno oscuro de la sala salía de un índice de la paleta 7 del SNES (la del cuerpo, que se pone
+  roja al enojarse) porque los dos eran negros al convertir. `mkzebes.convert`: los colores de las paletas del cuerpo
+  del jefe en el BG2 que la sala no usa son `LiveCol` (distintos de un color igual de la sala) y no se juntan con los
+  de la sala; así el cuerpo se desvanece y cambia de color como en el SNES, y la sala no.
+- **Los desvanecidos**: `Phantoon_Func_8/9` escriben `palette_buffer[...] =` en varias líneas y el aviso a la Genesis
+  (`nt_pal_dirty`, port.py) solo veía las asignaciones de una línea; ahora también esas y `+=`, `-=`, `--`, `++` (la
+  paleta de Kraid tenía dos así).
+- **Invisible**: con `LayerBlendFunc_4` el SNES saca el BG2 de las dos pantallas (TM/TS sin el bit 2): md_zebes.c
+  (`bb_hide`) vacía el plano B y al volver sube el cuerpo otra vez. Con el BG2 en la subpantalla sumado (0x1A) y la
+  paleta en negro tampoco se ve: lo da la paleta (ya sigue al SNES).
+- **La onda** (HDMA $88:E4A8, indirecto al BG2HOFS desde la tabla de 7E:9000): md_engine.c (`phantoon_wave`) arma el
+  scroll por línea del plano B (como el cielo).
+- **El ojo al morir**: 8 palabras del BG2 que la prueba anterior no vio (`zbg2.log`) y las claves de sus partes
+  (`zdraw.log`), registradas en el PC con `MM_DRAWLOG` sobre esta pelea. Ojo: no sumar las líneas `bg2pal` de la
+  muerte (el cuerpo está rojo: sus colores quedan iguales y la conversión los junta en una silueta).
+- Queda: el color de la compuerta de la puerta (el pendiente general de las puertas).
+
+## Draygon (2026-11-12)
+
+Lado a lado (`PAT=tools/compare/draygon_in.txt DOOR=A924 X=100 Y=400`, las variables de rayos y energía del Golden
+Torizo) y la lógica cuadro a cuadro: igual al SNES en la Genesis y en el PC (13 mil cuadros, con Draygon agarrando a
+Samus varias veces).
+- **Samus agarrada**: `Samus_SetGrabbedByDraygonPose`, `Samus_ReleaseFromDraygon(_)`,
+  `Samus_GrabbedByDraygonFrameHandler` (frame_handler_gamma) y `Samus_InputHandler_E913/E91D` escritas a mano
+  (samus_codes.c, $90:E23B-E91D); antes eran avisos vacíos.
+- **Objetos por cuadro**: con lo que se dibuja en la pelea (claves de `zdraw.log` y palabras de `zbg2.log` registradas en
+  el PC con `MM_DRAWLOG`) los objetos del estado de pelea ya no entraban ni sueltos (503 tiles de 456). DA60 va en
+  `STREAM_ROOMS` (como Kraid): el límite de tiles para base 0 es el de 11 bits (2047) y las tablas del depósito van en
+  `cinematic_text_tilemap + 1024` en las salas sin la cola de Kraid (+ 3200 es del agua). Las claves `enemyext` no se
+  suman: en Zebes los spritemaps extendidos se dibujan pieza por pieza (con las `enemy`).
+- **Las crías**: `Draygon_Func_1` ($A5:871B) sube por la cola de VRAM sus tiles ($B1:9400, 0x600 bytes a 0xDA00):
+  `mkzobj.BOSS_VRAM_COPIES`.
+- **Las burbujas**: la paleta 2 de sprites la pone `Draygon_Init` (25 colores desde $A5:A217, 144-168);
+  `mkzobj.init_palettes` tomaba siempre 16: ahora lee la cuenta del bucle. Salen verdosas (sus grises se juntan con los
+  verdes de Draygon: 52 colores en 15 lugares); a Edwin le gustaron así.
+
+## Botwoon (2026-11-12)
+
+Lado a lado (`PAT=tools/compare/botwoon_in.txt DOOR=A774 X=200 Y=150`, mismas variables que el Golden Torizo) y la
+lógica cuadro a cuadro: igual al SNES en la Genesis y en el PC en toda la pelea y la muerte.
+- **La historia del cuerpo** (7E:9000 + índice): `nt_ram_set_w` (escritura por dirección del SNES) no llegaba a la RAM
+  extra de los enemigos (7E:7800-97FF); ahora sí, y `nt_ram_b` la lee igual (palabras y bytes).
+- **Disparos contra el cuerpo**: `HandleEprojCollWithProj` ($A0:99F9) lee la posición del disparo con el índice del
+  proyectil enemigo (un desborde del SNES: con los índices altos del cuerpo lee la RAM que sigue al arreglo de 10);
+  ahora por la dirección del SNES (`nt_ram_w(0x0B64 + k)`), como el SNES.
+- Claves de dibujo de la pelea en `zdraw.log` (87, registradas con `MM_DRAWLOG`).
+- `mkzebes.py`: `main()` solo al correrlo (importarlo regeneraba todo, y sin `MM_MAX_PALS=2` las salas salían con tres
+  líneas de color: las tuberías con los colores de Samus).
+- **Pendiente: el agua de esta sala.** El tinte del agua de la Genesis supone los colores 26 y 25 del BG3 (74 % y 26 %),
+  que valen en otras salas de Maridia; en la de Botwoon el BG3 es el color 27 (84 %), negro: el SNES no resta casi nada
+  y la Genesis tiñe de rojo. Hace falta el reparto de colores del BG3 por sala (como `kFogW`).
+- **Pendiente (menor)**: al morir, `CrumbleBotwoonWall` ($84:B79B) deja la columna 15 en aire sin redibujar el BG1 y el
+  SNES sigue mostrando la tubería; la Genesis dibuja desde el nivel y la borra.
+
+## Pendientes de Samus (anotado a pedido de Edwin, 2026-11-12)
+
+El rayo gancho está hecho y probado (docs/56, `tools/rooms/grapple.sh`: engancharse, columpio, soltarse, enemigos y el
+salto en la pared con el gancho). Faltan, de docs/56: **los rayos X** (sus colores están; el movimiento y el cono no:
+`Samus_HandleTransitionsB` 5, `SamusMovementType_Xray`), **el movimiento del destello de cristal** (sus colores están)
+y **el hiperrayo** (Mother Brain).

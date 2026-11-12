@@ -978,8 +978,10 @@ static void HandleEprojCollWithProj(uint16 k, uint16 j) {  // 0xA099F9
   if ((projectile_type[i] & 8) == 0)
     projectile_dir[i] |= 0x10;
   if (eproj_flags[k >> 1] == 1) {
-    int v4 = k >> 1;                                /* (el decomp lee la posición del disparo con el índice del proyectil enemigo) */
-    CreateSpriteAtPos(projectile_x_pos[v4], projectile_y_pos[v4], 6, 0);
+    /* el SNES lee la posición del disparo con el índice del proyectil enemigo (LDX k; LDA $0B64,X): con los índices
+       altos (el cuerpo de Botwoon) se sale del arreglo de 10 y lee la RAM de después; aquí, por la dirección del SNES */
+    uint16 nt_ram_w(uint16 a);
+    CreateSpriteAtPos(nt_ram_w((uint16)(0x0B64 + k)), nt_ram_w((uint16)(0x0B78 + k)), 6, 0);
     QueueSfx1_Max6(0x3D);
   } else {
     int j2 = k >> 1;

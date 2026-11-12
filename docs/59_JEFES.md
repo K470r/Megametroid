@@ -769,3 +769,34 @@ dan) y `tools/compare/ridley_muerte_in.txt` con la vida en 0 a mitad de la pelea
 - Dibujo: igual (la lava como tinte, como siempre); sus claves ya estaban (`mkmd.ridley_keys`).
 - Ojo con las pruebas: `lado_a_lado.sh` escribe la entrada de la Genesis (`res/gen/md/test_input.s`) y la usan las
   compilaciones de `stop.sh` que vengan después: si se corre otra prueba en medio, hay que regenerarla.
+
+## Mother Brain: la lógica (2026-11-12)
+
+Prueba (`tools/compare/motherbrain_in.txt`): puerta AAE0 (la de la izquierda) y Samus en la cornisa (`X=28 Y=130`),
+súper misiles (`HL_POKE` con 9C6-9D0 = 99, 9D2 = 2, `D820:4` = evento 2, sin él el vidrio no deja dañar el cerebro;
+en la Genesis `-DMD_TEST_AMMO=99 -DMD_TEST_HUD_ITEM=2 -DMD_TEST_POKES={12750,0xD820,4}`), **sin** `GOD` (el rayo
+arco iris tiene que agotar a Samus: `GOD=0` en `lado_a_lado.sh`) y la vida del cerebro bajada en la fase 2 y en la 3
+(`HL_POKE_AT=1800:FCC:12C,8450:FCC:64,8450:9C2:3E7`; Genesis `{14543,0xFCC,0x12C},{21193,0xFCC,0x64},{21193,0x9C2,0x3E7}`).
+La pelea entera (14352 cuadros): fase 1, la falsa muerte, la fase 2 con sus ataques, el rayo arco iris, la bebé que
+le chupa la vida, la fase 3 con el hiperrayo, la muerte, el cadáver que se pudre y el contador del escape.
+**Igual al SNES en el PC y en la Genesis** (`work/mb/stop.sh` + `cmpstop.py`, desfase -1).
+
+Lo nuevo:
+- `LoadFxEntry` (door.c) y las entradas 1 y 2 del FX de la sala en `kFxDefs` (mkdata.py: el ácido que sube y baja).
+- El pudrirse de los cadáveres (bosses.c): `InitializeEnemyCorpseRotting`, `ProcessCorpseRotting`, las funciones de
+  Mother Brain (copiar/mover columnas de tiles en 7E:9000, `kMbCorpseTiles` de $B7:CE00) y los finales traducidos
+  (`CORPSE_XLATE` en port.py). La subida de los tiles (`ProcessCorpseRottingVramTransfers`) todavía no dibuja nada.
+  Los demás cadáveres de Tourian (torizo, sidehopper, zoomer, ripper, skree) siguen avisando.
+- `MotherBrainRisingHdmaObject`, el rayo arco iris (`InitializeRainbowBeam`, `HdmaobjPreInstr_E7BC`: hdmaobj.c);
+  `hdma_table_2` pasa a 240 palabras (el rayo escribe hasta la línea 232) y `statue_bg2_ypos` (7E:9E00) es su palabra
+  128 (vars_extra.txt), como en el SNES.
+- Samus: las órdenes 05, 16-19 (agotada, arco iris, de pie), `SomeMotherBrainScripts` (samus_codes.c), el manejador
+  de movimiento de agotada agachada, `Samus_Func1/2` (gamma), el beta vacío `j_HandleDemoRecorder_2_0`,
+  `FireHyperBeam` y `ProjPreInstr_HyperBeam` (proj.c), el contador de 3 minutos (`ProcessTimer_MotherBrainStart`).
+- Enemigos que aparecen en la pelea: ECFF (los tubos que caen) y ECBF (la bebé) en `kEnemyDefs`.
+- port.py, errores del 68000 (el PC no los ve: es little-endian): `*(uint16 *)scrolls = x` (la palabra iba al revés:
+  la cámara de la falsa muerte se iba) y lo mismo en las tablas indirectas de HDMA; los bytes de arreglos de palabras
+  `*((uint8 *)eproj_x_subpos + j)` llevan `^ NT_BE` (bombas de Mother Brain y otros proyectiles que mueven por bytes).
+- md_main.c: sin `MD_TEST_GOD` el salto de prueba apaga el visor (que deja a Samus con la energía llena en Zebes).
+
+Falta: el dibujo (la sala, el cuerpo en el BG2, el vidrio, el cerebro, el cuello, la bebé, el rayo, el pudrirse).

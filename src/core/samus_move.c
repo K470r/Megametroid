@@ -1710,6 +1710,16 @@ void RunSamusMovementHandler(void) {  // 0x90E94B
   case FUNC16(Samus_MoveHandler_ShinesparkCrash): Samus_MoveHandler_ShinesparkCrash(); break;
   case FUNC16(Samus_MoveHandler_ShinesparkCrashEchoCircle): Samus_MoveHandler_ShinesparkCrashEchoCircle(); break;
   case FUNC16(Samus_MoveHandler_ShinesparkCrashFinish): Samus_MoveHandler_ShinesparkCrashFinish(); break;
+  case FUNC16(Samus_HandleMovement_DrainedCrouching):   // 0x9094CB: agotada por Mother Brain, cae agachada
+    Samus_MoveY_WithSpeedCalc();
+    if (samus_collision_flag) {
+      samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
+      samus_anim_frame_timer = 8;
+      samus_anim_frame = 7;
+      samus_y_subspeed = 0;
+      samus_y_speed = 0;
+    }
+    break;
   default: nt_unimpl_v("RunSamusMovementHandler", samus_movement_handler); break;
   }
 }
@@ -2298,6 +2308,11 @@ uint8 ProcessTimer(void) {  // 0x809DE7
     timer_centiseconds = 0; timer_seconds = 0; timer_minutes = 1;     // SetTimerMinutes(0x100)
     timer_status = 0x8003;
     return 0;
+  case 2:                                                             // ProcessTimer_MotherBrainStart ($80:9E1C)
+    ClearTimerRam();
+    timer_centiseconds = 0; timer_seconds = 0; timer_minutes = 3;     // SetTimerMinutes(0x300)
+    timer_status = 0x8003;
+    return 0;
   case 3:                                                             // ProcessTimer_InitialDelay
     timer_x_pos = (timer_x_pos & 0xFF00) | (uint8)(timer_x_pos + 1);
     if ((uint8)timer_x_pos >= 0x10)
@@ -2420,7 +2435,21 @@ static void RunFrameHandlerGamma(void) {  // 0x90E097
   case FUNC16(Samus_PushOutOfRidleysWay): Samus_PushOutOfRidleysWay(); break;
   case FUNC16(Samus_GrabbedByDraygonFrameHandler): { void Samus_GrabbedByDraygonFrameHandler(void); Samus_GrabbedByDraygonFrameHandler(); } break;
   case FUNC16(Samus_Func4): Samus_Func4(); break;
-  default: nt_unimpl("RunFrameHandlerGamma"); break;
+  case FUNC16(Samus_Func1):                     // 0x90E09B: agotada por Mother Brain, se levanta con arriba
+    if (samus_pose == kPose_E9_FaceL_Drained_CrouchFalling && !sign16(samus_anim_frame - 8)
+        && (joypad1_newkeys & kButton_Up) != 0) {
+      samus_anim_frame_timer = 1;
+      samus_anim_frame = 13;
+      frame_handler_gamma = FUNC16(nullsub_152);
+    }
+    break;
+  case FUNC16(Samus_Func2):                     // 0x90E0C5
+    if (!sign16(samus_anim_frame - 8) && sign16(samus_anim_frame - 12) && (joypad1_newkeys & kButton_Up) != 0) {
+      samus_anim_frame_timer = 1;
+      samus_anim_frame = 18;
+    }
+    break;
+  default: nt_unimpl_v("RunFrameHandlerGamma", frame_handler_gamma); break;
   }
 }
 
@@ -2475,7 +2504,7 @@ void HandleSamusMovementAndPause(void) {  // 0x90E722
   case FUNC16(EmptyFunction):
     break;
   default:                                      /* j_HandleDemoRecorder_2 ($90:E8D6): Samus quieta (estaciones) */
-    if (frame_handler_beta != FUNC16(j_HandleDemoRecorder_2)) nt_unimpl_v("HandleSamusMovementAndPause", frame_handler_beta);
+    if (frame_handler_beta != FUNC16(j_HandleDemoRecorder_2) && frame_handler_beta != FUNC16(j_HandleDemoRecorder_2_0)) nt_unimpl_v("HandleSamusMovementAndPause", frame_handler_beta);
     break;
   }
 }

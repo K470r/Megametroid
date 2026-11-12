@@ -3,6 +3,7 @@
 #include "samus.h"
 #include "hdmaobj.h"
 #include "enums.h"
+#include "tables.h"
 
 static void Samus_UpdatePreviousPose(void) {  // 0x90F0EE
   samus_last_different_pose = samus_prev_pose;
@@ -307,6 +308,44 @@ static uint8 SamusCode(uint16 a) {
   case 0x12: samus_special_super_palette_flags = 1; return 0;                // 0x90F320
   case 0x13: samus_special_super_palette_flags = 0; Samus_LoadSuitPalette(); return 0;   // 0x90F328
   case 0x1A: frame_handler_beta = FUNC16(Samus_LowHealthCheck); return 0;   // 0x90F409
+  case 0x05:                                   // SamusCode_05_SetupDrained ($90:F38E): el rayo de Mother Brain
+  case 0x18:                                   // SamusCode_18 ($90:F3C0)
+    frame_handler_gamma = (a == 0x05) ? FUNC16(Samus_Func1) : FUNC16(Samus_Func2);
+    samus_pose = kPose_54_FaceL_Knockback;     /* Samus_SetupForBeingDrained ($90:F394) */
+    samus_anim_frame_skip = 0;
+    SamusFunc_F433();
+    Samus_SetAnimationFrameIfPoseChanged();
+    Samus_UpdatePreviousPose();
+    flare_counter = 0;
+    flare_animation_frame = 0;                 /* ClearFlareAnimationState ($90:BCBE) */
+    flare_slow_sparks_anim_frame = 0;
+    flare_fast_sparks_anim_frame = 0;
+    flare_animation_timer = 0;
+    flare_slow_sparks_anim_timer = 0;
+    flare_fast_sparks_anim_timer = 0;
+    Samus_LoadSuitPalette();
+    frame_handler_alfa = FUNC16(Samus_FrameHandlerAlfa_Func13);
+    frame_handler_beta = FUNC16(j_HandleDemoRecorder_2_0);
+    return 1;
+  case 0x16:                                   // 0x90F3C9: Samus arco iris (el hiperrayo)
+    samus_special_super_palette_flags = 0x8000;
+    special_samus_palette_frame = 1;
+    special_samus_palette_timer = 1;
+    samus_charge_palette_index = 0;
+    return 0;
+  case 0x17:                                   // SamusCode_17_DisableRainbowSamusAndStandUp ($90:F3DD)
+    samus_special_super_palette_flags = 0;
+    special_samus_palette_frame = 0;
+    special_samus_palette_timer = 0;
+    samus_charge_palette_index = 0;
+    Samus_LoadSuitPalette();
+    samus_anim_frame_timer = 1;
+    samus_anim_frame = 13;
+    return 0;
+  case 0x19:                                   // SamusCode_17_FreezeDrainedSamus ($90:F3FB)
+    samus_anim_frame_timer = 1;
+    samus_anim_frame = 28;
+    return 1;
   case 0x1B:                                   // 0x90F411
     if (frame_handler_beta == FUNC16(j_HandleDemoRecorder_2_0))
       return 1;
@@ -449,4 +488,81 @@ void Samus_InputHandler_E91D(void) {                            // 0x90E91D
   void DemoObjectInputHandler(void);
   DemoObjectInputHandler();
   Samus_InputHandler();
+}
+
+/* SomeMotherBrainScripts ($91:E4AD): Samus en la pelea con Mother Brain (agotada por el rayo, el hiperrayo) */
+void UpdateBeamTilesAndPalette(void);
+void SomeMotherBrainScripts(uint16 a) {
+  uint8 r = 0;
+  switch (a) {
+  case 0:                                      // 0x91E4F8: cae agachada, agotada
+    samus_y_pos -= 21 - samus_y_radius;
+    samus_prev_y_pos = samus_y_pos;
+    samus_pose = (samus_pose_x_dir == 4) ? kPose_E9_FaceL_Drained_CrouchFalling : kPose_E8_FaceR_Drained_CrouchFalling;
+    samus_anim_frame_skip = 2;
+    SamusFunc_F433();
+    Samus_SetAnimationFrameIfPoseChanged();
+    samus_y_radius = kPoseParams[samus_pose].y_radius;
+    samus_x_base_speed = 0;
+    samus_x_base_subspeed = 0;
+    samus_y_subspeed = 0;
+    samus_y_speed = 0;
+    samus_y_dir = 2;
+    flare_counter = 0;
+    flare_animation_frame = 0;
+    flare_slow_sparks_anim_frame = 0;
+    flare_fast_sparks_anim_frame = 0;
+    flare_animation_timer = 0;
+    flare_slow_sparks_anim_timer = 0;
+    flare_fast_sparks_anim_timer = 0;
+    Samus_LoadSuitPalette();
+    r = 1;
+    break;
+  case 1:                                      // 0x91E571: de pie, agotada
+    samus_anim_frame_timer = 16;
+    samus_anim_frame = 0;
+    samus_pose = (samus_pose_x_dir == 4) ? kPose_EB_FaceL_Drained_Stand : kPose_EA_FaceR_Drained_Stand;
+    frame_handler_gamma = FUNC16(nullsub_152);
+    r = 1;
+    break;
+  case 2:                                      // 0x91E59B
+    if (samus_pose == kPose_E8_FaceR_Drained_CrouchFalling || samus_pose == kPose_E9_FaceL_Drained_CrouchFalling) {
+      samus_anim_frame_timer = 1;
+      samus_anim_frame = 13;
+    } else if (samus_pose == kPose_EA_FaceR_Drained_Stand || samus_pose == kPose_EB_FaceL_Drained_Stand) {
+      samus_anim_frame_timer = 1;
+      samus_anim_frame = 4;
+    }
+    samus_y_radius = kPoseParams[samus_pose].y_radius;
+    samus_x_base_speed = 0;
+    samus_x_base_subspeed = 0;
+    samus_y_subspeed = 0;
+    samus_y_speed = 0;
+    samus_y_dir = 2;
+    r = 1;
+    break;
+  case 3:                                      // 0x91E5F0: el hiperrayo
+    equipped_beams = 4105;
+    UpdateBeamTilesAndPalette();
+    SpawnPalfxObject(0xE1F0);                  /* addr_stru_8DE1F0 */
+    hyper_beam_flag = FUNC16(Samus_InputHandler);
+    play_resume_charging_beam_sfx = 0;
+    break;
+  case 4:                                      // 0x91E60C
+    samus_anim_frame_timer = 16;
+    samus_anim_frame = 8;
+    samus_pose = (samus_pose_x_dir == 4) ? kPose_E9_FaceL_Drained_CrouchFalling : kPose_E8_FaceR_Drained_CrouchFalling;
+    r = 1;
+    break;
+  default: nt_unimpl_v("SomeMotherBrainScripts", a); return;
+  }
+  if (r) {
+    Samus_UpdatePreviousPose();
+    samus_new_pose = -1;
+    samus_new_pose_interrupted = -1;
+    samus_new_pose_transitional = -1;
+    samus_momentum_routine_index = 0;
+    samus_special_transgfx_index = 0;
+    samus_hurt_switch_index = 0;
+  }
 }

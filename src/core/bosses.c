@@ -284,3 +284,137 @@ NT_BOSS void SetGoldenTorizoPalette(uint16 a) {  // 0x848000
   }
   if (ch) nt_pal_dirty(144, 175);
 }
+
+/* ------------------------------------------------------------------ cadáveres que se pudren ($A9:DB12-DCB9)
+   El SNES copia los tiles del cadáver a la RAM (Mother Brain: 7E:9000) y cada cuadro baja algunas columnas de píxeles
+   (la tabla de 7E:9700: { retraso, fila } por columna) y sube los tiles por la cola de VRAM. Aquí la lógica entera,
+   en la RAM extra (ERAM) como en el SNES; el dibujo en la Genesis todavía no. Variables del cadáver (Enemy_DeadMonsters):
+   dms_var_41.. en 7E:8802 + índice del enemigo, dms_var_52.. en 7E:8824 + índice. */
+#include "tables.h"
+#define DMS(n, k) ERAM(0x8800 + 2 * ((n) - 0x40) + (k))
+
+NT_BOSS void MotherBrain_CorpseRottingInitFunc(void) {  // 0xA9E08B
+  static const uint16 kSrc[6] = { 192, 704, 1216, 1728, 2240, 2752 }, kDst[6] = { 0, 0xE0, 0x1C0, 0x2A0, 0x380, 0x460 },
+                      kLen[6] = { 0xC0, 0xC0, 0xC0, 0xC0, 0xE0, 0xE0 };
+  for (int i = 0; i < 6; i++)
+    for (uint16 o = 0; o < kLen[i]; o += 2)
+      ERAM(0x9000 + kDst[i] + o) = kMbCorpseTiles[(kSrc[i] + o) >> 1];
+}
+
+/* (los dos de Mother Brain: mueven de a palabras en 7E:9000; j = destino, k = origen, desplazamientos pares) */
+NT_BOSS static void mbc_mv(uint16 dst, uint16 src, uint8 copy, uint8 clear) {
+  if (copy) ERAM(dst) = ERAM(src);
+  if (clear) ERAM(src) = 0;
+}
+NT_BOSS static void mb_corpse_rows(uint16 j, uint16 k, uint8 move) {
+  uint16 a = DMS(0x41, 0);
+  uint8 live = sign16(a - 46);
+  if (a >= 0x10) { mbc_mv(0x9002 + j, 0x9000 + k, live, move); mbc_mv(0x9012 + j, 0x9010 + k, live, move); }
+  if (a >= 8)    { mbc_mv(0x9022 + j, 0x9020 + k, live, move); mbc_mv(0x9032 + j, 0x9030 + k, live, move); }
+  mbc_mv(0x9042 + j, 0x9040 + k, live, move); mbc_mv(0x9052 + j, 0x9050 + k, live, move);
+  mbc_mv(0x9062 + j, 0x9060 + k, live, move); mbc_mv(0x9072 + j, 0x9070 + k, live, move);
+  mbc_mv(0x9082 + j, 0x9080 + k, live, move); mbc_mv(0x9092 + j, 0x9090 + k, live, move);
+  if (a >= 8)    { mbc_mv(0x90A2 + j, 0x90A0 + k, live, move); mbc_mv(0x90B2 + j, 0x90B0 + k, live, move); }
+  if (a >= 0x20) { mbc_mv(0x90C2 + j, 0x90C0 + k, live, move); mbc_mv(0x90D2 + j, 0x90D0 + k, live, move); }
+}
+NT_BOSS void MotherBrain_CorpseRottingMoveFunc(uint16 j, uint16 k) { mb_corpse_rows(j, k, 1); }  // 0xA9EA40
+NT_BOSS void MotherBrain_CorpseRottingCopyFunc(uint16 j, uint16 k) { mb_corpse_rows(j, k, 0); }  // 0xA9EB0B
+
+NT_BOSS static void CallCorpseRottingInit(uint16 f) {
+  switch (f) {
+  case 0xE08B: MotherBrain_CorpseRottingInitFunc(); return;
+  default: nt_unimpl_v("CallCorpseRottingInit", f); return;
+  }
+}
+NT_BOSS static void CallCorpseRottingMove(uint16 f, uint16 j, uint16 k) {
+  switch (f) {
+  case 0xEA40: MotherBrain_CorpseRottingMoveFunc(j, k); return;
+  case 0xEB0B: MotherBrain_CorpseRottingCopyFunc(j, k); return;
+  default: nt_unimpl_v("CallCorpseRottingMove", f); return;
+  }
+}
+void MotherBrain_CorpseRottingFinished(void);
+void DeadTorizo_CorpseRottingFinished(void);
+void CorpseRottingRotEntryFinishedHook(void);
+NT_BOSS static void CallCorpseRottingFinish(uint16 f) {
+  switch (f) {
+  case 0xB223: MotherBrain_CorpseRottingFinished(); return;
+  case 0xD5BD: DeadTorizo_CorpseRottingFinished(); return;
+  case 0xDC08: CorpseRottingRotEntryFinishedHook(); return;
+  default: nt_unimpl_v("CallCorpseRottingFinish", f); return;
+  }
+}
+
+NT_BOSS void InitializeEnemyCorpseRotting(uint16 k, uint16 j) {  // 0xA9DC5F
+  DMS(0x52, k) = BW_A9(j);
+  DMS(0x53, k) = BW_A9(j + 2);
+  DMS(0x54, k) = BW_A9(j + 4);
+  DMS(0x55, k) = BW_A9(j + 6);
+  DMS(0x5B, k) = BW_A9(j + 14);
+  uint16 v4 = BW_A9(j + 12);
+  DMS(0x56, k) = v4;
+  DMS(0x5A, k) = BW_A9(v4 + 2) - 12;
+  uint16 n = BW_A9(j + 8);
+  DMS(0x57, k) = n;
+  DMS(0x58, k) = n - 1;
+  DMS(0x59, k) = n - 2;
+  /* InitializeCorpseRottingDataTable ($A9:DC40): { n - 1 - i, 2 * i } por columna */
+  uint16 t = BW_A9(j), r18 = 0;
+  for (int16 v2 = n - 1; v2 >= 0; v2--, t += 4, r18 += 2) { ERAM(t) = v2; ERAM(t + 2) = r18; }
+  CallCorpseRottingInit(BW_A9(j + 10));
+}
+
+NT_BOSS static void CopyMoveCorpseRottingRotEntry(uint16 r20, uint16 a, uint16 r18) {  // 0xA9DBE0
+  DMS(0x41, 0) = a;
+  uint16 v1 = (uint16)(a & 0xFFF8) >> 2, v2 = a & 7;
+  uint16 v6 = BW_A9(r20 + v1) + 2 * v2;
+  CallCorpseRottingMove(r18, v2 >= 6 ? DMS(0x48, 0) + v6 : v6, v6);
+}
+
+NT_BOSS uint8 ProcessCorpseRotting(uint16 k) {  // 0xA9DB12
+  DMS(0x45, 0) = DMS(0x57, k);
+  DMS(0x46, 0) = DMS(0x58, k);
+  DMS(0x47, 0) = DMS(0x59, k);
+  DMS(0x48, 0) = DMS(0x5A, k);
+  DMS(0x49, 0) = DMS(0x5B, k);
+  DMS(0x44, 0) = DMS(0x56, k);
+  DMS(0x42, 0) = DMS(0x54, k);
+  DMS(0x43, 0) = DMS(0x55, k);
+  uint16 p = DMS(0x52, k);
+  for (uint16 v15 = 0;; v15++, p += 4) {
+    if ((int16)ERAM(p) >= 0) {
+      if (ERAM(p + 2)) {
+        uint16 v8 = ERAM(p + 2) - 1;
+        ERAM(p + 2) = v8;
+        if (v8 < 4)
+          CopyMoveCorpseRottingRotEntry(DMS(0x44, 0), ERAM(p), v15 >= DMS(0x47, 0) ? DMS(0x43, 0) : DMS(0x42, 0));
+      } else {
+        CopyMoveCorpseRottingRotEntry(DMS(0x44, 0), ERAM(p), DMS(0x43, 0));
+        uint16 v12 = ERAM(p) + 2;
+        if (v12 < DMS(0x46, 0)) {
+          ERAM(p) = v12;
+        } else {
+          CallCorpseRottingFinish(DMS(0x49, 0));
+          if (v15 >= DMS(0x46, 0))
+            return 0;
+          ERAM(p) = 0xFFFF;
+        }
+      }
+    }
+    if ((int16)(v15 + 1 - DMS(0x45, 0)) >= 0)
+      return (uint16)(v15 + 1) >= DMS(0x45, 0);
+  }
+}
+
+/* ProcessCorpseRottingVramTransfers ($A9:DCB9): sube los tiles podridos por la cola de VRAM del SNES; en la Genesis
+   (todavía) nada: solo el aviso de que ya se subieron */
+NT_BOSS void ProcessCorpseRottingVramTransfers(uint16 k) {
+  (void)k;
+  ERAM(0x8004) = 0;      /* Get_DeadEnemy(0)->dey_var_22 */
+}
+
+/* MotherBrain_AddSpritemapToOam ($A9:93EE): un spritemap de $A9 en (x, y) de la sala con r22 (paleta y tiles) */
+void DrawEnemySpritemap(uint8 bank, uint16 sm, uint16 x, uint16 y, uint16 pal, uint16 tiles);
+NT_BOSS void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22) {
+  DrawEnemySpritemap(0xA9, j, r18 - layer1_x_pos, r20 - layer1_y_pos, r22 & 0x0E00, r22 & 0x01FF);
+}

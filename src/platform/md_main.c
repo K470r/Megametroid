@@ -60,6 +60,11 @@ static u16 read_joy(void) {
       door_transition_function = 0xE17D;           /* DoorTransitionFunction_HandleElevator */
       game_state = 9;
       samus_health = samus_max_health;
+#ifndef MD_TEST_GOD
+      /* sin MD_TEST_GOD Samus recibe daño como en el SNES (Mother Brain: su rayo tiene que agotarla): fuera el visor,
+         que la deja siempre con la energía llena */
+      { extern uint8_t nt_viewer; nt_viewer = 0; }
+#endif
 #ifdef MD_TEST_ITEMS
       /* lo mismo que HL_ITEMS / HL_POKE (tools/rooms/: objetos, rayos y lo elegido en el HUD) */
       { extern uint16_t collected_items, equipped_items, collected_beams, equipped_beams, hud_item_index;

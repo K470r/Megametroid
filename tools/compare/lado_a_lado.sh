@@ -10,7 +10,8 @@
 #      mont.py salida.png e1 e2 ...  (en $WORK: pares Genesis | SNES en los cuadros e1, e2... de la Genesis)
 # Variables: PAT, DOOR, X, Y, XY_N (cuadro de la posición), EXTRA_FL (más -D para la Genesis: MD_TEST_ITEMS...),
 #            HL_ITEMS/HL_POKE (hlref), WORK (work/lado), SNES_DESDE/SNES_HASTA (cuadros del SNES a capturar),
-#            GEN_DESDE/GEN_N (cuadros de la Genesis a capturar)
+#            GEN_DESDE/GEN_N (cuadros de la Genesis a capturar), GOD (1: Samus no muere en el SNES; 0: sí, como
+#            Mother Brain, cuyo rayo tiene que agotarla; en la Genesis va aparte: -DMD_TEST_GOD), HL_POKE_AT (hlref)
 set -e
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 HERE=$ROOT/tools/compare
@@ -24,9 +25,9 @@ T0=10757                         # cuadro de la entrada del primer cuadro del mo
 mkdir -p $WORK/snes $WORK/gen
 cat $ROOT/tools/snes_ref/ceres_bot/in_z2.txt $PAT > $WORK/in.txt
 # SNES
-HL_WARP=$WARP_N:$DOOR HL_SETXY=$XY_N:$X:$Y HL_ENEMIES=1 HL_GOD=1 \
+HL_WARP=$WARP_N:$DOOR HL_SETXY=$XY_N:$X:$Y HL_ENEMIES=1 \
 HL_SHOTS=${SNES_DESDE:-24000},1,${SNES_HASTA:-31400},$WORK/snes/a \
-  setarch -R $ROOT/work/inputs/hlref $ROOT/sm/sm.smc $WORK/in.txt /dev/null $FROM 2>&1 | grep -E 'cuadros' || true
+  $([ "${GOD:-1}" = 1 ] && echo env HL_GOD=1) setarch -R $ROOT/work/inputs/hlref $ROOT/sm/sm.smc $WORK/in.txt /dev/null $FROM 2>&1 | grep -E 'cuadros' || true
 # Genesis: la misma entrada desde el estado inicial
 python3 - $WORK/in.txt $T0 $ROOT/res/gen/md/test_input.s <<'P'
 import sys

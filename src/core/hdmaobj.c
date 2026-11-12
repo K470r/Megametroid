@@ -1191,6 +1191,46 @@ static void HdmaobjPreInstr_E567(uint16 v0) {  // 0x88E567: desplazamiento del B
   }
 }
 
+/* el rayo arco iris de Mother Brain ($88:E767, $88:E7BC): la ventana del rayo la calcula su código ($A9:9466); aquí el
+   color que va cambiando (COLDATA, tabla $88:E833) */
+void MotherBrain_CalculateRainbowBeamHdma(void);
+static void InitializeRainbowBeam(void) {  // 0x88E767
+  reg_COLDATA[0] = 32;
+  reg_COLDATA[1] = 71;
+  reg_COLDATA[2] = 0x8f;
+  fx_layer_blending_config_c = 36;
+  mother_brain_indirect_hdma[0] = 100;
+  mother_brain_indirect_hdma[1] = 0x00;            /* *(uint16 *)&[1] = 0x9D00 (hdma_table_2) */
+  mother_brain_indirect_hdma[2] = 0x9D;
+  mother_brain_indirect_hdma[3] = 0;
+  mother_brain_indirect_hdma[4] = 0;
+  hdma_table_2[0] = 0;
+  hdma_table_2[1] = 0x8020;
+  hdma_table_2[2] = 0;
+  MotherBrain_CalculateRainbowBeamHdma();
+}
+static void HdmaobjPreInstr_E7BC(uint16 k) {  // 0x88E7BC
+  (void)k;
+  if (game_state == 19) {
+    hdma_object_channels_bitmask[hdma_object_index >> 1] = 0;
+    return;
+  }
+  fx_layer_blending_config_c = 36;
+  if (game_state == 27)
+    return;
+  MotherBrain_CalculateRainbowBeamHdma();
+  uint16 v0 = B88W(0xE833 + (hdma_object_A[0] & ~1));   /* sub_88E7ED */
+  if (!(v0 & 0x8000)) {
+    hdma_object_A[0] += 4;
+  } else {
+    hdma_object_A[0] = 0;
+    v0 = B88W(0xE833);
+  }
+  reg_COLDATA[0] = (v0 & 0x1F) | 0x20;
+  reg_COLDATA[1] = ((v0 >> 5) & 0x1F) | 0x40;
+  reg_COLDATA[2] = (((uint16)(v0 >> 2) >> 8) & 0x1F) | 0x80;
+}
+
 static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   switch (f) {
   case FUNC16(nullsub_293): case addr_locret_88858A: case FUNC16(nullsub_56): break;
@@ -1236,6 +1276,8 @@ static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   case FUNC16(HdmaobjPreInstr_DF94): HdmaobjPreInstr_DF94(k); break;
   case FUNC16(HdmaobjPreInstr_E449): HdmaobjPreInstr_E449(k); break;
   case FUNC16(HdmaobjPreInstr_E567): HdmaobjPreInstr_E567(k); break;
+  case 0xE726: break;                            // (RTL: Mother Brain levantándose, $88:E727)
+  case 0xE7BC: HdmaobjPreInstr_E7BC(k); break;     // el rayo arco iris
   case 0x943C: break;                            // nullsub_309 ($A4:943C): el HDMA de Crocomire derritiéndose (la onda
                                                  // la escribe su IA en crocomire_bg2_scroll_hdma_data)
   default: nt_unimpl_v("HdmaobjPreInstr (pre-instrucción sin portar)", f); break;
@@ -1251,6 +1293,8 @@ static void CallHdmaobjFarFunc(uint32 ea, uint16 k) {   /* HdmaobjInstr_CallFarF
   case fnHdmaobj_CleanUpTryCrystalFlash: Hdmaobj_CleanUpTryCrystalFlash(k); break;
   case fnInitializeSuitPickupHdma: InitializeSuitPickupHdma(); break;
   case fnnullsub_113: break;                     // $88:DF91 (el agua de Draygon)
+  case 0x88E726: break;                          // (RTL: Mother Brain levantándose)
+  case 0x88E767: InitializeRainbowBeam(); break;
   default: nt_unimpl_v("HdmaobjInstr_CallFarFunc (función sin portar)", ea); break;
   }
 }
@@ -1855,4 +1899,12 @@ static void HdmaobjPreInstr_EACB(uint16 k) {  // 0x88EACB: se apaga
     if (get_byte(hdma_object_A, v4 + 1) != 64) set_byte(hdma_object_A, v4 + 1, get_byte(hdma_object_A, v4 + 1) - 1);
     if (get_byte(hdma_object_B, v4) != 0x80) set_byte(hdma_object_B, v4, get_byte(hdma_object_B, v4) - 1);
   }
+}
+
+/* Mother Brain: el HDMA de cuando se levanta ($88:E722: lista $E727) y el del rayo arco iris ($88:E74C: lista $E751) */
+uint16 MotherBrainRisingHdmaObject(void) {  // 0x88E71E
+  return SpawnHdmaObject(0x88, 0xE727);
+}
+uint16 SpawnMotherBrainRainbowBeamHdma(void) {  // 0x88E748
+  return SpawnHdmaObject(0x88, 0xE751);
 }

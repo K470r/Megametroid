@@ -81,7 +81,10 @@ XLATE_BANKS = ENEMY_BANKS | {0xA0, 0x86}
 # hasta que se escriban a mano para la Genesis
 MANUAL_STUBS = {'EprojInstr_GotoIfFunc1', 'Torizo_CorpseRottingInitFunc', 'Torizo_CorpseRottingMoveFunc', 'Torizo_CorpseRottingCopyFunc',
                 # cadáveres de Tourian: escriben en la cola de VRAM y en la OAM del SNES (falta hacerlos para la Genesis)
-                'DeadTorizo_Func_1', 'MotherBrain_AddSpritemapToOam', 'DeadTorizo_CopyLineOfSandHeapTileData'}
+                'DeadTorizo_Func_1', 'DeadTorizo_CopyLineOfSandHeapTileData'}
+
+# los finales del pudrirse (CallCorpseRottingFinish, bosses.c): código común que sí se traduce
+CORPSE_XLATE = {'MotherBrain_CorpseRottingFinished', 'DeadTorizo_CorpseRottingFinished', 'CorpseRottingRotEntryFinishedHook'}
 
 # cambios después de traducir (texto exacto -> texto nuevo): marcas que necesita el motor nativo
 POST_PATCHES = [
@@ -127,11 +130,11 @@ def main():
     def stop(n):
         if n in nat or n in skip:
             return True
-        if n in MANUAL_STUBS or 'CorpseRotting' in n:
+        if n in MANUAL_STUBS or ('CorpseRotting' in n and n not in CORPSE_XLATE):
             if n in g.funcs and n not in g.arrays:
                 stubs.add(n)
             return True
-        if 'Grapple' in n or 'CorpseRotting' in n or (n in g.funcs and n not in g.arrays and bank_of(n) not in XLATE_BANKS):
+        if 'Grapple' in n or ('CorpseRotting' in n and n not in CORPSE_XLATE) or (n in g.funcs and n not in g.arrays and bank_of(n) not in XLATE_BANKS):
             if n not in nat and n in g.funcs and n not in g.arrays:
                 stubs.add(n)
             return True
@@ -417,6 +420,19 @@ def main():
     for old_, new_ in POST_PATCHES:
         assert text.count(old_) == 1, 'port.py: POST_PATCHES no encuentra ' + old_[:60]
         text = text.replace(old_, new_)
+    # *(uint16 *)scrolls (7E:CD20: las pantallas 0 y 1 de la sala): en el 68000 la palabra va al revés que en el SNES;
+    # como palabra de la RAM del SNES (Mother Brain y el bebé: $A9:8829, $A9:EFE6...)
+    text = re.sub(r'\*\(uint16 \*\)scrolls \|= ([^;]+);', r'nt_ram_set_w(0xCD20, nt_ram_w(0xCD20) | (uint16)(\1));', text)
+    text = re.sub(r'\*\(uint16 \*\)scrolls = ([^;]+);', r'nt_ram_set_w(0xCD20, (uint16)(\1));', text)
+    # lo mismo con los arreglos de bytes de las tablas de HDMA (la tabla indirecta de Mother Brain y de Crocomire)
+    text = re.sub(r'\*\(uint16 \*\)(mother_brain_indirect_hdma|crocomire_bg2_scroll_hdma_indirect) = ([^;]+);',
+                  r'{ uint16 v_ = \2; \1[0] = (uint8)v_; \1[1] = v_ >> 8; }', text)
+    # un byte de un arreglo de palabras de la RAM por su desplazamiento en bytes (*((uint8 *)eproj_x_subpos + j): el byte
+    # bajo de la palabra j / 2): en el 68000 los bytes de cada palabra van al revés (NT_BE, dcompat.h)
+    w16 = set(re.findall(r'extern u?int16 (\w+)\[', open(os.path.join(HERE, '..', '..', 'res', 'gen', 'engine', 'vars.h')).read()))
+    def be_byte(m):
+        return m.group(0) if m.group(2) not in w16 else '%s(uint8 *)%s + ((%s) ^ NT_BE))' % (m.group(1), m.group(2), m.group(3))
+    text = re.sub(r'(\*\s*\()\(uint8 \*\)(\w+) \+ (\w+(?: \+ \d+)?)\)', be_byte, text)
     open(OUT, 'w').write(text + '\n')
     banks = sorted(x.used_banks | {(g.funcs[n][3] >> 16) for n in funcs if g.funcs[n][3]} | set(ROM_STRUCTS.values()))
     open(os.path.join(HERE, 'banks.txt'), 'w').write(' '.join('%02X' % b for b in banks) + '\n')

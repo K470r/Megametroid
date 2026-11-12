@@ -12341,10 +12341,12 @@ void Metroid_Frozen(void) {  // 0xA3EAE6
   sprite_palettes[v1] = 3072;
   sprite_disable_flag[v1] = 1;
   sprite_instr_list_ptrs[v1] = addr_kSpriteObject_Ilist_C3BA;
+  sprobj_note((uint16)v1);
   int v2 = ERAM(0x7802 + E_k) >> 1;
   sprite_palettes[v2] = 3072;
   sprite_disable_flag[v2] = 1;
   sprite_instr_list_ptrs[v2] = addr_kSpriteObject_Ilist_C4B6;
+  sprobj_note((uint16)v2);
 }
 void Metroid_Hurt(void) {  // 0xA3EB33
   EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);

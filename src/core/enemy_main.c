@@ -142,6 +142,7 @@ static void ClearSpriteObjects(void) {  // 0xB4BD97 (el original borra 511 palab
     sprite_instr_timer[i] = 0; sprite_palettes[i] = 0; sprite_x_pos[i] = 0; sprite_x_subpos[i] = 0;
     sprite_y_pos[i] = 0; sprite_y_subpos[i] = 0; sprite_disable_flag[i] = 0;
   }
+  sprobj_lw = sprite_instr_list_ptrs[0] ? 0 : 32;
 }
 
 static void ProcessEnemyTilesets(void) {  // 0xA08D64
@@ -708,12 +709,19 @@ static uint8 sprite_objs_live = 1;
 #define SPRITE_OBJS_LIVE(v) ((void)0)
 #define SPRITE_OBJS_NONE() 0
 #endif
+/* el lugar de objeto de sprite más bajo usado desde que se cargó la sala (docs/60): CreateSpriteAtPos busca libre
+   desde el 31 hacia abajo, así que los vivos están arriba y los recorridos paran aquí. Lo bajan CreateSpriteAtPos y
+   los Metroid (sprobj_note); ClearSpriteObjects lo sube (salvo que el lugar 0 quede vivo: el original no lo borra).
+   Empieza en 0 (todos: un estado cargado de afuera). */
+uint8 sprobj_lw = 0;
+void sprobj_note(uint16 i) { if (i < sprobj_lw) sprobj_lw = (uint8)i; }
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal) {  // 0xB4BC26
   SPRITE_OBJS_LIVE(1);
   int i = 31;
   while (sprite_instr_list_ptrs[i])
     if (--i < 0)
       return 0xFFFF;
+  if (i < sprobj_lw) sprobj_lw = (uint8)i;
   sprite_x_subpos[i] = 0;
   sprite_y_subpos[i] = 0;
   sprite_disable_flag[i] = 0;
@@ -752,7 +760,7 @@ static void HandleSpriteObjects(void) {  // 0xB4BC82
   }
   uint8 live = 0;
   const uint16 *pl = &sprite_instr_list_ptrs[31];   /* (la mayoría de los 32 lugares, vacíos: con un puntero) */
-  for (int i = 31; i >= 0; i--, pl--) {
+  for (int i = 31; i >= sprobj_lw; i--, pl--) {   /* (sprobj_lw: los de abajo, vacíos) */
     if (!*pl)
       continue;
     sprite_object_index = 2 * i;                   /* (solo lo leen las instrucciones de un objeto vivo) */
@@ -784,7 +792,7 @@ void DrawSpriteObjects(void) {  // 0xB4BD32
   if (SPRITE_OBJS_NONE())
     return;
   const uint16 *pl = &sprite_instr_list_ptrs[31];
-  for (int i = 31; i >= 0; i--, pl--) {
+  for (int i = 31; i >= sprobj_lw; i--, pl--) {
     if (!*pl)
       continue;
     uint16 x = sprite_x_pos[i] - layer1_x_pos;

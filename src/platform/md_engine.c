@@ -1482,25 +1482,25 @@ __asm__(
   "    move.w 50(%sp),%d2\n"                /* prio */
   "    move.w 54(%sp),%d3\n"                /* bx */
   "    move.w 58(%sp),%d4\n"                /* by */
-  "    lea eproj_id+34,%a2\n"
-  "    lea eproj_properties+34,%a3\n"
-  "    lea eproj_x_pos+34,%a4\n"
-  "    lea eproj_y_pos+34,%a5\n"
-  "    lea ep_cache+136,%a6\n"
+  "    lea eproj_id,%a2\n"                    /* (bases: un solo índice, d5) */
+  "    lea eproj_properties,%a3\n"
+  "    lea eproj_x_pos,%a4\n"
+  "    lea eproj_y_pos,%a5\n"
+  "    lea ep_cache,%a6\n"
   "    moveq #34,%d5\n"
-  "1:  tst.w (%a2)\n"
+  "1:  tst.w (%a2,%d5.w)\n"
   "    beq 9f\n"
-  "    move.w (%a3),%d0\n"
+  "    move.w (%a3,%d5.w),%d0\n"
   "    and.w #0x1000,%d0\n"
   "    cmp.w %d2,%d0\n"
   "    bne 9f\n"
-  "    move.w (%a4),%d6\n"
+  "    move.w (%a4,%d5.w),%d6\n"
   "    add.w %d3,%d6\n"                     /* x */
   "    move.w %d6,%d0\n"
   "    add.w #128,%d0\n"
   "    and.w #0xFE00,%d0\n"
   "    bne 9f\n"
-  "    move.w (%a5),%d1\n"
+  "    move.w (%a5,%d5.w),%d1\n"
   "    add.w %d4,%d1\n"                     /* y */
   "    move.w %d1,%d0\n"
   "    and.w #0xFF00,%d0\n"
@@ -1513,38 +1513,37 @@ __asm__(
   "    move.w (%a0,%d5.w),%d0\n"            /* spritemap */
   "    lea eproj_gfx_idx,%a0\n"
   "    move.w (%a0,%d5.w),%d7\n"            /* tiles y paleta */
-  "    move.l 4(%a6),%d1\n"
+  "    move.w %d5,%d1\n"
+  "    add.w %d1,%d1\n"
+  "    add.w %d1,%d1\n"
+  "    lea (%a6,%d1.w),%a0\n"              /* su entrada de ep_cache (8 bytes) */
+  "    move.l 4(%a0),%d1\n"
   "    beq 5f\n"
-  "    cmp.w (%a6),%d0\n"
+  "    cmp.w (%a0),%d0\n"
   "    bne 5f\n"
-  "    cmp.w 2(%a6),%d7\n"
+  "    cmp.w 2(%a0),%d7\n"
   "    bne 5f\n"
   "    tst.l %d1\n"
   "    bmi 6f\n"                            /* (por cuadro: zebes_ep_draw, sin ep_lookup) */
   "    movea.l %d1,%a0\n"
-  "4:  move.w (%a5),%d1\n"
+  "4:  move.w (%a5,%d5.w),%d1\n"
   "    add.w %d4,%d1\n"
   "    move.w %d6,%d0\n"
   "    jsr md_putrecs\n"
-  "9:  subq.l #2,%a2\n"
-  "    subq.l #2,%a3\n"
-  "    subq.l #2,%a4\n"
-  "    subq.l #2,%a5\n"
-  "    subq.l #8,%a6\n"
-  "    subq.w #2,%d5\n"
+  "9:  subq.w #2,%d5\n"
   "    bpl 1b\n"
   "    movem.l (%sp)+,%d2-%d7/%a2-%a6\n"
   "    rts\n"
   "6:  move.w %d1,%d7\n"                   /* n (la entrada de la caché) */
   "    move.w %d1,%d0\n"
-  "    move.w (%a5),%d1\n"
+  "    move.w (%a5,%d5.w),%d1\n"
   "    add.w %d4,%d1\n"
   "    movea.w %d1,%a1\n"                    /* y */
   "    move.w %d6,%d1\n"                     /* x */
   "    jsr zfrz_put\n"                       /* (md_zebes.c: con el lugar ya puesto) */
   "    tst.w %d0\n"
   "    bne 9b\n"
-  "    move.w (%a5),%d0\n"                   /* si no: zebes_ep_draw(n, x, y) */
+  "    move.w (%a5,%d5.w),%d0\n"                   /* si no: zebes_ep_draw(n, x, y) */
   "    add.w %d4,%d0\n"
   "    ext.l %d0\n"
   "    move.l %d0,-(%sp)\n"
@@ -1557,7 +1556,7 @@ __asm__(
   "    jsr zebes_ep_draw\n"
   "    lea 12(%sp),%sp\n"
   "    bra 9b\n"
-  "5:  move.w (%a5),%d1\n"                 /* ep_lookup(v2, sm, g, x, y) */
+  "5:  move.w (%a5,%d5.w),%d1\n"                 /* ep_lookup(v2, sm, g, x, y) */
   "    add.w %d4,%d1\n"
   "    ext.l %d1\n"
   "    move.l %d1,-(%sp)\n"

@@ -73,7 +73,9 @@ void LoadEnemies(void);                        /* $A0:8A1E */
 void InitializeEnemies(void);                  /* $A0:8A9E */
 void TransferEnemyTilesToVramAndInit(void);    /* $A0:8CD7 */
 void EnemyMain(void);
-extern uint16 enemy_hw;                        /* (game.c) los lugares hasta el más alto usado, en bytes */
+extern uint16 enemy_hw;
+extern uint8 sprobj_lw;                        /* (enemy_main.c) el lugar de objeto de sprite más bajo usado */
+void sprobj_note(uint16 i);                        /* (game.c) los lugares hasta el más alto usado, en bytes */
 void SamusProjectileInteractionHandler(void);
 void DrawEnemyQueue(uint16 phase);
 /* enemigos */

@@ -1437,4 +1437,5 @@ def main():
     print(f"zebes: {len(entries)} gráficos de sala, {tot // 1024} KB, páginas {page0}-{max(fill)}, libre {sum(0x80000 - v for v in fill.values()) // 1024} KB", file=sys.stderr)
 
 
-main()
+if __name__ == "__main__":
+    main()

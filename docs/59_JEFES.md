@@ -730,3 +730,28 @@ Samus varias veces).
 - **Las burbujas**: la paleta 2 de sprites la pone `Draygon_Init` (25 colores desde $A5:A217, 144-168);
   `mkzobj.init_palettes` tomaba siempre 16: ahora lee la cuenta del bucle. Salen verdosas (sus grises se juntan con los
   verdes de Draygon: 52 colores en 15 lugares); a Edwin le gustaron así.
+
+## Botwoon (2026-11-12)
+
+Lado a lado (`PAT=tools/compare/botwoon_in.txt DOOR=A774 X=200 Y=150`, mismas variables que el Golden Torizo) y la
+lógica cuadro a cuadro: igual al SNES en la Genesis y en el PC en toda la pelea y la muerte.
+- **La historia del cuerpo** (7E:9000 + índice): `nt_ram_set_w` (escritura por dirección del SNES) no llegaba a la RAM
+  extra de los enemigos (7E:7800-97FF); ahora sí, y `nt_ram_b` la lee igual (palabras y bytes).
+- **Disparos contra el cuerpo**: `HandleEprojCollWithProj` ($A0:99F9) lee la posición del disparo con el índice del
+  proyectil enemigo (un desborde del SNES: con los índices altos del cuerpo lee la RAM que sigue al arreglo de 10);
+  ahora por la dirección del SNES (`nt_ram_w(0x0B64 + k)`), como el SNES.
+- Claves de dibujo de la pelea en `zdraw.log` (87, registradas con `MM_DRAWLOG`).
+- `mkzebes.py`: `main()` solo al correrlo (importarlo regeneraba todo, y sin `MM_MAX_PALS=2` las salas salían con tres
+  líneas de color: las tuberías con los colores de Samus).
+- **Pendiente: el agua de esta sala.** El tinte del agua de la Genesis supone los colores 26 y 25 del BG3 (74 % y 26 %),
+  que valen en otras salas de Maridia; en la de Botwoon el BG3 es el color 27 (84 %), negro: el SNES no resta casi nada
+  y la Genesis tiñe de rojo. Hace falta el reparto de colores del BG3 por sala (como `kFogW`).
+- **Pendiente (menor)**: al morir, `CrumbleBotwoonWall` ($84:B79B) deja la columna 15 en aire sin redibujar el BG1 y el
+  SNES sigue mostrando la tubería; la Genesis dibuja desde el nivel y la borra.
+
+## Pendientes de Samus (anotado a pedido de Edwin, 2026-11-12)
+
+El rayo gancho está hecho y probado (docs/56, `tools/rooms/grapple.sh`: engancharse, columpio, soltarse, enemigos y el
+salto en la pared con el gancho). Faltan, de docs/56: **los rayos X** (sus colores están; el movimiento y el cono no:
+`Samus_HandleTransitionsB` 5, `SamusMovementType_Xray`), **el movimiento del destello de cristal** (sus colores están)
+y **el hiperrayo** (Mother Brain).

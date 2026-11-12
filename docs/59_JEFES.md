@@ -755,3 +755,17 @@ El rayo gancho está hecho y probado (docs/56, `tools/rooms/grapple.sh`: enganch
 salto en la pared con el gancho). Faltan, de docs/56: **los rayos X** (sus colores están; el movimiento y el cono no:
 `Samus_HandleTransitionsB` 5, `SamusMovementType_Xray`), **el movimiento del destello de cristal** (sus colores están)
 y **el hiperrayo** (Mother Brain).
+
+## Ridley de Norfair (2026-11-12)
+
+Dos pruebas lado a lado (puerta 9A62, `X=60 Y=400`, las variables de rayos y energía del Golden Torizo):
+`tools/compare/ridley_in.txt` (la pelea, 16 mil cuadros, con Ridley agarrando a Samus; los disparos casi nunca le
+dan) y `tools/compare/ridley_muerte_in.txt` con la vida en 0 a mitad de la pelea (`HL_POKE_AT=1500:F8C:0` en el SNES,
+`MD_TEST_POKES={14243,0xF8C,0}` en la Genesis: el cuadro grabado n es el de la entrada n + 23500 - 10757).
+- **Lógica**: `Ridley_Shot` y `Ridley_Powerbomb` están escritas a mano en ceres_ridley.c (la versión de Ceres) y son las
+  mismas para el de Norfair: su rama de Norfair (área 2) era un aviso vacío. Ahora la del decomp
+  (`NormalEnemyShotAiSkipDeathAnim_CurEnemy` / `...PowerBomb...`). Igual al SNES en la Genesis y en el PC en las dos
+  pruebas (la pelea y la muerte, con la lava que baja).
+- Dibujo: igual (la lava como tinte, como siempre); sus claves ya estaban (`mkmd.ridley_keys`).
+- Ojo con las pruebas: `lado_a_lado.sh` escribe la entrada de la Genesis (`res/gen/md/test_input.s`) y la usan las
+  compilaciones de `stop.sh` que vengan después: si se corre otra prueba en medio, hay que regenerarla.

@@ -1702,7 +1702,7 @@ void CeresRidley_Hurt(void) {  // 0xA6A2D3
 
 /* ------------------------------------------------------------------ disparos, contacto */
 void Ridley_Shot(void) {  // 0xA6DF8A (rama de Ceres)
-  if (area_index == 2) { nt_unimpl("Ridley_Shot (Norfair)"); return; }
+  if (area_index == 2) { void NormalEnemyShotAiSkipDeathAnim_CurEnemy(void); NormalEnemyShotAiSkipDeathAnim_CurEnemy(); return; }   /* Norfair: el disparo normal sin la animación de muerte */
   EnemyData *E = gEnemyData(0);
   uint16 v0 = 13;
   if (E->flash_timer && (E->flash_timer & 1))
@@ -1711,8 +1711,9 @@ void Ridley_Shot(void) {  // 0xA6DF8A (rama de Ceres)
   ++RV(0x0D);
 }
 
-void Ridley_Powerbomb(void) {  // 0xA6DFB2
-  nt_unimpl("Ridley_Powerbomb");
+void Ridley_Powerbomb(void) {  // 0xA6DFB2 (Ceres y Norfair)
+  void NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy(void);
+  NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
 }
 
 /* ------------------------------------------------------------------ instrucciones ($A6:E4BE-E976) */

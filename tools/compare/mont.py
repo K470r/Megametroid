@@ -13,7 +13,7 @@ for i, e in enumerate(es):
     m = shown(e)
     x, y = (i % 2) * 520, (i // 2) * 226
     im.paste(Image.open('gen/g%05d.ppm' % (e - G0)), (x, y))
-    # cuadro del motor m (m cuadros corridos): última entrada T0 + m - 1; hlref nombra la captura con el cuadro siguiente
-    im.paste(Image.open('snes/a%05d.ppm' % (T0 + 1 + m)), (x + 258, y))
-    print(e, 'motor', m, 'SNES', T0 + 1 + m)
+    # cuadro del motor m: la captura del SNES del mismo cuadro es a(T0 + m) (comprobado con la RAM, docs/59)
+    im.paste(Image.open('snes/a%05d.ppm' % (T0 + m)), (x + 258, y))
+    print(e, "motor", m, "SNES", T0 + m)
 im.save(sys.argv[1])

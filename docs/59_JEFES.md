@@ -633,5 +633,18 @@ cuadro (estado completo de la Genesis con `MD_STOP_AT` contra la grabación de `
   156-158 a sí mismos en la línea 1); hay que comparar el tile del ojo (456, componente $AA:9786) de la Genesis con el
   del SNES en el mismo cuadro exacto (el volcado `HL_VRAM` y la captura de la Genesis quedaron a un cuadro: el Torizo
   salta y todo sale corrido 6 píxeles).
+- **El ojo, resuelto (copias de tiles)**: el ojo es una animación de 4 cuadros que las listas de instrucciones suben a
+  la VRAM en el momento (`EnemyInstr_CopyToVram`, $A0:814B: $AA:B279/B2B9/B2F9/B339 a 7D80, tiles 472-473; también
+  borrados desde $AA:B0A5 y otras animaciones a 7300/7400). La ROM de la estatua no trae esos píxeles y la Genesis
+  ignoraba la copia. Ahora `mkzobj.vram_copy_ops` busca las copias del banco del jefe (`VRAM_COPY_BANKS`: $AA, los dos
+  Torizos); las piezas que usan esos tiles tienen tiles propios en la Genesis (no se comparten por contenido y no
+  entran en los sprites compuestos: van sueltas, encima) y para cada copia se guardan esos tiles reconvertidos con el
+  mismo reparto de colores (`kZO*_vcp`, ~3 KB por sala). El motor avisa (`nt_enemy_vram_copy`) y `md_zebes.c` sube
+  los tiles en el vblank. Para que entrara, `mkzebes.py` usa también lo que dejan libre los niveles en su última
+  página (la 10, `NT_LEVEL_LAST_USED` de mkdata.py): 140 KB libres en total; el ensamblador de `zebes_obj_draw` toma
+  `ZEBES_FRZ_PAGE` del encabezado generado (antes fijo en 18).
+- **La estatua corrida** (pendiente): antes de despertar, la estatua del SNES es fondo (BG2, `tilemap_stuff` a 4800,
+  BG2HOFS = 0x100; el enemigo dibuja un spritemap vacío, $AA:87C9) y en la Genesis sale unos 60 píxeles más a la
+  derecha que en el SNES (el ítem de sus manos también). Ya pasaba antes.
 - **Los aros marrones** al final: también están en el SNES (restos de la pelea); allí se ven más tenues por la
   neblina azul (`SpawnBombTorizoHaze`, suma de color por franjas), que la Genesis no hace todavía: pendiente.

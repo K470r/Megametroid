@@ -382,6 +382,7 @@ for i, lvl in enumerate(sorted(levels)):
     C.append(f'NT_BANK({page}) const uint16 kLevel{i}_Data[{len(lw)}] = {{' + ','.join('0x%X' % v for v in lw) + '};')
     C.append(f'NT_BANK({page}) const uint8 kLevel{i}_Bts[{len(bts)}] = {{' + ','.join(str(v) for v in bts) + '};')
 H.append(f'#define NT_LEVEL_PAGES {page - LEVEL_PAGE0 + 1}   /* páginas del SSF2 con niveles, desde la {LEVEL_PAGE0} */')
+H.append(f'#define NT_LEVEL_LAST_USED {used}   /* bytes de niveles en la última (mkzebes.py usa el resto) */')
 H.append(f'extern const LevelDataN kLevels[{len(levels)}];')
 C.append(f'const LevelDataN kLevels[{len(levels)}] = {{')
 for lvl, i in sorted(lvl_idx.items(), key=lambda t: t[1]):

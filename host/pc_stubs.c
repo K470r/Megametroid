@@ -69,6 +69,7 @@ void nt_map_level_page(uint8 page) { (void)page; }
 
 void nt_block_changed(uint16_t i) { (void)i; }
 void nt_animtiles_transfer(uint16_t src, uint16_t size, uint16_t vram) { (void)src; (void)size; (void)vram; }
+void nt_enemy_vram_copy(uint32_t src, uint16_t dst) { (void)src; (void)dst; }
 /* MM_DRAWLOG: las palabras distintas del BG2 de los jefes (tilemap_stuff al subirse) y las entradas de la cola de VRAM
    (tamaño, origen, destino), por sala: mkzebes.py arma con ellas los tiles y el plano B de los cuerpos (docs/59) */
 static unsigned char bg2_seen[0x10000 / 8]; static unsigned bg2_room;

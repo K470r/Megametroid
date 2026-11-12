@@ -100,6 +100,11 @@ static uint16 lblk[QBLK];
 static uint8 nlblk, lfull;
 static uint16 lanim[QANIM][2];
 static uint8 nlanim;
+/* copias de tiles de los enemigos (EnemyInstr_CopyToVram: el ojo del Bomb Torizo): (origen bajo, banco, destino);
+   el vblank sube los tiles de la Genesis que mkzobj.py reconvirtió para esa copia (zo->vcp) */
+#define QVCP 6
+static uint16 lvcp[QVCP][3], qvcp[QVCP][3];
+static uint8 nlvcp, nvcp;
 
 /* bloque de la capa 1 (nivel, con los cambios de los PLMs: página del nivel) o de la capa 2 propia de la sala
    (zg->l2: página de gráficos) */
@@ -872,6 +877,34 @@ void nt_animtiles_transfer(uint16 src, uint16 size, uint16 vram) {
   if (md_zebes && zg && zg->nanim && nlanim < QANIM) { lanim[nlanim][0] = src; lanim[nlanim][1] = vram; nlanim++; }
 }
 
+void nt_enemy_vram_copy(uint32 src, uint16 dst) {
+  if (md_zebes && zo && zo->vcp && nlvcp < QVCP) {
+    lvcp[nlvcp][0] = (uint16)src; lvcp[nlvcp][1] = (uint16)(src >> 16); lvcp[nlvcp][2] = dst; nlvcp++;
+  }
+}
+static void vcp_vblank(void) {
+  uint8 lp = md_cur_page;
+  map_page(zo->page);
+  const uint16 *v0 = zo->vcp;
+  for (uint16 q = 0; q < nvcp; q++) {
+    const uint16 *v = v0 + 1;
+    for (uint16 n = v0[0]; n; n--) {
+      uint16 nt = v[3];
+      if (v[0] == qvcp[q][0] && v[1] == qvcp[q][1] && v[2] == qvcp[q][2]) {
+        const uint16 *t = v + 4;
+        for (; nt; nt--, t += 17) {
+          vdp_set_vram_write(t[0] * 32);
+          for (uint16 w = 1; w <= 16; w++) VDP_DATA = t[w];
+        }
+        break;
+      }
+      v += 4 + 17 * nt;
+    }
+  }
+  nvcp = 0;
+  map_page(lp);
+}
+
 /* (md_post, con el vblank libre) lo de la lógica pasa a las colas del vblank */
 void zebes_take(void) {
   if (lfull) { full_redraw = 1; lfull = 0; }
@@ -879,6 +912,8 @@ void zebes_take(void) {
   nlblk = 0;
   for (uint16 k = 0; k < nlanim && nanim < QANIM; k++) { qanim[nanim][0] = lanim[k][0]; qanim[nanim][1] = lanim[k][1]; nanim++; }
   nlanim = 0;
+  for (uint16 k = 0; k < nlvcp && nvcp < QVCP; k++) { qvcp[nvcp][0] = lvcp[k][0]; qvcp[nvcp][1] = lvcp[k][1]; qvcp[nvcp][2] = lvcp[k][2]; nvcp++; }
+  nlvcp = 0;
   for (uint16 k = 0; k < frz_nq_l && frz_nq < frz_ns; k++) frz_q[frz_nq++] = frz_q_l[k];   /* congelados */
   frz_nq_l = 0;
 }
@@ -918,6 +953,7 @@ void zebes_vblank(void) {
   if (zw && (kq_conv || wall_pend || mouth_pend)) kq_vblank();                    /* (después de la caché: los tiles de Crocomire derritiéndose) */
   if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();
+  if (nvcp && zo && zo->vcp) vcp_vblank();
   if (full_redraw) {                          /* salto grande: toda la ventana (rara vez: puertas, temblores) */
     uint8 f = full_redraw;
     full_redraw = 0;
@@ -1255,7 +1291,9 @@ static __attribute__((noinline, noclone, used)) uint8 zebes_obj_draw_slow(uint16
 _Static_assert(offsetof(ZebesOvl, zc) == 0 && sizeof(zcache[0]) == 14 && offsetof(__typeof__(zcache[0]), rec) == 6 &&
                offsetof(__typeof__(zcache[0]), zo) == 10, "zcache: el ensamblador de zebes_obj_draw");
 _Static_assert(offsetof(ZebesObj, recs) == 20, "ZebesObj.recs: el ensamblador de zebes_obj_draw");
-_Static_assert(FROZEN_REF == 0x8000 && ZEBES_FRZ_PAGE == 18, "zebes_obj_draw: constantes del ensamblador");
+_Static_assert(FROZEN_REF == 0x8000, "zebes_obj_draw: constantes del ensamblador");
+#define ZFP_S1(x) #x
+#define ZFP_S(x) ZFP_S1(x)   /* ZEBES_FRZ_PAGE en el ensamblador */
 __asm__(
   "    .text\n"
   /* zfrz_put: el congelado n (d0.w) en (x d1.w, y a1.w) si ya tiene su lugar del cuadro (frz_hc): d0 = 1; si no, 0
@@ -1297,11 +1335,11 @@ __asm__(
   "    lsl.w #2,%d4\n"
   "    add.w frz_t0,%d4\n"                    /* frz_t0 + (c << 3) */
   "    move.b md_cur_page,%d3\n"              /* la página de antes */
-  "    move.b #18,md_cur_page\n"              /* ZEBES_FRZ_PAGE */
-  "    cmp.b #18,md_hw_page\n"
+  "    move.b #" ZFP_S(ZEBES_FRZ_PAGE) ",md_cur_page\n"
+  "    cmp.b #" ZFP_S(ZEBES_FRZ_PAGE) ",md_hw_page\n"
   "    beq 3f\n"
-  "    move.b #18,md_hw_page\n"
-  "    move.b #18,0xA130FF\n"
+  "    move.b #" ZFP_S(ZEBES_FRZ_PAGE) ",md_hw_page\n"
+  "    move.b #" ZFP_S(ZEBES_FRZ_PAGE) ",0xA130FF\n"
   "3:  and.l #0xFFFF,%d0\n"
   "    lsl.l #3,%d0\n"
   "    lea kZebesFrz,%a0\n"

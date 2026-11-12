@@ -98,6 +98,30 @@ def pop_banks(rom, st):
     return out
 
 
+def vram_copy_ops(rom, bank):
+    """copias a la VRAM de los sprites que hacen las listas de instrucciones del banco de un jefe (EnemyInstr_CopyToVram,
+    $xx:814B: tamaño, origen de 24 bits, destino en palabras): [(origen, tamaño, destino)]. El ojo del Torizo es una
+    animación de 4 cuadros que sube a los tiles 472-473 ($AA:B279-B339 -> 7D80). Se buscan en el banco las palabras 814B
+    seguidas de una copia que cae en la VRAM de los sprites (0xC000-0xFFFF en bytes) desde la ROM."""
+    out = set()
+    base = 0x8000
+    blob = rom.bytes((bank << 16) | base, 0x8000)
+    for o in range(0, 0x8000 - 9):
+        if blob[o] | blob[o + 1] << 8 != 0x814B:
+            continue
+        size = blob[o + 2] | blob[o + 3] << 8
+        src = blob[o + 4] | blob[o + 5] << 8 | blob[o + 6] << 16
+        dst = blob[o + 7] | blob[o + 8] << 8
+        if 0 < size <= 0x800 and size % 32 == 0 and 0x80 <= src >> 16 < 0xE0 and src & 0xFFFF >= 0x8000 and \
+                0xC000 <= 2 * dst and 2 * dst + size <= 0x10000:
+            out.add((src, size, dst))
+    return sorted(out)
+
+
+# copias de tiles por jefe (banco): el Torizo ($AA, ojos y boca); docs/59
+VRAM_COPY_BANKS = {0xAA}
+
+
 def plm_sprite_copies(rom, st):
     """copias a la VRAM de sprites que hacen los PLMs del estado (PlmInstr_CopyFromRamToVram $84:87E5 en los primeros
     bytes de su lista: tamaño, origen de 24 bits, destino): p. ej. el PLM D6EA de la sala del Bomb Torizo copia los
@@ -579,7 +603,7 @@ def zkey(k):
 
 
 def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=OBJ_SLOT_LIST, extra_pal=None, base=ZOBJ_BASE,
-                  boss=None, vcopies=(), anim=()):
+                  boss=None, vcopies=(), anim=(), vops=()):
     """boss: (banco del jefe, momentos [{índice: color}]) en los estados con un jefe de BOSS_PALETTES: sus piezas de
     algunas paletas del SNES van en la línea BOSS_LINE (15 colores; se elige el reparto que menos junta).
     anim: los pasos de los ciclos de color de los enemigos (hook_moments), momentos sobre el último del jefe"""
@@ -601,6 +625,18 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     pieces = {}
     counts = Counter()
     bcounts = {}                                          # paleta del SNES del jefe -> Counter de sus píxeles
+    # copias de tiles en juego (vops): tile del SNES -> [(origen, desplazamiento en bytes)]; la VRAM de cada copia
+    aff = {}
+    vram_op = []
+    for (src, size, dst) in vops:
+        v2 = bytearray(vram)
+        v2[2 * dst:2 * dst + size] = rom.bytes(src, size)
+        vram_op.append(bytes(v2))
+        for j in range(size // 32):
+            aff.setdefault((2 * dst - 0xC000) // 32 + j, []).append(len(vram_op) - 1)
+
+    def subtiles(T, n):                                  # tiles del SNES de una pieza, en el orden de pxs
+        return [(T & 0x100) | ((T + dy * 16) & 0xF0) | ((T + dx) & 0x0F) for dx in range(n) for dy in range(n)]
     for k in sorted(keys):
         key = {"e": ("enemy",), "s": ("enemy", "B4"), "p": ("eproj",), "j": ("proj",), "t": ("trail",)}[k[0]] + k[1:]
         kp = mkmd.key_pieces(rom, key)
@@ -611,6 +647,15 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         for (x, y, at) in kp:
             T, p, big = at & 0x1FF, (at >> 9) & 7, bool(x & 0x8000)
             n = 2 if big else 1
+            for t_ in subtiles(T, n):                     # los colores que traen las copias (peso chico, como los suyos)
+                for oi in aff.get(t_, ()):
+                    px = mkmd.snes_tile4(vram_op[oi][0xC000 + 32 * t_:0xC000 + 32 * t_ + 32])
+                    for c in np.unique(px):
+                        if c and 128 + p * 16 + int(c) not in BEAM_IDX and not wtrail:
+                            if is_boss:
+                                bcounts.setdefault(p, Counter())[128 + p * 16 + int(c)] += 1
+                            else:
+                                counts[128 + p * 16 + int(c)] += 1
             pxs = []
             for dx in range(n):
                 for dy in range(n):
@@ -674,8 +719,9 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
 
     wslot = wave_trail_slots(rom)
 
-    def piece_map(pc):
-        x, y, at, p, big, pxs, ib, wt = pc
+    def piece_map(pc, pxs=None):
+        x, y, at, p, big, pxs0, ib, wt = pc
+        pxs = pxs0 if pxs is None else pxs
         if wt:                                            # estela de la onda: lugares fijos del rayo
             f = lambda c: wslot[c] if c else 0
         elif piece_line(pc) == BOSS_LINE:
@@ -687,32 +733,55 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     recs_all = []
     index = []
     nspr = [0, 0]
+    patches = [{} for _ in vops]                          # por copia: tile de la Genesis -> sus 32 bytes con la copia
+    def single(pc, mp):
+        """el registro de una pieza sola (sin juntar); None si no dibuja nada"""
+        x, y, at, p, big, pxs, ib, wt = pc
+        sts = subtiles(at & 0x1FF, 2 if big else 1)
+        if any(t_ in aff for t_ in sts):
+            # tiles que cambia una copia (EnemyInstr_CopyToVram): propios de los tiles del SNES y de la línea (no se
+            # comparten por contenido con otra pieza), y por cada copia sus tiles reconvertidos
+            kk = ("vcp", tuple(sts), piece_line(pc), p, wt)
+            if kk not in bank.index:
+                bank.index[kk] = bank.base + len(bank.tiles)
+                bank.tiles += [genesis_tile_bytes(m) for m in mp]
+            tile = bank.index[kk]
+            for j, t_ in enumerate(sts):
+                for oi in aff.get(t_, ()):
+                    px = [mkmd.obj_tile_px(vram_op[oi], at & 0x1FF, dx, dy) for dx in range(2 if big else 1)
+                          for dy in range(2 if big else 1)]
+                    patches[oi][tile + j] = genesis_tile_bytes(piece_map(pc, px)[j])
+        elif not any(m.any() for m in mp):
+            return None
+        else:
+            tile = bank.add_exact(mp)
+        prio = 1 if ((at >> 12) & 3) == 3 or os.environ.get("MM_ZOBJ_ALLHI") else 0
+        attr = (prio << 15) | (piece_line(pc) << 13) | (((at >> 15) & 1) << 12) | (((at >> 14) & 1) << 11) | tile
+        dx = x & 0x1FF
+        if dx >= 0x100:
+            dx -= 0x200
+        return (y, 0x0500 if big else 0, attr, dx)
+
+    def touched(pc):
+        return any(t_ in aff for t_ in subtiles(pc[2] & 0x1FF, 2 if pc[4] else 1))
     for k in sorted(pieces):
         recs = []
         maps = [piece_map(pc) for pc in pieces[k]]
         nspr[0] += len(pieces[k])
         if len(pieces[k]) >= compose_min:
-            recs = compose(bank, [pc[:6] for pc in pieces[k]], maps, [piece_line(pc) for pc in pieces[k]])
-            print('  %s: %d piezas -> %d sprites, hasta %d puntos por línea' % (k[1:], len(pieces[k]), len(recs), line_dots(recs)), file=sys.stderr)
+            # las piezas con tiles que cambian las copias van sueltas, primero (encima: en el jefe son los ojos y la
+            # boca, sobre el cuerpo); las demás se juntan
+            sel = [i for i, pc in enumerate(pieces[k]) if touched(pc)]
+            rest = [i for i in range(len(pieces[k])) if i not in sel]
+            recs = [r for r in (single(pieces[k][i], maps[i]) for i in sel) if r]
+            if rest:
+                recs += compose(bank, [pieces[k][i][:6] for i in rest], [maps[i] for i in rest],
+                                [piece_line(pieces[k][i]) for i in rest])
+            print('  %s: %d piezas -> %d sprites, hasta %d puntos por línea (sueltas %d, tiles %d)' % (k[1:], len(pieces[k]), len(recs), line_dots(recs), len(sel), len(bank.tiles)), file=sys.stderr)
             nspr[1] += len(recs)
-            off = len(recs_all)
-            recs_all += list(struct.unpack(">5h", mkmd.rec_header(recs)))
-            for r in recs:
-                recs_all += list(r)
-            index.append(zkey(k) + (off,))
-            continue
-        nspr[1] += len(pieces[k])
-        for pc, mp in zip(pieces[k], maps):
-            x, y, at, p, big, pxs, ib, wt = pc
-            if not any(m.any() for m in mp):
-                continue
-            tile = bank.add_exact(mp)
-            prio = 1 if ((at >> 12) & 3) == 3 or os.environ.get("MM_ZOBJ_ALLHI") else 0
-            attr = (prio << 15) | (piece_line(pc) << 13) | (((at >> 15) & 1) << 12) | (((at >> 14) & 1) << 11) | tile
-            dx = x & 0x1FF
-            if dx >= 0x100:
-                dx -= 0x200
-            recs.append((y, 0x0500 if big else 0, attr, dx))
+        else:
+            nspr[1] += len(pieces[k])
+            recs = [r for r in (single(pc, mp) for pc, mp in zip(pieces[k], maps)) if r]
         off = len(recs_all)
         recs_all += list(struct.unpack(">5h", mkmd.rec_header(recs)))
         for r in recs:
@@ -722,12 +791,15 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     if len(tiles) // 32 > 1280 - base:
         print(f"  objetos {tilesets_ptr:04X}: {len(tiles) // 32} tiles, más de {1280 - base}: no entran", file=sys.stderr)
         return None
+    if vops:
+        print(f"  copias de tiles: {len(vops)}, parches {sum(len(pt) for pt in patches)} tiles", file=sys.stderr)
     if boss:
         print(f"  jefe: paletas del SNES {sorted(s1)} en la línea {BOSS_LINE} ({len(alive1)} colores, {merged1} fusiones), "
               f"las demás en la {OBJ_LINE} ({len(alive)} colores, {merged} fusiones)", file=sys.stderr)
     return dict(base=base, tiles=tiles, src=src, keys=sorted(index), recs=[v & 0xFFFF for v in recs_all],
                 merged=merged + merged1, ncolors=len(counts) + sum(len(c) for c in bcounts.values()), nspr=nspr,
-                boss_line=bool(boss))
+                boss_line=bool(boss),
+                patches=[(src, dst, sorted(pt.items())) for (src, size, dst), pt in zip(vops, patches) if pt])
 
 
 def state_vram(rom, tilesets_ptr, vcopies=()):
@@ -874,17 +946,18 @@ def build(rom_path, log_paths, states, frozen=None):
         vc = plm_sprite_copies(rom, st)
         fb = frozen_banks(rom, st) - ({boss_of(rom, st)[0]} if boss_of(rom, st) else set())
         an = hook_moments(rom, st, ts)
-        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an))
+        vo = vram_copy_ops(rom, boss[0]) if boss and boss[0] in VRAM_COPY_BANKS and room not in STREAM_ROOMS else ()
+        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an), tuple(vo))
         if ck not in cache:                       # (lo mismo: se comparte)
             sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else OBJ_SLOT_LIST
             if room in STREAM_ROOMS:              # por cuadro: los tiles no tienen que entrar juntos (base 0)
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an, vops=vo)
             else:
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an, vops=vo)
             if cache[ck] is None and low < ZOBJ_BASE:   # más lugar: desde el final de los tiles de la sala
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo)
             if cache[ck] is None:                 # no entran los tiles: sin juntar piezas (comparten los tiles del SNES)
-                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an)
+                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo)
                 if cache[ck] is None:
                     print(f"  ¡sala {room:04X} (tiles {ts:04X}): sus objetos no entran ni sin juntar piezas!", file=sys.stderr)
             d = cache[ck]

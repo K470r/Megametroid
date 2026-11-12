@@ -32,7 +32,9 @@ uint16 EnemyInstr_WaitNframes(uint16 k, uint16 jp) {  // 0xA0813A
   return 0;
 }
 
-uint16 EnemyInstr_CopyToVram(uint16 k, uint16 jp) {  // 0xA0814B: en la Genesis los tiles ya están (sin cola de VRAM)
-  (void)k;
+uint16 EnemyInstr_CopyToVram(uint16 k, uint16 jp) {  // 0xA0814B: tamaño, origen (24 bits), destino; la plataforma sube
+  uint8 bank = gEnemyData(k)->bank;                     // los tiles ya convertidos de esa copia (mkzobj.vram_copy_ops)
+  uint32 src = EnemyInstrWord(bank, (uint16)(jp + 2)) | (uint32)(EnemyInstrWord(bank, (uint16)(jp + 4)) & 0xFF) << 16;
+  nt_enemy_vram_copy(src, EnemyInstrWord(bank, (uint16)(jp + 5)));
   return (uint16)(jp + 7);
 }

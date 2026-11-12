@@ -655,3 +655,34 @@ cuadro (estado completo de la Genesis con `MD_STOP_AT` contra la grabación de `
   (md_engine.c) usa la interrupción horizontal del líquido: arriba la paleta normal y dos franjas (desde las líneas 72
   y 147 del SNES) con el color medio de cada una (2/2/2 y 4/4/6, `MD_TORIZO_HAZE*` de mkmd.py). Con la caja de
   mensaje (las bombas) no: sus paletas comparten la RAM con la caja; al cerrarse se rehacen.
+
+## Golden Torizo (2026-11-12)
+
+Lado a lado con el SNES (`tools/compare/lado_a_lado.sh` con `PAT=tools/compare/golden_in.txt DOOR=9A86 X=300 Y=370`,
+`HL_POKE=9A6:100B,9A8:100B,9C2:3E7,9C4:3E7` y en la Genesis `EXTRA_FL="-DMD_TEST_GOD -DMD_TEST_ITEMS=0
+-DMD_TEST_BEAMS=0x100B -DMD_TEST_POKES={12764,0x9C2,0x3E7},{12764,0x9C4,0x3E7}"`: rayos de onda, hielo, plasma y
+carga, 999 de energía; el Golden desvía los disparos sin cargar, el patrón carga y suelta) y la lógica cuadro a cuadro
+(`MD_STOP_AT` contra la grabación de `hlref`) en toda la pelea, la muerte y lo que sigue:
+- **`MD_TEST_GOD` desde el salto**: la Genesis hacía invencible a Samus desde el principio (también contra Ridley en
+  Ceres) y `HL_GOD` de hlref solo desde el cuadro grabado: llegaban a la sala con otra posición. Ahora desde el salto.
+- **Instrucciones de proyectiles sin traducir**: `port.py` solo traducía las `EprojInstr_*` debajo de $86:8300; las
+  demás (22: rayo del ojo del Golden en el suelo `GotoIfFunc1`, `ResetXYpos1/2`, `SetVelTowardsSamus2`, Draygon,
+  estatuas de Tourian, tubo de Maridia...) se paraban en la lista ("instrucción sin portar"). Ahora se traducen todas;
+  `GotoIfFunc1` (B3B8), `sub_86B13E` (huevos), `nullsub_82` y las dos del láser de los piratas usadas como instrucción
+  van a mano en `ep_instr_list` (eproj.c). Además, las 45 funciones de inicio y pre-instrucción de proyectiles que
+  faltaban en los despachadores del decomp (supermisil y huevos del Golden, Mother Brain, puerta-ojo y estatuas de
+  Tourian, tubo de Maridia, pelusa de Draygon 8DCA...) están en `tools/port/roots.txt`.
+- `SetGoldenTorizoPalette` ($84:8000, los colores según la vida) escrita a mano (bosses.c); solo marca los colores si
+  cambiaron (se llama en cada cuadro).
+- `port.py`: `POST_PATCHES` (las marcas `enemy_hw` y `sprobj_note` que estaban a mano en port_gen.c: ahora el
+  traductor las pone y port_gen.c sale igual al regenerarlo); el despachador de pre-instrucciones que llaman las de la
+  sala del tubo es `ep_preinstr_c`. `xlate.py`: `ExtraEnemyRam8000` también en la primera línea de la función.
+- Resultado: la lógica de la Genesis es igual al SNES en toda la pelea y después (0 diferencias); en el PC, `check`
+  sobre la misma grabación da 0 diferencias en sus 8355 cuadros. El dibujo coincide (ataques, orbes, huevos, rayo del
+  ojo, muerte, explosiones).
+- **Pendiente: la velocidad**. La pelea corre al 72-76 % (unos 164 mil ciclos por cuadro del motor; el presupuesto
+  es ~128 mil); sin el jefe, la sala al 91-97 %. El costo está repartido: md_post (HUD y paleta), md_putrecs_t y el
+  dibujo de enemigos (los estados del Golden no entran juntando piezas: 1655 sprites sueltos), HdmaObjectHandler
+  (las olas de la lava, `B88W` en un bucle de 16), las estelas de los rayos, PaletteFxHandler, los PLM. Ya hecho:
+  `zebes_obj_draw` en ensamblador también fuera de las salas por cuadro (9.7k -> 5.6k ciclos). Como Kraid: los objetos
+  por cuadro (`STREAM_ROOMS`) permitirían juntar piezas, pero chocan con las copias de tiles del ojo (`vram_copy_ops`).

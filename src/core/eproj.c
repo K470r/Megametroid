@@ -797,6 +797,23 @@ void ep_instr_list(uint16 v1) {
         eproj_x_pos[v1 >> 1] = eproj_E[v1 >> 1];
         eproj_y_pos[v1 >> 1] = eproj_F[v1 >> 1];
         p += 2; break;
+      case 0xB3B8:                                                        // EprojInstr_GotoIfFunc1 (rayo del ojo
+        /* del Golden Torizo en el suelo): espera mientras el bit 15 de 7E:7800 + F + 0x0C (kraid_healths_8ths[0] en
+           el decomp: del Torizo que lo disparó) está en 0 */
+        p = (enemy_ram7800[eram_idx((uint16)(0x7800 + eproj_F[v1 >> 1] + 0x0C))] & 0x8000) ? p + 4 : b86(p + 2);
+        break;
+      case 0xB13E:                                                        // sub_86B13E (huevo del Golden Torizo)
+        p = (eproj_E[v1 >> 1] & 0x8000) ? 0xB166 : 0xB14B;
+        break;
+      case 0x81DE: p += 2; break;                                         // nullsub_82
+      case 0xA07A: case 0xA05C: {   // EprojPreInstr_PirateMotherBrainLaser_MoveRight / MoveLeft como instrucción
+        if (!port_CallEprojPreInstr(0x860000 | f, v1)) { nt_unimpl_v("EprojRunOne (instrucción sin portar)", f); return; }
+        p += 2; break;
+      }
+      case 0xB436:                                                        // EprojInstr_ResetXYpos2
+        eproj_x_pos[v1 >> 1] = eproj_E[v1 >> 1];
+        eproj_y_pos[v1 >> 1] = eproj_F[v1 >> 1];
+        p += 2; break;
       case 0xA456:                                                        // EprojInstr_GotoWithProbability25
         p = ((NextRandom() & 0xC000) == 0xC000) ? b86(p + 2) : p + 4;
         break;

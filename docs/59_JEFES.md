@@ -594,3 +594,22 @@ la interrupción horizontal (la había apagado al empezar), salta en ese momento
 colores de los enemigos cae sobre el HUD. Los manejadores de la línea 31 (`md_hint_obj`, `md_hint_msg`,
 `md_hint_lq`) no hacen nada antes de la línea 30: la interrupción buena de la línea 31 llega igual. En la pelea, la
 fila del HUD sale igual en todos los cuadros; la regresión, 0 distintos.
+
+## Kraid: rendimiento, dónde quedó y qué falta (2026-11-12)
+
+Subida de Kraid (C902 → AEA4, 367 cuadros de lógica): 686 → 496 cuadros de consola (74 % de la velocidad). Pelea
+grande (AE23 → C3F9, 1712 de lógica): 2062 → 1807 (95 %). Lo hecho, en orden: ROM fija (bancos fríos a la página
+7), lecturas directas, cachés de dos vías, colisiones de proyectiles en ensamblador, `zebes_obj_draw`/`zfrz_put` en
+ensamblador, plan de RAM (docs/60) y con esa RAM: registros de los congelados en la zona del jefe, IA por lugar de
+enemigo, caché de tramos de bloques, `EprojRunAll` en ensamblador con las rocas directas, recorridos de enemigos y
+objetos de sprite hasta el lugar usado, `md_draw_eprojs_asm` con un índice, `md_putrecs_ns`.
+
+Pendiente (lo que todavía se puede hacer):
+- `EnemyMain` (~16k ciclos por cuadro): unos 760 ciclos de pegamento por enemigo y ~2k de `gEnemyData` recalculado
+  en cada función en línea. Reescribir el bucle de enemigos en ensamblador (con `E` en un registro).
+- `zebes_obj_draw` + `DrawOneEnemy`/`DrawEnemySpritemap` (~5k + el C de quien llama): el dibujo de las piezas de
+  Kraid por un camino en ensamblador desde `DrawOneEnemy`.
+- `md_putrecs_ns` (~9k): trabajo real (unos 40 sprites por cuadro); poco margen.
+- Base de todas las salas: `md_post` (~6-12k; la comparación del HUD, 1,4k), `md_vblank` (~5k).
+- Herramientas: perfil `segprof.sh` (estados de Kraid), `flines.py` (por línea), imagen cuadro a cuadro (`imgcmp.sh`,
+  con `REF=` un commit), regresión y las 194 salas con `check`.

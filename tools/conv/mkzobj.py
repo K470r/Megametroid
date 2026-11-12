@@ -649,6 +649,9 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             print("  colores de enemigos distintos:", len(merge_colors(c3e, vec, 99)[1]), "de", len(slots), file=sys.stderr)
         r1 = merge_colors(c1, vec, 15, sqrt_w=True, solo=solo) if c1 else ({}, {}, 0, 0.0)
         cost = r3[3] + r1[3]
+        if os.environ.get("MM_ZOBJ_REP"):                 # depuración: a qué índice va cada uno de una lista
+            for i in (int(x) for x in os.environ["MM_ZOBJ_REP"].split(",")):
+                print("  mask", mask, "índice", i, "-> r3", r3[0].get(i), "r1", r1[0].get(i), "costo %.0f" % cost, file=sys.stderr)
         if best is None or cost < best[0]:
             best = (cost, s1, r3, r1)
     _, s1, (rep, alive, merged, _), (rep1, alive1, merged1, _) = best

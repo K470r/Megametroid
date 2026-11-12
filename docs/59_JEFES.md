@@ -629,6 +629,9 @@ cuadro (estado completo de la Genesis con `MD_STOP_AT` contra la grabación de `
 - **Los ojos**: índices 156-158 de palette_buffer (rosados en la estatua; naranjas al despertar; cian en el Golden).
   Al juntar colores se iban con un marrón: `mkzobj.BOSS_SOLO` los deja para el final. Se encienden en las poses en
   que el tile del ojo va solo; en algunas (el salto) el sprite compuesto de la cabeza sale con los índices del cuerpo
-  en el ojo: pendiente revisar `mkzobj.compose` con ese componente.
+  en el ojo: pendiente. El reparto de colores está bien (`MM_ZOBJ_REP=155,156,157,158` en `mkzobj.build` muestra
+  156-158 a sí mismos en la línea 1); hay que comparar el tile del ojo (456, componente $AA:9786) de la Genesis con el
+  del SNES en el mismo cuadro exacto (el volcado `HL_VRAM` y la captura de la Genesis quedaron a un cuadro: el Torizo
+  salta y todo sale corrido 6 píxeles).
 - **Los aros marrones** al final: también están en el SNES (restos de la pelea); allí se ven más tenues por la
   neblina azul (`SpawnBombTorizoHaze`, suma de color por franjas), que la Genesis no hace todavía: pendiente.

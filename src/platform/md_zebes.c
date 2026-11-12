@@ -40,6 +40,7 @@ static uint16 bb_sum;                             /* largo del último mapa conv
 static void bb_convert(uint16 n, uint16 rows);
 #define bb_rsum ((uint32 *)((uint8 *)cinematic_text_tilemap + 3904))   /* suma de cada fila del último mapa (16) */
 static uint16 bb_rows;                            /* filas convertidas que esperan al vblank (bits) */
+static uint8 bb_hide;                             /* el BG2 no está en ninguna pantalla del SNES: el plano B vacío */
 static void bb_vblank(void);
 static uint8 bt_pending;                          /* volver a subir los tiles del cuerpo (0xF000) en el vblank */
 static void bt_dma(void);
@@ -393,7 +394,7 @@ const MdRoom *zebes_use(void) {
   if (f < 0) { md_zebes = 0; return 0; }
   zg = &kZebesGfx[kZebesStates[f].gfx];
   zo = kZebesStates[f].obj != 0xFFFF ? &kZebesObj[kZebesStates[f].obj] : 0;
-  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0; bb_rows = 0;
+  zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0; bb_rows = 0; bb_hide = 0;
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
   for (uint16 i = 0; i < 64; i++) zcache[i].zo = 0;   /* (md_ovl: la intro pudo dejar cualquier cosa, docs/60) */
@@ -584,6 +585,16 @@ static void prio_sweep(void) {
 void zebes_frame(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   melt_frame();
   if (zw) kq_frame();
+  /* el BG2 fuera de las dos pantallas del SNES (TM/TS: Phantoon invisible, LayerBlendFunc_4): el cuerpo se borra del
+     plano B; al volver, se sube otra vez */
+  if (zbb && bb_ever) {
+    uint8 h = !((reg_TM | reg_TS) & 2);
+    if (h != bb_hide) {
+      bb_hide = h;
+      if (h) { memset(bb_buf, 0, (bb_sum & ~31) * 2); bb_n = bb_sum & ~31; bb_rows = 0xFFFF; }
+      else bb_redo = 1;
+    }
+  }
   if (bb_redo && zbb && bb_ever) { nt_enemy_bg2_transfer(); bb_redo = 0; }   /* la caché se vació: el cuerpo otra vez */
   if (drawn[0]) { follow(0, ax, ay); if (psweep < ZW) prio_sweep(); }
   if (drawn[1]) follow(1, bx, zg->sky ? ay : by);   /* el cielo baja con la capa 1 (BG2VOFS = layer1_y_pos) */
@@ -839,7 +850,7 @@ static void bb_convert(uint16 n, uint16 rows) {   /* rows: filas (de 32) que cam
 }
 
 void nt_enemy_bg2_transfer(void) {
-  if (!md_zebes || !zbb) return;
+  if (!md_zebes || !zbb || bb_hide) return;
   uint16 n = enemy_bg2_tilemap_size >> 1;
   if (n > BB_MAX) n = BB_MAX;
   /* suma por fila (32 palabras): solo se convierten y se suben las filas que cambiaron (la boca, los brazos) */

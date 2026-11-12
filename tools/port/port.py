@@ -92,6 +92,13 @@ POST_PATCHES = [
      '  sprite_instr_list_ptrs[v1] = addr_kSpriteObject_Ilist_C3BA;\n  sprobj_note((uint16)v1);\n'),
     ('  sprite_instr_list_ptrs[v2] = addr_kSpriteObject_Ilist_C4B6;\n',
      '  sprite_instr_list_ptrs[v2] = addr_kSpriteObject_Ilist_C4B6;\n  sprobj_note((uint16)v2);\n'),
+    # bytes de una tabla de palabras (las bolas de fuego de Phantoon): en el 68000 el orden de los bytes es el otro;
+    # k es par (2 * ángulo): el byte k es el bajo de la palabra k / 2 y el k + 1 el alto
+    ('  uint16 r18 = Mult8x8(*((uint8 *)&kSinCosTable8bit_Sext[64] + k), r24) >> 8;\n'
+     '  return r18 + Mult8x8(*((uint8 *)&kSinCosTable8bit_Sext[64] + k + 1), r24);\n',
+     '  uint16 w_ = (uint16)kSinCosTable8bit_Sext[64 + (k >> 1)];\n'
+     '  uint16 r18 = Mult8x8((uint8)w_, r24) >> 8;\n'
+     '  return r18 + Mult8x8((uint8)(w_ >> 8), r24);\n'),
     # el despachador de pre-instrucciones de los proyectiles es el del motor (eproj.c)
     ('  CallEprojPreInstr(eproj_E[k >> 1] | 0x860000, k);\n',
      '  { void ep_preinstr_c(uint16 f, uint16 k); ep_preinstr_c(eproj_E[k >> 1], k); }\n'),
@@ -388,9 +395,11 @@ def main():
                        % (ft, d, (params.split()[-1] if params else 'cur_enemy_index') if withk else ''))
     # palette_buffer escrito a mano por el código del enemigo (Torizo_Hurt, Torizo_C2B0, Spore Spawn...): el SNES sube
     # la paleta entera en cada NMI, la Genesis solo los colores marcados (nt_pal_dirty, nt.h)
-    text = re.sub(r'(palette_buffer\[([^\]\n]+)\] = [^;\n]+;)',
+    text = re.sub(r'(palette_buffer\[([^\]\n]+)\] (?:[-+|&^]?)=\s[^;]+;)',   # (también en varias líneas: Phantoon_Func_8/9)
                   lambda m: '{ %s nt_pal_dirty((uint8)(%s), (uint8)(%s)); }' % (m.group(1), m.group(2), m.group(2)),
                   '\n'.join(out))
+    text = re.sub(r'((?:--|\+\+)palette_buffer\[([^\]\n]+)\];)',
+                  lambda m: '{ %s nt_pal_dirty((uint8)(%s), (uint8)(%s)); }' % (m.group(1), m.group(2), m.group(2)), text)
     # despachadores (CallKraidFunc...): si todos los casos de un switch (ea) son del mismo banco y el que llama siempre
     # pasa banco | dirección, el switch va sobre los 16 bits de abajo (en el 68000 el de 32 bits es un árbol de
     # comparaciones largas; el de las piezas de Kraid corría ~8 veces por cuadro)

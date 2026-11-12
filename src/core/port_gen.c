@@ -4082,8 +4082,9 @@ Point16U Eproj_PhantomFireballs_Func1(uint16 j, uint16 a) {  // 0x869BA2
   return (Point16U) { r20, r22 };
 }
 uint16 Eproj_PhantomFireballs_Func2(uint16 k, uint16 r24) {  // 0x869BF3
-  uint16 r18 = Mult8x8(*((uint8 *)&kSinCosTable8bit_Sext[64] + k), r24) >> 8;
-  return r18 + Mult8x8(*((uint8 *)&kSinCosTable8bit_Sext[64] + k + 1), r24);
+  uint16 w_ = (uint16)kSinCosTable8bit_Sext[64 + (k >> 1)];
+  uint16 r18 = Mult8x8((uint8)w_, r24) >> 8;
+  return r18 + Mult8x8((uint8)(w_ >> 8), r24);
 }
 static NT_BOSS void EprojInit_RocksKraidSpits(uint16 j) {  // 0x869CA3
   EnemyData *v1 = gEnemyData(cur_enemy_index);
@@ -20889,12 +20890,12 @@ NT_BOSS void Kraid_Shot_UnglowEye(void) {  // 0xA7B73D
     int v5 = v2 >> 1;
     if ((((uint16)BW_A7(0xB3D3 + 2 * (v5 + 1))) & 0x1F) != r18) {
       ++r20;
-      --palette_buffer[v4];
+      { --palette_buffer[v4]; nt_pal_dirty((uint8)(v4), (uint8)(v4)); }
     }
     r18 = palette_buffer[v4] & 0x3E0;
     if ((((uint16)BW_A7(0xB3D3 + 2 * (v5 + 1))) & 0x3E0) != r18) {
       ++r20;
-      palette_buffer[v4] -= 32;
+      { palette_buffer[v4] -= 32; nt_pal_dirty((uint8)(v4), (uint8)(v4)); }
     }
     v3 += 2;
     v2 += 2;
@@ -22679,10 +22680,10 @@ uint8 Phantoon_Func_8(void) {  // 0xA7DB9A
   EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
   if ((uint16)(E->ai_var_D + 1) >= E->ai_var_E) {
     for (int i = 0; i < 0x20; i += 2) {
-      palette_buffer[(i >> 1) + 112] =
+      { palette_buffer[(i >> 1) + 112] =
         Phantoon_Func_10_CalculateNthTransitionColorFromXtoY(E->ai_var_E,
           palette_buffer[(i >> 1) + 112],
-          ((uint16)BW_A7(0xCA41 + 2 * (i >> 1))));
+          ((uint16)BW_A7(0xCA41 + 2 * (i >> 1)))); nt_pal_dirty((uint8)((i >> 1) + 112), (uint8)((i >> 1) + 112)); }
     }
     ++E->ai_var_E;
     return 0;
@@ -22729,10 +22730,10 @@ uint8 Phantoon_Func_9(void) {  // 0xA7DC5A
   EnemyData *E = gEnemyData(0x40); uint16 E_k = (0x40);
   if ((uint16)(E->ai_var_D + 1) >= E->ai_var_E) {
     for (int i = 0; i < 0xE0; i += 2) {
-      palette_buffer[i >> 1] = Phantoon_Func_10_CalculateNthTransitionColorFromXtoY(
+      { palette_buffer[i >> 1] = Phantoon_Func_10_CalculateNthTransitionColorFromXtoY(
         E->ai_var_E,
         palette_buffer[i >> 1],
-        ((uint16)BW_A7(0xCA61 + 2 * (i >> 1))));
+        ((uint16)BW_A7(0xCA61 + 2 * (i >> 1)))); nt_pal_dirty((uint8)(i >> 1), (uint8)(i >> 1)); }
     }
     ++E->ai_var_E;
     return 0;
@@ -23973,7 +23974,7 @@ void WreckedShipGhost_Func_1(uint16 k) {  // 0xA89B42
   do {
     int v5 = v4 >> 1;
     if (sign16((palette_buffer[v5] & 0x1F) - 31)) {
-      palette_buffer[v5] += 1057;
+      { palette_buffer[v5] += 1057; nt_pal_dirty((uint8)(v5), (uint8)(v5)); }
       --v1;
     }
     v4 += 2;

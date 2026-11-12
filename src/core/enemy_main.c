@@ -175,6 +175,7 @@ void LoadEnemies(void) {  // 0xA08A1E
   enemy_bg2_tilemap_size = 2048;
   boss_id = 0;
   memset(enemy_data, 0, sizeof enemy_data);                  // ClearEnemyDataAndProcessEnemySet
+  enemy_hw = 0;
   if (enemy_population(room_enemy_population_ptr)->n)
     ProcessEnemyTilesets();
   enemy_tile_load_data_write_pos = 0;                        // LoadEnemyTileData (los tiles: la Genesis)
@@ -254,6 +255,7 @@ void InitializeEnemies(void) {  // 0xA08A9E
     if (ED->boss_fight_value)
       boss_id = ED->boss_fight_value;
     E->enemy_ptr = EP->enemy_ptr;
+    if (enemy_hw < v5 + 64) enemy_hw = v5 + 64;
     E->x_pos = EP->x_pos;
     E->y_pos = EP->y_pos;
     E->current_instruction = EP->init_param;
@@ -320,6 +322,7 @@ uint16 SpawnEnemy(uint8 db, uint16 k) {  // 0xA09275: población de un solo enem
     E->bank = ED->bank;
     E->field_2F = ED->hurt_ai_time;
     E->enemy_ptr = ep;
+    if (enemy_hw < ni + 64) enemy_hw = ni + 64;
     E->x_pos = BankW(db, varE20 + 2);
     E->y_pos = BankW(db, varE20 + 4);
     E->current_instruction = BankW(db, varE20 + 6);

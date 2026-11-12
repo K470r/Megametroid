@@ -6071,6 +6071,7 @@ void RespawnEnemy(uint16 v0) {  // 0x86F264
   uint16 v1 = (room_enemy_population_ptr + (v0 >> 2));
   EnemyData *E = gEnemyData(v0);
   E->enemy_ptr = BW_A1(v1);
+  if (enemy_hw < (uint16)((v0 & 0xFFC0) + 64)) enemy_hw = (v0 & 0xFFC0) + 64;   /* (game.c) */
   E->x_pos = BW_A1(v1 + 2);
   E->y_pos = BW_A1(v1 + 4);
   E->current_instruction = BW_A1(v1 + 6);

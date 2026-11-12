@@ -643,8 +643,15 @@ cuadro (estado completo de la Genesis con `MD_STOP_AT` contra la grabación de `
   los tiles en el vblank. Para que entrara, `mkzebes.py` usa también lo que dejan libre los niveles en su última
   página (la 10, `NT_LEVEL_LAST_USED` de mkdata.py): 140 KB libres en total; el ensamblador de `zebes_obj_draw` toma
   `ZEBES_FRZ_PAGE` del encabezado generado (antes fijo en 18).
-- **La estatua corrida** (pendiente): antes de despertar, la estatua del SNES es fondo (BG2, `tilemap_stuff` a 4800,
-  BG2HOFS = 0x100; el enemigo dibuja un spritemap vacío, $AA:87C9) y en la Genesis sale unos 60 píxeles más a la
-  derecha que en el SNES (el ítem de sus manos también). Ya pasaba antes.
+- **La estatua "corrida"**: no es un fallo. La estatua es parte del nivel (bloques 12-14 de las filas 10-12, x
+  192-240) y la Genesis la dibuja ahí. En la captura del SNES de la comparación sale 61 píxeles a la izquierda porque
+  el salto de prueba de `hlref` (HL_WARP) deja el BG1 desalineado (`bg1_x_offset` = 0xB3B con el mapa escrito con otro
+  desplazamiento); en el juego de verdad está a la derecha.
 - **Los aros marrones** al final: también están en el SNES (restos de la pelea); allí se ven más tenues por la
-  neblina azul (`SpawnBombTorizoHaze`, suma de color por franjas), que la Genesis no hace todavía: pendiente.
+  neblina (`SpawnBombTorizoHaze`).
+- **La neblina, por franjas**: son dos objetos de HDMA al COLDATA, uno con rojo y verde ($88:DD75) y otro con azul
+  ($88:DDA6): nada en las primeras 72 líneas y después crece hacia abajo (hasta 5/5/8). Antes la Genesis sumaba a
+  toda la imagen el promedio de la primera tabla sola (2/2/0: amarillento, sin el azul). Ahora `lq_prepare`
+  (md_engine.c) usa la interrupción horizontal del líquido: arriba la paleta normal y dos franjas (desde las líneas 72
+  y 147 del SNES) con el color medio de cada una (2/2/2 y 4/4/6, `MD_TORIZO_HAZE*` de mkmd.py). Con la caja de
+  mensaje (las bombas) no: sus paletas comparten la RAM con la caja; al cerrarse se rehacen.

@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
   /* comprobación de tamaños: el blob debe medir lo mismo que las variables */
   long expect = 0;
   for (const VarMap *v = g_vars_map; v->name; v++) { expect += v->size * v->count; if (expect & 1) expect++; }
-  expect += sizeof(EnemyData) * ENEMY_COUNT + sizeof(EnemySpawnData) * ENEMY_COUNT + 0x2000 + sizeof lvl_index + sizeof lvl_mod + sizeof lvl_ov;
+  expect += sizeof(EnemyData) * ENEMY_COUNT + sizeof(EnemySpawnData) * ENEMY_COUNT + sizeof(enemy_ram7800) + sizeof lvl_index + sizeof lvl_mod + sizeof lvl_ov;
   printf("init_state: %ld bytes (esperado %ld), EnemyData %zu\n", off, expect, sizeof(EnemyData));
   return off != expect;
 }

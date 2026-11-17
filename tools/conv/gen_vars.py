@@ -39,9 +39,11 @@ ARRAY_LEN = {
     # HDMA de la ondulación del BG2 bajo el líquido (hdmaobj.c: índices 0-16) y del cielo (el último par que nombra
     # kHdmaScrollEntrys, $88:AEC1, es 7E:9FD8: índice 45); docs/60
     'g_word_7E9C46': 17,
+    # el rayo arco iris de Mother Brain ($AD:DECE) escribe hdma_table_2 hasta la línea 232 (7E:9ED2): pisa
+    # statue_bg2_ypos (7E:9E00), que pasa a ser su palabra 128 como en el SNES
     # mapa explorado guardado: 7 áreas de 128 palabras (el área 7, la de depuración, no se alcanza; gamestart.c)
     'explored_map_tiles_saved': 7 * 128,
-    'projectile_bomb_pre_instructions': 10, 'enemy_drawing_queue_sizes': 8, 'tilemap_stuff': 2048, 'hdma_table_1': 256, 'scrolling_sky_bg2_hdma_data': 46, 'scrolling_sky_bg2_indirect_hdma': 128, 'projectile_variables': 10, 'projectile_timers': 10,
+    'projectile_bomb_pre_instructions': 10, 'enemy_drawing_queue_sizes': 8, 'tilemap_stuff': 2048, 'hdma_table_1': 256, 'hdma_table_2': 240, 'scrolling_sky_bg2_hdma_data': 46, 'scrolling_sky_bg2_indirect_hdma': 128, 'projectile_variables': 10, 'projectile_timers': 10,
 }
 # variables que el motor define a su manera (no como en la RAM del SNES)
 # kraid_unk9000 (7E:9000) cae dentro de la RAM extra de enemigos: es ERAM(0x9000) (inc/core/enemies.h)

@@ -54,6 +54,7 @@ NT_BOSS CoroutineRet UnpauseHook_Kraid_IsAlive(void);
 uint16 SuitDamageDivision(uint16 a);
 void SpawnPalfxObject(uint16 j);
 uint8 SpawnPLM(uint16 a);
+uint16 SpawnMotherBrainRainbowBeamHdma(void);
 void SpawnMorphBallEyeBeamHdma(void);
 uint16 SpawnHdmaObject(uint8 bank, uint16 list);
 void SpawnHardcodedPlm(uint8 x, uint8 y, uint16 id);
@@ -62,6 +63,7 @@ void SpawnEprojWithGfx(uint16 a, uint16 k, uint16 j);
 uint16 SpawnEnemy(uint8 db, uint16 k);
 void SpawnBombTorizoHaze(void);
 void SpawnBG3ScrollHdmaObject(void);
+void SomeMotherBrainScripts(uint16 a);
 NT_BOSS void ShitroidInCutscene_GetIntoFace(uint16 k);
 NT_BOSS void SetGoldenTorizoPalette(uint16 a);
 void SetEventHappened(uint16 a);
@@ -96,6 +98,8 @@ void QueueSfx1_Max1(uint16 v);
 void QueueMusic_Delayed8(uint16 a);
 void ProjectileReflection(uint16 r20);
 NT_BOSS uint8 ProcessSpriteTilesTransfers(uint8 db, uint16 k);
+NT_BOSS void ProcessCorpseRottingVramTransfers(uint16 k);
+NT_BOSS uint8 ProcessCorpseRotting(uint16 k);
 NT_BOSS void Phantoon_Func_2(uint16 k);
 NT_BOSS void PauseHook_Kraid(void);
 void NormalEnemyTouchAiSkipDeathAnim(void);
@@ -104,15 +108,19 @@ uint32 Multiply16x16(uint16 a, uint16 j);
 uint16 MoveEprojWithVelocityY(uint16 k);
 uint16 MoveEprojWithVelocityX(uint16 k);
 uint16 MoveEprojWithVelocity(uint16 k);
+NT_BOSS void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22);
+uint16 MotherBrainRisingHdmaObject(void);
 uint16 Math_MultBySin(uint16 a, uint16 ang);
 uint16 Math_MultByCos(uint16 a, uint16 ang);
 PairU16 MakePairU16(uint16 k, uint16 j);
+void LoadFxEntry(uint16 v0);
 NT_BOSS void KraidsFingernail_Fire(uint16 k);
 NT_BOSS CoroutineRet Kraid_UnpauseHook_IsSinking(void);
 NT_BOSS void Kraid_SetupGfxWithTilePrioClear(uint16 r18);
 NT_BOSS void Kraid_HurtFlash_Handling(void);
 NT_BOSS void Kraid_HealthBasedPaletteHandling(void);
 NT_BOSS void Kraid_Death_Fadeout(void);
+NT_BOSS void InitializeEnemyCorpseRotting(uint16 k, uint16 j);
 NT_BOSS uint16 HandleMotherBrainInstructionList(uint16 a);
 void GrappleBeam_Func2(void);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
@@ -2304,7 +2312,7 @@ NT_BOSS int MotherBrain_Func_1_DoubleRet(void);
 NT_BOSS void MotherBrain_DrawNeck(void);
 NT_BOSS void MotherBrain_DrawBrain(void);
 NT_BOSS void MotherBrain_DrawNeckSegment(uint16 x, uint16 y);
-NT_BOSS void MotherBrain_CalculateRainbowBeamHdma(void);
+void MotherBrain_CalculateRainbowBeamHdma(void);
 NT_BOSS void MotherBrain_MoveBodyDownScrollLeft(uint16 k, uint16 a);
 NT_BOSS void MotherBrain_MoveBodyDown(uint16 a);
 NT_BOSS void MotherBrain_FootstepEffect(void);
@@ -2380,6 +2388,7 @@ NT_BOSS void MotherBrain_Phase3_Death_11(void);
 NT_BOSS void MotherBrain_Phase3_Death_12(void);
 NT_BOSS void MotherBrain_Phase3_Death_13(void);
 NT_BOSS void MotherBrain_Phase3_Death_14_20framedelay(void);
+NT_BOSS void MotherBrain_CorpseRottingFinished(void);
 NT_BOSS void MotherBrain_Phase3_Death_15_LoadEscapeTimerTiles(void);
 NT_BOSS void MotherBrain_Phase3_Death_16_StartEscape(void);
 NT_BOSS void MotherBrain_Phase3_Death_17_SpawnTimeBomb(void);
@@ -2590,6 +2599,7 @@ NT_BOSS void DeadTorizo_Rotting(void);
 NT_BOSS void DeadTorizo_Powerbomb(void);
 NT_BOSS void DeadTorizo_Shot(void);
 NT_BOSS uint8 DeadTorizo_Func_0(void);
+NT_BOSS void DeadTorizo_CorpseRottingFinished(void);
 NT_BOSS void DeadSidehopper_Init(void);
 NT_BOSS void DeadSidehopper_Init_0(void);
 NT_BOSS void DeadSidehopper_Init_1(void);
@@ -2620,6 +2630,7 @@ NT_BOSS void DeadSidehopper_Rotting(uint16 k);
 NT_BOSS void DeadZoomer_Rotting(uint16 k);
 NT_BOSS void DeadRipper_Rotting(uint16 k);
 NT_BOSS void DeadSkree_Rotting(uint16 k);
+NT_BOSS void CorpseRottingRotEntryFinishedHook(void);
 NT_BOSS void DeadZoomer_Powerbomb(void);
 NT_BOSS void DeadZoomer_Shot(void);
 NT_BOSS void DeadRipper_Powerbomb(void);
@@ -3048,15 +3059,7 @@ void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
 void DeadTorizo_Func_1(void);
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
-void InitializeEnemyCorpseRotting(uint16 k, uint16 j);
-void LoadFxEntry(uint16 v0);
-uint16 MotherBrainRisingHdmaObject(void);
-void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22);
 uint16 PrepareBitAccess(uint16 a);
-uint8 ProcessCorpseRotting(uint16 k);
-void ProcessCorpseRottingVramTransfers(uint16 k);
-void SomeMotherBrainScripts(uint16 a);
-uint16 SpawnMotherBrainRainbowBeamHdma(void);
 void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k);
 void Torizo_CorpseRottingInitFunc(void);
 void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
@@ -3066,15 +3069,7 @@ void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) { nt_unimpl("DeadTorizo_Cop
 void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22) { nt_unimpl("DrawSpritemap"); }
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
-void InitializeEnemyCorpseRotting(uint16 k, uint16 j) { nt_unimpl("InitializeEnemyCorpseRotting"); }
-void LoadFxEntry(uint16 v0) { nt_unimpl("LoadFxEntry"); }
-uint16 MotherBrainRisingHdmaObject(void) { nt_unimpl("MotherBrainRisingHdmaObject"); return 0; }
-void MotherBrain_AddSpritemapToOam(uint16 j, uint16 r18, uint16 r20, uint16 r22) { nt_unimpl("MotherBrain_AddSpritemapToOam"); }
 uint16 PrepareBitAccess(uint16 a) { nt_unimpl("PrepareBitAccess"); return 0; }
-uint8 ProcessCorpseRotting(uint16 k) { nt_unimpl("ProcessCorpseRotting"); return 0; }
-void ProcessCorpseRottingVramTransfers(uint16 k) { nt_unimpl("ProcessCorpseRottingVramTransfers"); }
-void SomeMotherBrainScripts(uint16 a) { nt_unimpl("SomeMotherBrainScripts"); }
-uint16 SpawnMotherBrainRainbowBeamHdma(void) { nt_unimpl("SpawnMotherBrainRainbowBeamHdma"); return 0; }
 void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_CorpseRottingCopyFunc"); }
 void Torizo_CorpseRottingInitFunc(void) { nt_unimpl("Torizo_CorpseRottingInitFunc"); }
 void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_CorpseRottingMoveFunc"); }
@@ -3642,23 +3637,23 @@ NT_BOSS void EprojPreInstr_CrocomireSpikeWallPieces(uint16 k) {  // 0x869115
       v2 = ((uint16)BW_86(0x91E7 + 2 * (v1)));
   }
   eproj_E[v1] = v2;
-  v3 = *((uint8 *)eproj_E + k + 1);
-  bool v4 = __CFADD__uint8(*((uint8 *)eproj_x_vel + k), v3);
-  *((uint8 *)eproj_x_vel + k) += v3;
-  uint8 v5 = v4 + *((uint8 *)eproj_x_vel + k + 1);
+  v3 = *((uint8 *)eproj_E + ((k + 1) ^ NT_BE));
+  bool v4 = __CFADD__uint8(*((uint8 *)eproj_x_vel + ((k) ^ NT_BE)), v3);
+  *((uint8 *)eproj_x_vel + ((k) ^ NT_BE)) += v3;
+  uint8 v5 = v4 + *((uint8 *)eproj_x_vel + ((k + 1) ^ NT_BE));
   if ((int8)(v5 - ((int8)BB_86(0x920B + (k)))) >= 0)
     v5 = ((int8)BB_86(0x920B + (k)));
-  *((uint8 *)eproj_x_vel + k + 1) = v5;
-  v6 = *((uint8 *)eproj_x_vel + k);
-  v4 = __CFADD__uint8(*((uint8 *)eproj_x_subpos + k + 1), v6);
-  *((uint8 *)eproj_x_subpos + k + 1) += v6;
-  v7 = *((uint8 *)eproj_x_vel + k + 1);
+  *((uint8 *)eproj_x_vel + ((k + 1) ^ NT_BE)) = v5;
+  v6 = *((uint8 *)eproj_x_vel + ((k) ^ NT_BE));
+  v4 = __CFADD__uint8(*((uint8 *)eproj_x_subpos + ((k + 1) ^ NT_BE)), v6);
+  *((uint8 *)eproj_x_subpos + ((k + 1) ^ NT_BE)) += v6;
+  v7 = *((uint8 *)eproj_x_vel + ((k + 1) ^ NT_BE));
   bool v9 = v4;
   v4 = __CFADD__uint8(v4, v7);
   v8 = v9 + v7;
-  v4 |= __CFADD__uint8(*((uint8 *)eproj_x_pos + k), v8);
-  *((uint8 *)eproj_x_pos + k) += v8;
-  *((uint8 *)eproj_x_pos + k + 1) += v4;
+  v4 |= __CFADD__uint8(*((uint8 *)eproj_x_pos + ((k) ^ NT_BE)), v8);
+  *((uint8 *)eproj_x_pos + ((k) ^ NT_BE)) += v8;
+  *((uint8 *)eproj_x_pos + ((k + 1) ^ NT_BE)) += v4;
   AddToHiLo(&eproj_y_vel[v1], &eproj_F[v1], 0x3000);
   AddToHiLo(&eproj_y_pos[v1], &eproj_y_subpos[v1], __PAIR32__(eproj_y_vel[v1], eproj_F[v1]));
 
@@ -3832,7 +3827,7 @@ uint16 EprojInstr_95ED(uint16 k, uint16 epjp) {  // 0x8695ED
   return epjp;
 }
 uint16 EprojInstr_9620(uint16 k, uint16 epjp) {  // 0x869620
-  if ((int8)-- * ((uint8 *)eproj_E + k) >= 0)
+  if ((int8)-- * ((uint8 *)eproj_E + ((k) ^ NT_BE)) >= 0)
     SpawnEprojWithRoomGfx(eproj_F[k >> 1], k);
   return epjp;
 }
@@ -5190,14 +5185,14 @@ NT_BOSS void EprojPreInstr_MotherBrainRoomTurrets(uint16 k) {  // 0x86BFDF
   }
 }
 NT_BOSS void Eproj_MotherBrainRoomTurretBullets_Func2(uint16 v0) {  // 0x86C050
-  uint8 r20 = (*((uint8 *)eproj_y_subpos + v0 + 1) + *((uint8 *)eproj_y_subpos + v0)) & 7;
+  uint8 r20 = (*((uint8 *)eproj_y_subpos + ((v0 + 1) ^ NT_BE)) + *((uint8 *)eproj_y_subpos + ((v0) ^ NT_BE))) & 7;
   uint16 r18 = eproj_x_subpos[v0 >> 1];
   if (BB_86((uint16)((r18) + (r20 & 7)))) {
-    *((uint8 *)eproj_y_subpos + v0) = r20;
+    *((uint8 *)eproj_y_subpos + ((v0) ^ NT_BE)) = r20;
   } else {
-    int8 v1 = -*((uint8 *)eproj_y_subpos + v0 + 1);
-    *((uint8 *)eproj_y_subpos + v0 + 1) = v1;
-    *((uint8 *)eproj_y_subpos + v0) += v1;
+    int8 v1 = -*((uint8 *)eproj_y_subpos + ((v0 + 1) ^ NT_BE));
+    *((uint8 *)eproj_y_subpos + ((v0 + 1) ^ NT_BE)) = v1;
+    *((uint8 *)eproj_y_subpos + ((v0) ^ NT_BE)) += v1;
   }
 }
 NT_BOSS void Eproj_SetXvelRandom(uint16 v0) {  // 0x86C08E
@@ -5426,7 +5421,7 @@ NT_BOSS void sub_86C42E(uint16 k) {  // 0x86C42E
   eproj_gfx_idx[k >> 1] = 0;
 }
 static NT_BOSS void EprojInit_MotherBrainBomb(uint16 j) {  // 0x86C482
-  *((uint8 *)eproj_x_subpos + j) = eproj_init_param_1;
+  *((uint8 *)eproj_x_subpos + ((j) ^ NT_BE)) = eproj_init_param_1;
   int v1 = j >> 1;
   eproj_y_vel[v1] = 256;
   eproj_x_vel[v1] = 224;
@@ -13646,7 +13641,7 @@ NT_BOSS void Crocomire_Init(void) {  // 0xA48A5A
     v0 += 2;
   } while ((int16)(v0 - 4096) < 0);
   if ((nt_u8w(boss_bits_for_area, 8, (uint16)(area_index), 0xD828) & 2) != 0) {
-    *(uint16 *)scrolls = 257;
+    nt_ram_set_w(0xCD20, (uint16)(257));
     nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
     croco_target_0688 = 0;
     EnemyData *E = gEnemyData(0); uint16 E_k = (0);
@@ -13674,7 +13669,7 @@ NT_BOSS void Crocomire_Init(void) {  // 0xA48A5A
     EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
     E->ai_var_A = 0;
     E->ai_var_E = 0;
-    *(uint16 *)scrolls = 0;
+    nt_ram_set_w(0xCD20, (uint16)(0));
     for (int i = 32; i >= 0; i -= 2) {
       int v3 = i >> 1;
       target_palettes[v3 + 160] = ((uint16)BW_A4(0xB8BD + 2 * (v3)));
@@ -14309,7 +14304,7 @@ NT_BOSS void Crocomire_950F(void) {  // 0xA4950F
   ++E->ai_var_A;
   v4 = gEnemyData(0); v4_k = (0);
   gEnemyData(0x80)->ai_var_D = v4->x_pos;
-  *(uint16 *)crocomire_bg2_scroll_hdma_indirect = 255;
+  { uint16 v_ = 255; crocomire_bg2_scroll_hdma_indirect[0] = (uint8)v_; crocomire_bg2_scroll_hdma_indirect[1] = v_ >> 8; }
   nt_ram_set_w((uint16)(0xCAE0 + (1)), (uint16)(-13584));
   nt_ram_set_w((uint16)(0xCAE0 + (3)), (uint16)(225));
   nt_ram_set_w((uint16)(0xCAE0 + (4)), (uint16)(-13330));
@@ -14608,7 +14603,7 @@ NT_BOSS void Crocomire_Func_88(void) {  // 0xA49B06
   }
 }
 NT_BOSS void Crocomire_9B65(void) {  // 0xA49B65
-  *(uint16 *)scrolls = 257;
+  nt_ram_set_w(0xCD20, (uint16)(257));
   nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
   SpawnHardcodedPlm(0x1e, 0x03, 0xb753);
   Crocomire_9BB3();
@@ -20242,7 +20237,7 @@ NT_BOSS void Kraid_Init(void) {  // 0xA7A959
   } else {
     reg_BG2SC = 67;
     camera_distance_index = 2;
-    *(uint16 *)scrolls = 0;
+    nt_ram_set_w(0xCD20, (uint16)(0));
     nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(1));
     EnemyData *E = gEnemyData(0); uint16 E_k = (0);
     ERAM(0x7808 + E_k) = 324;
@@ -21367,7 +21362,7 @@ NT_BOSS void Kraid_HandleFirstPhase(void) {  // 0xA7C005
 NT_BOSS void Kraid_GetsBig_ReleaseCamera(void) {  // 0xA7C0A1
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   E->ai_var_A = 0xAC4D /* Kraid_GetsBig_BreakCeilingPlatforms */;
-  *(uint16 *)scrolls = 514;
+  nt_ram_set_w(0xCD20, (uint16)(514));
   nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(257));
   ERAM(0x7808 + E_k) = 164;
 }
@@ -27381,7 +27376,7 @@ NT_BOSS void MotherBrainBody_FakeDeath_Descent_1(void) {  // 0xA98829
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   if ((--E->ai_preinstr & 0x8000) != 0) {
     CallSomeSamusCode(0);
-    *(uint16 *)scrolls = scrolls[0];
+    nt_ram_set_w(0xCD20, (uint16)(scrolls[0]));
     E->ai_var_A = 0x884D /* MotherBrainBody_FakeDeath_Descent_2 */;
     E->ai_preinstr = 32;
     MotherBrainBody_FakeDeath_Descent_2();
@@ -28127,7 +28122,7 @@ NT_BOSS void MotherBrain_DrawNeckSegment(uint16 x, uint16 y) {  // 0xA993CB
   MotherBrain_AddSpritemapToOam(addr_kMotherBrain_Sprmap_A694,
       x + ((int16)BW_A9(0x93BB + 2 * (v0))), y + ((int16)BW_A9(0x93C3 + 2 * (v0))), ERAM(0x7818 + (0)));
 }
-NT_BOSS void MotherBrain_CalculateRainbowBeamHdma(void) {  // 0xA99466
+void MotherBrain_CalculateRainbowBeamHdma(void) {  // 0xA99466
   MotherBrain_CalcHdma();
 }
 NT_BOSS void MotherBrain_MoveBodyDownScrollLeft(uint16 k, uint16 a) {  // 0xA99552
@@ -28652,6 +28647,13 @@ NT_BOSS void MotherBrain_Phase3_Death_14_20framedelay(void) {  // 0xA9B211
     E1->y_pos = 0;
     E->ai_var_A = 0xB258 /* MotherBrain_Phase3_Death_15_LoadEscapeTimerTiles */;
   }
+}
+NT_BOSS void MotherBrain_CorpseRottingFinished(void) {  // 0xA9B223
+  EnemyData *E1 = gEnemyData(0x40); uint16 E1_k = (0x40);
+  eproj_spawn_x = E1->x_pos + (random_number & 0x1F) - 16; eproj_spawn_y = E1->y_pos + 16;
+  SpawnEprojWithRoomGfx(addr_kEproj_DustCloudExplosion, 0xA);
+  if ((random_enemy_counter & 7) == 0)
+    QueueSfx2_Max3(0x10);
 }
 NT_BOSS void MotherBrain_Phase3_Death_15_LoadEscapeTimerTiles(void) {  // 0xA9B258
   if (ProcessSpriteTilesTransfers(0xa6, addr_stru_A6C4CB)) {
@@ -30903,6 +30905,12 @@ NT_BOSS uint8 DeadTorizo_Func_0(void) {  // 0xA9D443
   }
   return 0;
 }
+NT_BOSS void DeadTorizo_CorpseRottingFinished(void) {  // 0xA9D5BD
+  eproj_spawn_x = (random_number & 0x1F) + 272; eproj_spawn_y = 188;
+  SpawnEprojWithRoomGfx(addr_kEproj_DustCloudExplosion, 0xA);
+  if ((random_enemy_counter & 7) == 0)
+    QueueSfx2_Max6(0x10);
+}
 NT_BOSS void DeadSidehopper_Init(void) {  // 0xA9D7B6
   uint16 dsr_parameter_1 = gEnemyData(cur_enemy_index)->parameter_1;
   if (dsr_parameter_1) {
@@ -31151,6 +31159,13 @@ NT_BOSS void DeadSkree_Rotting(uint16 k) {  // 0xA9DAFC
   uint16 dms_var_53 = ERAM(0x8826 + (cur_enemy_index));
   ProcessCorpseRottingVramTransfers(dms_var_53);
 }
+NT_BOSS void CorpseRottingRotEntryFinishedHook(void) {  // 0xA9DC08
+  EnemyData *v0 = gEnemyData(cur_enemy_index);
+  eproj_spawn_x = v0->x_pos + (random_number & 0x1A) - 14; eproj_spawn_y = v0->y_pos + 16;
+  SpawnEprojWithRoomGfx(addr_kEproj_DustCloudExplosion, 0xA);
+  if ((random_enemy_counter & 7) == 0)
+    QueueSfx2_Max3(0x10);
+}
 NT_BOSS void DeadZoomer_Powerbomb(void) {  // 0xA9DCED
   if ((gEnemyData(cur_enemy_index)->properties & kEnemyProps_Tangible) == 0)
     DeadZoomer_Shot();
@@ -31288,7 +31303,7 @@ NT_BOSS void Shitroid_Func_3(uint16 k) {  // 0xA9EFDF
 NT_BOSS void Shitroid_Func_4(void) {  // 0xA9EFE6
   if (sign16(layer1_x_pos - 513)) {
     layer1_x_pos = 512;
-    *(uint16 *)scrolls = scrolls[0];
+    nt_ram_set_w(0xCD20, (uint16)(scrolls[0]));
     nt_ram_set_w((uint16)(0xCD20 + (2)), (uint16)(scrolls[2]));
     SpawnHardcodedPlm(0x30, 0x03, 0xb767);
     SpawnHardcodedPlm(0x1f, 0x03, 0xb767);
@@ -31367,7 +31382,7 @@ NT_BOSS void Shitroid_Func_12(uint16 k) {  // 0xA9F138
   if ((--E->ai_preinstr & 0x8000) != 0) {
     E->ai_var_A = 0xF180 /* Shitroid_Func_13 */;
     E->parameter_2 = 1;
-    *(uint16 *)scrolls |= 0x100;
+    nt_ram_set_w(0xCD20, nt_ram_w(0xCD20) | (uint16)(0x100));
     nt_ram_set_w((uint16)(0xCD20 + (2)), nt_ram_w((uint16)(0xCD20 + (2))) | (uint16)(0x100));
     SpawnHardcodedPlm(0x30, 0x03, 0xb763);
     SpawnHardcodedPlm(0x1f, 0x03, 0xb763);
@@ -33164,7 +33179,7 @@ NT_BOSS void MotherBrain_CalcHdma(void) {  // 0xADDE00
 NT_BOSS void MotherBrain_CalcHdma_BeamAimedRight2(void) {  // 0xADDE7F
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   MotherBrain_CalcHdma_BeamAimedRight(ERAM(0x8038 + E_k), ERAM(0x803C + E_k));
-  *(uint16 *)mother_brain_indirect_hdma = 16;
+  { uint16 v_ = 16; mother_brain_indirect_hdma[0] = (uint8)v_; mother_brain_indirect_hdma[1] = v_ >> 8; }
   nt_ram_set_w((uint16)(0x9C00 + (1)), (uint16)(-25600));
   nt_ram_set_w((uint16)(0x9C00 + (3)), (uint16)(16));
   nt_ram_set_w((uint16)(0x9C00 + (4)), (uint16)(-25597));
@@ -33216,7 +33231,7 @@ NT_BOSS void MotherBrain_CalcHdma_BeamAimedRight(uint16 r22, uint16 r24) {  // 0
 NT_BOSS void MotherBrain_CalcHdma_BeamAimedUp(void) {
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   off_ADE024[(ERAM(0x8034 + E_k) >> 6) & 2 | (ERAM(0x8036 + E_k) >> 7) & 1](ERAM(0x8038 + E_k), ERAM(0x803C + E_k));
-  *(uint16 *)mother_brain_indirect_hdma = 16;
+  { uint16 v_ = 16; mother_brain_indirect_hdma[0] = (uint8)v_; mother_brain_indirect_hdma[1] = v_ >> 8; }
   nt_ram_set_w((uint16)(0x9C00 + (1)), (uint16)(-25344));
   nt_ram_set_w((uint16)(0x9C00 + (3)), (uint16)(16));
   nt_ram_set_w((uint16)(0x9C00 + (4)), (uint16)(-25342));
@@ -33323,7 +33338,7 @@ NT_BOSS void MotherBrain_CalcHdma_Up_UpLeft(uint16 r22, uint16 r24) {  // 0xADE1
 NT_BOSS void MotherBrain_CalcHdma_Down(void) {  // 0xADE1A6
   EnemyData *E = gEnemyData(0); uint16 E_k = (0);
   g_off_ADE20E[(ERAM(0x8034 + E_k) >> 6) & 2 | (ERAM(0x8036 + E_k) >> 7) & 1](ERAM(0x8038 + E_k), ERAM(0x803C + E_k));
-  *(uint16 *)mother_brain_indirect_hdma = 16;
+  { uint16 v_ = 16; mother_brain_indirect_hdma[0] = (uint8)v_; mother_brain_indirect_hdma[1] = v_ >> 8; }
   nt_ram_set_w((uint16)(0x9C00 + (1)), (uint16)(-25600));
   nt_ram_set_w((uint16)(0x9C00 + (3)), (uint16)(16));
   nt_ram_set_w((uint16)(0x9C00 + (4)), (uint16)(-25597));
@@ -34799,7 +34814,7 @@ NT_BOSS void Botwoon_Init(void) {  // 0xB39583
   EnemyData *E = gEnemyData(cur_enemy_index); uint16 E_k = (cur_enemy_index);
   if ((boss_bits_for_area[4] & 2) != 0) {
     SpawnHardcodedPlm(0x0f, 0x04, 0xb797);
-    *(uint16 *)scrolls = 257;
+    nt_ram_set_w(0xCD20, (uint16)(257));
     E->current_instruction = addr_kBotwoon_Ilist_9389;
     E->properties |= kEnemyProps_Deleted;
   } else {
@@ -37954,6 +37969,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA9B1B8: MotherBrain_Phase3_Death_12(); return 1;
   case 0xA9B1D5: MotherBrain_Phase3_Death_13(); return 1;
   case 0xA9B211: MotherBrain_Phase3_Death_14_20framedelay(); return 1;
+  case 0xA9B223: MotherBrain_CorpseRottingFinished(); return 1;
   case 0xA9B258: MotherBrain_Phase3_Death_15_LoadEscapeTimerTiles(); return 1;
   case 0xA9B26D: MotherBrain_Phase3_Death_16_StartEscape(); return 1;
   case 0xA9B2D1: MotherBrain_Phase3_Death_17_SpawnTimeBomb(); return 1;
@@ -38090,6 +38106,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA9D3E6: DeadTorizo_Rotting(); return 1;
   case 0xA9D42A: DeadTorizo_Powerbomb(); return 1;
   case 0xA9D433: DeadTorizo_Shot(); return 1;
+  case 0xA9D5BD: DeadTorizo_CorpseRottingFinished(); return 1;
   case 0xA9D7B6: DeadSidehopper_Init(); return 1;
   case 0xA9D7C4: DeadSidehopper_Init_0(); return 1;
   case 0xA9D825: DeadSidehopper_Init_1(); return 1;
@@ -38098,6 +38115,7 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0xA9D89F: DeadSkree_Init(); return 1;
   case 0xA9D8CC: DeadSidehopper_Powerbomb(); return 1;
   case 0xA9D8DB: DeadSidehopper_Main(); return 1;
+  case 0xA9DC08: CorpseRottingRotEntryFinishedHook(); return 1;
   case 0xA9DCED: DeadZoomer_Powerbomb(); return 1;
   case 0xA9DCF8: DeadZoomer_Shot(); return 1;
   case 0xA9DCFD: DeadRipper_Powerbomb(); return 1;

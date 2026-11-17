@@ -755,3 +755,78 @@ El rayo gancho está hecho y probado (docs/56, `tools/rooms/grapple.sh`: enganch
 salto en la pared con el gancho). Faltan, de docs/56: **los rayos X** (sus colores están; el movimiento y el cono no:
 `Samus_HandleTransitionsB` 5, `SamusMovementType_Xray`), **el movimiento del destello de cristal** (sus colores están)
 y **el hiperrayo** (Mother Brain).
+
+## Ridley de Norfair (2026-11-12)
+
+Dos pruebas lado a lado (puerta 9A62, `X=60 Y=400`, las variables de rayos y energía del Golden Torizo):
+`tools/compare/ridley_in.txt` (la pelea, 16 mil cuadros, con Ridley agarrando a Samus; los disparos casi nunca le
+dan) y `tools/compare/ridley_muerte_in.txt` con la vida en 0 a mitad de la pelea (`HL_POKE_AT=1500:F8C:0` en el SNES,
+`MD_TEST_POKES={14243,0xF8C,0}` en la Genesis: el cuadro grabado n es el de la entrada n + 23500 - 10757).
+- **Lógica**: `Ridley_Shot` y `Ridley_Powerbomb` están escritas a mano en ceres_ridley.c (la versión de Ceres) y son las
+  mismas para el de Norfair: su rama de Norfair (área 2) era un aviso vacío. Ahora la del decomp
+  (`NormalEnemyShotAiSkipDeathAnim_CurEnemy` / `...PowerBomb...`). Igual al SNES en la Genesis y en el PC en las dos
+  pruebas (la pelea y la muerte, con la lava que baja).
+- Dibujo: igual (la lava como tinte, como siempre); sus claves ya estaban (`mkmd.ridley_keys`).
+- Ojo con las pruebas: `lado_a_lado.sh` escribe la entrada de la Genesis (`res/gen/md/test_input.s`) y la usan las
+  compilaciones de `stop.sh` que vengan después: si se corre otra prueba en medio, hay que regenerarla.
+
+## Mother Brain: la lógica (2026-11-12)
+
+Prueba (`tools/compare/motherbrain_in.txt`): puerta AAE0 (la de la izquierda) y Samus en la cornisa (`X=28 Y=130`),
+súper misiles (`HL_POKE` con 9C6-9D0 = 99, 9D2 = 2, `D820:4` = evento 2, sin él el vidrio no deja dañar el cerebro;
+en la Genesis `-DMD_TEST_AMMO=99 -DMD_TEST_HUD_ITEM=2 -DMD_TEST_POKES={12750,0xD820,4}`), **sin** `GOD` (el rayo
+arco iris tiene que agotar a Samus: `GOD=0` en `lado_a_lado.sh`) y la vida del cerebro bajada en la fase 2 y en la 3
+(`HL_POKE_AT=1800:FCC:12C,8450:FCC:64,8450:9C2:3E7`; Genesis `{14543,0xFCC,0x12C},{21193,0xFCC,0x64},{21193,0x9C2,0x3E7}`).
+La pelea entera (14352 cuadros): fase 1, la falsa muerte, la fase 2 con sus ataques, el rayo arco iris, la bebé que
+le chupa la vida, la fase 3 con el hiperrayo, la muerte, el cadáver que se pudre y el contador del escape.
+**Igual al SNES en el PC y en la Genesis** (`work/mb/stop.sh` + `cmpstop.py`, desfase -1).
+
+Lo nuevo:
+- `LoadFxEntry` (door.c) y las entradas 1 y 2 del FX de la sala en `kFxDefs` (mkdata.py: el ácido que sube y baja).
+- El pudrirse de los cadáveres (bosses.c): `InitializeEnemyCorpseRotting`, `ProcessCorpseRotting`, las funciones de
+  Mother Brain (copiar/mover columnas de tiles en 7E:9000, `kMbCorpseTiles` de $B7:CE00) y los finales traducidos
+  (`CORPSE_XLATE` en port.py). La subida de los tiles (`ProcessCorpseRottingVramTransfers`) todavía no dibuja nada.
+  Los demás cadáveres de Tourian (torizo, sidehopper, zoomer, ripper, skree) siguen avisando.
+- `MotherBrainRisingHdmaObject`, el rayo arco iris (`InitializeRainbowBeam`, `HdmaobjPreInstr_E7BC`: hdmaobj.c);
+  `hdma_table_2` pasa a 240 palabras (el rayo escribe hasta la línea 232) y `statue_bg2_ypos` (7E:9E00) es su palabra
+  128 (vars_extra.txt), como en el SNES.
+- Samus: las órdenes 05, 16-19 (agotada, arco iris, de pie), `SomeMotherBrainScripts` (samus_codes.c), el manejador
+  de movimiento de agotada agachada, `Samus_Func1/2` (gamma), el beta vacío `j_HandleDemoRecorder_2_0`,
+  `FireHyperBeam` y `ProjPreInstr_HyperBeam` (proj.c), el contador de 3 minutos (`ProcessTimer_MotherBrainStart`).
+- Enemigos que aparecen en la pelea: ECFF (los tubos que caen) y ECBF (la bebé) en `kEnemyDefs`.
+- port.py, errores del 68000 (el PC no los ve: es little-endian): `*(uint16 *)scrolls = x` (la palabra iba al revés:
+  la cámara de la falsa muerte se iba) y lo mismo en las tablas indirectas de HDMA; los bytes de arreglos de palabras
+  `*((uint8 *)eproj_x_subpos + j)` llevan `^ NT_BE` (bombas de Mother Brain y otros proyectiles que mueven por bytes).
+- md_main.c: sin `MD_TEST_GOD` el salto de prueba apaga el visor (que deja a Samus con la energía llena en Zebes).
+
+Falta: el dibujo (la sala, el cuerpo en el BG2, el vidrio, el cerebro, el cuello, la bebé, el rayo, el pudrirse).
+
+## Mother Brain: el dibujo (2026-11-17, en curso)
+
+- Objetos por cuadro (DD58 en `STREAM_ROOMS`) y las claves y palabras del BG2 de la pelea entera en `zdraw.log` /
+  `zbg2.log` (registradas en el PC con `MM_DRAWLOG` sobre `motherbrain_in.txt`). Para que entre en las páginas, el
+  margen de las páginas de la intro baja de 16 a 4 KB (`mkzebes.py`; dejaba 13-20 KB sin usar).
+- El cerebro en la línea del jefe (`mkzobj.BOSS_PALETTES` con `(0xA9, 0x8687)`): con los demás objetos eran 90
+  colores en una línea y salía amarillo. La sala queda en una línea.
+- El tanque de vidrio: al cargar la sala (estado 11) el PLM del vidrio ($84:D6DE) pone aire en el nivel y el SNES
+  sigue mostrando el tanque en el BG1. La Genesis no redibuja esos bloques mientras se carga (plm.c).
+- Falta: en el SNES el tanque desaparece cuando se rompe el vidrio y en la Genesis sigue (los tiles del BG1 del SNES
+  no cambian en ese momento: hay que ver qué lo oculta); el cuerpo en el BG2 (fase 2), el cuello, el rayo arco iris,
+  la bebé y el pudrirse; el color de la sala (una sola línea) y la puerta de la izquierda.
+
+### Mother Brain: la fase 2 (2026-11-17)
+
+- **El cuerpo en el BG2**: el fondo de la sala no copia 7E:2000; el cuerpo se sube igual sobre el BG2
+  (`mkzebes.BOSS_BG2_OVER`). Sube 2048 bytes (32 filas): `md_zebes.c` con `BB_MAX` 1024 y filas en 32 bits; en esta
+  sala el mapa ocupa `cinematic_text_tilemap` 0-2047, las tablas de los objetos por cuadro van en + 2048 y las sumas de
+  las filas en + 2400 (el ácido usa 3200 y 3968).
+- **El fondo de tubos**: en la falsa muerte el código de Mother Brain pone PLMs ($84:B67B-B6A7) que dibujan el fondo en
+  el BG1 por filas (el BG2 queda para el cuerpo); otros borran los tubos y sellan la pared. Sus bloques no están en la
+  lista de PLMs de la sala: `mkzebes.BOSS_CODE_PLMS`.
+- **Las patas y la bebé**: sus tiles se copian por la cola de VRAM en distintos momentos en los mismos lugares.
+  `res/snes_ref/zvram.log` tiene, por clave de enemigo, las copias hechas cuando se dibujó (del registro de
+  `MM_DRAWLOG`, líneas `vwq`); `mkzobj.read_key_vram` convierte cada clave con esa VRAM.
+- Lugar en la ROM: el margen de cada página baja a 1 KB (`MM_PAGE_MARGIN`) y los de la intro, el título y la última
+  página de los niveles a 4 KB; queda 1 KB libre en la página 25.
+- Falta: la cabeza un poco más amarilla (colores juntados en la línea del jefe), la puerta de la izquierda, el rayo
+  arco iris, la bebé y la fase 3, el pudrirse.

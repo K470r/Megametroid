@@ -270,3 +270,6 @@ MotherBrainsTubesFalling_*
 Shitroid_*
 ShitroidInCutscene_*
 CallBabyMetroidInstr
+MotherBrain_CorpseRottingFinished
+DeadTorizo_CorpseRottingFinished
+CorpseRottingRotEntryFinishedHook

@@ -625,6 +625,32 @@ void LoadFXHeader(void) {  // 0x89AB82
       SpawnAnimtiles(kAreaAnimtilesLists[8 * area_index + j]);
 }
 
+/* LoadFxEntry: la entrada n (0-7) de la lista de FX de la sala, sin buscar la puerta (Mother Brain: el ácido que sube y
+   baja en las fases 1 y 2); mkdata.py deja en kFxDefs las entradas que siguen a la que cierra la lista de esa sala */
+void LoadFxEntry(uint16 v0) {  // 0x89AB02
+  uint16 entry_ptr = room_layer3_asm_ptr + 16 * (v0 & 7);
+  const FxDefN *FD = 0;
+  for (unsigned i = 0; i < sizeof kFxDefs / sizeof kFxDefs[0]; i++)
+    if (kFxDefs[i].addr == entry_ptr) { FD = &kFxDefs[i]; break; }
+  if (!FD) { nt_unimpl_v("LoadFxEntry (FX sin preparar)", entry_ptr); return; }
+  fx_base_y_pos = FD->base_y_pos;
+  fx_target_y_pos = FD->target_y_pos;
+  fx_y_vel = FD->y_vel;
+  fx_timer = FD->timer;
+  fx_layer_blending_config_a = FD->default_layer_blend;
+  fx_layer_blending_config_b = FD->layer3_layer_blend;
+  fx_liquid_options = FD->fx_liquid_options_;
+  if (FD->palette_blend) {
+    int v2 = FD->palette_blend >> 1;
+    palette_buffer[25] = g_word_89AA02[v2];
+    palette_buffer[26] = g_word_89AA02[v2 + 1];
+    palette_buffer[27] = g_word_89AA02[v2 + 2];
+  } else {
+    palette_buffer[27] = 0;
+  }
+  nt_pal_dirty(25, 27);
+}
+
 void InitializeSpecialEffectsForNewRoom(void) {  // 0x8882C1
   earthquake_sfx_index = 0;
   earthquake_sfx_timer = 0;

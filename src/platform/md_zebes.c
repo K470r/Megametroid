@@ -32,14 +32,16 @@ static const ZebesObj *zo;                /* enemigos de la sala (mkzobj.py) o N
 /* cuerpo del jefe en el BG2 (más abajo: nt_enemy_bg2_transfer) */
 extern uint16 cinematic_text_tilemap[];
 #define bb_buf cinematic_text_tilemap
-#define BB_MAX 512                                /* palabras (16 filas): lo más que suben los jefes es 1024 bytes */
+#define BB_MAX 1024                               /* palabras (32 filas): Mother Brain sube 2048 bytes; los demás, 1024 */
 static const ZebesBossBg2 *zbb;
 static uint16 bb_n;                               /* palabras convertidas que esperan al vblank */
 static uint8 bb_ever;                             /* el jefe ya subió algo en esta sala */
 static uint16 bb_sum;                             /* largo del último mapa convertido (las sumas por fila: bb_rsum) */
-static void bb_convert(uint16 n, uint16 rows);
-#define bb_rsum ((uint32 *)((uint8 *)cinematic_text_tilemap + 3904))   /* suma de cada fila del último mapa (16) */
-static uint16 bb_rows;                            /* filas convertidas que esperan al vblank (bits) */
+static void bb_convert(uint16 n, uint32 rows);
+/* suma de cada fila del último mapa: 16 en + 3904; Mother Brain (32 filas, su mapa ocupa 0-2047 y el ácido usa 3200 y
+   3968) en + 2400 */
+#define bb_rsum ((uint32 *)((uint8 *)cinematic_text_tilemap + (room_ptr == 0xDD58 ? 2400 : 3904)))
+static uint32 bb_rows;                            /* filas convertidas que esperan al vblank (bits) */
 static uint8 bb_hide;                             /* el BG2 no está en ninguna pantalla del SNES: el plano B vacío */
 static void bb_vblank(void);
 static uint8 bt_pending;                          /* volver a subir los tiles del cuerpo (0xF000) en el vblank */
@@ -371,7 +373,7 @@ static void frz_setup(void) {             /* al entrar a la sala: el depósito d
   if (zo && zo->stream) {
     /* (Kraid: + 3200, su sala no tiene líquido; las demás, como Draygon con su agua: + 1024, libre sin la cola de Kraid
        ni la caché del cuerpo) */
-    uint8 *m = (uint8 *)cinematic_text_tilemap + (zw ? 3200 : 1024);
+    uint8 *m = (uint8 *)cinematic_text_tilemap + (zw ? 3200 : room_ptr == 0xDD58 ? 2048 : 1024);   /* (Mother Brain: su mapa del BG2 es de 2 KB) */
     frz_stream = 1; frz_t0 = zo->base + ((zo->ntiles + 7) & ~7); frz_slot = 8;   /* (después de los fijos) */
     uint16 n = (1280 - frz_t0) / 8;
     frz_ns = (uint8)(n > FRZ_NMAX ? FRZ_NMAX : n);
@@ -522,9 +524,9 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
     if (zbb && bb_ever) {                     /* (vuelta de la pausa) el cuerpo del jefe, desde tilemap_stuff */
       uint16 n = enemy_bg2_tilemap_size >> 1;
       if (n > BB_MAX) n = BB_MAX;
-      bb_convert(n, 0xFFFF);
+      bb_convert(n, 0xFFFFFFFF);
       if (zbb->cache) bc_vblank(BC_N);
-      bb_n = n & ~31; bb_rows = 0xFFFF;
+      bb_n = n & ~31; bb_rows = 0xFFFFFFFF;
       bb_vblank();
     }
   }
@@ -593,7 +595,7 @@ void zebes_frame(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
     uint8 h = !((reg_TM | reg_TS) & 2);
     if (h != bb_hide) {
       bb_hide = h;
-      if (h) { memset(bb_buf, 0, (bb_sum & ~31) * 2); bb_n = bb_sum & ~31; bb_rows = 0xFFFF; }
+      if (h) { memset(bb_buf, 0, (bb_sum & ~31) * 2); bb_n = bb_sum & ~31; bb_rows = 0xFFFFFFFF; }
       else bb_redo = 1;
     }
   }
@@ -783,7 +785,7 @@ static inline uint16 bb_tile(uint16 w, uint8 mph) {   /* el tile de la palabra (
   }
   return t;
 }
-static void bb_convert(uint16 n, uint16 rows) {   /* rows: filas (de 32) que cambiaron */
+static void bb_convert(uint16 n, uint32 rows) {   /* rows: filas (de 32) que cambiaron */
   uint8 mph = melt_phase();
   uint8 lp = md_cur_page;
   map_page(ZEBES_BOSS_PAGE);
@@ -801,7 +803,7 @@ static void bb_convert(uint16 n, uint16 rows) {   /* rows: filas (de 32) que cam
     }
   }
   for (uint16 i = 0; i < n; i++) {
-    if (!(rows & (1 << (i >> 5)))) { i |= 31; continue; }   /* fila sin cambios: ya convertida */
+    if (!(rows & (1UL << (i >> 5)))) { i |= 31; continue; }   /* fila sin cambios: ya convertida */
     uint16 w = tilemap_stuff[i];
     uint16 c = tab[(uint16)slot[(w >> 10) & 7] << 10 | bb_tile(w, mph)];
     if (c & 0x8000) {                             /* tile de la caché */
@@ -856,14 +858,14 @@ void nt_enemy_bg2_transfer(void) {
   uint16 n = enemy_bg2_tilemap_size >> 1;
   if (n > BB_MAX) n = BB_MAX;
   /* suma por fila (32 palabras): solo se convierten y se suben las filas que cambiaron (la boca, los brazos) */
-  uint16 rows = 0;
+  uint32 rows = 0;
   {
     const uint16 *t = tilemap_stuff;
     uint8 all = !bb_ever || bb_redo || bb_sum != n;
     for (uint16 r = 0; r < (n >> 5); r++) {
       uint32 sum = r;
       for (uint16 i = 0; i < 32; i++) sum = (sum << 1 | sum >> 31) + *t++;
-      if (all || sum != bb_rsum[r]) { rows |= 1 << r; bb_rsum[r] = sum; }
+      if (all || sum != bb_rsum[r]) { rows |= 1UL << r; bb_rsum[r] = sum; }
     }
     if (!rows) return;
     bb_sum = n;
@@ -877,7 +879,7 @@ void nt_enemy_bg2_transfer(void) {
 
 static void bb_vblank(void) {
   for (uint16 r = 0; r < bb_n >> 5; r++) {
-    if (!(bb_rows & (1 << r))) continue;
+    if (!(bb_rows & (1UL << r))) continue;
     vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + r * 128, 32);
     vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + (r + 32) * 128, 32);
   }

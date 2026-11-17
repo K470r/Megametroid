@@ -1045,8 +1045,45 @@ static void FireUnchargedBeam(void) {  // 0x90B887
     FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
     FUNC16(ProjPreInstr_Beam_NoWaveBeam), FUNC16(ProjPreInstr_WavePlasmaEtc),
   };
-  if (hyper_beam_flag) {
-    nt_unimpl("FireHyperBeam");
+  if (hyper_beam_flag) {                        /* FireHyperBeam ($90:BCD1): Mother Brain, fase 3 */
+    if (Samus_CanFireBeam() & 1) {
+      uint16 v0 = 0;
+      while (projectile_damage[v0 >> 1]) {
+        v0 += 2;
+        if ((int16)(v0 - 10) >= 0) {
+          v0 -= 2;
+          break;
+        }
+      }
+      uint16 r20 = v0;
+      if (!(InitProjectilePositionDirection(r20) & 1)) {
+        projectile_invincibility_timer = 10;
+        uint16 k = r20;
+        projectile_type[r20 >> 1] = 0x9018;
+        QueueSfx1_Max15(0x1F);                  /* kChargedProjectile_Sfx[8] */
+        play_resume_charging_beam_sfx = 0;
+        InitializeProjectile(k);
+        int v1 = k >> 1;
+        projectile_bomb_x_speed[v1] = 0;
+        projectile_bomb_y_speed[v1] = 0;
+        projectile_index = k;
+        WaveBeam_CheckColl(k);
+        uint16 v2 = projectile_index;
+        int v3 = projectile_index >> 1;
+        projectile_damage[v3] = 1000;
+        projectile_bomb_pre_instructions[v3] = FUNC16(ProjPreInstr_HyperBeam);
+        SetInitialProjectileSpeed(v2);
+        cooldown_timer = 21;
+        charged_shot_glow_timer = 0x8014;
+        flare_animation_frame = 29;
+        flare_slow_sparks_anim_frame = 5;
+        flare_fast_sparks_anim_frame = 5;
+        flare_animation_timer = 3;
+        flare_slow_sparks_anim_timer = 3;
+        flare_fast_sparks_anim_timer = 3;
+        flare_counter = 0x8000;
+      }
+    }
     return;
   }
   if (Samus_CanFireBeam() & 1) {
@@ -1976,6 +2013,9 @@ static void CallProjPreInstr(uint16 f, uint16 k) {
   case FUNC16(ProjPreInstr_SpreadBomb): ProjPreInstr_SpreadBomb(k); return;
   case FUNC16(ProjPreInstr_PowerBomb): ProjPreInstr_PowerBomb(k); return;
   case FUNC16(ProjPreInstr_SpeedEcho): ProjPreInstr_SpeedEcho(k); return;
+  case FUNC16(ProjPreInstr_HyperBeam):          // 0x90B159
+    if (projectile_dir[k >> 1] & 0xF0) ClearProjectile(k); else ProjPreInstr_Wave_Shared(k);
+    return;
   case FUNC16(ProjPreInstr_WavePlasmaEtc): ProjPreInstr_WaveCommon(k, 4); return;
   case FUNC16(ProjPreInstr_BeamOrIceWave): ProjPreInstr_WaveCommon(k, 3); return;
   case FUNC16(ProjPreInstr_IceSba): ProjPreInstr_IceSba(k); return;

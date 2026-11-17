@@ -421,12 +421,19 @@ for fp in sorted(fxs):
         fxl.append((q,) + e)
         if e[0] in (0, 0xFFFF): break
         q += 16
+    # LoadFxEntry (Mother Brain: $83:A0A4) lee las entradas 1 y 2 sin buscar la puerta: van también
+    for k in range(1, {0xA0A4: 3}.get(fp, 0)):
+        e = struct.unpack('<4HBBBBBBBB', r(0x830000 | (fp + 16 * k), 16))
+        fxl.append((fp + 16 * k,) + e)
 H.append(f'extern const FxDefN kFxDefs[{len(fxl)}];')
 C.append(f'const FxDefN kFxDefs[{len(fxl)}] = {{')
 for e in fxl:
     C.append('  { ' + ', '.join('0x%X' % v for v in e) + ' },')
 C.append('};')
 arr('uint16', 'kFxTypeTilemapPtrs', words(0x83ABF0, 24), fmt='0x{:X}')
+# el cadáver de Mother Brain ($A9:E08B, MotherBrain_CorpseRottingInitFunc): sus tiles del SNES ($B7:CE00) que se pudren
+# en la RAM (7E:9000); palabras del SNES, como las guarda ERAM
+arr('uint16', 'kMbCorpseTiles', words(0xB7CE00, 0xBA0 // 2), fmt='0x{:X}')
 # efectos de paleta y tiles animados de cada área (8 por área, elegidos por los bits del FX): $83:AC46 / $83:AC56
 arr('uint16', 'kAreaPalFxLists', sum((words(0x830000 | p, 8) for p in words(0x83AC46, 8)), []), fmt='0x{:X}')
 arr('uint16', 'kAreaAnimtilesLists', sum((words(0x830000 | p, 8) for p in words(0x83AC56, 8)), []), fmt='0x{:X}')
@@ -469,7 +476,7 @@ blob('kBank9B_TrailOffsets', 0x9B, 0xA56F, 0xB3A7)
 
 # ------------------------------------------------------------------ enemigos de Ceres (cabeceras $A0, poblaciones $A1, sets $B4)
 # todos los enemigos que aparecen en las poblaciones y sets de tiles de las salas preparadas (ordenados: búsqueda binaria)
-_ed = {0xE23F, 0xE13F, 0xE1FF, 0xDAFF}   # DAFF: el que queda en lugar de un enemigo muerto que reaparece
+_ed = {0xE23F, 0xE13F, 0xE1FF, 0xDAFF, 0xECFF, 0xECBF}   # DAFF: el que queda en lugar de un enemigo muerto que reaparece; ECFF: los tubos que caen y ECBF: el bebé (Mother Brain)
 for st, v in states.items():
     q = 0xA10000 | v[5]
     while True:

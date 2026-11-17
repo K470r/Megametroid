@@ -800,3 +800,16 @@ Lo nuevo:
 - md_main.c: sin `MD_TEST_GOD` el salto de prueba apaga el visor (que deja a Samus con la energía llena en Zebes).
 
 Falta: el dibujo (la sala, el cuerpo en el BG2, el vidrio, el cerebro, el cuello, la bebé, el rayo, el pudrirse).
+
+## Mother Brain: el dibujo (2026-11-17, en curso)
+
+- Objetos por cuadro (DD58 en `STREAM_ROOMS`) y las claves y palabras del BG2 de la pelea entera en `zdraw.log` /
+  `zbg2.log` (registradas en el PC con `MM_DRAWLOG` sobre `motherbrain_in.txt`). Para que entre en las páginas, el
+  margen de las páginas de la intro baja de 16 a 4 KB (`mkzebes.py`; dejaba 13-20 KB sin usar).
+- El cerebro en la línea del jefe (`mkzobj.BOSS_PALETTES` con `(0xA9, 0x8687)`): con los demás objetos eran 90
+  colores en una línea y salía amarillo. La sala queda en una línea.
+- El tanque de vidrio: al cargar la sala (estado 11) el PLM del vidrio ($84:D6DE) pone aire en el nivel y el SNES
+  sigue mostrando el tanque en el BG1. La Genesis no redibuja esos bloques mientras se carga (plm.c).
+- Falta: en el SNES el tanque desaparece cuando se rompe el vidrio y en la Genesis sigue (los tiles del BG1 del SNES
+  no cambian en ese momento: hay que ver qué lo oculta); el cuerpo en el BG2 (fase 2), el cuello, el rayo arco iris,
+  la bebé y el pudrirse; el color de la sala (una sola línea) y la puerta de la izquierda.

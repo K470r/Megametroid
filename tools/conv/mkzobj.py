@@ -256,6 +256,12 @@ BOSS_PALETTES = {
     (0xA6, 0xA0F5): {
         None: [[(0xA6E150, 241, 14)], [(0xA6E46A, 241, 14)], [(0xA6E486, 241, 14)], [(0xA6E4A2, 241, 14)]],
     },
+    # Mother Brain (MotherBrainsBody_Init $A9:8687): con los demás objetos de la sala eran 90 colores en una línea (el
+    # cerebro salía amarillo); en la línea del jefe sus paletas del SNES. El inicio escribe 15 colores de
+    # kMotherBrainPalette_4 ($A9:9514) en 7E:C162 (177) y de kMotherBrainPalette_3 ($A9:94F4) en 7E:C1E2 (241)
+    (0xA9, 0x8687): {
+        None: [[(0xA99514, 177, 15), (0xA994F4, 241, 15)]],
+    },
 }
 BOSS_LINE = 1
 # índices de palette_buffer de un jefe que no se juntan con otros hasta el final (merge_colors, solo): pocos píxeles que

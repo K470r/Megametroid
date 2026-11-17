@@ -447,6 +447,22 @@ def read_logs(paths):
     return keys
 
 
+# tiles que un jefe copia por la cola de VRAM en distintos momentos de la pelea en los mismos lugares (Mother Brain: las
+# patas, la bebé, el cadáver): res/snes_ref/zvram.log tiene, por clave de enemigo, las copias hechas la última vez que
+# se dibujó (registradas en el PC con MM_DRAWLOG, líneas vwq); cada clave se convierte con esa VRAM
+def read_key_vram(path=Path(__file__).resolve().parents[2] / "res" / "snes_ref" / "zvram.log"):
+    """{sala: {("e", banco, sm, paleta, tiles): ((origen, tamaño, destino en palabras), ...)}}"""
+    out = {}
+    if not Path(path).exists():
+        return out
+    for l in Path(path).read_text().splitlines():
+        f = l.split()
+        if len(f) == 7 and f[1] == "kvram":
+            cps = tuple((int(a, 16), int(b, 16), int(c, 16)) for a, b, c in (x.split(":") for x in f[6].split(",")))
+            out.setdefault(int(f[0], 16), {})[("e", f[2], f[3], f[4], f[5])] = cps
+    return out
+
+
 def enemy_vram(rom, tilesets_ptr):
     """VRAM de los sprites (bytes 0xC000-0xFFFF del SNES) y paletas de la sala (índice 128..255 -> BGR555)"""
     vram = bytearray(0x10000)
@@ -616,7 +632,7 @@ def zkey(k):
 
 
 def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=OBJ_SLOT_LIST, extra_pal=None, base=ZOBJ_BASE,
-                  boss=None, vcopies=(), anim=(), vops=()):
+                  boss=None, vcopies=(), anim=(), vops=(), key_copies=None):
     """boss: (banco del jefe, momentos [{índice: color}]) en los estados con un jefe de BOSS_PALETTES: sus piezas de
     algunas paletas del SNES van en la línea BOSS_LINE (15 colores; se elige el reparto que menos junta).
     anim: los pasos de los ciclos de color de los enemigos (hook_moments), momentos sobre el último del jefe"""
@@ -650,7 +666,17 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
 
     def subtiles(T, n):                                  # tiles del SNES de una pieza, en el orden de pxs
         return [(T & 0x100) | ((T + dy * 16) & 0xF0) | ((T + dx) & 0x0F) for dx in range(n) for dy in range(n)]
+    kvcache = {}
     for k in sorted(keys):
+        vram_k = vram
+        if key_copies and k in key_copies:            # la VRAM de cuando se dibujó (read_key_vram)
+            cps = key_copies[k]
+            if cps not in kvcache:
+                v2 = bytearray(vram)
+                for (src, size, dst) in cps:
+                    v2[2 * dst:2 * dst + size] = rom.bytes(src, size)
+                kvcache[cps] = bytes(v2)
+            vram_k = kvcache[cps]
         key = {"e": ("enemy",), "s": ("enemy", "B4"), "p": ("eproj",), "j": ("proj",), "t": ("trail",)}[k[0]] + k[1:]
         kp = mkmd.key_pieces(rom, key)
         wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else 1
@@ -672,7 +698,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             pxs = []
             for dx in range(n):
                 for dy in range(n):
-                    px = mkmd.obj_tile_px(vram, T, dx, dy)
+                    px = mkmd.obj_tile_px(vram_k, T, dx, dy)
                     pxs.append(px)
                     for c in np.unique(px):
                         if c and 128 + p * 16 + int(c) not in BEAM_IDX and not wtrail:   # el rayo: lugares fijos 9-13
@@ -936,6 +962,7 @@ def build(rom_path, log_paths, states, frozen=None):
     llena con el juego común de los congelados (frozen_entry)"""
     rom = mkmd.Rom(rom_path)
     keys = read_logs(log_paths)
+    kvram = read_key_vram()
     psms, ptrail = mkmd.zebes_proj_keys(rom)
     pkeys = {("j", "%04X" % sm) for sm in psms} | {("t", "%04X" % t) for t in ptrail}
     out, cache = {}, {}
@@ -963,17 +990,19 @@ def build(rom_path, log_paths, states, frozen=None):
         fb = frozen_banks(rom, st) - ({boss_of(rom, st)[0]} if boss_of(rom, st) else set())
         an = hook_moments(rom, st, ts)
         vo = vram_copy_ops(rom, boss[0]) if boss and boss[0] in VRAM_COPY_BANKS and room not in STREAM_ROOMS else ()
-        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an), tuple(vo))
+        kc = kvram.get(room)
+        ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an), tuple(vo),
+              room if kc else None)
         if ck not in cache:                       # (lo mismo: se comparte)
             sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else OBJ_SLOT_LIST
             if room in STREAM_ROOMS:              # por cuadro: los tiles no tienen que entrar juntos (base 0)
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an, vops=vo)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
             else:
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an, vops=vo)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
             if cache[ck] is None and low < ZOBJ_BASE:   # más lugar: desde el final de los tiles de la sala
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
             if cache[ck] is None:                 # no entran los tiles: sin juntar piezas (comparten los tiles del SNES)
-                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo)
+                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
                 if cache[ck] is None:
                     print(f"  ¡sala {room:04X} (tiles {ts:04X}): sus objetos no entran ni sin juntar piezas!", file=sys.stderr)
             d = cache[ck]

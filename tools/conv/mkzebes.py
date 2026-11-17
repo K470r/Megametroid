@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 BOSS_PAGE = 25                                               # (port.py)
 BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(320 * 1024)))
 POOL_CHUNK = 512           # tiles por trozo del depósito común (16 KB: llenan mejor los huecos de las páginas)
-PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "2048"))   # bytes libres al final de cada página: la cuenta
+PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "1024"))   # bytes libres al final de cada página: la cuenta
 # no incluye las alineaciones; medido en rom.map (docs/58), lo real queda hasta ~1 KB por encima de la cuenta. El
 # enlace falla si una página pasa de 512 KB (md_ssf2.ld)
 CINE_BLOBS = ("kM7Tiles", "kM7Maps", "kGetawayTiles", "kGetawayMaps")   # cinemáticas de Ceres en páginas (docs/48)
@@ -853,6 +853,14 @@ def croco_melt_phases():
 # desde $A7:97C8-A0C8). Sus tiles se copian a números de tile que la sala no usa (como el derretido de Crocomire) y la
 # tabla del cuerpo se arma con los números del SNES: el motor no cambia
 BOSS_BG2_64 = {0xA59F: 0}
+# salas con el cuerpo subido sobre el fondo de biblioteca sin que el fondo copie 7E:2000: Mother Brain (su cuerpo, de
+# la fase 2, va con QueueEnemyBG2TilemapTransfers al BG2 que ya tiene el fondo de tubos)
+BOSS_BG2_OVER = {0xDD58}
+# PLMs que pone el código de un jefe con SpawnHardcodedPlm (sus bloques no salen de la lista de PLMs de la sala):
+# Mother Brain dibuja en la falsa muerte el fondo de tubos en el BG1 por filas ($84:B67B-B6A7: el BG2 queda para su
+# cuerpo), borra los tubos y el techo ($84:B677, B6B3-B6C7, B763/B767) y sella la pared (B673, MotherBrain_SealWall)
+BOSS_CODE_PLMS = {0xDD58: (0xB673, 0xB677, 0xB67B, 0xB67F, 0xB683, 0xB687, 0xB68B, 0xB68F, 0xB693, 0xB697, 0xB69B, 0xB69F,
+                           0xB6A3, 0xB6A7, 0xB6B3, 0xB6B7, 0xB6BB, 0xB6BF, 0xB6C3, 0xB6C7, 0xB763, 0xB767)}
 # la pared de la cueva de Kraid: los tiles 1008-1023 del BG1 los sube su código (kKraidsRoomBg $A7:A716, al hacerse
 # grande; ceros al morir): en la Genesis son tiles propios que el motor llena o borra (kZebesWall, md_zebes.c)
 KRAID_WALL_ROOMS = {0xA59F}                        # sala: byte de la VRAM del tile 0 de su BG2
@@ -960,6 +968,8 @@ def main():
                     while w16(q):
                         blocks |= {x & 0x3FF for x in plm_blocks(w16(q))}
                         q += 6
+                for h in BOSS_CODE_PLMS.get(ra, ()):   # PLMs que pone el código del jefe (no están en la lista de la sala)
+                    blocks |= {x & 0x3FF for x in plm_blocks(h)}
                 for h in DOOR_CLOSING:
                     if h:
                         blocks |= {x & 0x3FF for x in plm_blocks(h)}
@@ -969,7 +979,7 @@ def main():
                 for w_ in list(l1) + list(l2 or []):
                     usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1
                 full64 = ra in BOSS_BG2_64 and ra in BOSS_BG2_ROOMS and (l2x & 1) and bg_loads_4000(bg_ptr)
-                bb = BOSS_BG2.get(ra) if (l2x & 1) and (bg_copies_2000(bg_ptr) or full64) else None
+                bb = BOSS_BG2.get(ra) if (l2x & 1) and (bg_copies_2000(bg_ptr) or full64 or ra in BOSS_BG2_OVER) else None
                 bb_orig = None
                 if bb and full64:                 # Kraid: los tiles de su BG2 a números libres (BOSS_BG2_64)
                     cb = BOSS_BG2_64[ra]
@@ -1197,7 +1207,7 @@ def main():
             for m in re.finditer(r'section\("\.bank(\d+)"\)\)\)\s+(?:static\s+)?const\s+(\w+)\s+\w+\[(\d+)\]', pb.read_text()):
                 if int(m.group(1)) == lp:
                     u += tsz.get(m.group(2).replace('_t', ''), 8) * int(m.group(3)) + 2
-        fill[lp] = u + 16384 + (busy_used.get(lp, 0) if lp in busy_used else 0)
+        fill[lp] = u + 4096 + (busy_used.get(lp, 0) if lp in busy_used else 0)
     for pg, u in pause_pages.items():
         fill[pg] = fill.get(pg, 0) + u + 4096
     # el título va al final de la página 22 (md_ssf2.ld, .rodata_title): lo que miden sus archivos si ya se generaron
@@ -1208,7 +1218,7 @@ def main():
     if tdat.exists():
         fs_ = re.findall(r'incbin "([^"]+)"', tdat.read_text())
         if fs_ and all((tdat.parent.parent / f_).exists() for f_ in fs_):
-            title_sz = sum((tdat.parent.parent / f_).stat().st_size for f_ in fs_) + 16384
+            title_sz = sum((tdat.parent.parent / f_).stat().st_size for f_ in fs_) + 4096
     fill[22] = fill.get(22, 0) + title_sz
     # la página de los jefes (port.py, BOSS_PAGE: su código, los niveles de sus salas y sus bancos, ~240 KB) también
     # sirve para Zebes en lo que sobra: se le reservan BOSS_RESERVE bytes (el enlazador avisa si la página se pasa)

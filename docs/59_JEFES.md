@@ -813,3 +813,20 @@ Falta: el dibujo (la sala, el cuerpo en el BG2, el vidrio, el cerebro, el cuello
 - Falta: en el SNES el tanque desaparece cuando se rompe el vidrio y en la Genesis sigue (los tiles del BG1 del SNES
   no cambian en ese momento: hay que ver qué lo oculta); el cuerpo en el BG2 (fase 2), el cuello, el rayo arco iris,
   la bebé y el pudrirse; el color de la sala (una sola línea) y la puerta de la izquierda.
+
+### Mother Brain: la fase 2 (2026-11-17)
+
+- **El cuerpo en el BG2**: el fondo de la sala no copia 7E:2000; el cuerpo se sube igual sobre el BG2
+  (`mkzebes.BOSS_BG2_OVER`). Sube 2048 bytes (32 filas): `md_zebes.c` con `BB_MAX` 1024 y filas en 32 bits; en esta
+  sala el mapa ocupa `cinematic_text_tilemap` 0-2047, las tablas de los objetos por cuadro van en + 2048 y las sumas de
+  las filas en + 2400 (el ácido usa 3200 y 3968).
+- **El fondo de tubos**: en la falsa muerte el código de Mother Brain pone PLMs ($84:B67B-B6A7) que dibujan el fondo en
+  el BG1 por filas (el BG2 queda para el cuerpo); otros borran los tubos y sellan la pared. Sus bloques no están en la
+  lista de PLMs de la sala: `mkzebes.BOSS_CODE_PLMS`.
+- **Las patas y la bebé**: sus tiles se copian por la cola de VRAM en distintos momentos en los mismos lugares.
+  `res/snes_ref/zvram.log` tiene, por clave de enemigo, las copias hechas cuando se dibujó (del registro de
+  `MM_DRAWLOG`, líneas `vwq`); `mkzobj.read_key_vram` convierte cada clave con esa VRAM.
+- Lugar en la ROM: el margen de cada página baja a 1 KB (`MM_PAGE_MARGIN`) y los de la intro, el título y la última
+  página de los niveles a 4 KB; queda 1 KB libre en la página 25.
+- Falta: la cabeza un poco más amarilla (colores juntados en la línea del jefe), la puerta de la izquierda, el rayo
+  arco iris, la bebé y la fase 3, el pudrirse.

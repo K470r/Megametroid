@@ -245,8 +245,11 @@ static void reset_game_vars(void) {
    (la intro terminó, o YES en el fin de juego) y 0 para ir al título (NO). */
 static u16 play_game(u16 intro) {
   SYS_disableInts();
-  gamehi_take();
+  /* primero las variables y después el bloque: el puntero gamehi es una variable de la partida (.bss del juego) y
+     reset_game_vars lo pondría a cero; con el orden al revés gamehi_give no soltaba nada al terminar la intro y la
+     partida en Ceres se paraba en rojo (el bloque seguía pedido) */
   reset_game_vars();
+  gamehi_take();
   six = JOY_getJoypadType(JOY_1) == JOY_TYPE_PAD6;
   md_init(intro);
   { extern uint8_t nt_viewer, nt_viewer_place, nt_viewer_enemies; nt_viewer = 1; nt_viewer_place = 1; nt_viewer_enemies = 1; }   /* Zebes: visor de salas (src/viewer.c) */

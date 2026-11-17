@@ -3014,6 +3014,17 @@ void md_post(void) {
   scroll_ay = layer1_y_pos + nt_shake_bg1y;
   if (g_room->b_mode == 1) { scroll_bx = reg_BG2HOFS; scroll_by = reg_BG2VOFS; }
   else { scroll_bx = layer2_x_pos + nt_shake_bg2x; scroll_by = layer2_y_pos + nt_shake_bg2y; }
+  if (md_zebes && room_ptr == 0xA66A) {
+    /* las estatuas de Tourian (FxTypeFunc_26, $88:DB8A): el BG2 del SNES es de 32x64 (BG2SC 0x4A: con el BG2HOFS de
+       256 da la vuelta y se ve la pantalla de la izquierda, la de las estatuas) y el HDMA $88:DCFA le da el BG2VOFS
+       desde statue_bg2_ypos (las estatuas que se hunden al vencer a los cuatro jefes) */
+    scroll_bx &= 0xFF;
+    scroll_by = statue_bg2_ypos;
+    /* el plano B de la Genesis da la vuelta a las 32 filas y el BG2 del SNES a las 64 (las de abajo, vacías): cuando
+       la figura (filas 12-22 del mapa) ya bajó fuera de la pantalla, el plano B muestra su mitad derecha, vacía */
+    int16 t = (int16)(((96 - scroll_by) + 256) & 0x1FF) - 256;
+    if (t >= 224 || t <= -88) scroll_bx = 256;
+  }
   if (lq_on && lq_wv_next[14]) {               /* onda de Crocomire: el HDMA reemplaza al BG2VOFS en todas las líneas */
     scroll_by += (uint16)(crocomire_bg2_scroll_hdma_data[0] - reg_BG2VOFS);
     for (uint16 k = 0; k < lq_wn; k++) lq_wv_next[k] += scroll_by;

@@ -830,3 +830,19 @@ Falta: el dibujo (la sala, el cuerpo en el BG2, el vidrio, el cerebro, el cuello
   página de los niveles a 4 KB; queda 1 KB libre en la página 25.
 - Falta: la cabeza un poco más amarilla (colores juntados en la línea del jefe), la puerta de la izquierda, el rayo
   arco iris, la bebé y la fase 3, el pudrirse.
+
+## La sala de las estatuas de Tourian (A66A, 2026-11-17)
+
+Prueba: `tools/compare/estatuas_in.txt` (sin jefes vencidos) y `estatuas4_in.txt` con los cuatro vencidos
+(`HL_POKE=...,D828:100,D82A:101,D82C:1`; Genesis `-DMD_TEST_POKES={12750,0xD828,0x100},{12750,0xD82A,0x101},{12750,0xD82C,1}`),
+`DOOR=91F2 X=60 Y=180`.
+- **La puerta trabada**: faltaban `AnimtilesInstr_SpawnTourianStatueEyeGlow` y `...Soul` ($87:8320/832F,
+  animtiles.c): la secuencia del jefe vencido (gema, alma, estatua gris) no terminaba y la puerta no se abría. Ahora
+  igual al SNES en el PC y en la Genesis, con uno y con los cuatro jefes (las estatuas se hunden, eventos 6-10).
+- **Kraid y Draygon**: están en el BG2, que el SNES pone de 32x64 (`BG2SC 0x4A`) con BG2HOFS 256 (da la vuelta) y
+  el BG2VOFS por HDMA ($88:DCFA) desde `statue_bg2_ypos`. md_engine.c: en esta sala el plano B se mueve así; cuando
+  la figura bajó fuera de la pantalla se muestra la mitad vacía del plano B (el de la Genesis da la vuelta a las 32
+  filas).
+- Falta: las gemas de los ojos (tiles animados en la zona de los sprites y colores 249-252), el agua (en la Genesis
+  un tinte, en el SNES una textura más clara) y, después de hundirse, el piso del centro: el PLM ($84:B773) pone aire
+  en el nivel y en el SNES siguen viéndose las rocas (como el vidrio de Mother Brain).

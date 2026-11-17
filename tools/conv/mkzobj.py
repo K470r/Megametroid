@@ -870,7 +870,7 @@ def frozen_entry(rom, vram, k, islot, common):
 # salas con los objetos "por cuadro" (docs/59): sus claves no tienen tiles fijos en la VRAM; cada una es una entrada
 # del juego común (como los congelados: tiles desde 0 y registros) que la Genesis sube cuando se dibuja, a un depósito
 # de lugares en la zona de los objetos (md_zebes.c, frz_*). Kraid: su cuerpo y sus sprites no entran juntos.
-STREAM_ROOMS = {0xA59F, 0xDA60}
+STREAM_ROOMS = {0xA59F, 0xDA60, 0xDD58}
 STREAM_EPROJ = os.environ.get("MM_STREAM_EPROJ", "1") == "1"   # los proyectiles enemigos también por cuadro (md_zebes.c, zebes_obj_ep_recs)
 
 

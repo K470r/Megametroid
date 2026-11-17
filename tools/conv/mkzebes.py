@@ -817,7 +817,7 @@ BOSS_HI_TILE, BOSS_HI_N = 1920, 123              # VRAM 0xF000: hasta el tile 20
 # 7E:2000 cuando el fondo de biblioteca lo copia al BG2, comprobado contra el SNES: Phantoon y Draygon ya lo llenaron
 # con 0x338 (tile vacío). En la de Crocomire, no (con 0x338 se veía el color de fondo de la Genesis, rojo; sin
 # llenar, el tile 0 de su tileset: negro como en el SNES)
-BOSS_2000_FILL = {0xCD13: 0x338, 0xDA60: 0x338, 0xA98D: 0x338}
+BOSS_2000_FILL = {0xCD13: 0x338, 0xDA60: 0x338, 0xA98D: 0x338, 0xDD58: 0x338}
 # salas con el cuerpo en una caché (md_zebes.c): sus tiles no entran todos en la VRAM; se suben los que usa el mapa
 BOSS_BG2_CACHE = {0xA98D}                        # Crocomire: 312 tiles, ~155 a la vez
 # Crocomire derritiéndose (docs/59): Crocomire_Func_60 ($A4:943D) copia a 7E:4000 filas de tiles del banco $A4 (listas
@@ -889,7 +889,7 @@ def bg_loads_4000(bg_ptr):
 
 # salas con el cuerpo dibujado
 # (Kraid, A59F: sus sprites por cuadro, mkzobj.STREAM_ROOMS, para que entren con su cuerpo: docs/59)
-BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60,A98D,A59F").split(",") if x}
+BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,DA60,A98D,A59F,DD58").split(",") if x}
 
 
 # ------------------------------------------------------------------ todo
@@ -1185,7 +1185,7 @@ def main():
     fill = {page0: 0}
     for pg, u in busy_used.items():
         if pg > page0:
-            fill[pg] = u + 16384                    # margen
+            fill[pg] = u + 4096                     # margen (16 KB dejaba 13-20 KB sin usar en las páginas 19 y 20)
     # la última página de los niveles (mkdata.py: NT_LEVEL_LAST_USED) también sirve, con lo que dejan los niveles y
     # los tiles de la bomba de poder (md_pbomb_data.c), si van ahí
     m_ = re.search(r'#define NT_LEVEL_LAST_USED (\d+)', th)

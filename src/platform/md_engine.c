@@ -295,7 +295,7 @@ uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7
    Aquí: desde la línea de la superficie, la interrupción horizontal pone una paleta con el color medio del líquido
    sumado (lq_col: las 4 líneas, la 3 con los colores de los objetos); el vblank repone la normal. El color medio sale
    de palette_buffer con los pesos de los píxeles del tilemap del FX ($8A, kFxTypeTilemapPtrs) sobre los tiles del BG3
-   ($9A:B200): lava 27/26/25, ácido 3/2/1 (92/5/3 %), así sigue el brillo de su paleta (palfx). */
+   ($9A:B200): lava 27/26/25 (46/51/3 %), ácido 3/2/1 (92/5/3 %), así sigue el brillo de su paleta (palfx). */
 typedef struct __attribute__((packed)) { const uint16 *col; uint16 n; uint32 cmd; uint16 reg; } LqStep;
 static const LqStep *volatile lq_hp;
 extern uint16 cinematic_text_tilemap[];
@@ -449,10 +449,17 @@ static void lq_prepare(void) {
     if (bl == 0x14 || bl == 0x16) { ar = -ar; ag = -ag; ab = -ab; }
   } else {
     const uint16 *pb = palette_buffer + (fx_type == 4 ? 0 : 24);   /* lava y lluvia: línea 6; ácido: 0 */
-    /* pesos sobre 32: 92 % el color 3, 5 % el 2, 3 % el 1 */
-    ar = (int16)((29 * (pb[3] & 31) + 2 * (pb[2] & 31) + (pb[1] & 31)) >> 5);
-    ag = (int16)((29 * ((pb[3] >> 5) & 31) + 2 * ((pb[2] >> 5) & 31) + ((pb[1] >> 5) & 31)) >> 5);
-    ab = (int16)((29 * ((pb[3] >> 10) & 31) + 2 * ((pb[2] >> 10) & 31) + ((pb[1] >> 10) & 31)) >> 5);
+    uint16 w3, w2, w1;                          /* pesos sobre 32 (píxeles del BG3 del SNES) */
+    if (fx_type == 2) {                         /* lava: 46 % el color 3, 51 % el 2, 3 % el 1 (medido en AF14; el color
+                                                   3 lo anima la paleta de las salas calientes y a ratos está en negro:
+                                                   con 92 % el 3, la lava casi no se veía) */
+      w3 = 15; w2 = 16; w1 = 1;
+    } else {                                    /* ácido y lluvia: 92 % el color 3, 5 % el 2, 3 % el 1 */
+      w3 = 29; w2 = 2; w1 = 1;
+    }
+    ar = (int16)((w3 * (pb[3] & 31) + w2 * (pb[2] & 31) + w1 * (pb[1] & 31)) >> 5);
+    ag = (int16)((w3 * ((pb[3] >> 5) & 31) + w2 * ((pb[2] >> 5) & 31) + w1 * ((pb[1] >> 5) & 31)) >> 5);
+    ab = (int16)((w3 * ((pb[3] >> 10) & 31) + w2 * ((pb[2] >> 10) & 31) + w1 * ((pb[1] >> 10) & 31)) >> 5);
   }
   if (tint_on) { ar += tint_r; ag += tint_g; ab += tint_b; }
   { extern uint8 nt_msgbox_active; if (nt_msgbox_active) lq_pal_dirty = 1; }   /* (la caja de mensaje usa la misma RAM) */

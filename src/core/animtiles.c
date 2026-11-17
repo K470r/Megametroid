@@ -73,6 +73,9 @@ static uint16 CallAnimtilesInstr(uint16 f, uint16 k, uint16 j) {
     return j + 2;
   }
   case FUNC16(AnimtilesInstr_SpawnPalfxObj): SpawnPalfxObject(B87W(j)); return j + 2;
+  /* la sala de las estatuas de Tourian (A66A): el brillo de la gema y el alma que sube al vencer al jefe */
+  case FUNC16(AnimtilesInstr_SpawnTourianStatueEyeGlow): SpawnEprojWithRoomGfx(0xBA6A, B87W(j)); return j + 2;   // 0x878320
+  case FUNC16(AnimtilesInstr_SpawnTourianStatueSoul): SpawnEprojWithRoomGfx(0xBA94, B87W(j)); return j + 2;      // 0x87832F
   case FUNC16(AnimtilesInstr_Write8PaletteColors): {
     static const uint16 kColors[8] = { 0x3800, 0x7f58, 0x6ed5, 0x5a71, 0x49ee, 0x356a, 0x24e7, 0x1083 };
     uint16 c = B87W(j) >> 1;

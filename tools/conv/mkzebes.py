@@ -367,7 +367,7 @@ def put_items(table, vram, items):
     return bytes(table), bytes(vram)
 
 
-def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None,
+def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None, vis=None,
             own=frozenset()):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
@@ -455,6 +455,11 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     side = {}
     if live:                                      # (los del cuerpo no se juntan con los de la sala)
         side = {c: 1 if isinstance(c, LiveCol) else 2 for cs in combos.values() for c in cs}
+    if vis is not None:                           # (VIS_ROOMS: las estatuas, líneas 6-7, no se juntan con la sala)
+        st_ = set().union(*[cs for (t, p), cs in combos.items() if p >= 6] or [set()])
+        rm_ = set().union(*[cs for (t, p), cs in combos.items() if p < 6] or [set()])
+        side = {c: 1 for c in st_ - rm_}
+        side.update({c: 2 for c in rm_ - st_})
     if own and os.environ.get("MM_KRAID_SIDES"):
         live = set().union(*[cs for (t, p), cs in combos.items() if p >= 6] or [set()])
         room = set().union(*[cs for (t, p), cs in combos.items() if p < 6] or [set()])
@@ -545,7 +550,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 merges[k] = a
         merges[b] = a
         bins = pack_palettes([(k, {merges.get(c, c) for c in cs}) for k, cs in combos.items()], npal, caps_for(npal))
-    if os.environ.get("MM_COLDBG") and own:       # depuración (MM_ONLY): colores y fusiones de la sala
+    if os.environ.get("MM_COLDBG") and (own or os.environ.get("MM_ONLY")):       # depuración (MM_ONLY): colores y fusiones de la sala
         users = {}
         for (t, p), cs in combos.items():
             for c in cs:
@@ -568,13 +573,31 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 assign[k] = bi
     palettes = [sorted(cs, key=lambda g: (sum(gen_to_rgb(g)), g)) for cs, _ in bins]
     # índice del SNES de cada color: el (p, c) más usado entre los que dan ese color
+    # (por píxeles vistos: celdas del nivel que usan el tile por sus píxeles de ese color, si se sabe -vis-; contando
+    # solo tiles, en la sala de las estatuas de Tourian el café de las estatuas le ganaba al negro del fondo, que se
+    # le juntó, y todo el fondo salía rojo oscuro)
+    ncell = None
+    if vis is not None:
+        ncell = {}
+        for mt in blocks:
+            u_ = vis.get(mt, 0)
+            for e in ent[mt]:
+                ncell[(e & 0x3FF, (e >> 10) & 7)] = ncell.get((e & 0x3FF, (e >> 10) & 7), 0) + u_
+        for e in bg2 or []:
+            ncell[(e & 0x3FF, (e >> 10) & 7)] = ncell.get((e & 0x3FF, (e >> 10) & 7), 0) + 1
     uses = {}
     for (t, p), bi in assign.items():
-        for c in np.unique(px(t)):
+        # (también los colores de los cuadros de un tile animado: las gemas de las estatuas de Tourian solo existen
+        # en sus cuadros y salían del índice 0, negras)
+        cols = set(np.unique(px(t)).tolist())
+        for fr in anim.get(t, {}).values():
+            cols |= set(np.unique(snes_tile(fr, 0)).tolist())
+        for c in sorted(cols):
             if c:
                 g = mg(p, gc(p, int(c)))
                 uses.setdefault((bi, g), {}).setdefault(p * 16 + int(c), 0)
-                uses[(bi, g)][p * 16 + int(c)] += 1
+                uses[(bi, g)][p * 16 + int(c)] += 1 if ncell is None else \
+                    1 + ncell.get((t, p), 0) * int((px(t) == c).sum())
     # paletas del SNES del cuerpo del jefe en el BG2 que no usa la sala (cambian en vivo)
     body_pals = set()
     if bg2 and nbg2 is not None:
@@ -605,7 +628,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 u = {k_: v_ for k_, v_ in u.items() if (k_ >> 4) not in body_pals}
             row[slot(bi, i)] = max(u.items(), key=lambda kv: (kv[1], -kv[0]))[0]
         src.append(row)
-        if os.environ.get("MM_COLDBG") and own:
+        if os.environ.get("MM_COLDBG") and (own or os.environ.get("MM_ONLY")):
             for i, g in enumerate(pl):
                 k_ = row[slot(bi, i)]
                 print(f"   línea {bi} lugar {slot(bi, i)}: {gen_to_rgb(g)} <- índice {k_} (línea {k_ >> 4}, "
@@ -856,6 +879,9 @@ BOSS_BG2_64 = {0xA59F: 0}
 # salas con el cuerpo subido sobre el fondo de biblioteca sin que el fondo copie 7E:2000: Mother Brain (su cuerpo, de
 # la fase 2, va con QueueEnemyBG2TilemapTransfers al BG2 que ya tiene el fondo de tubos)
 BOSS_BG2_OVER = {0xDD58}
+# salas en que el índice del SNES de cada color de la Genesis sale de los píxeles vistos (convert, vis): la de las
+# estatuas de Tourian (el negro del fondo y el café de las estatuas van juntos)
+VIS_ROOMS = {0xA66A}
 # PLMs que pone el código de un jefe con SpawnHardcodedPlm (sus bloques no salen de la lista de PLMs de la sala):
 # Mother Brain dibuja en la falsa muerte el fondo de tubos en el BG1 por filas ($84:B67B-B6A7: el BG2 queda para su
 # cuerpo), borra los tubos y el techo ($84:B677, B6B3-B6C7, B763/B767) y sella la pared (B673, MotherBrain_SealWall)
@@ -1052,7 +1078,7 @@ def main():
                 res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items, own=own,
                               max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
                               pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
-                              nbg2=nbg2 if bb else None)
+                              nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None)
                 res["boss"] = None
                 if bb:                            # celdas del cuerpo: tabla por (línea del SNES, tile)
                     cells_b = res["bg2"][nbg2:]

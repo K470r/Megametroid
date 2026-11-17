@@ -1,0 +1,6 @@
+# líneas de los sprites que la sala carga después de entrar (hlref HL_VRAM, CGRAM del SNES con la sala en marcha):
+# sala, spal, línea de la CGRAM, dirección en la ROM de sus 16 colores. mkzobj los usa en vez de los de la carga
+# (A66A: las estatuas de Tourian y las gemas de Ridley y Phantoon)
+A66A spal 12 8DDB6B
+A66A spal 13 9A81A0
+A66A spal 14 90C401

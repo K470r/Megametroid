@@ -364,7 +364,11 @@ void game_frame(uint16 joy) {
     if (animtiles_enable_flag & 0x8000)    // NmiProcessAnimtilesVramTransfers ($80:9416): la Genesis sube los tiles
       for (int i = 5; i >= 0; i--)
         if (animtiles_ids[i] && animtiles_src_ptr[i]) {
-          nt_animtiles_transfer(animtiles_src_ptr[i], animtiles_sizes[i], animtiles_vram_ptr[i]);
+          if (animtiles_vram_ptr[i] >= 0x6000)     /* a la VRAM de los sprites (las gemas de las estatuas de Tourian):
+                                                     como las copias de tiles de los jefes (mkzobj.ROOM_VRAM_OPS) */
+            nt_enemy_vram_copy(0x870000 | animtiles_src_ptr[i], animtiles_vram_ptr[i]);
+          else
+            nt_animtiles_transfer(animtiles_src_ptr[i], animtiles_sizes[i], animtiles_vram_ptr[i]);
           animtiles_src_ptr[i] = 0;
         }
     if (vram_write_queue_tail) {           // NMI: la cola de VRAM ($80:9667) la sube la plataforma

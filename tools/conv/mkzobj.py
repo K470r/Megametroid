@@ -127,6 +127,11 @@ BOSS_VRAM_COPIES = {0xDA60: [(0xB19400, 0x600, 0xDA00)]}
 
 # copias de tiles por jefe (banco): el Torizo ($AA, ojos y boca); docs/59
 VRAM_COPY_BANKS = {0xAA}
+# tiles animados de una sala que van a la VRAM de los sprites (sus cuadros, como las copias del Torizo: parches de los
+# tiles convertidos, md_zebes.c vcp; game.c los manda con nt_enemy_vram_copy): las gemas de las estatuas de Tourian
+# (RoomSetup_RunStatueUnlockAnims $8F:91D7): Phantoon ($87:83AC, 0x80 bytes a 7800) y Ridley ($87:8414, 0x40 a 7220)
+ROOM_VRAM_OPS = {0xA66A: [(0x879364, 0x80, 0x7800), (0x8793E4, 0x80, 0x7800), (0x879464, 0x80, 0x7800),
+                          (0x8794E4, 0x40, 0x7220), (0x879524, 0x40, 0x7220), (0x879564, 0x40, 0x7220)]}
 
 
 def plm_sprite_copies(rom, st):
@@ -460,6 +465,21 @@ def read_key_vram(path=Path(__file__).resolve().parents[2] / "res" / "snes_ref" 
         if len(f) == 7 and f[1] == "kvram":
             cps = tuple((int(a, 16), int(b, 16), int(c, 16)) for a, b, c in (x.split(":") for x in f[6].split(",")))
             out.setdefault(int(f[0], 16), {})[("e", f[2], f[3], f[4], f[5])] = cps
+    return out
+
+
+# colores de los sprites con la sala en marcha (res/snes_ref/zpal.log): las líneas que la sala carga después de entrar
+# con efectos de paleta (las estatuas de Tourian y sus gemas); se usan en vez de las de la carga. El registro solo dice
+# de dónde salen en la ROM (línea de la CGRAM, dirección de sus 16 colores), medido contra la CGRAM del SNES
+def read_room_pal(rom, path=Path(__file__).resolve().parents[2] / "res" / "snes_ref" / "zpal.log"):
+    out = {}
+    if Path(path).exists():
+        for l in Path(path).read_text().splitlines():
+            f = l.split()
+            if len(f) == 4 and f[1] == "spal":
+                ln, src = int(f[2]), int(f[3], 16)
+                for c in range(16):
+                    out.setdefault(int(f[0], 16), {})[ln * 16 + c] = rom.w(src + 2 * c)
     return out
 
 
@@ -963,6 +983,7 @@ def build(rom_path, log_paths, states, frozen=None):
     rom = mkmd.Rom(rom_path)
     keys = read_logs(log_paths)
     kvram = read_key_vram()
+    room_pal = read_room_pal(rom)
     psms, ptrail = mkmd.zebes_proj_keys(rom)
     pkeys = {("j", "%04X" % sm) for sm in psms} | {("t", "%04X" % t) for t in ptrail}
     out, cache = {}, {}
@@ -982,7 +1003,7 @@ def build(rom_path, log_paths, states, frozen=None):
         other = set().union(*(tileset_pals(rom, o) for o in room_states(rom, room) if o != st)) - mine
         k = {x for x in k if x[0] != "e" or int(x[3], 16) not in other}
         eye = has_eye(rom, st)
-        ipal = init_palettes(rom, st)
+        ipal = {**init_palettes(rom, st), **room_pal.get(room, {})}
         low = min(ZOBJ_BASE, 448 + ((room_tiles + 7) & ~7))   # justo después de los tiles de la sala (md_zebes.c)
         bk = boss_line(rom, st, k)
         boss = (bk[0], boss_moments(rom, bk, rom.d[rom.off(0x8F0000 | (room + 1))])) if bk else None
@@ -990,6 +1011,12 @@ def build(rom_path, log_paths, states, frozen=None):
         fb = frozen_banks(rom, st) - ({boss_of(rom, st)[0]} if boss_of(rom, st) else set())
         an = hook_moments(rom, st, ts)
         vo = vram_copy_ops(rom, boss[0]) if boss and boss[0] in VRAM_COPY_BANKS and room not in STREAM_ROOMS else ()
+        if room in ROOM_VRAM_OPS:                 # (y en la VRAM de la carga, el primer cuadro de cada una)
+            vo = tuple(ROOM_VRAM_OPS[room])
+            firsts = {}
+            for (src, size, dst) in vo:
+                firsts.setdefault(dst, (src, size))
+            vc = vc + [(2 * dst, rom.bytes(src, size)) for dst, (src, size) in firsts.items()]
         kc = kvram.get(room)
         ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an), tuple(vo),
               room if kc else None)

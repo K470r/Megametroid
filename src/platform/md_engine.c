@@ -442,9 +442,11 @@ static void lq_prepare(void) {
   int16 ar, ag, ab;
   if (water) {                                  /* agua: 74 % el color 26, 26 % el 25 (su tilemap del FX) */
     const uint16 *pb = palette_buffer;
-    ar = (int16)((24 * (pb[26] & 31) + 8 * (pb[25] & 31)) >> 5);
-    ag = (int16)((24 * ((pb[26] >> 5) & 31) + 8 * ((pb[25] >> 5) & 31)) >> 5);
-    ab = (int16)((24 * ((pb[26] >> 10) & 31) + 8 * ((pb[25] >> 10) & 31)) >> 5);
+    /* (la de la estatua de Tourian, 0x26: 47 % el 26, 50 % el 25, 3 % el 24; medido en A66A sobre el negro) */
+    uint16 w6 = fx_type == 0x26 ? 15 : 24, w5 = fx_type == 0x26 ? 16 : 8, w4 = fx_type == 0x26 ? 1 : 0;
+    ar = (int16)((w6 * (pb[26] & 31) + w5 * (pb[25] & 31) + w4 * (pb[24] & 31)) >> 5);
+    ag = (int16)((w6 * ((pb[26] >> 5) & 31) + w5 * ((pb[25] >> 5) & 31) + w4 * ((pb[24] >> 5) & 31)) >> 5);
+    ab = (int16)((w6 * ((pb[26] >> 10) & 31) + w5 * ((pb[25] >> 10) & 31) + w4 * ((pb[24] >> 10) & 31)) >> 5);
     uint8 bl = (uint8)fx_layer_blending_config_c;   /* LayerBlendFunc_14/16: se resta (Maridia); 18: se suma */
     if (bl == 0x14 || bl == 0x16) { ar = -ar; ag = -ag; ab = -ab; }
   } else {

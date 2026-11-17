@@ -843,6 +843,23 @@ Prueba: `tools/compare/estatuas_in.txt` (sin jefes vencidos) y `estatuas4_in.txt
   el BG2VOFS por HDMA ($88:DCFA) desde `statue_bg2_ypos`. md_engine.c: en esta sala el plano B se mueve así; cuando
   la figura bajó fuera de la pantalla se muestra la mitad vacía del plano B (el de la Genesis da la vuelta a las 32
   filas).
-- Falta: las gemas de los ojos (tiles animados en la zona de los sprites y colores 249-252), el agua (en la Genesis
-  un tinte, en el SNES una textura más clara) y, después de hundirse, el piso del centro: el PLM ($84:B773) pone aire
-  en el nivel y en el SNES siguen viéndose las rocas (como el vidrio de Mother Brain).
+- **Las gemas**: las de Ridley y Phantoon son sprites (tiles animados en la VRAM de los sprites: game.c los copia
+  con `nt_enemy_vram_copy`; mkzobj.py `ROOM_VRAM_OPS` y los colores de la sala en marcha, `res/snes_ref/zpal.log`).
+  Las de Kraid y Draygon son tiles animados del BG2 (0xB40 y 0xCA0) cuyos colores (105-107, 124-126) solo están en
+  los cuadros de la animación: mkzebes.py no los contaba al elegir el índice del SNES de cada color de la Genesis y
+  salían del índice 0 (negras). Ahora cuenta también los cuadros.
+- **El fondo rojo oscuro**: con 2 líneas, el negro del fondo (0x0021) se juntaba con el café de las estatuas (0x0044)
+  y el lugar tomaba el índice del café. `VIS_ROOMS` (mkzebes.py): en esta sala las estatuas (líneas 6-7 del SNES) no
+  se juntan con los colores de la sala y el índice de un color juntado sale de los píxeles vistos (celdas del nivel).
+  Una línea queda para las estatuas y las gemas, la otra para la cueva.
+- **El agua**: la Genesis no suma la textura del BG3; el tinte (lq_prepare) toma para FX 0x26 el 47 % del color 26,
+  el 50 % del 25 y el 3 % del 24 (medido sobre el negro: el de Maridia, 74/26, salía más oscuro).
+- **La puerta gris** (PLM C848, parámetro 9448: abre cuando `tourian_entrance_statue_finished`): destella azul y gris
+  hasta que se le dispara; en el SNES igual, desde 128 cuadros de juego después de entrar (la decoración de la base,
+  eproj BABE, pone el preinstr BA37). En la Genesis empieza unos 50 cuadros antes porque la transición de la puerta
+  es más corta: comparar por cuadro del motor desfasa las dos imágenes en esta sala.
+- **El piso del centro** después de hundirse: B773 lo desmorona por filas (bloques 0x53-0x55 y aire); la Genesis lo
+  dibuja. En la grabación del SNES las rocas siguen: es la prueba, no el juego. `HL_WARP` entra desde la posición de la
+  sala anterior (x 1595) y deja `bg1_x_offset` en 0xB3B (no múltiplo de 256): el BG1 del SNES sale 11 píxeles corrido
+  y los dibujos de los PLM (CalculatePlmDrawTilemapVramDst) van a otras celdas del tilemap. Entrando por la puerta el
+  desplazamiento es múltiplo de 256.

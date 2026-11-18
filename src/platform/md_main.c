@@ -90,8 +90,12 @@ static u16 read_joy(void) {
     static u8 placed;
     if (!placed && test_pos >= MD_TEST_SETXY_AT && game_state == 8) {
       placed = 1;
-      samus_x_pos = samus_prev_x_pos = MD_TEST_SETXY_X;
-      samus_y_pos = samus_prev_y_pos = MD_TEST_SETXY_Y;
+      samus_x_pos = MD_TEST_SETXY_X;
+      samus_y_pos = MD_TEST_SETXY_Y;
+#ifndef MD_TEST_SETXY_SCROLL                    /* (con MD_TEST_SETXY_SCROLL la cámara la sigue: como HL_SETXY_SCROLL) */
+      samus_prev_x_pos = samus_x_pos;
+      samus_prev_y_pos = samus_y_pos;
+#endif
     }
 #endif
 #ifdef MD_TEST_POKES

@@ -221,8 +221,9 @@ int main(int argc, char **argv) {
       } }
     while (isxy < nsxy && sxy_n[isxy] <= from) isxy++;
     if (isxy < nsxy && f >= sxy_n[isxy] && game_state == 8) {
-      samus_x_pos = samus_prev_x_pos = sxy_x[isxy];
-      samus_y_pos = samus_prev_y_pos = sxy_y[isxy];
+      samus_x_pos = sxy_x[isxy];
+      samus_y_pos = sxy_y[isxy];
+      if (!getenv("HL_SETXY_SCROLL")) { samus_prev_x_pos = samus_x_pos; samus_prev_y_pos = samus_y_pos; }   /* (como hlref) */
       isxy++;
     }
     if (mode == 1) load_all(ram_prev);

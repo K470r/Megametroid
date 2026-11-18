@@ -277,6 +277,30 @@ static uint8 RunGameState(uint16 st) {
   case 30: case 34: case 37:                        // GameState_37_CeresGoesBoomWithSamus ($8B:A35B): 30 = intro
     GameState_CeresGoesBoom();
     return 0;
+  case 38:                                          // GameState_38_SamusEscapesFromZebes ($82:84BD): la nave se fue
+    if (GameState_8_MainGameplay()) return 1;
+    HandleFadeOut();
+    if (reg_INIDISP == 0x80) {
+      WaitUntilEndOfVblankAndClearHdma();
+      fx_layer_blending_config_a = 0;
+      next_gameplay_CGWSEL = 0;
+      next_gameplay_CGADSUB = 0;
+      reg_TM = 16; reg_TS = 0; reg_TMW = 0; reg_TSW = 0;
+      reg_BGMODE = 9;
+      screen_fade_delay = 0;
+      screen_fade_counter = 0;
+      game_state = 39;                              // kGameState_39_EndingAndCredits
+      cinematic_function = FUNC16(CinematicFunctionEscapeFromCebes);   // $8B:D480
+      timer_status = 0;
+      QueueMusic_Delayed8(0);
+      QueueSfx1_Max15(2);
+      QueueSfx2_Max15(0x71);
+      QueueSfx3_Max15(1);
+    }
+    return 0;
+  case 39:                                          // GameState_39_EndingAndCredits ($8B:D443): falta (docs/46)
+    nt_unimpl("GameState_39 (el final y los créditos)");
+    return 0;
   case 35:                                          // GameState_35_TimeUp ($82:8411)
     if (GameState_8_MainGameplay()) return 1;
     palette_change_denom = 8;

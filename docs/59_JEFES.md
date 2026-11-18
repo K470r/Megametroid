@@ -872,6 +872,13 @@ la fase 1). El rayo, en la Genesis desde el cuadro ~16900.
   veían) y los PLM dibujaban en otras celdas (lo de la sala de las estatuas). `HL_WARP_ALIGN=1` (hlref.c) pone antes la
   cámara en un múltiplo de 512: queda 0xB00, como al entrar por la puerta. `mb.sh` lo usa; hay que recompilar hlref
   (`tools/snes_ref/viewer_check/build_hlref.sh sm/src work/inputs/hlref`).
+- **Después de la bebé** (Mother Brain sin energía, gris): `FadeToGray_Drained` pone grises 145-159 (patas, cuello,
+  cerebro); se juntaban con otros y salían rojizos. `mkzobj.BOSS_KEEP` ({$A9: 145-159}): esos no se juntan con otros
+  hasta el final. Los momentos de la fase 2 y del gris en `BOSS_PALETTES` no sirven (el cerebro salía crema): sólo el
+  de la bebé. Queda la cabeza algo más oscura que en el SNES.
+- **El fondo azulado**: con la sala en una línea, el lugar del fondo leía un índice gris. `mkzebes.PREF_INDEX`
+  (DD58: índice 58) manda sobre `PREF_LINES`: el fondo queda verde azulado oscuro (lo más cerca que da la paleta de la
+  Genesis con ese lugar compartido; en el SNES es un azul grisáceo). En la huida se pone rojo igual.
 - Falta: el color de la cabeza y del cuerpo (más rosado en el SNES): a revisar con Edwin.
 
 ## La sala de las estatuas de Tourian (A66A, 2026-11-17)

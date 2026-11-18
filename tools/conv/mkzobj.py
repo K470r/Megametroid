@@ -286,9 +286,13 @@ BOSS_PALETTES = {
     },
     # Mother Brain (MotherBrainsBody_Init $A9:8687): con los demás objetos de la sala eran 90 colores en una línea (el
     # cerebro salía amarillo); en la línea del jefe sus paletas del SNES. El inicio escribe 15 colores de
-    # kMotherBrainPalette_4 ($A9:9514) en 7E:C162 (177) y de kMotherBrainPalette_3 ($A9:94F4) en 7E:C1E2 (241)
+    # kMotherBrainPalette_4 ($A9:9514) en 7E:C162 (177) y de kMotherBrainPalette_3 ($A9:94F4) en 7E:C1E2 (241).
+    # Después, la bebé (ShitroidInCutscene_Init: su paleta $A9:94D4 en 7E:C1E2, 241: la línea 7, que al empezar es gris
+    # como la 1 de Mother Brain). Sin ese momento los índices de las patas y la cara (152...) se juntaban con los de la
+    # bebé (247...), iguales al empezar, y salían rojos. La fase 2 y el gris de cuando la bebé lo deja sin energía
+    # (FadeToGray_Drained, 145-159) no van como momentos (el cerebro salía crema): 145-159 van en BOSS_KEEP.
     (0xA9, 0x8687): {
-        None: [[(0xA99514, 177, 15), (0xA994F4, 241, 15)]],
+        None: [[(0xA99514, 177, 15), (0xA994F4, 241, 15)], [(0xA994D4, 241, 15)]],
     },
 }
 BOSS_LINE = 1
@@ -296,6 +300,10 @@ BOSS_LINE = 1
 # cambian mucho entre momentos. El Torizo (banco $AA): los ojos, 156-158 (rosados de estatua; naranjas al despertar el
 # Bomb Torizo, cian el Golden): se juntaban con un marrón y en la Genesis nunca se encendían (docs/59)
 BOSS_SOLO = {0xAA: frozenset({156, 157, 158})}
+# índices de un jefe que cambian en la pelea y que, al juntarse con otros, quedan como el color del lugar
+# (merge_colors, keep): Mother Brain, su paleta 1 de sprites (145-159: patas, cuello y cerebro), que la bebé pone gris
+# (MotherBrain_FadeToGray_Drained). Si quedaba otro (247, rojo que no cambia), las patas y la cara seguían rojas
+BOSS_KEEP = {0xA9: frozenset(range(145, 160))}
 # salas de jefes cuyos objetos no entran en la VRAM con las copias del destello (el jefe dibujado con la paleta 0000,
 # la línea 0 de sprites, blanca, cuando recibe daño): sin ellas, el destello no se ve (Crocomire: 796 tiles -> 592)
 FLASH_DROP = {0xA98D}
@@ -698,6 +706,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
     moments = moments + [{**moments[-1], **a} for a in anim]
     akeep = frozenset(i for a in anim for i in a)
     solo = BOSS_SOLO.get(boss[0], frozenset()) if boss else frozenset()
+    bkeep = BOSS_KEEP.get(boss[0], frozenset()) if boss else frozenset()
     bank = mkmd.TileBank(base)
     # piezas de cada clave y colores que usan (por paleta del SNES de las piezas del jefe, para repartir las líneas)
     pieces = {}
@@ -781,7 +790,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         if os.environ.get("MM_ZOBJ_STATS"):
             c3e = Counter({i: n for i, n in c3.items() if n >= 1})       # sin los proyectiles de Samus (peso 1/64)
             print("  colores de enemigos distintos:", len(merge_colors(c3e, vec, 99)[1]), "de", len(slots), file=sys.stderr)
-        r1 = merge_colors(c1, vec, 15, sqrt_w=True, solo=solo) if c1 else ({}, {}, 0, 0.0)
+        r1 = merge_colors(c1, vec, 15, sqrt_w=True, solo=solo, keep=bkeep) if c1 else ({}, {}, 0, 0.0)
         cost = r3[3] + r1[3]
         if os.environ.get("MM_ZOBJ_REP"):                 # depuración: a qué índice va cada uno de una lista
             for i in (int(x) for x in os.environ["MM_ZOBJ_REP"].split(",")):

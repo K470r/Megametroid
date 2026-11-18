@@ -53,6 +53,9 @@ static uint8 zsrc[64];
 extern uint16 md_scratch[1440];          /* (RAM compartida, md_engine.c) */
 #define meta_idx md_scratch               /* bloque (10 bits) -> 1 + su número en la tabla de la sala (0: no está) */
 #define META_IDX_BYTES 2048             /* bloque (10 bits) -> 1 + su número en la tabla de la sala (0: no está) */
+static void meta_build(void);
+extern volatile uint16 md_snd_frames;     /* md_snd.c: el XGM2 está cargado */
+void md_snd_protect(uint8 on);
 #define ZT_BASE 448                       /* primer tile de la sala (antes: los objetos de la sala base de Ceres) */
 #define ZW 36                             /* ventana dibujada: columnas */
 #define ZH 32                             /*                   filas */
@@ -429,8 +432,7 @@ const MdRoom *zebes_use(void) {
   map_page(zg->page);
   for (uint16 i = 0; i < 32; i++)
     zsrc[i] = i < (uint16)zg->npal * 16 ? (uint8)zg->src[i] : 0xFF;
-  memset(meta_idx, 0, META_IDX_BYTES);
-  for (uint16 i = 0; i < zg->nmeta; i++) meta_idx[zg->ids[i] & 0x3FF] = i + 1;
+  meta_build();
   if (zo && zg->npal == 1) {                 /* jefe de colores propios (mkzobj.BOSS_LINE): la línea 1 es de los objetos */
     map_page(zo->page);
     for (uint16 i = 1; i < 16; i++) {
@@ -484,6 +486,142 @@ static void zebes_dma_runs(uint8 rp, const uint16 *r, uint16 nr, uint16 vt) {
   }
 }
 
+/* meta_idx desde la tabla de la sala (también después de cargar los tiles: md_scratch es el búfer de la
+   descompresión) */
+static void meta_build(void) {
+  uint8 lp = md_cur_page;
+  map_page(zg->page);
+  memset(meta_idx, 0, META_IDX_BYTES);
+  for (uint16 i = 0; i < zg->nmeta; i++) meta_idx[zg->ids[i] & 0x3FF] = i + 1;
+  map_page(lp);
+}
+
+/* descompresor del formato MZ (tools/conv/mz.py, mzpack.c): n bytes de src a dst. Bits de mayor a menor mezclados
+   con los bytes; empieza con literales; después de literales: 0 repetir el último desplazamiento, 1 nuevo; después de
+   una copia: 0 literales, 1 nuevo. Nuevo: h = gamma, byte b: desplazamiento (h - 1) * 128 + (b >> 1) + 1, largo
+   gamma + 1 con su primer bit en b & 1 */
+/* (en ensamblador: en C tardaba ~110 ciclos por byte y la sala del aterrizaje sumaba 26 cuadros a la carga).
+   a0 entrada, a1 salida, a2 fin, d7 bits (el byte a la izquierda y un 1 de centinela detrás: add.b saca el bit al
+   acarreo y a X; si queda 0, el centinela salió y se toma el byte siguiente), d1 valor, d2 último desplazamiento */
+void mz_unpack(const uint8 *ip, uint8 *op, uint32 n);
+__asm__(
+"    .text\n"
+"    .even\n"
+"    .globl mz_unpack\n"
+"    .macro MZBIT\n"
+"    add.b %d7,%d7\n"
+"    bne.s 1f\n"
+"    move.b (%a0)+,%d7\n"
+"    addx.b %d7,%d7\n"
+"1:\n"
+"    .endm\n"
+"    .macro MZGAMMA\n"
+"    moveq #1,%d1\n"
+"2:  MZBIT\n"
+"    bcs.s 3f\n"
+"    MZBIT\n"
+"    addx.w %d1,%d1\n"
+"    bra.s 2b\n"
+"3:\n"
+"    .endm\n"
+"mz_unpack:\n"
+"    movem.l %d2-%d4/%d7/%a2-%a3,-(%sp)\n"
+"    move.l 28(%sp),%a0\n"
+"    move.l 32(%sp),%a1\n"
+"    move.l 36(%sp),%d0\n"
+"    lea (%a1,%d0.l),%a2\n"
+"    moveq #1,%d2\n"
+"    move.b #0x80,%d7\n"
+".Lmz_lit:\n"                                   /* literales */
+"    MZGAMMA\n"
+"    subq.w #1,%d1\n"
+"4:  move.b (%a0)+,(%a1)+\n"
+"    dbra %d1,4b\n"
+"    cmpa.l %a2,%a1\n"
+"    bcc.w .Lmz_done\n"
+"    MZBIT\n"
+"    bcs.s .Lmz_new\n"
+"    MZGAMMA\n"                                 /* repetir el último desplazamiento */
+"    subq.w #1,%d1\n"
+"    move.l %a1,%a3\n"
+"    sub.l %d2,%a3\n"
+"5:  move.b (%a3)+,(%a1)+\n"
+"    dbra %d1,5b\n"
+"    cmpa.l %a2,%a1\n"
+"    bcc.w .Lmz_done\n"
+"    MZBIT\n"
+"    bcc.s .Lmz_lit\n"
+".Lmz_new:\n"                                   /* desplazamiento nuevo */
+"    MZGAMMA\n"
+"    subq.w #1,%d1\n"
+"    lsl.w #7,%d1\n"
+"    moveq #0,%d3\n"
+"    move.b (%a0)+,%d3\n"
+"    lsr.b #1,%d3\n"                            /* (el bit 0: primer bit del largo) */
+"    scs %d4\n"
+"    add.w %d3,%d1\n"
+"    addq.w #1,%d1\n"
+"    moveq #0,%d2\n"
+"    move.w %d1,%d2\n"
+"    moveq #1,%d1\n"
+"    tst.b %d4\n"
+"    bne.s 7f\n"
+"    MZBIT\n"
+"    addx.w %d1,%d1\n"
+"6:  MZBIT\n"
+"    bcs.s 7f\n"
+"    MZBIT\n"
+"    addx.w %d1,%d1\n"
+"    bra.s 6b\n"
+"7:  move.l %a1,%a3\n"                          /* largo: d1 + 1 */
+"    sub.l %d2,%a3\n"
+"8:  move.b (%a3)+,(%a1)+\n"
+"    dbra %d1,8b\n"
+"    cmpa.l %a2,%a1\n"
+"    bcc.s .Lmz_done\n"
+"    MZBIT\n"
+"    bcs.w .Lmz_new\n"
+"    bra.w .Lmz_lit\n"
+".Lmz_done:\n"
+"    movem.l (%sp)+,%d2-%d4/%d7/%a2-%a3\n"
+"    rts\n"
+);
+
+/* tiles de la sala o de sus objetos (mkzebes.py: ops, en la página rp) desde el tile vt0 de la VRAM: cada trozo
+   comprimido se descomprime una vez en md_scratch (2 KB; meta_idx se rehace después: meta_build) y sus tiles suben
+   por DMA; los sin comprimir, del depósito */
+static void zebes_load_ops(uint8 rp, const uint16 *o, uint16 nw, uint16 vt0) {
+  uint8 *buf = (uint8 *)md_scratch;
+  while (nw) {
+    map_page(rp);
+    uint16 sg = o[0], n = o[1];
+    o += 2; nw -= 2;
+    if (sg == 0x8000) {
+      for (; n; n--, o += 3, nw -= 3) {
+        map_page(rp);
+        uint16 r[2] = { o[2], o[1] };
+        zebes_dma_runs(rp, r, 1, vt0 + o[0]);      /* (r está en la RAM: zebes_dma_runs pone rp y lo lee igual) */
+      }
+    } else {
+      map_page(ZEBES_FRZ_PAGE);
+      const ZebesSeg *zs = &kZebesSeg[sg];
+      const uint8 *d = zs->data;
+      uint8 pg = zs->page, nt = zs->ntiles;
+      map_page(pg);
+      /* (esto corre en el vblank, con el XGM2 avisado de que hay DMA: no lee la ROM y la música se para. Mientras
+         se descomprime el 68000 solo lee: el Z80 puede seguir) */
+      if (md_snd_frames) md_snd_protect(0);
+      mz_unpack(d, buf, (uint32)nt * 32);
+      if (md_snd_frames) md_snd_protect(1);
+      map_page(rp);
+      for (; n; n--, o += 2, nw -= 2) {
+        uint16 w = o[1];
+        vdp_dma_vram(buf + (w >> 8) * 32, (vt0 + o[0]) * 32, (w & 0xFF) * 16);
+      }
+    }
+  }
+}
+
 /* (pantalla apagada) tiles de la sala, los de los objetos de la sala base y los planos */
 void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   const MdRoom *base = &kMdRooms[ZEBES_BASE_ROOM];
@@ -494,8 +632,9 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
     vdp_dma_vram(base->tiles + base->bg_tiles * 32, (BG_BASE + base->bg_tiles) * 32,
                  (base->tiles_total - base->bg_tiles) * 16);
   uint8 lp = md_cur_page;
-  zebes_dma_runs(zg->page, zg->runs, zg->nruns, ZT_BASE);
-  if (zo) zebes_dma_runs(zo->page, zo->runs, zo->nruns, zo->base);
+  zebes_load_ops(zg->page, zg->ops, zg->nops, ZT_BASE);
+  if (zo) zebes_load_ops(zo->page, zo->ops, zo->nops, zo->base);
+  meta_build();                                             /* (md_scratch fue el búfer de la descompresión) */
   map_page(lp);
   if (zbb && zbb->cache) bc_reset();
   else if (zbb && zbb->ntiles) bt_dma();

@@ -116,12 +116,41 @@ Lo que proponía la sección del Mega CD (abajo), aprobado por Edwin con tope de
 **Lo común casi no tiene lugar**: lo que falta del código (≈ 300 KB) necesita liberar antes. Lo que más da es
 recortar las copias de bancos (abajo): de los 782 KB, ≈ 430 KB son rangos de funciones del decomp (código del SNES).
 
+## Hecho: tiles de las salas comprimidos (2026-11-18, pedido por Edwin)
+
+Los tiles de Zebes se descomprimen al cargar la sala: en la transición de la puerta y al volver de la pausa
+(`md_zebes.c`, `zebes_load_ops`). Formato MZ (`tools/conv/mzpack.c` comprime con parseo óptimo, `tools/conv/mz.py`
+lo llama y comprueba cada trozo; el descompresor de la Genesis está en ensamblador en `md_zebes.c`, `mz_unpack`):
+LZ con códigos gamma de Elias intercalados, como ZX0, con "repetir el último desplazamiento" (los tiles repiten a
+distancias fijas: 4 bytes una fila, 32 un tile) y el byte del desplazamiento con 7 bits y el primer bit del largo.
+Medido: 53 % (zlib da 50 % pero con Huffman, más lento de descomprimir; transformar los tiles antes no ayudó).
+
+Cómo se reparten (`mkzebes.py`, medido sobre el depósito de 64.244 tiles):
+- Los tiles de los congelados (Kraid, Draygon...: 5.448) los lee el juego mientras corre: siguen sin comprimir en
+  `kZebesPool`.
+- Comprimir el depósito común por bloques no sirve: las salas comparten tiles sueltos y se descomprimía de más
+  (192 tiles usados por carga, hasta 2.112 decodificados). Comprimir cada sala con todos sus tiles pierde lo que se
+  ahorraba al no repetirlos (1,66 MB).
+- Lo que se hizo: los tiles que usa una sola sala (todos sus estados) o un solo juego de objetos van en trozos
+  propios de 64 tiles (2 KB); los que usan varias, ordenados por quiénes los usan, en trozos de 16. Cada carga es una
+  lista de operaciones por trozo (cada trozo se descomprime una vez). El búfer es `md_scratch` (2 KB; `meta_idx` se
+  rehace después: `meta_build`): no hace falta RAM nueva.
+- Resultado: 1.837 KB de tiles -> 1.010 KB (1.777 trozos), operaciones 254 KB. La página 24 queda vacía y sobran
+  221 KB en las demás (antes 31 KB): unos 730 KB libres.
+
+Tiempo: se descomprime en el vblank de la carga, con la pantalla apagada. En promedio cada sala descomprime 11 KB
+(máximo 21) y sus objetos 8 (máximo 23); la sala del aterrizaje pasa de 11 a 25 cuadros. Las transiciones de puerta
+de la Genesis eran ~50 cuadros más cortas que las del SNES: siguen siéndolo. Mientras descomprime, el XGM2 no queda
+avisado de DMA (la música sigue: `md_snd_protect`). La pantalla se enciende al final de ese vblank (md_engine.c,
+`vb_display_pend`): si la carga se pasó a la imagen, el HUD y los colores se escribían con la imagen empezada.
+Validación: regresión 0 distintos (intro, Ceres, Zebes: la imagen es la misma) y la VRAM de la sala igual antes y
+después de la pausa.
+
 ## Lo que sigue (en este orden)
 
 | Paso | Ganancia medida | Costo / riesgo |
 |---|---|---|
 | Recortar las copias de bancos (`kBankXXB`, 782 KB) a lo que se lee | sin medir | todas las lecturas pasan por `A6W`/`BW_86`...: medir en `host/` con las grabaciones |
-| LZ4W sobre el depósito (bloques de 4 KB) | depósito 1266 → ~940 KB | búfer de 4 KB en la puerta (`cinematic_text_tilemap`); peor sala ~49 bloques: 0,2-0,4 s |
 | `make size`: parte fija libre y llenado de cada página | — | que falle antes de pasarse |
 
 No se puede comprimir lo que se lee al jugar (celdas, `l2`, claves, level data: ~5 MB): no hay RAM donde

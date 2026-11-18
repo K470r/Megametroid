@@ -1166,9 +1166,11 @@ def main():
     # ---- salida
     H = ['/* Generado por tools/conv/mkzebes.py desde la ROM del SNES: no editar. */',
          '#ifndef GEN_ZEBES_H', '#define GEN_ZEBES_H', '#include "nt.h"',
-         'typedef struct { const uint8 *tiles; uint8 page; } ZebesPool;   /* un trozo del depósito de tiles */',
-         '/* runs: nruns tramos (índice en el depósito de tiles kZebesPool, cantidad): los tiles de la sala en orden */',
-         'typedef struct { uint8 page, npal; uint16 ntiles, nmeta, nruns; const uint16 *runs; const uint16 *src;',
+         'typedef struct { const uint8 *tiles; uint8 page; } ZebesPool;   /* un trozo del depósito de tiles sin comprimir */',
+         'typedef struct { const uint8 *data; uint8 page, ntiles; } ZebesSeg;   /* un trozo comprimido (formato MZ, mz.py) */',
+         '/* ops (nops palabras): por trozo comprimido (trozo, n) y n veces (tile desde la base, primer tile << 8 | cuántos);',
+         '   trozo 0x8000, tiles sin comprimir: (0x8000, n) y n veces (tile desde la base, cuántos, índice en kZebesPool) */',
+         'typedef struct { uint8 page, npal; uint16 ntiles, nmeta, nops; const uint16 *ops; const uint16 *src;',
          '                 const uint16 *ids; const uint16 *cells; const uint16 *l2; const uint16 *bg2; uint8 sky, eye, bg2h;',
          '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; } ZebesGfx;',
          '/* anim: tiles animados, nanim x (origen en $87, VRAM del SNES, desplazamiento en anim_data, cantidad) ordenados;',
@@ -1177,7 +1179,7 @@ def main():
          '   bg2: fondo de biblioteca ya convertido (64x32 celdas; con bg2h, 64x64: Kraid) o NULL; con sky, el cielo de la superficie: 160 filas',
          '   de 32 celdas (la fila R, píxel R * 8 de la sala) */',
          'typedef struct { uint16 state; uint16 gfx; uint16 obj; } ZebesState;   /* obj: 0xFFFF sin objetos */',
-         'typedef struct { uint8 page; uint16 ntiles, nkeys, nruns; const uint16 *runs; const uint16 *src; const uint16 *keys;',
+         'typedef struct { uint8 page; uint16 ntiles, nkeys, nops; const uint16 *ops; const uint16 *src; const uint16 *keys;',
          '                 const uint16 *recs; uint16 base; uint8 stream; const uint16 *vcp; } ZebesObj;   /* base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala); stream: objetos por cuadro desde base (mkzobj.STREAM_ROOMS); vcp: copias de tiles (EnemyInstr_CopyToVram, mkzobj.vram_copy_ops) o NULL: [n, por copia: origen bajo, banco, destino, ntiles, por tile: tile y sus 16 palabras] */',
          '/* objetos: tiles desde ZOBJ_BASE; src: 30 índices de palette_buffer, colores 1-15 de la línea 3 debajo del HUD (9-13 el rayo)',
          '   y 1-15 de la línea 1 (solo con un jefe de colores propios, la sala en una línea: mkzobj.BOSS_LINE), 0xFFFF sin uso;',
@@ -1295,11 +1297,115 @@ def main():
         rr = e["runs"]
         assert b"".join(pool[j + k] for j, n in zip(rr[0::2], rr[1::2]) for k in range(n)) == bytes(e["tiles"])
     assert len(pool) <= 0xFFFF, "zebes: el depósito de tiles pasa de 65535"
+    if os.environ.get("MM_DUMP_POOL"):              # (depuración: el depósito y los tramos, para medir la compresión)
+        import pickle
+        pickle.dump({"pool": pool, "rooms": [(e.get("key"), e["runs"]) for e in entries], "objs": [d["runs"] for d in obj_list],
+                     "frz": frz_runs}, open(os.environ["MM_DUMP_POOL"], "wb"))
+    # ---- compresión de los tiles (docs/48, formato MZ: mz.py, mzpack.c). Se descomprimen al cargar la sala (en la
+    # transición de la puerta y al volver de la pausa: md_zebes.c, zebes_load_ops), en trozos de hasta 64 tiles (2 KB:
+    # el búfer es md_scratch). Los tiles de los congelados (Kraid, Draygon...) los lee el juego mientras corre: quedan
+    # sin comprimir en el depósito (kZebesPool). De los demás, los que usa una sola sala (todos sus estados) o un solo
+    # juego de objetos van en los trozos propios de esa sala (64 tiles); los que usan varias, ordenados por quiénes
+    # los usan, en trozos de 16 (decodificar uno entero para pocos tiles cuesta menos). Cada carga es una lista de
+    # operaciones (trozo, primer tile, cuántos, tile de la VRAM desde la base), ordenadas por trozo: cada trozo se
+    # descomprime una vez. Trozo 0x8000: tiles sin comprimir del depósito (primer tile = índice en kZebesPool).
+    import mz
+
+    def tile_list(r):
+        return [j + k for j, n in zip(r[0::2], r[1::2]) for k in range(n)]
+    hot_l, hot_new = [], {}
+    for t in tile_list(frz_runs):
+        if t not in hot_new:
+            hot_new[t] = len(hot_l)
+            hot_l.append(t)
+    frz_runs2 = []
+    for q in range(0, len(frz_idx), 4):                       # los tramos de cada congelado, con los índices nuevos
+        r0, nr = frz_idx[q], frz_idx[q + 1]
+        rr = []
+        for t in tile_list(frz_runs[2 * r0:2 * (r0 + nr)]):
+            j = hot_new[t]
+            if rr and rr[-2] + rr[-1] == j and rr[-1] < 0xFFFF:
+                rr[-1] += 1
+            else:
+                rr += [j, 1]
+        frz_idx[q], frz_idx[q + 1] = len(frz_runs2) // 2, len(rr) // 2
+        frz_runs2 += rr
+    frz_runs = frz_runs2
+    loads = [(("r", e["key"][3]), tile_list(e["runs"])) for e in entries] + \
+            [(("o", i), tile_list(d["runs"])) for i, d in enumerate(obj_list)]
+    users = {}
+    for g, tl_ in loads:
+        for t in tl_:
+            if t not in hot_new:
+                users.setdefault(t, set()).add(g)
+    own, shared = {}, []
+    for g, tl_ in loads:
+        for t in tl_:
+            if t in users and len(users[t]) == 1 and t not in own.setdefault(g, {}):
+                own[g][t] = len(own[g])
+    shared = sorted((t for t in users if len(users[t]) > 1), key=lambda t: (sorted(users[t]), t))
+    segs = []
+    for g in own:
+        ol = list(own[g])
+        segs += [ol[i:i + 64] for i in range(0, len(ol), 64)]
+    segs += [shared[i:i + 16] for i in range(0, len(shared), 16)]
+    assert len(segs) < 0x8000, "zebes: demasiados trozos comprimidos"
+    seg_of = {t: (si, k) for si, sg in enumerate(segs) for k, t in enumerate(sg)}
+
+    def load_ops(tl_):
+        ops = []
+        for dst, t in enumerate(tl_):
+            sk = (0x8000, hot_new[t]) if t in hot_new else seg_of[t]
+            if ops and ops[-1][0] == sk[0] and ops[-1][1] + ops[-1][2] == sk[1] and ops[-1][3] + ops[-1][2] == dst:
+                ops[-1][2] += 1
+            else:
+                ops.append([sk[0], sk[1], 1, dst])
+        ops.sort(key=lambda o: (o[0], o[1]))
+        # por trozo: (trozo, n) y n operaciones (tile desde la base, primer tile << 8 | cuántos); sin comprimir
+        # (0x8000): (tile desde la base, cuántos, índice en el depósito)
+        out, q = [], 0
+        while q < len(ops):
+            r = q
+            while r < len(ops) and ops[r][0] == ops[q][0]:
+                r += 1
+            out += [ops[q][0], r - q]
+            for o in ops[q:r]:
+                out += [o[3], o[2], o[1]] if o[0] == 0x8000 else [o[3], o[1] << 8 | o[2]]
+            q = r
+        return out
+    for e in entries:
+        e["ops"] = load_ops(tile_list(e["runs"]))
+    for d in obj_list:
+        d["ops"] = load_ops(tile_list(d["runs"]))
+    seg_raw = [b"".join(pool[t] for t in sg) for sg in segs]
+    seg_mz = mz.pack_many(seg_raw)
+    for e in entries + obj_list:                   # comprobación: las operaciones rehacen los tiles de siempre
+        got = [None] * (len(e["tiles"]) // 32)
+        o, q = e["ops"], 0
+        while q < len(o):
+            sg, n = o[q], o[q + 1]
+            q += 2
+            for _ in range(n):
+                if sg == 0x8000:
+                    dst, cnt, fr = o[q], o[q + 1], o[q + 2]
+                    q += 3
+                    for k in range(cnt):
+                        got[dst + k] = pool[hot_l[fr + k]]
+                else:
+                    dst, fr, cnt = o[q], o[q + 1] >> 8, o[q + 1] & 0xFF
+                    q += 2
+                    for k in range(cnt):
+                        got[dst + k] = seg_raw[sg][32 * (fr + k):32 * (fr + k + 1)]
+        assert b"".join(got) == bytes(e["tiles"]), "zebes: las operaciones de carga no rehacen los tiles"
+    print(f"zebes: comprimidos {len(segs)} trozos, {sum(map(len, seg_raw)) // 1024} KB -> {sum(map(len, seg_mz)) // 1024} KB "
+          f"(propios {sum(len(v) for v in own.values())} tiles, compartidos {len(shared)}); sin comprimir {len(hot_l)} tiles",
+          file=sys.stderr)
+    pool = [pool[t] for t in hot_l]
     nchunks = (len(pool) + POOL_CHUNK - 1) // POOL_CHUNK
-    print(f"zebes: tiles {sum(len(e['tiles']) for e in entries + obj_list) // 32} -> depósito {len(pool)} "
-          f"({nchunks} trozos), tramos {sum(len(e['runs']) for e in entries + obj_list) // 2}", file=sys.stderr)
+    print(f"zebes: tiles {sum(len(e['tiles']) for e in entries + obj_list) // 32} -> depósito sin comprimir {len(pool)} "
+          f"({nchunks} trozos), operaciones {sum(len(e['ops']) for e in entries + obj_list) * 2 // 1024} KB", file=sys.stderr)
     # los más grandes primero (primer hueco decreciente): las páginas quedan más llenas
-    g_need = [2 * len(e["runs"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
+    g_need = [2 * len(e["ops"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
               sum(8 + 34 * len(v) for v in e["anims"].values()) +
               2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries]
     def vcp_words(d):
@@ -1311,21 +1417,23 @@ def main():
             for t, b in tl:
                 w += [t] + [b[j] << 8 | b[j + 1] for j in range(0, 32, 2)]
         return w
-    o_need = [2 * len(d["runs"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(d["recs"]) + 2 * len(vcp_words(d))
+    o_need = [2 * len(d["ops"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(d["recs"]) + 2 * len(vcp_words(d))
               for d in obj_list]
     p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
-    f_need = [2 * (len(frz_idx) + len(frz_runs) + len(frz_recs)) + 64]
+    f_need = [2 * (len(frz_idx) + len(frz_runs) + len(frz_recs)) + 6 * len(segs) + 64]
     # cinemáticas de Ceres (mkm7.py, mkgetaway.py: corren antes): se usan una vez por partida, van en páginas y no en
     # la parte fija (docs/48). La Genesis pone la página de cada bloque antes de leerlo (md_cine.h)
     cine_dir = HERE.parent.parent / "res" / "gen" / "md"
     cine = [s_ for s_ in CINE_BLOBS if (cine_dir / "bins" / f"{s_}.bin").exists()]
     assert len(cine) == len(CINE_BLOBS), "zebes: faltan los bloques de las cinemáticas (correr mkm7.py y mkgetaway.py antes)"
     c_need = [(cine_dir / "bins" / f"{s_}.bin").stat().st_size + 16 for s_ in cine]
+    s_need = [len(c_) + 2 for c_ in seg_mz]
     pages, obj_pages, pool_pages, cine_pages, frz_pages = [0] * len(entries), [0] * len(obj_list), [0] * nchunks, [0] * len(cine), [0]
+    seg_pages = [0] * len(segs)
     for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(g_need)] + [(n, 1, i) for i, n in enumerate(o_need)] +
                               [(n, 2, i) for i, n in enumerate(p_need)] + [(n, 3, i) for i, n in enumerate(c_need)] +
-                              [(f_need[0], 4, 0)], reverse=True):
-        (pages, obj_pages, pool_pages, cine_pages, frz_pages)[kind][i] = place(n_)
+                              [(f_need[0], 4, 0)] + [(n, 5, i) for i, n in enumerate(s_need)], reverse=True):
+        (pages, obj_pages, pool_pages, cine_pages, frz_pages, seg_pages)[kind][i] = place(n_)
     frz_page = frz_pages[0]
     cs = ["/* Generado por tools/conv/mkzebes.py: bloques de las cinemáticas de Ceres en páginas del SSF2 (md_cine.h) */"]
     ch = ["/* Generado por tools/conv/mkzebes.py: página del SSF2 de cada bloque de las cinemáticas */",
@@ -1347,14 +1455,20 @@ def main():
     for nm, v in (("kZebesFrz", frz_idx or [0] * 4), ("kZebesFrzRuns", frz_runs or [0, 0]), ("kZebesFrzRecs", frz_recs or [0])):
         C.append(f'NT_BANK({frz_page}) const uint16 {nm}[{len(v)}] = {{' + ','.join('0x%X' % x for x in v) + '};')
     print(f"zebes: congelados {len(frozen['list'])}, {len(frz_runs) // 2} tramos, página {frz_page}", file=sys.stderr)
+    for i, c_ in enumerate(seg_mz):
+        C.append(f'NT_BANK({seg_pages[i]}) static const uint8 kZS{i}[{len(c_)}] __attribute__((aligned(2))) = {{' +
+                 ','.join(str(x) for x in c_) + '};')
+    H.append(f'extern const ZebesSeg kZebesSeg[{len(segs)}];   /* en la página ZEBES_FRZ_PAGE */')
+    C.append(f'NT_BANK({frz_page}) const ZebesSeg kZebesSeg[{len(segs)}] = {{' +
+             ','.join(f'{{kZS{i},{seg_pages[i]},{len(sg)}}}' for i, sg in enumerate(segs)) + '};')
     H.append(f'extern const ZebesPool kZebesPool[{nchunks}];')
     C.append(f'const ZebesPool kZebesPool[{nchunks}] = {{')
     C += [f'  {{ kZP{c}, {pool_pages[c]} }},' for c in range(nchunks)]
     C.append('};')
     for i, e in enumerate(entries):
         page = pages[i]
-        C.append(f'NT_BANK({page}) static const uint16 kZG{i}_runs[{len(e["runs"])}] = {{' +
-                 ','.join(str(x) for x in e["runs"]) + '};')
+        C.append(f'NT_BANK({page}) static const uint16 kZG{i}_ops[{len(e["ops"])}] = {{' +
+                 ','.join(str(x) for x in e["ops"]) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZG{i}_src[{16 * e["npal"]}] = {{' +
                  ','.join(str(x) for row in e["src"] for x in row) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZG{i}_ids[{len(e["ids"])}] = {{' +
@@ -1405,8 +1519,8 @@ def main():
     C.append('};')
     for i, d in enumerate(obj_list):
         page = obj_pages[i]
-        C.append(f'NT_BANK({page}) static const uint16 kZO{i}_runs[{len(d["runs"])}] = {{' +
-                 ','.join(str(x) for x in d["runs"]) + '};')
+        C.append(f'NT_BANK({page}) static const uint16 kZO{i}_ops[{len(d["ops"])}] = {{' +
+                 ','.join(str(x) for x in d["ops"]) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_src[30] = {{' + ','.join(str(x) for x in d["src"]) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_keys[{4 * len(d["keys"])}] = {{' +
                  ','.join('0x%X' % v for k in d["keys"] for v in k) + '};')
@@ -1418,7 +1532,7 @@ def main():
     H.append(f'extern const ZebesObj kZebesObj[{max(1, len(obj_list))}];')
     C.append(f'const ZebesObj kZebesObj[{max(1, len(obj_list))}] = {{')
     for i, d in enumerate(obj_list):
-        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["runs"]) // 2}, kZO{i}_runs, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]}, {d.get("stream", 0)}, {f"kZO{i}_vcp" if vcp_words(d) else "0"} }},')
+        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["ops"])}, kZO{i}_ops, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]}, {d.get("stream", 0)}, {f"kZO{i}_vcp" if vcp_words(d) else "0"} }},')
     if not obj_list:
         C.append('  { 0 },')
     C.append('};')
@@ -1455,7 +1569,7 @@ def main():
     H.append(f'extern const ZebesGfx kZebesGfx[{len(entries)}];')
     C.append(f'const ZebesGfx kZebesGfx[{len(entries)}] = {{')
     for i, e in enumerate(entries):
-        C.append(f'  {{ {pages[i]}, {e["npal"]}, {e["ntiles"]}, {len(e["ids"])}, {len(e["runs"]) // 2}, kZG{i}_runs, kZG{i}_src, '
+        C.append(f'  {{ {pages[i]}, {e["npal"]}, {e["ntiles"]}, {len(e["ids"])}, {len(e["ops"])}, kZG{i}_ops, kZG{i}_src, '
                  f'kZG{i}_ids, kZG{i}_cells, {"kZG%d_l2" % i if e["l2"] else "0"}, '
                  f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {1 if e["bg2"] and len(e["bg2"]) == 4096 else 0}, {len(e["anims"])}, '
                  f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"} }},  /* sala {e["key"][3]:04X} */')
@@ -1466,11 +1580,12 @@ def main():
     H.append('#endif')
     (out / "zebes.h").write_text('\n'.join(H) + '\n')
     (out / "zebes.c").write_text('\n'.join(C) + '\n')
-    tot = sum(len(e["tiles"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) +
-              2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries)
     if os.environ.get("MM_PAGES"):
         print("zebes: páginas " + " ".join(f"{pg}:{v // 1024}" for pg, v in sorted(fill.items())), file=sys.stderr)
-    print(f"zebes: {len(entries)} gráficos de sala, {tot // 1024} KB, páginas {page0}-{max(fill)}, libre {sum(0x80000 - v for v in fill.values()) // 1024} KB", file=sys.stderr)
+    last_pg = int(os.environ.get("MM_LAST_PAGE", "25"))
+    empty = [pg for pg in range(page0, last_pg + 1) if pg not in fill]
+    print(f"zebes: {len(entries)} gráficos de sala, páginas {page0}-{max(fill)}, libre {sum(0x80000 - v for v in fill.values()) // 1024} KB"
+          f" en las usadas y {len(empty)} páginas vacías {empty}", file=sys.stderr)
 
 
 if __name__ == "__main__":

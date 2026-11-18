@@ -333,6 +333,8 @@ static void ProcessCinematicBgObjectsInstrs(uint16 k) {  // 0x8B9659
   }
 }
 
+static void HandleCinematicBgObjects(void);
+void HandleCinematicBgObjects_(void) { HandleCinematicBgObjects(); }   /* (ending.c) */
 static void HandleCinematicBgObjects(void) {  // 0x8B962F
   if (cinematic_enable_objs & 0x8000) {
     for (int i = 6; i >= 0; i -= 2) {
@@ -784,7 +786,11 @@ static uint16 CallCinematicBgInstr(uint16 f, uint16 k, uint16 j) {
     screen_fade_delay = 1;
     screen_fade_counter = 1;
     return j;
-  default:
+  default: {
+    extern uint16 EndingBgInstr(uint16 f, uint16 k, uint16 j);   /* el final (ending_disp.c) */
+    uint16 r = EndingBgInstr(f, k, j);
+    if (r != 0xFFFF) return r;
+    }
     nt_unimpl_v("CinematicBgInstr (instrucción sin portar)", f);
     cinematicbg_arr1[v] = 0; cinematicbg_instr_ptr[v] = 0;
     return 0;

@@ -2578,6 +2578,10 @@ static void cine_start(uint8 stage, uint16 id) {
   m7_lock = 0;
 }
 void CinematicGfx(uint16 which) { cine_start((uint8)which, 0xC000 | which); }
+/* el final (ending.c, docs/63): pendiente el dibujo */
+void EndingGfx(uint16 scene) { (void)scene; }
+void EndingTextUpload(uint16 vram) { (void)vram; }
+void EndingM7Queue(uint16 a, uint16 b, uint16 c) { (void)a; (void)b; (void)c; }
 void MenuGfx(void) { cine_start(3, 0xC0FF); }
 void Mode7Transfers(uint16 list) {
   if (list == addr_kCinematicFunction_Intro_Func76_M7_0) cine_var = 2;

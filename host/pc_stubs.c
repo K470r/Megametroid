@@ -116,3 +116,7 @@ void nt_vram_queue_flush(const uint8_t *q, uint16_t n) {
 }
 void DrawAtmosphericGfx(uint16_t type, uint16_t frame, int16_t x, int16_t y) { (void)type; (void)frame; (void)x; (void)y; }
 void DrawArmCannon(int16 x, int16 y, uint16 attr, uint16 src) { LOG("%04X armcannon %04X\n", room_ptr, src); (void)x; (void)y; (void)attr; }
+/* el final (ending.c, docs/63): la capa de dibujo */
+void EndingGfx(uint16 scene) { (void)scene; }
+void EndingTextUpload(uint16 vram) { (void)vram; }
+void EndingM7Queue(uint16 a, uint16 b, uint16 c) { (void)a; (void)b; (void)c; }

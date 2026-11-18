@@ -831,6 +831,49 @@ Falta: el dibujo (la sala, el cuerpo en el BG2, el vidrio, el cerebro, el cuello
 - Falta: la cabeza un poco más amarilla (colores juntados en la línea del jefe), la puerta de la izquierda, el rayo
   arco iris, la bebé y la fase 3, el pudrirse.
 
+### Mother Brain: el rayo arco iris (2026-11-18)
+
+Prueba: `sh tools/compare/mb.sh` (las variables de `motherbrain_in.txt`; ojo: `MD_TEST_ITEMS=0 -DMD_TEST_BEAMS=0x100B`
+van en `EXTRA_FL`, `lado_a_lado.sh` no los saca de `HL_POKE`; sin ellos Samus no tiene misiles y la pelea no pasa de
+la fase 1). El rayo, en la Genesis desde el cuadro ~16900.
+- En el SNES: HDMA indirecto ($88:E74C, DMAP 0x41, WH0/WH1) con la tabla de 7E:9C00 que apunta a `hdma_table_2`; el
+  código de Mother Brain las llena cada cuadro; dentro de la ventana se suma COLDATA (`LayerBlendFunc_24`, colores del
+  arco iris de $88:E833).
+- En la Genesis (`md_rbeam.c`): se recorre la tabla indirecta como el HDMA (izquierda y derecha por línea; 255-255 es
+  "sin rayo") y el rayo se dibuja en el **plano B** con prioridad alta: celdas llenas y, en el borde, tiles armados
+  (VRAM 2007-2042, después del cuerpo, y 1802-1814 en el Window). Con sprites no alcanzaba: la pelea usa ~48 de los
+  64 y el rayo pide ~40 (salía cortado). El vblank (después de `zebes_vblank`) repone las celdas de antes (leídas de
+  la VRAM antes de pisarlas), guarda las nuevas y escribe el rayo, por tramos de fila, solo si cambió la ventana o el
+  scroll y si alcanzan las líneas del vblank; si el cuerpo reescribe una fila con rayo (`md_bb_rows_done`), se rearma.
+  Sus tablas van en la RAM libre de la sala (`cinematic_text_tilemap` 2528-3199) y los tiles armados en `.gamehi`
+  (1,5 KB; ojo: lo que va en `.bss` corre `_bend` y la reserva de `.gamehi` fallaba: la consola no arrancaba).
+- El color: el 14 de la línea 3 (`mkzobj.RAINBOW_ROOMS`: en esa sala los enemigos no lo usan) con el COLDATA del
+  cuadro. Diferencias: el SNES suma el color (se ve el fondo a través); aquí es opaco y queda detrás de las celdas del
+  BG1 con prioridad alta (la columna de la derecha).
+- El contador de la huida en Zebes: sus claves (`mkzobj.TIMER_KEYS`, `spr80` con 0x0A00) van en los objetos de la
+  sala de Mother Brain y de los estados de la huida (evento 0x0E: `timer_states`), con la VRAM de cuando Mother Brain
+  sube sus tiles (`TIMER_COPIES`: $B0:C000 -> $7E00, $B0:C200 -> $7F00, la lista $A6:C4CB); `DrawTimerSpritemap`
+  las busca con `zebes_obj_draw(sm, 0x0A00, 0xC002)`.
+- **El texto de la huida** (`TIME BOMB SET! ESCAPE IMMEDIATELY`): no va al BG3 (en esa sala no se muestra: TM 0x13)
+  sino al **BG2** ($4800), que el cuerpo ya no usa: la máquina de escribir ($A6:C2A7) pone en la cola de VRAM una
+  palabra por letra (7E:8034, 0x2610 + letra - 'A': tiles 0x210-0x22A de 4bpp, paleta 1). `md_zebes.c` (`esc_scan`,
+  `esc_vblank`) las pone en el plano B (no tapa la sala, como en el SNES); las letras se convierten en `mkzebes.py`
+  (`kZebesEscFont`, de $B7:DA00; la "!" no está así en la ROM: es la "I" cerrada con su punto, como la muestra el SNES)
+  y van a los tiles libres 2008-2034; los colores 1 y 3 de la paleta 1 del SNES, en la línea 1 (`zebes_esc_text_on`,
+  md_engine.c; en la pelea la sala va en una línea y la 1 era del cerebro).
+- **El rojo de la alarma**: los efectos de paleta de la huida ponen rojas las líneas 3 y 5 del SNES (la 3 mucho) y la
+  4 en negro; la sala en una línea juntaba los grises de la 3 con los de la 5 y leía la 5 (salía casi gris).
+  `mkzebes.PREF_LINES` (DD58: línea 3): de los índices del mismo color, el de la línea 3 (salvo el negro).
+- **La puerta de la izquierda**: la tapa azul salía gris (en la pelea, con la sala en una línea, los tres azules se
+  juntaban con grises). `mkzebes.KEEP_COLORS`: esos tres no se juntan (se juntan otros: el blanco de la línea 4 va a
+  un salmón).
+- **Prueba del SNES torcida**: `HL_WARP` salta desde la cámara de la sala de antes (x 1595) y la transición dejaba
+  `bg1_x_offset` en 0xB3B: el BG1 del SNES salía corrido 315 píxeles (la pared y la puerta de la izquierda no se
+  veían) y los PLM dibujaban en otras celdas (lo de la sala de las estatuas). `HL_WARP_ALIGN=1` (hlref.c) pone antes la
+  cámara en un múltiplo de 512: queda 0xB00, como al entrar por la puerta. `mb.sh` lo usa; hay que recompilar hlref
+  (`tools/snes_ref/viewer_check/build_hlref.sh sm/src work/inputs/hlref`).
+- Falta: el color de la cabeza y del cuerpo (más rosado en el SNES): a revisar con Edwin.
+
 ## La sala de las estatuas de Tourian (A66A, 2026-11-17)
 
 Prueba: `tools/compare/estatuas_in.txt` (sin jefes vencidos) y `estatuas4_in.txt` con los cuatro vencidos

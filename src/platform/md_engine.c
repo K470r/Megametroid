@@ -808,6 +808,8 @@ static int16 vb_lines_left(void);
    vblank empezado se toma solo si quedan tantas; si no, en el vblank siguiente (docs/54). Si el vblank se pasara a
    la imagen, sus DMA irían a la velocidad de la imagen y las interrupciones horizontales empezarían tarde. */
 static int16 md_vb_need = 20;
+static uint8 vb_display_pend;                  /* la pantalla, apagada por la carga de una sala de Zebes (este vblank) */
+static uint8 vb_display_next;                  /* encenderla al empezar el vblank siguiente (md_vint) */
 static uint8 md_vb_room;                       /* este vblank cargó una sala (con la pantalla apagada: no cuenta) */
 static void md_vblank_run(uint16 late) {
   md_vb_tick = vtimer;
@@ -838,6 +840,7 @@ static void md_vblank_run(uint16 late) {
 
 /* interrupción vertical: si hay un cuadro listo, su vblank; si no, lo que se puede adelantar (md_vblank_lag) */
 void md_vint(void) {
+  if (vb_display_next) { vb_display_next = 0; vdp_display(1); }   /* (después de cargar una sala de Zebes) */
 #ifdef MD_HUDLOG
   md_hud_vl = VDP_VCOUNT >> 8; md_hud_pub = md_pub; md_hud_tl = 0xFF;
 #endif
@@ -1654,8 +1657,11 @@ void DrawA6SpritemapScreen(uint16 sm, uint16 x, uint16 y, uint16 chr) {  // Draw
   if (!drawkey(6, sm, chr, 0, (int16)x, (int16)y)) missing(6, sm, chr, 0);
 }
 
+uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y);
 /* contador de la huida: DrawSpritemap($80, sm, x, y, 0x0A00) */
 void DrawTimerSpritemap(uint16 sm, uint16 x, uint16 y) {  // 0x809FB3
+  /* (Zebes: en las claves de los objetos de la sala, mkzobj.TIMER_KEYS) */
+  if (md_zebes && zebes_obj_draw(sm, 0x0A00, 0xC002, (int16)x, (int16)y)) return;
   if (!drawkey(8, sm, 0x0A00, 0, (int16)x, (int16)y)) missing(8, sm, 0x0A00, 0);
 }
 
@@ -2007,6 +2013,8 @@ static void ga_union_rows(const GetawayFrame *F, int16 y0, int16 y1) {
 /* líneas que quedan hasta el final del vblank (NTSC: el contador va 0-0xEA y luego 0xE5-0xFF; 0xE5-0xEA se toma
    como la segunda vuelta, lo más tarde posible) */
 static int16 vb_lines_left(void) {
+  /* (con la pantalla apagada por la carga de una sala: se enciende al final de este vblank, todo el tiempo sirve) */
+  if (vb_display_pend) return 200;
   uint16 vc = VDP_VCOUNT >> 8;
   uint16 line = vc < 0xE0 ? 262 : vc < 0xE5 ? vc : vc + 6;
   return (int16)(262 - line);
@@ -2767,6 +2775,9 @@ static void cram_bright(void) {
 
 /* segunda parte: con el vblank libre (md_sync), se arma lo que va al VDP */
 uint16 md_cone_frame(void);
+uint16 md_rbeam_post(void);
+uint8 zebes_esc_text_on(void);                 /* md_zebes.c: el texto de la huida de Mother Brain */                    /* md_rbeam.c: el rayo arco iris de Mother Brain */
+void md_rbeam_color(void), md_rbeam_vblank(void), md_rbeam_room(void);
 uint8 md_cone_pb_tint(int16 *r, int16 *g, int16 *b);
 const void *md_cone_sat(uint8 bank);
 void md_cone_color(void);
@@ -2848,6 +2859,7 @@ void md_post(void) {
   pipe_take();
   md_haze_read();
   ncone = (md_zebes && !cine_stage && !nt_msgbox_active && !mb_shown) ? md_cone_frame() : 0;
+  if (md_zebes && !cine_stage && !nt_msgbox_active && !mb_shown) md_rbeam_post();   /* el rayo arco iris (md_rbeam.c) */
   if (md_zebes) md_msgbox_post();
   /* conos de luz (md_cone.c): al final de la lista de sprites */
   rain_post();
@@ -2956,6 +2968,11 @@ void md_post(void) {
     if (lq_on) lq_col[48 + rain_slot] = c;
   }
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
+  if (md_zebes) md_rbeam_color();
+  if (md_zebes && zebes_esc_text_on()) {        /* texto de la huida (md_zebes.c): colores 1 y 3 de la paleta 1 del SNES */
+    uint16 a = kCram555[palette_buffer[17] & 0x7FFF], b = kCram555[palette_buffer[19] & 0x7FFF];
+    if (cram[17] != a || cram[19] != b) { cram[17] = a; cram[19] = b; cram_dirty = 1; }
+  }
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);
      - haze: en el SNES el color math suma el degradado también a los sprites de las paletas 4-7, así que Ridley
@@ -3104,7 +3121,6 @@ void md_post(void) {
 
 /* ------------------------------------------------------------------ vblank */
 static uint8 hud_tiles_lost;                   /* las cinemáticas usaron los tiles del HUD (CINE_BG_BASE, círculo) */
-static uint8 vb_display_pend;                  /* encender la pantalla al final del vblank (carga de una sala de Zebes) */
 static void load_room_vram(void) {
   const MdRoom *R = g_room;
   samus_vram_src[0] = samus_vram_src[1] = 0;   /* VRAM nueva: los tiles de Samus se copian otra vez */
@@ -3117,7 +3133,7 @@ static void load_room_vram(void) {
   if (md_zebes && !cine_stage) {
     zebes_load_vram(scroll_ax, scroll_ay, scroll_bx, scroll_by);
     vdp_reg(0x12, 0x04);
-    /* la pantalla se enciende al final de este vblank (md_vblank): la carga descomprime los tiles (docs/48) y puede
+    /* la pantalla se enciende al empezar el vblank siguiente (md_vint): la carga descomprime los tiles (docs/48) y puede
        pasarse a la imagen; encendida aquí, el resto del vblank (HUD, colores) se escribía con la imagen empezada */
     vb_display_pend = 1;
     return;
@@ -3161,6 +3177,7 @@ void md_vblank(uint16_t late) {
     md_vb_room = 1;
     load_room_vram();
     md_cone_room();
+    md_rbeam_room();
     hud_dirty_all = 1;
     cram_dirty = 1;
     cram_t_ok = 0;
@@ -3246,6 +3263,7 @@ void md_vblank(uint16_t late) {
   }
   text_n = 0;
   if (md_zebes && !cine_stage && !room_pending) zebes_vblank();
+  if (md_zebes && !cine_stage && !room_pending && !mb_shown) md_rbeam_vblank();   /* (después: el cuerpo ya escribió sus filas) */
   if (rain_up && rain_slot && md_zebes && !room_pending) rain_vblank();
   /* puerta del pozo (modo 7): dos versiones de unas celdas */
   uint8 repatch = 0;
@@ -3346,10 +3364,10 @@ void md_vblank(uint16_t late) {
       vdp_reg(0x00, 0x14);
     }
   }
-  if (vb_display_pend) {                      /* (la carga se pasó a la imagen: se espera al vblank siguiente) */
+  if (vb_display_pend) {                      /* (se enciende al empezar el vblank siguiente: md_vint. Siempre igual,
+                                                 haya terminado la carga en el vblank o en la imagen) */
     vb_display_pend = 0;
-    while (!(*(volatile uint16 *)0xC00004 & 8)) {}
-    vdp_display(1);
+    vb_display_next = 1;
   }
   md_vdp_busy = 0;
   VBS(6);

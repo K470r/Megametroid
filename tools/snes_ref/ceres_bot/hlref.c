@@ -116,6 +116,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "inicio en el cuadro %ld (estado %d)\n", frame, w16(0x998));
       }
       if (started && iwarp < nwarp && n >= warp_n[iwarp] && w16(0x998) == 8) {
+        if (getenv("HL_WARP_ALIGN")) {   /* la cámara de la sala de antes a un múltiplo de 512: si no, la transición deja
+                                            bg1_x_offset (7E:091D) torcido (0xB3B) y el BG1 del SNES sale corrido */
+          unsigned lx = (g_ram[0x911] | g_ram[0x912] << 8) & ~0x1FFu, ly = (g_ram[0x915] | g_ram[0x916] << 8) & ~0xFFu;
+          g_ram[0x911] = lx; g_ram[0x912] = lx >> 8; g_ram[0x915] = ly; g_ram[0x916] = ly >> 8;
+        }
         g_ram[0x78D] = warp_door[iwarp]; g_ram[0x78E] = warp_door[iwarp] >> 8;
         g_ram[0x99C] = 0x7D; g_ram[0x99D] = 0xE1; g_ram[0x998] = 9; g_ram[0x999] = 0;
         g_ram[0x9C2] = g_ram[0x9C4]; g_ram[0x9C3] = g_ram[0x9C5];

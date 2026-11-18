@@ -68,3 +68,13 @@ que eso. `MD=` permite correrla con otra copia del motor (para armar la referenc
   el reloj de la huida 41"44 contra 41"49). El código nuevo (haz del ojo, bola) cambia la velocidad.
 - Después, con el estado inicial rehecho desde las grabaciones (tools/inputs/make_inputs.sh; el de antes era del 14 de
   octubre y no tenía las variables nuevas): la alarma roja de la huida corrida un cuadro. Aprobadas.
+
+## El cuadro 10047 (2026-11-18)
+
+Es el cuadro del motor en que se carga la sala de aterrizaje (Zebes): la carga apaga la pantalla y la descompresión
+de los tiles (docs/48) puede pasarse de un cuadro. Antes la pantalla se encendía en la interrupción vertical
+siguiente (`md_vint`): si la carga se pasaba de un cuadro, el 10047 se veía otra vez con el HUD encendido; si no,
+quedaba negro. Cambiaba con cualquier cambio del tamaño de los datos y había que volver a aprobarlo a mano. Ahora se
+enciende al empezar el vblank del cuadro siguiente del motor (`md_vblank_run`, `vb_display_next`, md_engine.c): el
+cuadro de la carga siempre sale negro, se vea una vez o dos. Comprobado con una espera agregada a la carga (más de
+un cuadro): el 10047 sale dos veces, negro, y el 10048 igual que sin la espera.

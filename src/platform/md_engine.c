@@ -809,10 +809,14 @@ static int16 vb_lines_left(void);
    la imagen, sus DMA irían a la velocidad de la imagen y las interrupciones horizontales empezarían tarde. */
 static int16 md_vb_need = 20;
 static uint8 vb_display_pend;                  /* la pantalla, apagada por la carga de una sala de Zebes (este vblank) */
-static uint8 vb_display_next;                  /* encenderla al empezar el vblank siguiente (md_vint) */
+static uint8 vb_display_next;                  /* encenderla al empezar el vblank del cuadro siguiente (md_vblank_run) */
 static uint8 md_vb_room;                       /* este vblank cargó una sala (con la pantalla apagada: no cuenta) */
 static void md_vblank_run(uint16 late) {
   md_vb_tick = vtimer;
+  /* (después de cargar una sala de Zebes: con el cuadro siguiente del motor, no en la interrupción siguiente. Si la
+     carga se pasaba de un cuadro, el cuadro de la carga se veía con el HUD encendido; si no, negro: dependía de lo que
+     tardara la descompresión. Así el cuadro de la carga siempre sale negro) */
+  if (vb_display_next) { vb_display_next = 0; vdp_display(1); }
   int16 l0 = vb_lines_left();
 #ifdef MD_M7LOG
   md_m7_start = late << 8 | VDP_VCOUNT >> 8;
@@ -840,7 +844,6 @@ static void md_vblank_run(uint16 late) {
 
 /* interrupción vertical: si hay un cuadro listo, su vblank; si no, lo que se puede adelantar (md_vblank_lag) */
 void md_vint(void) {
-  if (vb_display_next) { vb_display_next = 0; vdp_display(1); }   /* (después de cargar una sala de Zebes) */
 #ifdef MD_HUDLOG
   md_hud_vl = VDP_VCOUNT >> 8; md_hud_pub = md_pub; md_hud_tl = 0xFF;
 #endif
@@ -3364,8 +3367,8 @@ void md_vblank(uint16_t late) {
       vdp_reg(0x00, 0x14);
     }
   }
-  if (vb_display_pend) {                      /* (se enciende al empezar el vblank siguiente: md_vint. Siempre igual,
-                                                 haya terminado la carga en el vblank o en la imagen) */
+  if (vb_display_pend) {                      /* (se enciende al empezar el vblank del cuadro siguiente: md_vblank_run.
+                                                 Siempre igual, haya terminado la carga en el vblank o en la imagen) */
     vb_display_pend = 0;
     vb_display_next = 1;
   }

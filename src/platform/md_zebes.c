@@ -1016,9 +1016,11 @@ void nt_enemy_bg2_transfer(void) {
   bb_ever = 1;
 }
 
+extern uint32 md_bb_rows_done;                    /* md_rbeam.c: filas que el cuerpo reescribió en este vblank */
 static void bb_vblank(void) {
   for (uint16 r = 0; r < bb_n >> 5; r++) {
     if (!(bb_rows & (1UL << r))) continue;
+    md_bb_rows_done |= 1UL << r;
     vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + r * 128, 32);
     vdp_dma_vram(bb_buf + r * 32, MD_VRAM_PLANE_B + (r + 32) * 128, 32);
   }

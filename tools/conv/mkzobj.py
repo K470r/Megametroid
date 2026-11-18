@@ -424,6 +424,10 @@ def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset(), solo=frozense
     return rep, alive, merged, cost
 
 
+# el rayo arco iris de Mother Brain (md_rbeam.c): sus sprites van con el color 14 de la línea 3, que en su sala no
+# usa ningún enemigo (cada cuadro lleva el COLDATA del SNES)
+RAINBOW_ROOMS = {0xDD58}
+RAINBOW_SLOT = 14
 CONE_SLOTS = (14, 15)  # modo sombra/luz (md_cone.c): en los sprites, el 14 de la línea 3 aclara y el 15 oscurece
 # proyectiles de Samus (misiles, bombas, explosiones, estelas: mkmd.zebes_proj_keys) en cada sala, con los colores de
 # la sala (su paleta 5 del SNES, la común, no tiene lugar fijo). Pesan poco al juntar colores: si no alcanzan los 10
@@ -1019,9 +1023,10 @@ def build(rom_path, log_paths, states, frozen=None):
             vc = vc + [(2 * dst, rom.bytes(src, size)) for dst, (src, size) in firsts.items()]
         kc = kvram.get(room)
         ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an), tuple(vo),
-              room if kc else None)
+              room if kc else None, room in RAINBOW_ROOMS)
         if ck not in cache:                       # (lo mismo: se comparte)
-            sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else OBJ_SLOT_LIST
+            sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else \
+                [x for x in OBJ_SLOT_LIST if x != RAINBOW_SLOT] if room in RAINBOW_ROOMS else OBJ_SLOT_LIST
             if room in STREAM_ROOMS:              # por cuadro: los tiles no tienen que entrar juntos (base 0)
                 cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
             else:

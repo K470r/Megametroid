@@ -831,6 +831,28 @@ Falta: el dibujo (la sala, el cuerpo en el BG2, el vidrio, el cerebro, el cuello
 - Falta: la cabeza un poco más amarilla (colores juntados en la línea del jefe), la puerta de la izquierda, el rayo
   arco iris, la bebé y la fase 3, el pudrirse.
 
+### Mother Brain: el rayo arco iris (2026-11-18)
+
+Prueba: `sh tools/compare/mb.sh` (las variables de `motherbrain_in.txt`; ojo: `MD_TEST_ITEMS=0 -DMD_TEST_BEAMS=0x100B`
+van en `EXTRA_FL`, `lado_a_lado.sh` no los saca de `HL_POKE`; sin ellos Samus no tiene misiles y la pelea no pasa de
+la fase 1). El rayo, en la Genesis desde el cuadro ~16900.
+- En el SNES: HDMA indirecto ($88:E74C, DMAP 0x41, WH0/WH1) con la tabla de 7E:9C00 que apunta a `hdma_table_2`; el
+  código de Mother Brain las llena cada cuadro; dentro de la ventana se suma COLDATA (`LayerBlendFunc_24`, colores del
+  arco iris de $88:E833).
+- En la Genesis (`md_rbeam.c`): se recorre la tabla indirecta como el HDMA (izquierda y derecha por línea; 255-255 es
+  "sin rayo") y el rayo se dibuja en el **plano B** con prioridad alta: celdas llenas y, en el borde, tiles armados
+  (VRAM 2007-2042, después del cuerpo, y 1802-1814 en el Window). Con sprites no alcanzaba: la pelea usa ~48 de los
+  64 y el rayo pide ~40 (salía cortado). El vblank (después de `zebes_vblank`) repone las celdas de antes (leídas de
+  la VRAM antes de pisarlas), guarda las nuevas y escribe el rayo, por tramos de fila, solo si cambió la ventana o el
+  scroll y si alcanzan las líneas del vblank; si el cuerpo reescribe una fila con rayo (`md_bb_rows_done`), se rearma.
+  Sus tablas van en la RAM libre de la sala (`cinematic_text_tilemap` 2528-3199) y los tiles armados en `.gamehi`
+  (1,5 KB; ojo: lo que va en `.bss` corre `_bend` y la reserva de `.gamehi` fallaba: la consola no arrancaba).
+- El color: el 14 de la línea 3 (`mkzobj.RAINBOW_ROOMS`: en esa sala los enemigos no lo usan) con el COLDATA del
+  cuadro. Diferencias: el SNES suma el color (se ve el fondo a través); aquí es opaco y queda detrás de las celdas del
+  BG1 con prioridad alta (la columna de la derecha).
+- Falta de Mother Brain: el texto y el reloj del escape (`TIME BOMB SET`), el color de la cabeza y del cuerpo (más
+  rosado en el SNES), la puerta de la izquierda.
+
 ## La sala de las estatuas de Tourian (A66A, 2026-11-17)
 
 Prueba: `tools/compare/estatuas_in.txt` (sin jefes vencidos) y `estatuas4_in.txt` con los cuatro vencidos

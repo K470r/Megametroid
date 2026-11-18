@@ -81,7 +81,7 @@ I_MD   := -I$(INC)/platform -I$(INC)/core -I$(GEN) -I$(GEN_E)
 # --- fuentes ---------------------------------------------------------------------------------------------------------
 # el motor (src/core) y lo generado que es parte de él; la capa de la Genesis sin SGDK (md_intro.c lo incluye md_engine.c)
 CORE_C := $(wildcard $(SRC)/core/*.c) $(GEN_E)/vars.c $(GEN_E)/tables.c $(GEN_E)/zebes.c
-MD_C   := $(SRC)/platform/md_engine.c $(SRC)/platform/md_zebes.c $(SRC)/platform/md_cone.c
+MD_C   := $(SRC)/platform/md_engine.c $(SRC)/platform/md_zebes.c $(SRC)/platform/md_cone.c $(SRC)/platform/md_rbeam.c
 GEN_C  := $(GEN)/md_data.c $(GEN)/md_getaway.c $(GEN)/md_m7.c $(GEN)/md_intro_data.c $(GEN)/init_state.c \
           $(GEN)/md_pause_data.c $(GEN)/md_pbomb_data.c
 SGDK_C := $(SRC)/platform/md_main.c $(SRC)/platform/md_snd.c

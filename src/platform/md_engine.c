@@ -2767,6 +2767,8 @@ static void cram_bright(void) {
 
 /* segunda parte: con el vblank libre (md_sync), se arma lo que va al VDP */
 uint16 md_cone_frame(void);
+uint16 md_rbeam_post(void);                    /* md_rbeam.c: el rayo arco iris de Mother Brain */
+void md_rbeam_color(void), md_rbeam_vblank(void), md_rbeam_room(void);
 uint8 md_cone_pb_tint(int16 *r, int16 *g, int16 *b);
 const void *md_cone_sat(uint8 bank);
 void md_cone_color(void);
@@ -2848,6 +2850,7 @@ void md_post(void) {
   pipe_take();
   md_haze_read();
   ncone = (md_zebes && !cine_stage && !nt_msgbox_active && !mb_shown) ? md_cone_frame() : 0;
+  if (md_zebes && !cine_stage && !nt_msgbox_active && !mb_shown) md_rbeam_post();   /* el rayo arco iris (md_rbeam.c) */
   if (md_zebes) md_msgbox_post();
   /* conos de luz (md_cone.c): al final de la lista de sprites */
   rain_post();
@@ -2956,6 +2959,7 @@ void md_post(void) {
     if (lq_on) lq_col[48 + rain_slot] = c;
   }
   mb_cram_override();   /* colores de los enemigos (debajo del HUD) y del cono */
+  if (md_zebes) md_rbeam_color();
   /* La línea de Ridley (paleta 7 de los sprites del SNES), cada cuadro:
      - parpadeo: toma los colores de la paleta 0 del SNES (allí: los mismos tiles con otra paleta);
      - haze: en el SNES el color math suma el degradado también a los sprites de las paletas 4-7, así que Ridley
@@ -3161,6 +3165,7 @@ void md_vblank(uint16_t late) {
     md_vb_room = 1;
     load_room_vram();
     md_cone_room();
+    md_rbeam_room();
     hud_dirty_all = 1;
     cram_dirty = 1;
     cram_t_ok = 0;
@@ -3246,6 +3251,7 @@ void md_vblank(uint16_t late) {
   }
   text_n = 0;
   if (md_zebes && !cine_stage && !room_pending) zebes_vblank();
+  if (md_zebes && !cine_stage && !room_pending && !mb_shown) md_rbeam_vblank();   /* (después: el cuerpo ya escribió sus filas) */
   if (rain_up && rain_slot && md_zebes && !room_pending) rain_vblank();
   /* puerta del pozo (modo 7): dos versiones de unas celdas */
   uint8 repatch = 0;

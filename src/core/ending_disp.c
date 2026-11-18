@@ -1,6 +1,78 @@
 /* Generado por tools/port/ending_disp.py desde sm_8b.c: no editar (docs/63). */
 #include "samus.h"
 
+void CinematicFunctionEscapeFromCebes(void);
+void CinematicFunction_Intro_Func109(void);
+void CinematicFunction_Intro_Func110(void);
+void CinematicFunction_Intro_Func111(void);
+void CinematicFunction_Intro_Func112(void);
+void CinematicFunction_Intro_Func113(void);
+void CinematicFunction_Intro_Func114(void);
+void CinematicFunction_Intro_Func115(void);
+void CinematicFunction_Intro_Func116(void);
+void CinematicFunction_Intro_Func117(void);
+void CinematicFunction_Intro_Func118(void);
+void CinematicFunction_Intro_Func119(void);
+void CinematicFunction_Intro_Func120(void);
+void CinematicFunction_Intro_Func121(void);
+void CinematicFunction_Intro_Func123(void);
+void CinematicFunction_Intro_Func124(void);
+void CinematicFunction_Intro_Func125(void);
+void CinematicFunction_Intro_Func126(void);
+void CinematicFunction_Intro_Func129(void);
+void CinematicFunction_Intro_Func130(void);
+void CinematicFunction_Intro_Func131(void);
+void CinematicFunction_Intro_Func132(void);
+void CinematicFunction_Intro_Func134(void);
+void CinematicFunction_Intro_Func136(void);
+void CinematicFunction_Intro_Func135(void);
+void CinematicFunction_Intro_Func137(void);
+void CinematicFunction_Intro_Func138(void);
+void CinematicFunction_Intro_Func145(void);
+void CinematicFunction_Intro_Func139(void);
+void CinematicFunction_Intro_Func141(void);
+void CinematicFunction_Intro_Func143(void);
+void CinematicFunction_Intro_Func144(void);
+void CinematicFunction_Intro_Func148(void);
+uint8 EndingCinematicFunction(uint16 f) {   /* 0: no es una función del final (las nullsub: nada) */
+  switch (f) {
+  case 0xD480: CinematicFunctionEscapeFromCebes(); return 1;
+  case 0xD6D7: CinematicFunction_Intro_Func109(); return 1;
+  case 0xD6F2: CinematicFunction_Intro_Func110(); return 1;
+  case 0xD701: CinematicFunction_Intro_Func111(); return 1;
+  case 0xD731: CinematicFunction_Intro_Func112(); return 1;
+  case 0xD7F8: CinematicFunction_Intro_Func113(); return 1;
+  case 0xD807: CinematicFunction_Intro_Func114(); return 1;
+  case 0xD837: CinematicFunction_Intro_Func115(); return 1;
+  case 0xDA02: CinematicFunction_Intro_Func116(); return 1;
+  case 0xDA1A: CinematicFunction_Intro_Func117(); return 1;
+  case 0xDAD3: CinematicFunction_Intro_Func118(); return 1;
+  case 0xDB9E: CinematicFunction_Intro_Func119(); return 1;
+  case 0xDBC4: CinematicFunction_Intro_Func120(); return 1;
+  case 0xDCA5: CinematicFunction_Intro_Func121(); return 1;
+  case 0xDD42: CinematicFunction_Intro_Func123(); return 1;
+  case 0xDDCD: CinematicFunction_Intro_Func124(); return 1;
+  case 0xDE64: CinematicFunction_Intro_Func125(); return 1;
+  case 0xDE80: CinematicFunction_Intro_Func126(); return 1;
+  case 0xE0F4: CinematicFunction_Intro_Func129(); return 1;
+  case 0xE110: CinematicFunction_Intro_Func130(); return 1;
+  case 0xE158: CinematicFunction_Intro_Func131(); return 1;
+  case 0xE190: CinematicFunction_Intro_Func132(); return 1;
+  case 0xE1D2: CinematicFunction_Intro_Func134(); return 1;
+  case 0xE265: CinematicFunction_Intro_Func136(); return 1;
+  case 0xE293: CinematicFunction_Intro_Func135(); return 1;
+  case 0xE2DD: CinematicFunction_Intro_Func137(); return 1;
+  case 0xE314: CinematicFunction_Intro_Func138(); return 1;
+  case 0xE342: CinematicFunction_Intro_Func145(); return 1;
+  case 0xE3AE: CinematicFunction_Intro_Func139(); return 1;
+  case 0xE48A: CinematicFunction_Intro_Func141(); return 1;
+  case 0xE504: CinematicFunction_Intro_Func143(); return 1;
+  case 0xE58A: CinematicFunction_Intro_Func144(); return 1;
+  case 0xE797: CinematicFunction_Intro_Func148(); return 1;
+  }
+  return 0;
+}
+
 void CinematicFunction_Intro_Func151(uint16 k);
 void CinematicFunction_Intro_Func179(uint16 k);
 void CinematicFunction_Intro_Func180(uint16 k);

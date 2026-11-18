@@ -56,7 +56,11 @@ void EscapeTextCell(uint16 dst, uint16 w) { LOG("%04X text %04X %04X\n", room_pt
 void DrawTimerSpritemap(uint16 sm, uint16 x, uint16 y) { LOG("%04X spr80 %04X 0A00\n", room_ptr, sm); }
 /* cinemáticas y menús: "salas" propias para la Genesis (C001 Ceres explota, C002 Zebes, C0FF fin de juego) */
 static uint16 pseudo_room;
-void DrawCinematicSpritemap(uint16 sm, uint16 x, uint16 y, uint16 chr, uint8 off) { LOG("%04X spr8c %04X %04X\n", game_state == 30 ? room_ptr : pseudo_room, sm, chr); }
+FILE *endlog(void);
+void DrawCinematicSpritemap(uint16 sm, uint16 x, uint16 y, uint16 chr, uint8 off) {
+  LOG("%04X spr8c %04X %04X\n", game_state == 30 ? room_ptr : pseudo_room, sm, chr);
+  if (game_state == 39 && endlog()) fprintf(endlog(), "spr %04X %d %d %04X %d\n", sm, (int16)x, (int16)y, chr, off);
+}
 void CinematicGfx(uint16 which) { pseudo_room = 0xC000 | which; }
 void IntroGfx(uint16 which) { pseudo_room = 0xC100 | which; }
 void Mode7Transfers(uint16 list) { }
@@ -117,6 +121,17 @@ void nt_vram_queue_flush(const uint8_t *q, uint16_t n) {
 void DrawAtmosphericGfx(uint16_t type, uint16_t frame, int16_t x, int16_t y) { (void)type; (void)frame; (void)x; (void)y; }
 void DrawArmCannon(int16 x, int16 y, uint16 attr, uint16 src) { LOG("%04X armcannon %04X\n", room_ptr, src); (void)x; (void)y; (void)attr; }
 /* el final (ending.c, docs/63): la capa de dibujo */
-void EndingGfx(uint16 scene) { (void)scene; }
-void EndingTextUpload(uint16 vram) { (void)vram; }
-void EndingM7Queue(uint16 a, uint16 b, uint16 c) { (void)a; (void)b; (void)c; }
+/* MM_ENDLOG: lo que el final le pide al dibujo, para el generador del final de la Genesis (mkending.py, docs/63);
+   check.c agrega una línea por cuadro con los registros */
+FILE *endlog(void) { static FILE *f; static int init; if (!init) { init = 1; if (getenv("MM_ENDLOG")) f = fopen(getenv("MM_ENDLOG"), "w"); } return f; }
+void EndingGfx(uint16 scene) {
+  pseudo_room = 0xC200 | scene;                 /* (las claves de los sprites del final, por escena: MM_DRAWLOG) */
+  if (endlog()) fprintf(endlog(), "gfx %d\n", scene);
+}
+void EndingTextUpload(uint16 vram) {            /* el mapa del texto (cinematic_text_tilemap, 1024 palabras) a vram */
+  if (!endlog()) return;
+  fprintf(endlog(), "text %04X", vram);
+  for (int i = 0; i < 1024; i++) fprintf(endlog(), " %04X", cinematic_text_tilemap[i]);
+  fprintf(endlog(), "\n");
+}
+void EndingM7Queue(uint16 a, uint16 b, uint16 c) { if (endlog()) fprintf(endlog(), "m7q %04X %04X %04X\n", a, b, c); }

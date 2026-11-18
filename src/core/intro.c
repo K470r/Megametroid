@@ -188,7 +188,7 @@ uint8 SpawnCinematicBgObject(uint16 j, uint16 a) {  // 0x8B95F0
 }
 
 /* objetos de brillo del texto ($8B:97F7): la letra recién escrita pasa por 3 paletas */
-static void SpawnTextGlowObject(uint16 j, uint16 r18) {  // 0x8B97F7
+void SpawnTextGlowObject(uint16 j, uint16 r18) {  // 0x8B97F7 (también la usa el final: ending)
   int v = 7;
   while (cinematic_glow_ptr[v])
     if (--v < 0)

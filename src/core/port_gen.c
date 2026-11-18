@@ -132,6 +132,7 @@ void HandleFadeIn(void);
 void GrappleBeam_Func2(void);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 EprojBlockCollisition_Horiz(uint16 k);
+void EnableNMI(void);
 void DrawSpritemapOffScreen(uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
 void DisableMinimapAndMarkBossRoomAsExplored(void);
@@ -3208,7 +3209,6 @@ static Func_V *const off_A9B887[4];
 static Func_CalcHdma *const off_ADE024[4];
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
 void DeadTorizo_Func_1(void);
-void EnableNMI(void);
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
 uint16 PrepareBitAccess(uint16 a);
 void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k);
@@ -3218,7 +3218,6 @@ void WriteReg(uint16 reg, uint8 value);
 
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) { nt_unimpl("DeadTorizo_CopyLineOfSandHeapTileData"); }
 void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
-void EnableNMI(void) { nt_unimpl("EnableNMI"); }
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
 uint16 PrepareBitAccess(uint16 a) { nt_unimpl("PrepareBitAccess"); return 0; }
 void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_CorpseRottingCopyFunc"); }
@@ -7180,7 +7179,7 @@ void CinematicFunction_Intro_Func128(uint16 a) {  // 0x8B98F9
   cinematic_var23 = 0;
   cinematic_var24 = 0;
   cinematicbg_var3 = 18432;
-  eproj_pre_instr[0] = 0;
+  cinematic_glow_ptr[6] = 0;
   cinematic_var7 = 0;
   cinematic_var8 = 0;
   cinematic_var9 = 0;
@@ -7206,8 +7205,8 @@ void CreditsObject_ProcessOne(void) {  // 0x8B996A
 
   CallCreditsObjectFunc(cinematic_var24 | 0x8B0000, 0);
   AddToHiLo(&cinematic_var10, &cinematic_var9, 0x8000);
-  if (!sign16(cinematic_var10 - eproj_pre_instr[0] - 8)) {
-    eproj_pre_instr[0] = cinematic_var10;
+  if (!sign16(cinematic_var10 - cinematic_glow_ptr[6] - 8)) {
+    cinematic_glow_ptr[6] = cinematic_var10;
     for (i = cinematic_var21; ; ) {
       const uint16 v2 = (i);
       uint16 v3 = BW_8C(v2);
@@ -8309,7 +8308,7 @@ uint16 CinematicFunction_Intro_Func219(uint16 k, uint16 j) {  // 0x8BF6FE
   screen_fade_counter = 0;
   cinematic_var9 = 0;
   cinematic_var10 = 0;
-  eproj_pre_instr[1] = 1;
+  cinematic_glow_ptr[7] = 1;
   cinematic_function = 0xE0F4 /* CinematicFunction_Intro_Func129 */;
   cinematic_var4 = 60;
   return j;

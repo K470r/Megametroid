@@ -98,7 +98,10 @@ static int is_cine_var(const char *n) {
 static int max_nd = 12;
 static uint16_t gs_frame_start;   /* game_state al empezar el cuadro (el del cuadro anterior en el SNES) */
 static int ram_owner_skip(const VarMap *v) {
-  int cine = gs_frame_start == 30 || gs_frame_start == 34 || gs_frame_start == 37;
+  int cine = gs_frame_start == 30 || gs_frame_start == 34 || gs_frame_start == 37 || gs_frame_start == 39;
+  /* el final (39): las estrellas van en 7E:0E0C-110B (ending.c las tiene aparte y se comparan aparte): lo que el motor
+     tiene en esas direcciones no se compara */
+  if (gs_frame_start == 39 && v->addr < 0x110C && v->addr + v->size * v->count > 0x0E0C) return 1;
   if (!strcmp(v->name, "menu_tilemap"))           /* 7E:3600 es de los menús solo en ellos */
     return !(gs_frame_start == 25 || gs_frame_start == 26);
   if (is_cine_var(v->name)) return !cine;
@@ -238,6 +241,15 @@ int main(int argc, char **argv) {
     }
     if (getenv("HL_GOD") && game_state == 8) samus_health = samus_max_health;   /* HL_GOD: como hlref */
     game_frame(joy_from_bot(in_cur));
+    if (game_state == 39) {                       /* MM_ENDLOG (pc_stubs.c): los registros del cuadro del final */
+      extern FILE *endlog(void);
+      if (endlog())
+        fprintf(endlog(), "f %ld %04X %d %02X %02X %02X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %02X %02X %02X %02X %02X %04X %04X %04X %04X %d\n",
+                f, cinematic_function, reg_BGMODE, reg_TM, reg_TS, reg_INIDISP, reg_M7A, reg_M7B, reg_M7C, reg_M7D,
+                reg_M7X, reg_M7Y, reg_BG1HOFS, reg_BG1VOFS, reg_BG2HOFS, reg_BG2VOFS, reg_BG3HOFS, reg_BG3VOFS,
+                reg_MOSAIC, reg_CGWSEL, reg_CGADSUB, reg_COLDATA[0], reg_COLDATA[2], cinematic_var5, cinematic_var6,
+                cinematic_var8, cinematic_var10, cinematic_glow_ptr[7] != 0);
+    }
     if (getenv("MM_HUDLOG")) {   /* palabras del HUD que aparecen (para la tabla de celdas de la Genesis) */
       static uint8_t seen[65536];
       static FILE *hf;
@@ -255,9 +267,16 @@ int main(int argc, char **argv) {
       memcpy(ram_prev, ram_cur, sizeof ram_cur);
       continue;
     }
+    /* el final: el mapa del texto y las estrellas valen desde que corrió CinematicFunction_Intro_Func126 (el cuadro
+       después del que terminó con cinematic_function = DE80) */
+    static int end_text, end_prev_de80;
+    if (end_prev_de80) end_text = 1;
+    end_prev_de80 = rw(ram_cur, 0x1F51) == 0xDE80;
     for (const VarMap *v = g_vars_map; v->name; v++) {
       if (v == g_vars_map) { static uint16_t gs_prev = 0xFFFF; gs_frame_start = gs_prev == 0xFFFF ? game_state : gs_prev;
                              gs_prev = ram_cur[0x998] | ram_cur[0x999] << 8; }
+      /* (la tabla de Crocomire es un alias dentro del mapa del texto: en el final no se trae del SNES) */
+      if (gs_frame_start == 39 && !strcmp(v->name, "crocomire_bg2_scroll_hdma_data")) continue;
       if (not_compared(v->name) || ram_owner_skip(v)) { load_var(v, ram_cur); continue; }
       for (unsigned i = 0; i < v->count; i++) {
         unsigned a = v->addr + v->size * i;
@@ -265,6 +284,10 @@ int main(int argc, char **argv) {
         /* al cargar una sala el SNES descomprime los gráficos en 7E:2000-BFFF (tablas de HDMA, búferes): ahí manda
            el SNES hasta que termina la carga */
         if (!sk && game_state >= 9 && game_state <= 11 && a >= 0x2000 && a < 0xC000) sk = 1;
+        /* el final (39): el SNES descomprime los gráficos de las escenas en 7E:2000-BFFF; el mapa del texto
+           (7E:3000-3FFF, cinematic_text_tilemap) vale desde que empiezan los créditos (CinematicFunction_Intro_Func126
+           lo borra) */
+        if (!sk && gs_frame_start == 39 && a >= 0x2000 && a < 0xC000 && !(a >= 0x3000 && a < 0x3800 && end_text)) sk = 1;   /* (7E:3800-3FFF: lo pisan las descompresiones) */
         if (sk == 2) continue;                   /* no se compara este cuadro, pero queda el valor del motor */
         if (sk) {
           if (v->size == 2) ((uint16_t *) v->ptr)[i] = rw(ram_cur, a); else ((uint8_t *) v->ptr)[i] = ram_cur[a];
@@ -280,7 +303,7 @@ int main(int argc, char **argv) {
     }
     /* nivel de la sala (level_data y BTS); en las cinemáticas y el fin de juego el SNES usa esa RAM (7F:0000) para
        los gráficos del modo 7 */
-    int level_live = !(game_state == 30 || game_state == 34 || game_state == 37 || game_state == 6 || game_state == 25 || game_state == 26);
+    int level_live = !(game_state == 30 || game_state == 34 || game_state == 37 || game_state == 6 || game_state == 25 || game_state == 26 || game_state == 39);
     for (unsigned i = 0; level_live && i < (unsigned)(room_size_in_blocks >> 1) && i < ROOM_MAX_BLOCKS; i++) {
       if (level_get(i) != rw(ram_cur, 0x10002 + 2 * i) || bts_get(i) != ram_cur[0x16402 + i]) {
         if (nd < max_nd) printf("cuadro %ld: bloque %u nativo %04X/%02X snes %04X/%02X\n", f, i, level_get(i), bts_get(i),
@@ -288,9 +311,18 @@ int main(int argc, char **argv) {
         nd++;
       }
     }
-    nd = cmp_enemies(f, ram_cur, nd);
+    if (gs_frame_start != 39) nd = cmp_enemies(f, ram_cur, nd);
+    else if (end_text) {                          /* el final: las 40 estrellas (7E:0E0C, ending.c; desde los créditos) */
+      extern uint16 *ending_star(uint16 i);
+      for (unsigned i = 0; i < 40; i++)
+        for (unsigned w = 0; w < 8; w++)
+          if (ending_star(i)[w] != rw(ram_cur, 0x0E0C + 16 * i + 2 * w)) {
+            if (nd < max_nd) printf("cuadro %ld: estrella %u palabra %u nativo %04X snes %04X\n", f, i, w, ending_star(i)[w], rw(ram_cur, 0x0E0C + 16 * i + 2 * w));
+            nd++;
+          }
+    }
     /* RAM extra de enemigos (7E:7800-97FF: variables de jefes como Ridley); como 7E:7000, no durante la carga */
-    if (game_state != 11 && game_state != 6)
+    if (game_state != 11 && game_state != 6 && gs_frame_start != 39)   /* (39: los gráficos del final se descomprimen ahí) */
       for (unsigned a = 0x7800; a < 0x9800; a += 2) {
         if (a >= ERAM_GAP_LO && a < ERAM_GAP_HI) {   /* (el tramo quitado, docs/60: el SNES no debe usarlo en juego) */
           if (rw(ram_cur, a) != rw(ram_prev, a)) {

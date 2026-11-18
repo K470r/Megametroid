@@ -36,6 +36,7 @@ void DecomposePaletteDataForFading(void);
 void ClearYColorsFromIndexX(uint16 k, uint16 j);
 void ComposeFadingPalettes(void);
 void QueueMusic_DelayedY(uint16 a, uint16 j);
+uint8 EndingCinematicFunction(uint16 f);       /* ending_disp.c */
 void HandleCinematicSprites_(void);           /* cinematic.c */
 void HandleCinematicBgObjects_(void);         /* intro.c */
 void HandleMode7TransformationMatrix_(void);  /* cinematic.c */
@@ -46,7 +47,7 @@ void nt_clear_ram(uint16 from, uint16 to);
 
 /* ------------------------------------------------------------------ el cuadro del estado 39 ($8B:D443) */
 void GameState_39_EndingAndCredits(void) {
-  port_call_void(0x8B0000 | cinematic_function);   /* (las nullsub no están: no hacen nada) */
+  EndingCinematicFunction(cinematic_function);   /* (ending_disp.c; las nullsub no están: no hacen nada) */
   if (!(cinematic_var11 & 0x8000))
     ++cinematic_var11;
   ++cinematic_var12;
@@ -117,7 +118,7 @@ void CinematicFunctionEscapeFromCebes(void) {  // 0x8BD480: Zebes y la nave (mod
   layer1_y_pos = 0;
   ClearPaletteFXObjects();
   EnablePaletteFx();
-  eproj_pre_instr[1] = 0;
+  cinematic_glow_ptr[7] = 0;                     // eproj_pre_instr[1] del decomp (7E:1A05)
   reg_TM = 17; reg_TS = 1; reg_CGWSEL = 2; reg_CGADSUB = 17;
   SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEEEB, 0);
   SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEEF1, 0);
@@ -235,10 +236,13 @@ void CinematicFunction_Intro_Func133(void) {
   SpawnHdmaObject(0x88, 0xEC8A);
 }
 
+void EnableNMI(void) { reg_NMITIMEN |= 0x80; }   /* 0x80834B */
+
 void CopySuperMetroidString(void) {}          /* "supermetroid" en la partida guardada: la Genesis todavía no guarda */
 
 /* ------------------------------------------------------------------ las estrellas (7E:0E0C, en enemy_data) */
 #define STAR(i) ((uint16 *)enemy_data + 8 * (i))
+uint16 *ending_star(uint16 i) { return STAR(i); }   /* (host/check las compara con 7E:0E0C) */
 
 void CinematicFunction_Intro_Func127(void) {  // 0x8BE7BB
   for (uint16 i = 0; i < 40; i++) {
@@ -256,7 +260,7 @@ void CinematicFunction_Intro_Func127(void) {  // 0x8BE7BB
 /* las mueve y las dibuja ($8B:E812): en el SNES escribe en la OAM; aquí la Genesis las dibuja desde STAR (las que
    tienen el byte alto de s[0] distinto de 0, en (s[1] - 4, s[3] - 4) con el tile kStarChr[s[0] >> 9]) */
 void CinematicFunction_Intro_Func149(void) {
-  if (!eproj_pre_instr[1])
+  if (!cinematic_glow_ptr[7])                    /* eproj_pre_instr[1] del decomp (7E:1A05) */
     return;
   for (uint16 i = 0; i < 40; i++) {
     uint16 *s = STAR(i);

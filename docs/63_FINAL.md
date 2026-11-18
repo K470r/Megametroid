@@ -30,7 +30,7 @@ En la última pantalla, debajo del porcentaje de objetos, mientras gira el símb
    salas solo de sprites (`mkmd.py`), el texto de los créditos en un plano.
 3. El slogan.
 
-## La lógica (2026-11-19): hecha y comprobada
+## La lógica: hecha y comprobada
 
 - **Traducida del decomp** (tools/port, docs/42): `XLATE_BANKS` suma $8B y $8C; en `roots.txt`, antes de la sección
   de los jefes (si no, iba a la página de los jefes), las funciones de $8B:D480 en adelante, los objetos de los
@@ -48,9 +48,16 @@ En la última pantalla, debajo del porcentaje de objetos, mientras gira el símb
   (`CalcItemPercentageCount`), el efecto del texto del tiempo (`Func133`), las 40 estrellas (`Func127`, `Func149`: en
   `enemy_data`, que en el final no se usa) y los spritemaps (`DrawSpritemap*` → `DrawCinematicSpritemap`).
   `CopySuperMetroidString` (la marca de juego terminado en la partida guardada) espera al guardado.
-- **Comprobación:** `host/check` con la grabación del SNES (`REF=work/final/ref.bin sh tools/compare/final_snes.sh`,
-  2,1 GB) desde el cuadro 899 hasta el 16250 (todo el final): 3 cuadros distintos, los del cambio al estado 39 (la
-  RAM 7E:198D-1C1E pasa de los proyectiles a la cinemática), y después igual que el SNES hasta el final.
+- **Comprobación:** `host/check` modo 2 con la grabación del SNES (`REF=work/final/ref.bin sh
+  tools/compare/final_snes.sh`, 2,1 GB) del cuadro 899 al 16250 (todo el final): **0 cuadros distintos**.
+  Corrección: una primera versión de esta nota decía que ya coincidía, pero la prueba era falsa (el modo 0 se paraba
+  en el cuadro 903, las variables de la cinemática se cargaban del SNES porque el estado 39 no contaba como
+  cinemática, y la función de la escena no se despachaba: el final no arrancaba). Arreglos: el despacho de las
+  funciones de la cinemática (`EndingCinematicFunction`, ending_disp.c); en `host/check`, el estado 39 cuenta como
+  cinemática, las estrellas (en `enemy_data`) se comparan con las del SNES en 7E:0E0C y el texto de 7E:3000 se compara
+  desde que se arma; los alias de la RAM del SNES (`cinematic_var21-26` = `cinematic_glow_ptr[0-5]`; en el banco $8B
+  `eproj_pre_instr[0/1]` = `cinematic_glow_ptr[6/7]`); y la onda del texto del tiempo (objeto de HDMA $88:EC8A:
+  instrucción $88:EC9F y pre-instrucción $88:ECB6, hdmaobj.c).
 - Regresión: 0 distintos. Código nuevo: ~12 KB a mano (ending.o, ending_disp.o) y ~1500 líneas traducidas.
 
 ## Lo que sigue: el dibujo

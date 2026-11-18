@@ -131,8 +131,9 @@ for n in used:
         continue
     k, t, a = defs[n]
     if k == 's':
-        h.append(f'extern {t} {n};  /* 7E:{a:04X} */')
-        c.append(f'{t} {n};')
+        if n not in EXTRA_ALIAS:                 # (alias de vars_extra.txt: solo el mapa de direcciones)
+            h.append(f'extern {t} {n};  /* 7E:{a:04X} */')
+            c.append(f'{t} {n};')
         m.append(f'  {{ "{n}", &{n}, 0x{a:04X}, {2 if "16" in t else 1}, 1 }},')
         ramtab.append((a, 2 if '16' in t else 1, 1, '&' + n))
     else:

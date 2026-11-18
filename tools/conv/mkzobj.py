@@ -224,6 +224,29 @@ def room_states(rom, room):
         q += 2 + n
 
 
+# el contador de la huida (DrawTimer $80:9F6C: "TIME" $80:A060 y los dígitos $80:9FE8 + 12 * d, con 0x0A00): en la sala
+# de Mother Brain (ahí empieza) y en los estados de la huida (los que elige el evento 0x0E, la bomba puesta)
+TIMER_KEYS = {("v", "%04X" % (0x9FE8 + 12 * d), "0A00") for d in range(10)} | {("v", "A060", "0A00")}
+# sus tiles: los sube Mother Brain al morir (MotherBrain_Phase3_Death_15_LoadEscapeTimerTiles $A9:B258, la lista
+# $A6:C4CB de ProcessSpriteTilesTransfers): $B0:C000 -> VRAM $7E00 y $B0:C200 -> $7F00 (los tiles 0x1E0-0x1F8)
+TIMER_COPIES = ((0xB0C000, 0x200, 0x7E00), (0xB0C200, 0x120, 0x7F00))
+
+
+def timer_states(rom, room):
+    q, out = 0x8F0000 | (room + 11), set()
+    while True:
+        c = rom.w(q)
+        n = SEL_LEN[c]
+        if n == 0:
+            break
+        if c == 0xE612 and rom.bytes(q + 2, 1)[0] == 0x0E:
+            out.add(rom.w(q + n))
+        q += 2 + n
+    if room == 0xDD58:
+        out |= set(room_states(rom, room))
+    return out
+
+
 def tileset_pals(rom, st):
     """palette_index de los enemigos de la lista de tiles del estado (LoadEnemyGfxIndexes $A0:8BF3)"""
     out, e = set(), 0xB40000 | rom.w(0x8F0000 | (st + 10))
@@ -652,6 +675,8 @@ def zkey(k):
         return (int(k[1], 16), 0, 0xC000)
     if k[0] == "t":                                       # estela del misil: (tile y atributo, 0, 0xC001)
         return (int(k[1], 16), 0, 0xC001)
+    if k[0] == "v":                                       # contador de la huida: (spritemap $80, 0x0A00, 0xC002)
+        return (int(k[1], 16), int(k[2], 16), 0xC002)
     return (int(k[1], 16), int(k[2], 16), 0x8000)
 
 
@@ -701,7 +726,8 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
                     v2[2 * dst:2 * dst + size] = rom.bytes(src, size)
                 kvcache[cps] = bytes(v2)
             vram_k = kvcache[cps]
-        key = {"e": ("enemy",), "s": ("enemy", "B4"), "p": ("eproj",), "j": ("proj",), "t": ("trail",)}[k[0]] + k[1:]
+        key = {"e": ("enemy",), "s": ("enemy", "B4"), "p": ("eproj",), "j": ("proj",), "t": ("trail",),
+               "v": ("spr80",)}[k[0]] + k[1:]
         kp = mkmd.key_pieces(rom, key)
         wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else 1
         is_boss = boss is not None and k[0] == "e" and int(k[1], 16) == boss[0]
@@ -993,8 +1019,11 @@ def build(rom_path, log_paths, states, frozen=None):
     out, cache = {}, {}
     islot = ice_slots(rom)
     frozen = frozen if frozen is not None else {"index": {}, "list": []}
+    tstates = {}
     for st, room, ts, room_tiles in states:
-        k = keys.get(room, set()) | pkeys
+        if room not in tstates:
+            tstates[room] = timer_states(rom, room)
+        k = keys.get(room, set()) | pkeys | (TIMER_KEYS if st in tstates[room] else set())
         if room in FLASH_DROP:                    # jefes: sin las copias del destello (paleta 0000) de lo que tiene otra
             other = {(x[1], x[2], x[4]) for x in k if x[0] == "e" and x[3] != "0000"}
             k = {x for x in k if not (x[0] == "e" and x[3] == "0000" and (x[1], x[2], x[4]) in other)}
@@ -1022,6 +1051,9 @@ def build(rom_path, log_paths, states, frozen=None):
                 firsts.setdefault(dst, (src, size))
             vc = vc + [(2 * dst, rom.bytes(src, size)) for dst, (src, size) in firsts.items()]
         kc = kvram.get(room)
+        if k & TIMER_KEYS:                        # (el contador, con sus tiles)
+            kc = dict(kc or {})
+            kc.update({tk: TIMER_COPIES for tk in TIMER_KEYS})
         ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an), tuple(vo),
               room if kc else None, room in RAINBOW_ROOMS)
         if ck not in cache:                       # (lo mismo: se comparte)

@@ -850,8 +850,14 @@ la fase 1). El rayo, en la Genesis desde el cuadro ~16900.
 - El color: el 14 de la línea 3 (`mkzobj.RAINBOW_ROOMS`: en esa sala los enemigos no lo usan) con el COLDATA del
   cuadro. Diferencias: el SNES suma el color (se ve el fondo a través); aquí es opaco y queda detrás de las celdas del
   BG1 con prioridad alta (la columna de la derecha).
-- Falta de Mother Brain: el texto y el reloj del escape (`TIME BOMB SET`), el color de la cabeza y del cuerpo (más
-  rosado en el SNES), la puerta de la izquierda.
+- El contador de la huida en Zebes: sus claves (`mkzobj.TIMER_KEYS`, `spr80` con 0x0A00) van en los objetos de la
+  sala de Mother Brain y de los estados de la huida (evento 0x0E: `timer_states`), con la VRAM de cuando Mother Brain
+  sube sus tiles (`TIMER_COPIES`: $B0:C000 -> $7E00, $B0:C200 -> $7F00, la lista $A6:C4CB); `DrawTimerSpritemap`
+  las busca con `zebes_obj_draw(sm, 0x0A00, 0xC002)`.
+- Falta de Mother Brain: el texto de la huida (`TIME BOMB SET! ESCAPE IMMEDIATELY`: la máquina de escribir de
+  `HandleTypewriterText_Ext` escribe el BG3 por la cola de VRAM; en Ceres va al plano A de una zona vacía, aquí taparía
+  la sala: hay que dibujarlo de otra forma), el rojo de la alarma (más oscuro que en el SNES), el color de la cabeza y
+  del cuerpo (más rosado en el SNES), la puerta de la izquierda.
 
 ## La sala de las estatuas de Tourian (A66A, 2026-11-17)
 

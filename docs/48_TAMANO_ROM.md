@@ -141,8 +141,11 @@ Cómo se reparten (`mkzebes.py`, medido sobre el depósito de 64.244 tiles):
 Tiempo: se descomprime en el vblank de la carga, con la pantalla apagada. En promedio cada sala descomprime 11 KB
 (máximo 21) y sus objetos 8 (máximo 23); la sala del aterrizaje pasa de 11 a 25 cuadros. Las transiciones de puerta
 de la Genesis eran ~50 cuadros más cortas que las del SNES: siguen siéndolo. Mientras descomprime, el XGM2 no queda
-avisado de DMA (la música sigue: `md_snd_protect`). La pantalla se enciende al final de ese vblank (md_engine.c,
-`vb_display_pend`): si la carga se pasó a la imagen, el HUD y los colores se escribían con la imagen empezada.
+avisado de DMA (la música sigue: `md_snd_protect`). La pantalla se enciende al empezar el vblank siguiente (md_engine.c,
+`vb_display_next`, en `md_vint`): encendida al terminar la carga, si esta se pasaba a la imagen el HUD y los colores
+se escribían con la imagen empezada, y según dónde terminara el primer cuadro salía o no (la regresión cambiaba). Así
+el primer cuadro después de cargar es siempre negro (dentro del negro de la transición); mientras tanto
+`vb_lines_left` da todo el tiempo (la pantalla está apagada). Regresión aprobada de nuevo (ceres, zebes) por ese cuadro.
 Validación: regresión 0 distintos (intro, Ceres, Zebes: la imagen es la misma) y la VRAM de la sala igual antes y
 después de la pausa.
 

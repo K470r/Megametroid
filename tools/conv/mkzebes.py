@@ -355,6 +355,78 @@ def room_items(plm_ptr):
     return items
 
 
+def xray_blocks(l1, bts, width, area, xray_sp, has_items):
+    """los bloques (número de la tabla) que los rayos X pueden mostrar en la sala (como hdmaobj.c: Xray_GetXrayedBlock
+    con la tabla $91:D2D6, los bloques de extensión, los objetos escondidos y los casos especiales del estado)"""
+    out = set()
+
+    def entry(typ, bt):
+        t = 0x91D2D6
+        while w16(t) != 0xFFFF:
+            if w16(t) == typ:
+                p = 0x910000 | w16(t + 2)
+                while w16(p) != 0xFFFF:
+                    if w16(p) in (0xFF00, bt):
+                        return 0x910000 | w16(p + 2)
+                    p += 4
+                return None
+            t += 4
+        return None
+    n = len(l1)
+    for i in range(n):
+        e = entry(l1[i] & 0xF000, bts[i])
+        if e is None:
+            continue
+        f = w16(e)
+        if f in (0xCEBB, 0xCE79):                 # extensión: el bloque que extiende (Xray_CombinedMove)
+            x, y = i % width, i // width
+            step = bts[i] - 256 if bts[i] >= 128 else bts[i]
+            r48 = l1[i] & 0xF000
+            vert = f == 0xCEBB
+            for _ in range(64):
+                if not step:
+                    break
+                if vert:
+                    y += step
+                else:
+                    x += step
+                if x < 0 or y < 0 or y * width + x >= n:
+                    out.add(0xFF)
+                    break
+                pos = y * width + x
+                step = bts[pos] - 256 if bts[pos] >= 128 else bts[pos]
+                r48 = l1[pos] & 0xF000
+                if r48 == 0xD000:
+                    vert = True
+                    continue
+                if r48 != 0x5000:
+                    break
+                if step < 0:
+                    vert = False
+            if r48 == w16(0x91D2D6 + 4):
+                p = 0x910000 | w16(0x91D2D6 + 6)
+                while w16(p) != 0xFFFF:
+                    if w16(p) in (0xFF00, step & 0xFF):
+                        out.add(w16((0x910000 | w16(p + 2)) + 2) & 0x3FF)
+                        break
+                    p += 4
+        elif f in (0xCF36, 0xCF62) or (f == 0xCF3E and area == 1):
+            out.add(w16(e + 2) & 0x3FF)
+        elif f == 0xCF4E:
+            out |= {w16(e + 2) & 0x3FF, w16(e + 4) & 0x3FF}
+        elif f == 0xCF6F:
+            out |= {w16(e + k) & 0x3FF for k in (2, 4, 6, 8)}
+    if has_items:                                 # objetos escondidos (kXrayBlockDrawingInstrs $84:839D)
+        for k in range(8):
+            out.add(w16(0x840000 | (w16(0x84839D + 2 * k) + 2)) & 0x3FF)
+    if xray_sp:                                   # casos especiales (xray_special_casing_ptr)
+        q = 0x8F0000 | xray_sp
+        while r(q, 1)[0] or r(q + 1, 1)[0]:
+            out.add(w16(q + 2) & 0x3FF)
+            q += 4
+    return out
+
+
 def put_items(table, vram, items):
     """como PlmInstr_LoadItemPlmGfx: los 256 bytes de tiles a la VRAM de la ranura y los 8 tiles (con su paleta) en
     los bloques del objeto de la tabla ($84:87CD VRAM, $84:87D5 desplazamiento en la tabla, $84:87DD primer tile)"""
@@ -1069,6 +1141,9 @@ def main():
                         blocks |= {x & 0x3FF for x in plm_blocks(h)}
                 blocks |= {x & 0x3FF for x in reaction_blocks()}
                 items = room_items(plm_ptr) if plm_ptr else []
+                # rayos X (hdmaobj.c, docs/62): los bloques que pueden mostrar dentro del cono
+                bts_ = d[2 + size:2 + size + n]
+                blocks |= xray_blocks(l1, bts_, hb[4] * 16, area, struct.unpack_from('<H', b, 16)[0], bool(items))
                 usage = {}
                 for w_ in list(l1) + list(l2 or []):
                     usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1

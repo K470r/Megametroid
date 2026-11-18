@@ -285,7 +285,11 @@ void HudSelectionHandler_Normal(void) {  // 0x90DD3D
   case 1: case 2: HudSelectionHandler_MissilesOrSuperMissiles(); break;
   case 4: GrappleBeamHandler(); break;          // HudSelectionHandler_Grappling ($90:DD6F)
   case 6: HudSelectionHandler_TurningAround(); break;
-  default: nt_unimpl("HudSelectionHandler_Normal (rayos X)"); break;
+  case 5:                                       // HudSelectionHandler_Xray ($90:DDC8)
+    if (button_config_run_b & joypad1_lastkeys) XrayRunHandler();
+    else HudSelectionHandler_NothingOrPowerBombs();
+    break;
+  default: break;
   }
 }
 

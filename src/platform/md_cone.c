@@ -819,6 +819,7 @@ static uint8 job_step(uint8 small) {
 extern uint16 nt_pb_shape;                    /* hdmaobj.c */
 void md_cone_room(void);
 void zebes_force_prio(uint8 on);              /* md_zebes.c */
+void zebes_plane_b_low(uint8 low);
 uint8 zebes_prio_busy(void);
 #define PB_FULL CONE_TILE0                    /* 16 tiles llenos (cajas de hasta 4 x 4) */
 #define PB_AREA (CONE_TILE0 + 16)             /* tiles de las cajas del borde (hasta el 2041; después, el gancho) */
@@ -1122,9 +1123,18 @@ uint16 md_cone_frame(void) {
     return pb_build();                        /* (cone_on no: los tiles fijos del haz no hacen falta) */
   }
   cone_live = 0;
-  if (!eye || fx_layer_blending_config_c != 16 || !zebes_cone_slot(CONE_COLOR)) return 0;
-  uint16 k = reg_COLDATA[0] & 31;          /* la intensidad del SNES (R = G) */
-  if (k < 4 || (k < 8 && (nmi_frame_counter_word & 1))) return 0;
+  /* rayos X (hdmaobj.c): el mismo cono, con sus valores en beam_memo; el modo sombra/luz oscurece lo demás */
+  /* rayos X: el modo sombra/luz oscurece la pantalla y el cono (sprites "aclarar") la deja normal. Para que el VDP
+     oscurezca, los dos planos con prioridad baja mientras duran (en muchas salas el plano A y casi todo el B la tienen
+     alta). El tinte de md_engine.c aclara un poco todo: así el cono se distingue (en el SNES es gris claro) */
+  static uint8 xr_cells;
+  if (xray_on != xr_cells && pb < 0) { zebes_force_prio(xray_on ? 2 : 0); zebes_plane_b_low(xray_on); xr_cells = xray_on; }
+  uint8 xr = xray_on && xray_cone_ok;
+  if (!xr) {
+    if (!eye || fx_layer_blending_config_c != 16 || !zebes_cone_slot(CONE_COLOR)) return 0;
+    uint16 k = reg_COLDATA[0] & 31;          /* la intensidad del SNES (R = G) */
+    if (k < 4 || (k < 8 && (nmi_frame_counter_word & 1))) return 0;
+  }
 #ifdef CONE_NODRAW
   return 0;
 #endif
@@ -1244,7 +1254,7 @@ void md_cone_vblank(void) {
   }
   pb_light_shown = pb_light;
   /* en las salas con el ojo, siempre (todo tiene prioridad alta); con la luz de la bomba, en sus cuadros */
-  uint8 want = zebes_eye_room() || pb_light_shown;
+  uint8 want = zebes_eye_room() || pb_light_shown || xray_on;   /* (rayos X: todo más oscuro, el cono normal) */
   if (want != sh_on) { vdp_reg(0x0C, want ? 0x08 : 0x00); sh_on = want; }
   cone_on_shown = cone_on;
 }

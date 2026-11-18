@@ -84,7 +84,7 @@ de `tools/rooms/`. Las entradas del bot (`tools/snes_ref/ceres_bot/in_*.txt`) se
 | Ataques especiales (SBA) | hecho | `sba.sh` (onda, hielo, spazer, plasma) |
 | Bomba de poder (soltarla, explosión contra bloques y enemigos) | hecho | `powerbomb.sh` |
 | Gancho (engancharse, columpio, soltarse, enemigos) | hecho | `grapple.sh` |
-| Rayos X | **falta** (siguiente bloque) | |
+| Rayos X | hecho (docs/61) | |
 | Destello de cristal (movimiento) | falta (las paletas están) | |
 | Hiperrayo | falta (Mother Brain) | |
 

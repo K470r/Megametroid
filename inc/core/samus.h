@@ -96,6 +96,13 @@ void Samus_Initialize(void);                   /* $91:E00D */
 void Samus_LoadSuitTargetPalette(void);
 void CopyToSamusSuitPalette(uint16 k);
 void Samus_Func20(void);
+/* rayos X (samus_pose.c, hdmaobj.c) */
+void XrayRunHandler(void);
+uint8 Xray_Initialize(void);
+void ResponsibleForXrayStandupGlitch(void);
+void xray_reset_state(void);
+extern uint8 xray_on, xray_cone_ok;
+extern uint16 xray_rev_n;   /* (la lista: hdma_table_1, 128 índices y 128 palabras) */
 void Samus_AlignBottomWithPrevPose(void);
 
 /* ---- coll.c (banco $94: colisión con bloques) */

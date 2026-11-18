@@ -22,6 +22,7 @@
 #include "zebes.h"
 #include "md_zebes.h"
 #include "nmath.h"
+#include "enemies.h"
 
 uint8 md_zebes;
 uint8 md_cur_page = 7;                    /* página del SSF2 en la ventana 0x380000 (sombra del registro) */
@@ -104,6 +105,7 @@ static uint8 nanim;
 /* lo que piden los ganchos durante la lógica del cuadro (puede correr mientras el vblank todavía toma el cuadro
    anterior): bloques cambiados y tiles animados; md_post (zebes_take) los pasa a las colas del vblank */
 static uint16 lblk[QBLK];
+static uint8 xr_shown[16], xr_any;             /* rayos X: los revelados que se dibujaron (xray_take) */
 static uint8 nlblk, lfull;
 static uint16 lanim[QANIM][2];
 static uint8 nlanim;
@@ -267,8 +269,14 @@ static inline const uint16 *cells_of(uint16 w) {
 static uint16 zprio;
 #define PSWEEP 2                         /* columnas por cuadro al cambiar la prioridad (zebes_force_prio) */
 static int16 psweep = ZW, psweep_x0;
-static inline uint16 tile_fix(uint16 c) { return ((c & 0x7FF) ? c + ZT_BASE : c) | zprio; }
-static inline uint16 tile_fix_b(uint16 c) { return (c & 0x7FF) ? c + ZT_BASE : c; }
+static uint16 zpmask = 0xFFFF;                  /* rayos X: 0x7FFF, todas con prioridad baja (el modo sombra/luz las
+                                                   oscurece; el cono las aclara: md_cone.c) */
+static uint8 psweep_n = PSWEEP;
+static inline uint16 tile_fix(uint16 c) { return (((c & 0x7FF) ? c + ZT_BASE : c) | zprio) & zpmask; }
+static uint16 zpmask_b = 0xFFFF;                /* rayos X: el plano B también con prioridad baja (casi todas sus
+                                                   celdas la tienen alta: no se oscurecía el fondo) */
+static int8 bgr_row = -1;                        /* fondo de biblioteca: la fila del plano B que sigue al cambiarla */
+static inline uint16 tile_fix_b(uint16 c) { return ((c & 0x7FF) ? c + ZT_BASE : c) & zpmask_b; }
 
 /* una columna de celdas (cx) desde la fila cy0, ZH celdas, en buf */
 static void build_column(uint8 L, int16 cx, int16 cy0, uint16 *buf) {
@@ -417,7 +425,7 @@ const MdRoom *zebes_use(void) {
   wall_pend = 0; kq_conv = 0; mouth_pend = 0;
   esc_on = 0; esc_n = 0; esc_font_pend = 0;
   frz_nq = 0;
-  zprio = 0; psweep = ZW;
+  zprio = 0; zpmask = 0xFFFF; psweep = ZW; zpmask_b = 0xFFFF; bgr_row = -1;
   const MdRoom *base = &kMdRooms[ZEBES_BASE_ROOM];
   zroom = *base;
   zroom.room = room_ptr;
@@ -467,6 +475,8 @@ const MdRoom *zebes_use(void) {
   drawn[0] = drawn[1] = 0;
   ncol = nrow = nblk = nsky = 0;
   nanim = nlanim = nlblk = lfull = 0;
+  for (uint16 k = 0; k < 16; k++) xr_shown[k] = 0;   /* (rayos X) */
+  xr_any = 0;
   full_redraw = 0;
   return &zroom;
 }
@@ -722,7 +732,7 @@ static void follow(uint8 L, uint16 x, uint16 y) {
 
 static void prio_sweep(void) {
   if (full_redraw & 1) { psweep = ZW; return; }   /* (se dibuja toda la ventana igual) */
-  for (uint16 k = 0; k < PSWEEP && psweep < ZW && ncol < QCOL; ) {
+  for (uint16 k = 0; k < psweep_n && psweep < ZW && ncol < QCOL; ) {
     int16 cx = psweep_x0 + psweep++;
     if (cx >= wx[0] && cx < wx[0] + ZW) { queue_col(0, cx, wy[0]); k++; }   /* (las demás ya salieron o entran nuevas) */
   }
@@ -751,14 +761,15 @@ void nt_block_changed(uint16 i) {
   if (nlblk >= QBLK) { lfull = 1; return; }
   lblk[nlblk++] = i;
 }
-/* si está en la ventana dibujada, sus 4 celdas otra vez */
-static void block_changed(uint16 i) {
-  if (!drawn[0] || !room_width_in_blocks) return;
+/* si está en la ventana dibujada, sus 4 celdas otra vez: las de la palabra w (0xFFFF: la del nivel). 0 si la cola
+   está llena (los rayos X esperan al cuadro siguiente; un PLM pide redibujar todo) */
+static uint8 block_word(uint16 i, uint16 w) {
+  if (!drawn[0] || !room_width_in_blocks) return 1;
   int16 by = (int16)(i / room_width_in_blocks), bx = (int16)(i - (uint16)by * room_width_in_blocks);
   int16 cx = bx << 1, cy = by << 1;
-  if (cx + 1 < wx[0] || cx >= wx[0] + ZW || cy + 1 < wy[0] || cy >= wy[0] + ZH) return;
-  if (nblk >= QBLK) { full_redraw = 1; return; }
-  uint16 w = block_at(bx, by);
+  if (cx + 1 < wx[0] || cx >= wx[0] + ZW || cy + 1 < wy[0] || cy >= wy[0] + ZH) return 1;
+  if (nblk >= QBLK) return 0;
+  if (w == 0xFFFF) w = block_at(bx, by);
   uint8 lp = md_cur_page;
   map_page(zg->page);
   const uint16 *c = cells_of(w);
@@ -766,6 +777,39 @@ static void block_changed(uint16 i) {
   map_page(lp);
   qblk_addr[nblk] = MD_VRAM_PLANE_A + (uint16)(((cy & 63) * 64 + (cx & 63)) * 2);
   nblk++;
+  return 1;
+}
+static void block_changed(uint16 i) {
+  if (!block_word(i, 0xFFFF)) full_redraw = 1;
+}
+
+/* ---------------------------------------------------------------- rayos X (hdmaobj.c, docs/62) */
+/* Los bloques revelados (xray_rev: lista que arma hdmaobj.c al empezar, como Xray_SetupStage4) que caen dentro del
+   cono se dibujan con su palabra; al salir del cono o apagarse los rayos X, con la del nivel. El cono: la tabla del
+   SNES en 7E:9100 (md_cone.c la arma; por línea, izquierda en el byte bajo y derecha en el alto), en el centro del
+   bloque. */
+static uint8 xr_in_cone(uint16 i) {
+  int16 by = (int16)(i / room_width_in_blocks), bx = (int16)(i - (uint16)by * room_width_in_blocks);
+  int16 sx = (bx << 4) + 8 - (int16)layer1_x_pos, sy = (by << 4) + 8 - (int16)layer1_y_pos;
+  if (sx < 0 || sx > 255 || sy < 32 || sy > 223) return 0;
+  uint16 e = ERAM_ARR(0x9100)[sy - 2];
+  return (uint8)e <= sx && sx <= (e >> 8);
+}
+static void xray_take(void) {
+  if (!xray_on && !xr_any) return;
+  uint8 any = 0;
+  uint16 n = xray_rev_n < 128 ? xray_rev_n : 128;
+  for (uint16 k = 0; k < n; k++) {
+    uint8 m = 1 << (k & 7), have = (xr_shown[k >> 3] & m) != 0;
+    uint8 want = xray_on && xray_cone_ok && xr_in_cone(hdma_table_1[k]);
+    if (want != have) {
+      if (!block_word(hdma_table_1[k], want ? hdma_table_1[128 + k] : 0xFFFF)) { any = 1; break; }
+      xr_shown[k >> 3] ^= m;
+      have = want;
+    }
+    any |= have;
+  }
+  xr_any = any;
 }
 
 /* ---------------------------------------------------------------- vblank */
@@ -1102,6 +1146,7 @@ void zebes_take(void) {
   if (lfull) { full_redraw = 1; lfull = 0; }
   for (uint16 k = 0; k < nlblk; k++) block_changed(lblk[k]);
   nlblk = 0;
+  xray_take();
   for (uint16 k = 0; k < nlanim && nanim < QANIM; k++) { qanim[nanim][0] = lanim[k][0]; qanim[nanim][1] = lanim[k][1]; nanim++; }
   nlanim = 0;
   for (uint16 k = 0; k < nlvcp && nvcp < QVCP; k++) { qvcp[nvcp][0] = lvcp[k][0]; qvcp[nvcp][1] = lvcp[k][1]; qvcp[nvcp][2] = lvcp[k][2]; nvcp++; }
@@ -1136,6 +1181,17 @@ static void anim_vblank(void) {
 
 void zebes_vblank(void) {
   if (esc_on) esc_vblank();
+  if (bgr_row >= 0) {                          /* (rayos X) el fondo de biblioteca con la prioridad nueva */
+    uint8 lp = md_cur_page;
+    map_page(zg->page);
+    for (uint16 k = 0; k < 8 && bgr_row < 64; k++, bgr_row++) {
+      const uint16 *c = zg->bg2 + (zg->bg2h ? (uint16)bgr_row * 64 : (uint16)(bgr_row & 31) * 64);
+      vdp_set_vram_write(MD_VRAM_PLANE_B + (uint16)bgr_row * 128);
+      for (uint16 i = 0; i < 64; i++) VDP_DATA = tile_fix_b(c[i]);
+    }
+    map_page(lp);
+    if (bgr_row >= 64) bgr_row = -1;
+  }
   if (bt_pending) { bt_pending = 0; bt_dma(); }
   if (bc_npend && zbb) {                         /* (las filas esperan a que estén sus tiles) */
     if (bc_atomic && bb_n) { bc_atomic = 0; bc_vblank(BC_N); }   /* el mapa que se ve ya perdió tiles: todo junto */
@@ -1151,6 +1207,7 @@ void zebes_vblank(void) {
     uint8 f = full_redraw;
     full_redraw = 0;
     ncol = nrow = nblk = nsky = 0;
+    for (uint16 k = 0; k < 16; k++) xr_shown[k] = 0;   /* (los revelados de los rayos X: otra vez el cuadro siguiente) */
     if (f & 1) draw_window(0);
     if (f & 2) draw_window(1);
     return;
@@ -1301,13 +1358,26 @@ const uint16 *zebes_obj_find_cached(uint16 sm, uint16 pal, uint16 tiles) {
    ya salen así; las de la ventana dibujada se vuelven a escribir de a PSWEEP columnas por cuadro (toda la ventana de
    una vez costaba ~10 cuadros perdidos; md_cone.c lo pide al poner la bomba, cuando sobra tiempo); zebes_prio_busy
    dice si todavía falta */
-void zebes_force_prio(uint8 on) {
-  uint16 p = on ? 0x8000 : 0;
-  if (p == zprio) return;
-  zprio = p;
+void zebes_force_prio(uint8 on) {      /* (on 2: todas con prioridad baja, los rayos X: el tiempo está detenido, así
+                                          que se reescriben más columnas por cuadro) */
+  uint16 p = on == 1 ? 0x8000 : 0, m = on == 2 ? 0x7FFF : 0xFFFF;
+  if (p == zprio && m == zpmask) return;
+  psweep_n = (on == 2 || zpmask != 0xFFFF || xray_on || time_is_frozen_flag) ? 8 : PSWEEP;   /* (los rayos X: el tiempo
+                                                                                    está detenido, hay lugar) */
+  zprio = p; zpmask = m;
   psweep = 0; psweep_x0 = wx[0];
 }
 uint8 zebes_prio_busy(void) { return psweep < ZW; }
+/* rayos X: el plano B con prioridad baja (low) o la suya: se vuelve a escribir (la ventana de la capa 2 o el cielo
+   de una vez; el fondo de biblioteca, de a 8 filas por vblank) */
+void zebes_plane_b_low(uint8 low) {
+  uint16 m = low ? 0x7FFF : 0xFFFF;
+  if (m == zpmask_b) return;
+  zpmask_b = m;
+  if (!drawn[1] && !zg->bg2) return;
+  if (zg->l2 || zg->sky) full_redraw |= 2;
+  else if (zg->bg2 && !zbb) bgr_row = 0;
+}
 
 /* ---------------------------------------------------------------- enemigos congelados (docs/58) */
 /* WriteEnemyOams ($A0:944A) dibuja al congelado con la paleta 0x0C00. Sus claves (mkzobj.frozen_entry) apuntan a un

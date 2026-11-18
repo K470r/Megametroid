@@ -249,6 +249,12 @@ int main(int argc, char **argv) {
                 reg_M7X, reg_M7Y, reg_BG1HOFS, reg_BG1VOFS, reg_BG2HOFS, reg_BG2VOFS, reg_BG3HOFS, reg_BG3VOFS,
                 reg_MOSAIC, reg_CGWSEL, reg_CGADSUB, reg_COLDATA[0], reg_COLDATA[2], cinematic_var5, cinematic_var6,
                 cinematic_var8, cinematic_var10, cinematic_glow_ptr[7] != 0);
+      /* UpdateCinematicBgTilemap ($8B:87A0): 7E:3000 (960 palabras) a cinematicbg_var3 en cada cuadro */
+      if (endlog() && (cinematic_enable_objs & 0x8000) && (cinematic_enable_bg_tilemap & 0x8000) && reg_BGMODE != 7) {
+        fprintf(endlog(), "bgt %04X", cinematicbg_var3);
+        for (int i = 0; i < 960; i++) fprintf(endlog(), " %04X", cinematic_text_tilemap[i]);
+        fprintf(endlog(), "\n");
+      }
     }
     if (getenv("MM_HUDLOG")) {   /* palabras del HUD que aparecen (para la tabla de celdas de la Genesis) */
       static uint8_t seen[65536];

@@ -2578,16 +2578,15 @@ static void cine_start(uint8 stage, uint16 id) {
   m7_lock = 0;
 }
 void CinematicGfx(uint16 which) { cine_start((uint8)which, 0xC000 | which); }
-/* el final (ending.c, docs/63): pendiente el dibujo */
-void EndingGfx(uint16 scene) { (void)scene; }
-void EndingTextUpload(uint16 vram) { (void)vram; }
-void EndingM7Queue(uint16 a, uint16 b, uint16 c) { (void)a; (void)b; (void)c; }
 void MenuGfx(void) { cine_start(3, 0xC0FF); }
 void Mode7Transfers(uint16 list) {
   if (list == addr_kCinematicFunction_Intro_Func76_M7_0) cine_var = 2;
   else if (list == addr_kCinematicFunction_Intro_Func76_M7_2) cine_var = 3;
 }
+static void ed_spr(uint16 sm, uint16 x, uint16 y, uint16 chr);   /* el final (md_ending.c) */
+extern uint8 ed_on;
 void DrawCinematicSpritemap(uint16 sm, uint16 x, uint16 y, uint16 chr, uint8 off) {   /* $81:879F con banco $8C */
+  if (ed_on) { ed_spr(sm, x, y, chr); return; }
   if (intro_on) { if (!it_skip_cursor(sm, x, y)) it_draw(INTRO_KIND_SPR8C, sm, chr, it_x9(x), (uint8)y); return; }
   if (!drawkey(9, sm, chr, 0, (int16)x, (int16)y - 2)) missing(9, sm, chr, 0);   /* sin HUD: sin las 2 líneas del juego */
 }
@@ -2861,7 +2860,9 @@ static void rain_vblank(void) {                 /* los 4 tiles (rain_post los co
   vdp_dma_vram(rain_tiles, RAIN_TILE * 32, 64);
 }
 
+void md_ending_frame(void);
 void md_post(void) {
+  if (ed_on) { md_ending_frame(); return; }   /* el final (estado 39): md_ending.c */
   if (pz_dim) { rain_slot_k = 0xFF; rain_pal_dirty = 1; md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c (pisa la RAM de los tiles de la lluvia) */
   pipe_take();
   md_haze_read();
@@ -3387,3 +3388,5 @@ void md_vblank(uint16_t late) {
   VBS(6);
   __asm__ volatile("move.w %0,%%sr" : : "d"(sr) : "memory");
 }
+
+#include "md_ending.c"                        /* el final: escenas en modo 1 (docs/63) */

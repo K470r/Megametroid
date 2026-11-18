@@ -19,7 +19,8 @@
 /* capa de dibujo (md_ending.c en la Genesis; vacío en el PC) */
 void EndingGfx(uint16 scene);                 /* los gráficos de una escena (ENDING_GFX_*) */
 void EndingTextUpload(uint16 vram);           /* subir el mapa del texto (cinematic_text_tilemap) a vram (palabra del SNES) */
-void EndingM7Queue(uint16 a, uint16 b, uint16 c);   /* una entrada de la cola del modo 7 (CinematicFunction_Intro_Func118) */
+void EndingM7Queue(uint16 a, uint16 b, uint16 c);
+void EndingStar(uint16 x, uint16 y, uint16 chr);   /* una estrella (CinematicFunction_Intro_Func149): sprite de 8x8 */   /* una entrada de la cola del modo 7 (CinematicFunction_Intro_Func118) */
 enum { ENDING_GFX_ZEBES = 1, ENDING_GFX_CLOUDS = 2, ENDING_GFX_SPACE = 3, ENDING_GFX_CREDITS = 4, ENDING_GFX_CREDITS_3H = 5 };
 
 /* funciones traducidas (port_gen.c) que se llaman desde aquí */
@@ -301,6 +302,8 @@ void CinematicFunction_Intro_Func149(void) {
         s[5] = BW_8B((uint16)(0xE9CF + 2 * (4 * (uint8)s[0] + 2)));
         s[0] = v22 + 512;
       }
+      if (s[0] >> 8)                             /* la estrella a la OAM (8x8, g_word_8BE9A7) */
+        EndingStar(s[1] - 4, s[3] - 4, BW_8B((uint16)(0xE9A7 + 2 * ((s[0] >> 8) >> 1))));
     }
   }
 }

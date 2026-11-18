@@ -63,6 +63,14 @@ HL_NOM7=1 HL_SHOTS=15776,1,15890,$WORK/ga/b/s run $HL "$SMROM" $BOT/ceres_comple
 python3 $ROOT/tools/conv/snap_getaway.py $WORK/ga/a $WORK/ga/b 15776 $SNAP/getaway.npz
 rm -rf $WORK/ga
 
+# el final (docs/63): la VRAM del SNES en cada grupo de escenas (créditos, el símbolo, la pantalla final), por la
+# misma ruta que tools/compare/final_snes.sh (cuadro grabado k = cuadro 23500 + k)
+echo "   capturas del final"
+cat $BOT/in_z2.txt $ROOT/tools/compare/final_in.txt > $WORK/in_final.txt
+HL_VRAM="27000:$SNAP/END_D1.bin,36100:$SNAP/END_D2.bin,36600:$SNAP/END_D2B.bin,37100:$SNAP/END_D3.bin" \
+HL_WARP_ALIGN=1 HL_SETXY_SCROLL=1 HL_POKE=D820:4000,D82C:0200,943:2,A5A:E0E6 HL_WARP=21:89B2 HL_SETXY=200:1152:1100 \
+HL_ENEMIES=1 HL_GOD=1 run $HL "$SMROM" $WORK/in_final.txt /dev/null 23500
+
 echo "== 4. título y menú (snes9x)"
 if [ -f "$SNES9X" ] && [ -x "$RETRORUN" ]; then
   python3 $ROOT/tools/snes_ref/record_title.py "$RETRORUN" "$SNES9X" "$SMROM" $SNAP/title.rec

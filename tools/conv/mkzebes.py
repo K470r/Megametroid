@@ -1383,6 +1383,15 @@ def main():
         sz = re.search(r'kPzTiles\[(\d+)\]', pt)
         if pg and sz:
             pause_pages[int(pg.group(1))] = int(sz.group(1)) + 2
+    # el final (mkending.py, md_ending_data.c): sus tiles en una página propia
+    edat = HERE.parent.parent / "res" / "gen" / "md" / "md_ending_data.c"
+    if edat.exists():
+        et = edat.read_text()
+        pg = re.search(r'#define ED_PAGE_ATTR __attribute__\(\(section\("\.bank(\d+)"\)\)\)', et)
+        if pg:
+            tsz_ = {'uint8': 1, 'uint16': 2}
+            sz = sum(tsz_[t] * int(x) + 2 for t, x in re.findall(r'ED_PAGE_ATTR static const (\w+) \w+\[(\d+)\]', et))
+            pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz
     # lo que ocupa la intro en sus páginas (de las declaraciones de md_intro_data.c, con margen): el resto de esas
     # páginas también sirve para Zebes
     tsz = {'uint8': 1, 'int8': 1, 'uint16': 2, 'int16': 2, 'uint32': 4}

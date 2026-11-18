@@ -134,4 +134,5 @@ void EndingTextUpload(uint16 vram) {            /* el mapa del texto (cinematic_
   for (int i = 0; i < 1024; i++) fprintf(endlog(), " %04X", cinematic_text_tilemap[i]);
   fprintf(endlog(), "\n");
 }
+void EndingStar(uint16 x, uint16 y, uint16 chr) { if (endlog()) fprintf(endlog(), "star %d %d %04X\n", x, y, chr); }
 void EndingM7Queue(uint16 a, uint16 b, uint16 c) { if (endlog()) fprintf(endlog(), "m7q %04X %04X %04X\n", a, b, c); }

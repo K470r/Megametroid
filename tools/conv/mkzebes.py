@@ -368,7 +368,7 @@ def put_items(table, vram, items):
 
 
 def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None, vis=None,
-            pref_lines=None, keep_cols=None,
+            pref_lines=None, keep_cols=None, pref_idx=None,
             own=frozenset()):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
@@ -633,7 +633,9 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 # pone rojo al enojarse, se desvanece); un color igual de la sala sale de un índice de la sala (si no,
                 # todo el fondo negro de Phantoon se ponía rojo)
                 u = {k_: v_ for k_, v_ in u.items() if (k_ >> 4) not in body_pals}
-            if pref_lines and gen_to_rgb(g) != (0, 0, 0):   # (PREF_LINES: del mismo color, el de esas líneas; el
+            if pref_idx and any(k_ in pref_idx for k_ in u):   # (PREF_INDEX: ese índice, si el lugar lo junta)
+                u = {k_: v_ for k_, v_ in u.items() if k_ in pref_idx}
+            elif pref_lines and gen_to_rgb(g) != (0, 0, 0):   # (PREF_LINES: del mismo color, el de esas líneas; el
                 # negro no: casi todo el negro de la sala es de la línea 5, que sigue negra)
                 up = {k_: v_ for k_, v_ in u.items() if (k_ >> 4) in pref_lines and gc(k_ >> 4, k_ & 15) == g}
                 if up:
@@ -901,6 +903,9 @@ PREF_LINES = {0xDD58: (3,)}
 # colores que no se juntan con otros (Genesis, RGB de gen_to_rgb): la tapa azul de la puerta de la izquierda de Mother
 # Brain (en la pelea la sala va en una línea y los azules se juntaban con los grises: la tapa salía gris)
 KEEP_COLORS = {0xDD58: {(0, 52, 144), (52, 116, 255), (144, 172, 255)}}
+# índices del SNES que lee el lugar que los junta: Mother Brain, el fondo azulado (la línea 3: (32,40,48) sale gris
+# neutro en la Genesis, (24,32,32), el 58, verde azulado oscuro: así el fondo tira a azul como en el SNES)
+PREF_INDEX = {0xDD58: (58,)}
 # PLMs que pone el código de un jefe con SpawnHardcodedPlm (sus bloques no salen de la lista de PLMs de la sala):
 # Mother Brain dibuja en la falsa muerte el fondo de tubos en el BG1 por filas ($84:B67B-B6A7: el BG2 queda para su
 # cuerpo), borra los tubos y el techo ($84:B677, B6B3-B6C7, B763/B767) y sella la pared (B673, MotherBrain_SealWall)
@@ -1098,7 +1103,8 @@ def main():
                               max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
                               pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
                               nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None,
-                              pref_lines=PREF_LINES.get(ra), keep_cols=KEEP_COLORS.get(ra))
+                              pref_lines=PREF_LINES.get(ra), keep_cols=KEEP_COLORS.get(ra),
+                              pref_idx=PREF_INDEX.get(ra))
                 res["boss"] = None
                 if bb:                            # celdas del cuerpo: tabla por (línea del SNES, tile)
                     cells_b = res["bg2"][nbg2:]

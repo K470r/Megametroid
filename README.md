@@ -5,8 +5,9 @@ decomp de snesrev (`sm/`), no incluye código fuente propietario ni código fuen
 viene de la ROM se convierte en el PC desde **un dump propio del cartucho**: este repositorio no contiene nada de la first-party 
 (ni la ROM, ni datos extraídos, ni ROM compiladas).
 
-Estado (2026-10-29): se juega desde el encendido hasta Brinstar. Lo que anda, lo que falta y el plan, más abajo
-([Estado del port](#estado-del-port)). Detalle técnico: [docs/46](docs/46_ESTADO_Y_CONTINUACION.md). Índice de la
+Estado (2026-11-18): todo Zebes está convertido (salas, enemigos, efectos de las salas y sonido) y todos los jefes
+corren como en el SNES; falta terminar el dibujo de Mother Brain y el final del juego. Lo que anda, lo que falta y el
+plan, más abajo ([Estado del port](#estado-del-port)). Detalle técnico: [docs/46](docs/46_ESTADO_Y_CONTINUACION.md). Índice de la
 documentación: [docs/README.md](docs/README.md).
 
 ## Requisitos
@@ -22,7 +23,7 @@ documentación: [docs/README.md](docs/README.md).
 ## Compilar la ROM de la Genesis
 
 En Linux, o en Windows con WSL (Ubuntu). La primera vez tarda un rato (las herramientas, las grabaciones del SNES y
-`make full`, este solo de 8 a 10 minutos) y usa ~5 GB de disco; todo queda dentro de la carpeta del proyecto.
+`make full`, este solo de 12 a 15 minutos) y usa ~5 GB de disco; todo queda dentro de la carpeta del proyecto.
 
 1. Instalar lo necesario (una vez): el comando de "Qué hace falta", arriba.
 2. Bajar el proyecto y entrar en la carpeta:
@@ -46,7 +47,7 @@ En Linux, o en Windows con WSL (Ubuntu). La primera vez tarda un rato (las herra
 
        . work/inputs/env.sh && make full
 
-La ROM queda en **`out/rom.bin`** (11 MB, mapeador SSF2): se carga en MiSTer, en la Mega EverDrive o en un emulador
+La ROM queda en **`out/rom.bin`** (15,25 MB de los 16 que permite el mapeador SSF2): se carga en MiSTer, en la Mega EverDrive o en un emulador
 con SSF2 (Genesis Plus GX, BlastEm). Sale igual byte a byte para cualquiera que use la misma ROM (ver
 [docs/45](docs/45_REPRODUCIBLE.md)): con `md5sum out/rom.bin` se puede comparar con la de otro.
 
@@ -57,7 +58,7 @@ con SSF2 (Genesis Plus GX, BlastEm). Sale igual byte a byte para cualquiera que 
     git pull
     . work/inputs/env.sh && make full
 
-`make full` (8-10 min) cuando cambian los conversores (`tools/`); si solo cambió el código, basta `make`. Si cambió
+`make full` (12-15 min) cuando cambian los conversores (`tools/`); si solo cambió el código, basta `make`. Si cambió
 `tools/setup/` o `tools/inputs/`, repetir antes los pasos 3 y 5.
 
 ### Comandos
@@ -99,22 +100,30 @@ normal (`out/rom.bin`) en un emulador.
 **Anda:**
 - Encendido (logo), título con su música y los chillidos del bebé metroide, menú de partidas y opciones.
 - Intro completa con voces, música y efectos; Ceres entero (Ridley, la huida, la explosión) y el viaje a Zebes.
-- Zebes: todas las salas a las que se llega por puertas están convertidas (6 áreas); Crateria con sus enemigos y el
-  camino de Brinstar hasta la bola morfo y los primeros misiles; pausa y mapa ([docs/53](docs/53_PAUSA_Y_MAPA.md)).
+- Zebes: las 6 áreas con todas sus salas y sus enemigos (las 194 salas con enemigos probadas contra el SNES), pausa y
+  mapa ([docs/53](docs/53_PAUSA_Y_MAPA.md)), bloques con el ícono del arma que los rompe.
+- Efectos de las salas: lava (también en las salas calientes de Norfair), ácido, agua, lluvia, niebla y neblina. En la
+  Genesis van como un tinte de los colores (no hay una tercera capa que se sume como en el SNES).
+- Sonido de todo el juego: la música y los efectos de cada área ([docs/55](docs/55_SONIDO_XGM2.md)).
 - Samus completa: movimientos, trajes, gancho, salto espacial, shinespark ([docs/56](docs/56_SAMUS_COMPLETA.md));
   rayos y sus combinaciones, rayo cargado, ataques especiales ([docs/49](docs/49_RAYO_CARGADO.md),
   [57](docs/57_CLAVES_DE_RAYOS.md)); misiles, bombas, bomba de poder con su luz, enemigos congelados
   ([docs/58](docs/58_HIELO_BOMBA_ESTELAS.md)).
-- Spore Spawn ([docs/50](docs/50_SPORE_SPAWN.md)), Torizo ([docs/51](docs/51_TORIZO.md)), ojos y su haz de luz
-  ([docs/52](docs/52_OJO_HAZ.md)).
+- Jefes ([docs/59](docs/59_JEFES.md)): Spore Spawn, Bomb Torizo, Golden Torizo, Kraid (con su subida y su
+  rendimiento optimizado), Crocomire, Phantoon, Botwoon, Draygon, Ridley y la lógica completa de Mother Brain (la
+  pelea entera, igual al SNES). Ojos de las paredes y su haz de luz ([docs/52](docs/52_OJO_HAZ.md)).
+- La sala de las estatuas de Tourian: las estatuas, sus gemas, la secuencia de cada jefe vencido y el hundimiento.
+- Tamaño de la ROM ([docs/48](docs/48_TAMANO_ROM.md)): los tiles de las salas van comprimidos y se descomprimen en
+  la transición de puerta; quedan ~730 KB libres para Zebes.
 
-**Falta, en este orden**:
-1. Música y efectos de sonido de todo el juego (hoy, del título a la llegada a Zebes): hacerles lugar en la ROM
-   (una ventana de la ROM para el sonido, por área: [docs/48](docs/48_TAMANO_ROM.md)). En curso.
-2. Los enemigos de todas las salas y sus particularidades (bloques con el ícono del arma que los rompe), por áreas.
-3. Los efectos de las salas: lava, ácido, agua, lluvia, niebla.
-4. Los jefes, que se puedan vencer como en el SNES.
-5. El juego de principio a fin, con los rayos X y las salidas secretas.
+**Falta, en este orden:**
+1. El dibujo de Mother Brain: el rayo arco iris, la bebé metroide, la fase 3 (hiperrayo), el pudrirse del cadáver, la
+   puerta de la izquierda y el color de la cabeza.
+2. El escape de Zebes y el final: la cuenta regresiva, la explosión del planeta y los créditos.
+3. Lo que falta de Samus: los rayos X, el movimiento del destello de cristal y la secuencia de muerte.
+4. El juego de principio a fin sin el visor de pruebas, con las salidas secretas, para encontrar lo que se escapó.
+5. Rendimiento en las salas más pesadas (algunas pierden cuadros; [docs/44](docs/44_OPTIMIZACION.md)) y recortar las
+   copias de bancos del SNES (782 KB) para dejar lugar al código que falta.
 
 Después: la música del Mega CD (si hay Mega CD y el disco de MegaMetroid, la música sale del CD; si no, la del
 cartucho: [docs/48](docs/48_TAMANO_ROM.md)), la traducción al español y los instrumentos ajustados a oído.

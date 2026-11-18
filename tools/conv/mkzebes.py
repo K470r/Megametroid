@@ -368,6 +368,7 @@ def put_items(table, vram, items):
 
 
 def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None, vis=None,
+            pref_lines=None, keep_cols=None,
             own=frozenset()):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
@@ -455,6 +456,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     side = {}
     if live:                                      # (los del cuerpo no se juntan con los de la sala)
         side = {c: 1 if isinstance(c, LiveCol) else 2 for cs in combos.values() for c in cs}
+    keep_set = {c for c in set().union(*combos.values()) if gen_to_rgb(c) in keep_cols} if keep_cols else set()
     if vis is not None:                           # (VIS_ROOMS: las estatuas, líneas 6-7, no se juntan con la sala)
         st_ = set().union(*[cs for (t, p), cs in combos.items() if p >= 6] or [set()])
         rm_ = set().union(*[cs for (t, p), cs in combos.items() if p < 6] or [set()])
@@ -530,13 +532,18 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             for j in range(i + 1, len(allc)):
                 if side.get(allc[i], 0) | side.get(allc[j], 0) == 3:
                     continue
+                if allc[i] in keep_set or allc[j] in keep_set:   # (KEEP_COLORS: no se juntan)
+                    continue
                 dd = color_dist(allc[i], allc[j])
                 if cw is not None:
                     dd *= min(cw.get(allc[i], 0), cw.get(allc[j], 0))
                 if best is None or dd < best[0]:
                     best = (dd, allc[i], allc[j])
-        if best is None:                          # (solo quedan pares de los dos lados: se permiten)
-            side = {}
+        if best is None:                          # (solo quedan pares de los dos lados o protegidos: se permiten)
+            if side:
+                side = {}
+            else:
+                keep_set = set()
             continue
         _, a, b = best
         if cw is not None and cw.get(b, 0) > cw.get(a, 0):   # se queda el que más se ve
@@ -626,6 +633,11 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 # pone rojo al enojarse, se desvanece); un color igual de la sala sale de un índice de la sala (si no,
                 # todo el fondo negro de Phantoon se ponía rojo)
                 u = {k_: v_ for k_, v_ in u.items() if (k_ >> 4) not in body_pals}
+            if pref_lines and gen_to_rgb(g) != (0, 0, 0):   # (PREF_LINES: del mismo color, el de esas líneas; el
+                # negro no: casi todo el negro de la sala es de la línea 5, que sigue negra)
+                up = {k_: v_ for k_, v_ in u.items() if (k_ >> 4) in pref_lines and gc(k_ >> 4, k_ & 15) == g}
+                if up:
+                    u = up
             row[slot(bi, i)] = max(u.items(), key=lambda kv: (kv[1], -kv[0]))[0]
         src.append(row)
         if os.environ.get("MM_COLDBG") and (own or os.environ.get("MM_ONLY")):
@@ -882,6 +894,13 @@ BOSS_BG2_OVER = {0xDD58}
 # salas en que el índice del SNES de cada color de la Genesis sale de los píxeles vistos (convert, vis): la de las
 # estatuas de Tourian (el negro del fondo y el café de las estatuas van juntos)
 VIS_ROOMS = {0xA66A}
+# salas en que un color de la Genesis que junta índices de varias líneas del SNES lee el de estas líneas: Mother Brain
+# (DD58): en la huida los efectos de paleta ponen rojas las líneas 3 y 5 (la 3 mucho: las tuberías) y la 4 en negro;
+# en la pelea los grises de la 3 y de la 5 son iguales y el lugar leía la 5 (la alarma salía casi gris)
+PREF_LINES = {0xDD58: (3,)}
+# colores que no se juntan con otros (Genesis, RGB de gen_to_rgb): la tapa azul de la puerta de la izquierda de Mother
+# Brain (en la pelea la sala va en una línea y los azules se juntaban con los grises: la tapa salía gris)
+KEEP_COLORS = {0xDD58: {(0, 52, 144), (52, 116, 255), (144, 172, 255)}}
 # PLMs que pone el código de un jefe con SpawnHardcodedPlm (sus bloques no salen de la lista de PLMs de la sala):
 # Mother Brain dibuja en la falsa muerte el fondo de tubos en el BG1 por filas ($84:B67B-B6A7: el BG2 queda para su
 # cuerpo), borra los tubos y el techo ($84:B677, B6B3-B6C7, B763/B767) y sella la pared (B673, MotherBrain_SealWall)
@@ -1078,7 +1097,8 @@ def main():
                 res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items, own=own,
                               max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
                               pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
-                              nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None)
+                              nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None,
+                              pref_lines=PREF_LINES.get(ra), keep_cols=KEEP_COLORS.get(ra))
                 res["boss"] = None
                 if bb:                            # celdas del cuerpo: tabla por (línea del SNES, tile)
                     cells_b = res["bg2"][nbg2:]
@@ -1447,6 +1467,18 @@ def main():
         tb = b"".join(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK])
         C.append(f'NT_BANK({pool_pages[c]}) static const uint8 kZP{c}[{len(tb)}] __attribute__((aligned(2))) = {{' +
                  ','.join(str(x) for x in tb) + '};')
+    # letras del texto de la huida en la sala de Mother Brain (TIME BOMB SET! ESCAPE IMMEDIATELY): la máquina de escribir
+    # ($A6:C2A7, palabra 0x2610 + letra - 'A') las escribe en el BG2, tiles 0x210-0x22A de 4bpp ("!" = 0x22A), que
+    # están en $B7:DA00; aquí convertidos (mismos índices de color: la línea 1, md_zebes.c)
+    fb = r(0xB7DA00, 26 * 32)
+    tl = [snes_tile(fb, t) for t in range(26)]
+    # ("!", 0x22A: en el SNES no viene de ahí; es la "I" (0x218) cerrada en la fila 5 con su punto abajo: filas 0-4,
+    # 7, 1, 7 de la "I", lo mismo que muestra el SNES)
+    tl.append(tl[8][[0, 1, 2, 3, 4, 7, 1, 7]])
+    font = b"".join(genesis_tile_bytes(t) for t in tl)
+    H.append('#define ZEBES_ESC_FONT_N 27')
+    H.append('extern const uint8 kZebesEscFont[27 * 32];')
+    C.append('const uint8 kZebesEscFont[27 * 32] __attribute__((aligned(2))) = {' + ','.join(str(x) for x in font) + '};')
     H.append(f'#define ZEBES_POOL_CHUNK {POOL_CHUNK}')
     H.append(f'#define ZEBES_FRZ_PAGE {frz_page}')
     H.append(f'#define ZEBES_FRZ_N {len(frozen["list"])}')

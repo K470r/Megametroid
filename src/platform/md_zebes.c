@@ -54,6 +54,7 @@ extern uint16 md_scratch[1440];          /* (RAM compartida, md_engine.c) */
 #define meta_idx md_scratch               /* bloque (10 bits) -> 1 + su número en la tabla de la sala (0: no está) */
 #define META_IDX_BYTES 2048             /* bloque (10 bits) -> 1 + su número en la tabla de la sala (0: no está) */
 static void meta_build(void);
+NT_GAMEHI static uint8 esc_n, esc_on, esc_font_pend;   /* texto de la huida de Mother Brain (más abajo: esc_scan) */
 extern volatile uint16 md_snd_frames;     /* md_snd.c: el XGM2 está cargado */
 void md_snd_protect(uint8 on);
 #define ZT_BASE 448                       /* primer tile de la sala (antes: los objetos de la sala base de Ceres) */
@@ -414,6 +415,7 @@ const MdRoom *zebes_use(void) {
     wall_on = 0; kq_r = kq_w = 0; mouth_cur = 0;
   }
   wall_pend = 0; kq_conv = 0; mouth_pend = 0;
+  esc_on = 0; esc_n = 0; esc_font_pend = 0;
   frz_nq = 0;
   zprio = 0; psweep = ZW;
   const MdRoom *base = &kMdRooms[ZEBES_BASE_ROOM];
@@ -793,7 +795,41 @@ static void kq_push(uint32 src, uint16 cell, uint16 n) {
   kq_job[kq_w] = (KqJob){ src, cell, n };
   kq_w = w;
 }
+/* el texto de la huida en la sala de Mother Brain (TIME BOMB SET! ESCAPE IMMEDIATELY): la máquina de escribir
+   (HandleTypewriterText_Ext, $A6:C2A7) pone en la cola de VRAM una palabra por letra (7E:8034, 0x2610 + letra - 'A')
+   hacia el tilemap del BG2 ($4800), que el cuerpo ya no usa. Aquí va al plano B (no tapa la sala, como en el SNES),
+   con las letras convertidas (kZebesEscFont, mkzebes.py) en los tiles libres de esa sala desde ESC_TILE y los colores
+   1 y 3 de la paleta 1 del SNES en la línea 1 (en la pelea la sala va en una línea y la 1 era del cerebro: md_engine.c,
+   zebes_esc_colors) */
+#define ESC_TILE 2008
+#define ESC_QN 8
+NT_GAMEHI static uint16 esc_q[ESC_QN][2];       /* (fila << 5 | columna del BG2, tile del SNES) para el vblank */
+uint8 zebes_esc_text_on(void) { return esc_on; }
+uint16 nt_ram_w(uint16 a);                        /* nt_ram.c: una palabra de la RAM del SNES */
+static void esc_scan(const uint8 *q, uint16 n) {
+  uint16 base = (uint16)((reg_BG2SC & 0xFC) << 8);
+  for (uint16 i = 0; i + 7 <= n; i += 7) {
+    uint16 size = q[i] | q[i + 1] << 8, src = q[i + 2] | q[i + 3] << 8, dst = q[i + 5] | q[i + 6] << 8;
+    uint16 off = (uint16)(dst - base), t = nt_ram_w(0x8034) & 0x3FF;
+    if (size != 2 || q[i + 4] != 0x7E || src != 0x8034 || off >= 0x800) continue;
+    if (t < 0x210 || t >= 0x210 + ZEBES_ESC_FONT_N || esc_n >= ESC_QN) continue;
+    if (!esc_on) { esc_on = 1; esc_font_pend = 1; }
+    esc_q[esc_n][0] = off; esc_q[esc_n][1] = t; esc_n++;
+  }
+}
+static void esc_vblank(void) {
+  if (esc_font_pend) { esc_font_pend = 0; vdp_dma_vram(kZebesEscFont, ESC_TILE * 32, ZEBES_ESC_FONT_N * 16); }
+  for (uint16 i = 0; i < esc_n; i++) {
+    uint16 off = esc_q[i][0], row = (off >> 5) & 63, col = off & 31;
+    uint16 w = 0x8000 | (1 << 13) | (ESC_TILE + esc_q[i][1] - 0x210);
+    vdp_set_vram_write(MD_VRAM_PLANE_B + row * 128 + col * 2); VDP_DATA = w;
+    vdp_set_vram_write(MD_VRAM_PLANE_B + row * 128 + (col + 32) * 2); VDP_DATA = w;
+  }
+  esc_n = 0;
+}
+
 void nt_vram_queue_flush(const uint8 *q, uint16 n) {
+  if (md_zebes && room_ptr == 0xDD58) esc_scan(q, n);
   if (!md_zebes || !zw) return;
   for (uint16 i = 0; i + 7 <= n; i += 7) {
     uint16 size = q[i] | q[i + 1] << 8, src = q[i + 2] | q[i + 3] << 8, dst = q[i + 5] | q[i + 6] << 8;
@@ -1099,6 +1135,7 @@ static void anim_vblank(void) {
 }
 
 void zebes_vblank(void) {
+  if (esc_on) esc_vblank();
   if (bt_pending) { bt_pending = 0; bt_dma(); }
   if (bc_npend && zbb) {                         /* (las filas esperan a que estén sus tiles) */
     if (bc_atomic && bb_n) { bc_atomic = 0; bc_vblank(BC_N); }   /* el mapa que se ve ya perdió tiles: todo junto */

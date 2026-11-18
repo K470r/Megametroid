@@ -854,10 +854,25 @@ la fase 1). El rayo, en la Genesis desde el cuadro ~16900.
   sala de Mother Brain y de los estados de la huida (evento 0x0E: `timer_states`), con la VRAM de cuando Mother Brain
   sube sus tiles (`TIMER_COPIES`: $B0:C000 -> $7E00, $B0:C200 -> $7F00, la lista $A6:C4CB); `DrawTimerSpritemap`
   las busca con `zebes_obj_draw(sm, 0x0A00, 0xC002)`.
-- Falta de Mother Brain: el texto de la huida (`TIME BOMB SET! ESCAPE IMMEDIATELY`: la máquina de escribir de
-  `HandleTypewriterText_Ext` escribe el BG3 por la cola de VRAM; en Ceres va al plano A de una zona vacía, aquí taparía
-  la sala: hay que dibujarlo de otra forma), el rojo de la alarma (más oscuro que en el SNES), el color de la cabeza y
-  del cuerpo (más rosado en el SNES), la puerta de la izquierda.
+- **El texto de la huida** (`TIME BOMB SET! ESCAPE IMMEDIATELY`): no va al BG3 (en esa sala no se muestra: TM 0x13)
+  sino al **BG2** ($4800), que el cuerpo ya no usa: la máquina de escribir ($A6:C2A7) pone en la cola de VRAM una
+  palabra por letra (7E:8034, 0x2610 + letra - 'A': tiles 0x210-0x22A de 4bpp, paleta 1). `md_zebes.c` (`esc_scan`,
+  `esc_vblank`) las pone en el plano B (no tapa la sala, como en el SNES); las letras se convierten en `mkzebes.py`
+  (`kZebesEscFont`, de $B7:DA00; la "!" no está así en la ROM: es la "I" cerrada con su punto, como la muestra el SNES)
+  y van a los tiles libres 2008-2034; los colores 1 y 3 de la paleta 1 del SNES, en la línea 1 (`zebes_esc_text_on`,
+  md_engine.c; en la pelea la sala va en una línea y la 1 era del cerebro).
+- **El rojo de la alarma**: los efectos de paleta de la huida ponen rojas las líneas 3 y 5 del SNES (la 3 mucho) y la
+  4 en negro; la sala en una línea juntaba los grises de la 3 con los de la 5 y leía la 5 (salía casi gris).
+  `mkzebes.PREF_LINES` (DD58: línea 3): de los índices del mismo color, el de la línea 3 (salvo el negro).
+- **La puerta de la izquierda**: la tapa azul salía gris (en la pelea, con la sala en una línea, los tres azules se
+  juntaban con grises). `mkzebes.KEEP_COLORS`: esos tres no se juntan (se juntan otros: el blanco de la línea 4 va a
+  un salmón).
+- **Prueba del SNES torcida**: `HL_WARP` salta desde la cámara de la sala de antes (x 1595) y la transición dejaba
+  `bg1_x_offset` en 0xB3B: el BG1 del SNES salía corrido 315 píxeles (la pared y la puerta de la izquierda no se
+  veían) y los PLM dibujaban en otras celdas (lo de la sala de las estatuas). `HL_WARP_ALIGN=1` (hlref.c) pone antes la
+  cámara en un múltiplo de 512: queda 0xB00, como al entrar por la puerta. `mb.sh` lo usa; hay que recompilar hlref
+  (`tools/snes_ref/viewer_check/build_hlref.sh sm/src work/inputs/hlref`).
+- Falta: el color de la cabeza y del cuerpo (más rosado en el SNES): a revisar con Edwin.
 
 ## La sala de las estatuas de Tourian (A66A, 2026-11-17)
 

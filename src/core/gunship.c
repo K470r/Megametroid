@@ -3,8 +3,8 @@
  *
  * La nave son tres enemigos seguidos: arriba (k), la escotilla (k + 64, también D0BF con parameter_2 != 0) y
  * abajo (k + 128). ai_preinstr (gtp_var_F en el decomp) es la función de cada cuadro. Portado: aterrizaje al
- * llegar de Ceres (3-7), espera (8), entrar a la nave para recargar y guardar (9-16). La huida final de Zebes
- * (17-21) queda para más adelante. */
+ * llegar de Ceres (3-7), espera (8), entrar a la nave para recargar y guardar (9-16) y el despegue de la huida de
+ * Zebes (17-21: los tiles de la nave encendida, el temblor, el polvo, la subida; después el estado 38). */
 #include "samus.h"
 #include "game.h"
 #include "enemies.h"
@@ -20,7 +20,8 @@ enum {
   fGunship_nullsub_187 = 0xA7D7, fGunship_3 = 0xA80C, fGunship_4 = 0xA8D0, fGunship_5 = 0xA942,
   fGunship_6 = 0xA950, fGunship_7 = 0xA987, fGunship_8 = 0xA9BD, fGunship_9 = 0xAA4F, fGunship_10 = 0xAA5D,
   fGunship_11 = 0xAA94, fGunship_12 = 0xAAA2, fGunship_13 = 0xAB1F, fGunship_14 = 0xAB60, fGunship_15 = 0xAB6E,
-  fGunship_16 = 0xABA5, fGunship_17 = 0xABC7,
+  fGunship_16 = 0xABA5, fGunship_17 = 0xABC7, fGunship_18 = 0xAC1B, fGunship_19 = 0xACD7, fGunship_20 = 0xAD0E,
+  fGunship_21 = 0xAD2D,
 };
 
 static void AddHiLo(uint16 *hi, uint16 *lo, uint32 v) {   /* AddToHiLo: (hi:lo) += v */
@@ -199,8 +200,17 @@ static void GunshipTop_10(uint16 k) {  // 0xA2AA5D: Samus baja dentro de la nave
 }
 
 static void GunshipTop_12(uint16 k) {  // 0xA2AAA2: recargar todo (o, con la bomba de Zebes, despegar)
-  if (CheckEventHappened(0xE)) {
-    nt_unimpl("GunshipTop_12 (huida final de Zebes)");
+  if (CheckEventHappened(0xE)) {                /* la bomba: despegar */
+    gEnemyData(k)->ai_preinstr = fGunship_17;
+    EnemyData *E = gEnemyData(k + 64);
+    E->ai_preinstr = 0;
+    E->ai_var_E = 0;
+    substate = 0;
+    suit_pickup_light_beam_pos = 0;
+    suit_pickup_color_math_R = 0;                /* (el SNES escribe 16 bits: R y G, B y el byte siguiente) */
+    suit_pickup_color_math_G = 0;
+    suit_pickup_color_math_B = 0;
+    CallSomeSamusCode(0xA);
     return;
   }
   Samus_RestoreHealth(2);
@@ -242,6 +252,74 @@ static void GunshipTop_16(uint16 k) {  // 0xA2ABA5
   }
 }
 
+/* el despegue (huida de Zebes) */
+static void GunshipTop_17(uint16 k) {  // 0xA2ABC7: 5 cuadros, 1 KB de tiles cada uno: $94:C800-DBFF a la VRAM de los
+                                       // sprites del SNES (7600-7FFF: la parte de abajo de la nave, encendida). En la
+                                       // Genesis, sus tiles ya convertidos (mkzobj.ROOM_VRAM_OPS, md_zebes.c vcp)
+  uint16 i = substate >> 1;
+  nt_enemy_vram_copy(0x94C800 + 0x400 * (uint32)i, 0x7600 + 0x200 * i);
+  substate += 2;
+  if (!sign16(substate - 10)) {
+    gEnemyData(k)->ai_preinstr = fGunship_18;
+    substate = 0;
+  }
+}
+
+static void GunshipPlace(uint16 k) {    /* las tres partes de la nave con Samus adentro */
+  uint16 v = samus_y_pos - 17;
+  gEnemyData(k)->y_pos = v;
+  gEnemyData(k + 128)->y_pos = v - 1;
+  gEnemyData(k + 64)->y_pos = samus_y_pos + 23;
+}
+
+static void GunshipTop_18(uint16 k) {  // 0xA2AC1B: tiembla, sale el polvo
+  EnemyData *E1 = gEnemyData(k + 64);
+  uint16 e = E1->ai_var_E;
+  int16 d = sign16(e - 64) ? 1 : 2;
+  samus_y_pos = (e & 1) ? samus_y_pos + d : samus_y_pos - d;
+  samus_prev_y_pos = samus_y_pos;
+  GunshipPlace(k);
+  uint16 v7 = ++E1->ai_var_E;
+  if (sign16(v7 - 128)) {
+    if (v7 == 64)
+      for (uint16 j = 0; j < 12; j += 2) SpawnEprojWithRoomGfx(0xA379, j);   // stru_86A379: el polvo
+  } else {
+    gEnemyData(k)->ai_preinstr = fGunship_19;
+    gEnemyData(0)->ai_var_A = 0;
+  }
+}
+
+static void GunshipTop_19(uint16 k) {  // 0xA2ACD7: sube despacio
+  samus_y_pos -= 2;
+  GunshipPlace(k);
+  if (sign16(gEnemyData(k)->y_pos - 896)) {
+    gEnemyData(k)->ai_preinstr = fGunship_20;
+    gEnemyData(k + 64)->ai_preinstr = 512;
+  }
+}
+
+static void GunshipTop_21(uint16 k) {  // 0xA2AD2D: acelera
+  EnemyData *E = gEnemyData(k + 64);
+  uint16 v3 = E->ai_preinstr + 64;
+  E->ai_preinstr = v3;
+  if (!sign16((v3 & 0xFF00) - 2560))
+    E->ai_preinstr = 2304;
+  uint32 v6 = ((uint32)samus_y_pos << 16 | samus_y_subpos) - ((uint32)(E->ai_preinstr >> 8) << 16 | (uint16)(E->ai_preinstr << 8));
+  samus_y_subpos = (uint16)v6;
+  samus_y_pos = v6 >> 16;
+  GunshipPlace(k);
+}
+
+static void GunshipTop_20(uint16 k) {  // 0xA2AD0E: fuera de la pantalla, la huida (estado 38)
+  GunshipTop_21(k);
+  if (sign16(gEnemyData(k)->y_pos - 256)) {
+    gEnemyData(k)->ai_preinstr = fGunship_21;
+    game_state = 38;
+    screen_fade_delay = 0;
+    screen_fade_counter = 0;
+  }
+}
+
 void GunshipTop_Main(void) {  // 0xA2A759
   uint16 k = cur_enemy_index;
   EnemyData *E1 = gEnemyData(k + 64);
@@ -271,6 +349,11 @@ void GunshipTop_Main(void) {  // 0xA2A759
   case fGunship_14: if (TimerDone()) E0->ai_preinstr = fGunship_15; break;
   case fGunship_15: GunshipTop_15(k); break;
   case fGunship_16: GunshipTop_16(k); break;
+  case fGunship_17: GunshipTop_17(k); break;
+  case fGunship_18: GunshipTop_18(k); break;
+  case fGunship_19: GunshipTop_19(k); break;
+  case fGunship_20: GunshipTop_20(k); break;
+  case fGunship_21: GunshipTop_21(k); break;
   default: nt_unimpl("GunshipTop_Main (función sin portar)"); break;
   }
 }

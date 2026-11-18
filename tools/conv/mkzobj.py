@@ -130,7 +130,12 @@ VRAM_COPY_BANKS = {0xAA}
 # tiles animados de una sala que van a la VRAM de los sprites (sus cuadros, como las copias del Torizo: parches de los
 # tiles convertidos, md_zebes.c vcp; game.c los manda con nt_enemy_vram_copy): las gemas de las estatuas de Tourian
 # (RoomSetup_RunStatueUnlockAnims $8F:91D7): Phantoon ($87:83AC, 0x80 bytes a 7800) y Ridley ($87:8414, 0x40 a 7220)
-ROOM_VRAM_OPS = {0xA66A: [(0x879364, 0x80, 0x7800), (0x8793E4, 0x80, 0x7800), (0x879464, 0x80, 0x7800),
+# (la nave en la huida: GunshipTop_17 $A2:ABC7 sube 5 KB de $94:C800 a 7600-7FFF, la parte de abajo encendida; solo
+# en el estado de la bomba (9261: la clave es el estado; en los otros, las piezas de la nave quedaban sueltas y encima)
+# y sin copia al cargar: ROOM_VRAM_OPS_NOLOAD)
+ROOM_VRAM_OPS_NOLOAD = {0x9261}
+ROOM_VRAM_OPS = {0x9261: [(0x94C800 + 0x400 * i, 0x400, 0x7600 + 0x200 * i) for i in range(5)],
+                 0xA66A: [(0x879364, 0x80, 0x7800), (0x8793E4, 0x80, 0x7800), (0x879464, 0x80, 0x7800),
                           (0x8794E4, 0x40, 0x7220), (0x879524, 0x40, 0x7220), (0x879564, 0x40, 0x7220)]}
 
 
@@ -230,6 +235,27 @@ TIMER_KEYS = {("v", "%04X" % (0x9FE8 + 12 * d), "0A00") for d in range(10)} | {(
 # sus tiles: los sube Mother Brain al morir (MotherBrain_Phase3_Death_15_LoadEscapeTimerTiles $A9:B258, la lista
 # $A6:C4CB de ProcessSpriteTilesTransfers): $B0:C000 -> VRAM $7E00 y $B0:C200 -> $7F00 (los tiles 0x1E0-0x1F8)
 TIMER_COPIES = ((0xB0C000, 0x200, 0x7E00), (0xB0C200, 0x120, 0x7F00))
+
+
+# explosiones al azar de la huida (RoomCode_GenRandomExplodes $8F:C1A9: CreateSpriteAtPos con las listas 3, 9, 12, 18 y
+# 21 de $B4:BDA8, paleta 0): en los estados cuyo código principal las genera (Tourian de la huida y los
+# estados de la bomba de Crateria) sus spritemaps, aunque el registro de dibujo no los tenga (nadie jugó la huida en
+# el PC)
+EXPLODE_CODES = {0xC120, 0xC124, 0xC131, 0xC183, 0xE57C, 0xE5A0, 0xE5A4}
+EXPLODE_LISTS = (3, 9, 12, 18, 21)
+
+
+def explode_keys(rom, st):
+    """las claves de las explosiones si el código principal del estado st las genera"""
+    if rom.w(0x8F0000 | (st + 18)) not in EXPLODE_CODES:
+        return set()
+    out = set()
+    for il in EXPLODE_LISTS:
+        p = rom.w(0xB4BDA8 + 2 * il)
+        while rom.w(0xB40000 | p) < 0x8000:
+            out.add(("s", "%04X" % rom.w(0xB40000 | (p + 2)), "0000", "0000"))
+            p += 4
+    return out
 
 
 def timer_states(rom, room):
@@ -496,6 +522,29 @@ def read_logs(paths):
                 continue                                          # Ceres y cinemáticas: mkmd.py
             keys.setdefault(room, set()).add(k)
     return keys
+
+
+def read_state_logs(path=Path(__file__).resolve().parents[2] / "res" / "snes_ref" / "zdraw_estados.log"):
+    """claves de un estado de sala (zdraw_estados.log: como zdraw.log con el estado en vez de la sala) -> {estado: set}.
+    Van solo en ese estado: en los demás de la sala cambiarían la fusión de colores y las piezas (la nave al llegar)"""
+    if not Path(path).exists():
+        return {}
+    tmp = Path(path).read_text().splitlines()
+    out = {}
+    for l in tmp:
+        if l.startswith("#"):
+            continue
+        f = l.split()
+        k = None
+        if len(f) == 6 and f[1] == "enemy":
+            k = ("e", f[2], f[3], f[4], f[5])
+        elif len(f) == 5 and f[1] == "sprobj":
+            k = ("s", f[2], f[3], f[4])
+        elif len(f) == 4 and f[1] == "eproj":
+            k = ("p", f[2], f[3])
+        if k:
+            out.setdefault(int(f[0], 16), set()).add(k)
+    return out
 
 
 # tiles que un jefe copia por la cola de VRAM en distintos momentos de la pelea en los mismos lugares (Mother Brain: las
@@ -1047,6 +1096,7 @@ def build(rom_path, log_paths, states, frozen=None):
     llena con el juego común de los congelados (frozen_entry)"""
     rom = mkmd.Rom(rom_path)
     keys = read_logs(log_paths)
+    skeys = read_state_logs()
     kvram = read_key_vram()
     room_pal = read_room_pal(rom)
     psms, ptrail = mkmd.zebes_proj_keys(rom)
@@ -1058,7 +1108,7 @@ def build(rom_path, log_paths, states, frozen=None):
     for st, room, ts, room_tiles in states:
         if room not in tstates:
             tstates[room] = timer_states(rom, room)
-        k = keys.get(room, set()) | pkeys | (TIMER_KEYS if st in tstates[room] else set())
+        k = keys.get(room, set()) | pkeys | (TIMER_KEYS if st in tstates[room] else set()) | explode_keys(rom, st) | skeys.get(st, set())
         if room in FLASH_DROP:                    # jefes: sin las copias del destello (paleta 0000) de lo que tiene otra
             other = {(x[1], x[2], x[4]) for x in k if x[0] == "e" and x[3] != "0000"}
             k = {x for x in k if not (x[0] == "e" and x[3] == "0000" and (x[1], x[2], x[4]) in other)}
@@ -1079,11 +1129,14 @@ def build(rom_path, log_paths, states, frozen=None):
         fb = frozen_banks(rom, st) - ({boss_of(rom, st)[0]} if boss_of(rom, st) else set())
         an = hook_moments(rom, st, ts)
         vo = vram_copy_ops(rom, boss[0]) if boss and boss[0] in VRAM_COPY_BANKS and room not in STREAM_ROOMS else ()
-        if room in ROOM_VRAM_OPS:                 # (y en la VRAM de la carga, el primer cuadro de cada una)
-            vo = tuple(ROOM_VRAM_OPS[room])
+        rk = st if st in ROOM_VRAM_OPS else room  # (la clave: el estado o la sala)
+        if rk in ROOM_VRAM_OPS:                   # (y en la VRAM de la carga, el primer cuadro de cada una)
+            vo = tuple(ROOM_VRAM_OPS[rk])
             firsts = {}
             for (src, size, dst) in vo:
                 firsts.setdefault(dst, (src, size))
+            if rk in ROOM_VRAM_OPS_NOLOAD:
+                firsts = {}
             vc = vc + [(2 * dst, rom.bytes(src, size)) for dst, (src, size) in firsts.items()]
         kc = kvram.get(room)
         if k & TIMER_KEYS:                        # (el contador, con sus tiles)

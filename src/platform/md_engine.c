@@ -3104,6 +3104,7 @@ void md_post(void) {
 
 /* ------------------------------------------------------------------ vblank */
 static uint8 hud_tiles_lost;                   /* las cinemáticas usaron los tiles del HUD (CINE_BG_BASE, círculo) */
+static uint8 vb_display_pend;                  /* encender la pantalla al final del vblank (carga de una sala de Zebes) */
 static void load_room_vram(void) {
   const MdRoom *R = g_room;
   samus_vram_src[0] = samus_vram_src[1] = 0;   /* VRAM nueva: los tiles de Samus se copian otra vez */
@@ -3116,7 +3117,9 @@ static void load_room_vram(void) {
   if (md_zebes && !cine_stage) {
     zebes_load_vram(scroll_ax, scroll_ay, scroll_bx, scroll_by);
     vdp_reg(0x12, 0x04);
-    vdp_display(1);
+    /* la pantalla se enciende al final de este vblank (md_vblank): la carga descomprime los tiles (docs/48) y puede
+       pasarse a la imagen; encendida aquí, el resto del vblank (HUD, colores) se escribía con la imagen empezada */
+    vb_display_pend = 1;
     return;
   }
   vdp_reg(0x10, R->plane_w == 32 && !R->wall ? 0x30 : 0x11);             /* 32x128 o 64x64 */
@@ -3342,6 +3345,11 @@ void md_vblank(uint16_t late) {
       vdp_reg(0x0A, hz_first[hz_back ^ 1]);     /* primera interrupción; las demás las programa el manejador */
       vdp_reg(0x00, 0x14);
     }
+  }
+  if (vb_display_pend) {                      /* (la carga se pasó a la imagen: se espera al vblank siguiente) */
+    vb_display_pend = 0;
+    while (!(*(volatile uint16 *)0xC00004 & 8)) {}
+    vdp_display(1);
   }
   md_vdp_busy = 0;
   VBS(6);

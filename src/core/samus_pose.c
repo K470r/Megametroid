@@ -1,6 +1,9 @@
 /* MegaMetroid — motor nativo: entrada, poses y transiciones de Samus (banco $91 del decomp, docs/31).
  * Escrito a mano desde snesrev/sm sm_91.c (y las funciones de $90 que solo usa esta parte). */
 #include "samus.h"
+#include "plm.h"
+#include "animtiles.h"
+#include "hdmaobj.h"
 
 /* tablas de punteros de las paletas especiales en el banco $91 (sm_91.c: RomFixedPtr) */
 #define kSamusPalette_HyperBeam 0xD829
@@ -954,7 +957,31 @@ static void Samus_HandleTransitionsB(void) {  // kSamus_HandleTransitionsB
     GrappleBeamFunc_BEEB();
     Samus_HandleTransitionsB_9B();
     break;
-  default: nt_unimpl("Samus_HandleTransitionsB (rayos X/Draygon)"); break;
+  case 5:                                     // 0x91EEA6: rayos X
+    switch (samus_movement_type) {
+    case kMovementType_00_Standing: case kMovementType_05_Crouching:
+    case kMovementType_15_RanIntoWall: case kMovementType_01_Running:
+      xray_angle = samus_pose_x_dir == 4 ? 192 : 64;
+      samus_anim_frame = 2;
+      samus_anim_frame_timer = 63;
+      samus_movement_handler = FUNC16(SamusMovementType_Xray);
+      samus_input_handler = FUNC16(Samus_Func20_);
+      timer_for_shine_timer = 8;
+      special_samus_palette_timer = 1;
+      special_samus_palette_frame = 0;
+      samus_shine_timer = 0;
+      flare_counter = 0;
+      flare_animation_frame = 0;
+      flare_slow_sparks_anim_frame = 0;
+      flare_fast_sparks_anim_frame = 0;
+      flare_animation_timer = 0;
+      flare_slow_sparks_anim_timer = 0;
+      flare_fast_sparks_anim_timer = 0;
+      QueueSfx1_Max6(9);
+      break;
+    }
+    break;
+  default: nt_unimpl("Samus_HandleTransitionsB (Draygon)"); break;
   }
 }
 
@@ -1409,8 +1436,87 @@ void HandleJumpTransition(void) {  // 0x91FBBB
   }
 }
 
+/* los cambios de pose de los rayos X: la pose ya está puesta; lo que sigue a SamusFunc_F433 en el SNES */
+static void Xray_PoseSet(void) {
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  samus_last_different_pose = samus_prev_pose;
+  *(uint16 *)&samus_last_different_pose_x_dir = *(uint16 *)&samus_prev_pose_x_dir;
+  samus_prev_pose = samus_pose;
+  *(uint16 *)&samus_prev_pose_x_dir = *(uint16 *)&samus_pose_x_dir;
+}
+
+/* rayos X: darse vuelta (la entrada mientras el tiempo está detenido) */
 void Samus_Func20(void) {  // 0x91FCAF
-  nt_unimpl("Samus_Func20 (rayos X)");
+  if (samus_movement_type == 14) {
+    if (samus_anim_frame == 2 && samus_anim_frame_timer == 1) {
+      if (samus_pose_x_dir == 4)
+        samus_pose = samus_pose == kPose_25_FaceR_Turn_Stand ? kPose_D6_FaceL_Xray_Stand : kPose_DA_FaceL_Xray_Crouch;
+      else
+        samus_pose = samus_pose == kPose_26_FaceL_Turn_Stand ? kPose_D5_FaceR_Xray_Stand : kPose_D9_FaceR_Xray_Crouch;
+      Xray_PoseSet();
+    }
+  } else {
+    if (samus_pose_x_dir == 4) {
+      if (!(button_config_right & joypad1_lastkeys)) return;
+      xray_angle = 256 - xray_angle;
+      samus_pose = samus_movement_type == 5 ? kPose_44_FaceL_Turn_Crouch : kPose_26_FaceL_Turn_Stand;
+    } else {
+      if (!(button_config_left & joypad1_lastkeys)) return;
+      xray_angle = 256 - xray_angle;
+      samus_pose = samus_movement_type == kMovementType_05_Crouching ? kPose_43_FaceR_Turn_Crouch : kPose_25_FaceR_Turn_Stand;
+    }
+    Xray_PoseSet();
+  }
+}
+
+/* ------------------------------------------------------------------ rayos X ($91:E16D, $91:E2AD) */
+uint8 Xray_Initialize(void) {  // 0x91E16D
+  static const uint8 kXrayMoveOk[28] = {   // byte_91E291: 1 de pie, 2 agachada
+    1, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+  };
+  if ((cooldown_timer == 7 && bomb_counter == 5 && samus_x_speed_divisor == 2)
+      || (!sign16(samus_pose - kPose_A4_FaceR_LandJump)
+          && (sign16(samus_pose - kPose_A8_FaceR_Grappling)
+              || (!sign16(samus_pose - kPose_E0_FaceR_LandJump_AimU) && sign16(samus_pose - kPose_E8_FaceR_Drained_CrouchFalling))))
+      || game_state != 8 || power_bomb_explosion_status || samus_y_speed || samus_y_subspeed
+      || samus_prev_movement_type >= 28 || !kXrayMoveOk[samus_prev_movement_type] || samus_movement_type >= 28)
+    return 0;
+  if (kXrayMoveOk[samus_movement_type] == 1)
+    samus_new_pose_interrupted = samus_pose_x_dir == 4 ? kPose_D6_FaceL_Xray_Stand : kPose_D5_FaceR_Xray_Stand;
+  else if (kXrayMoveOk[samus_movement_type] == 2)
+    samus_new_pose_interrupted = samus_pose_x_dir == 4 ? kPose_DA_FaceL_Xray_Crouch : kPose_D9_FaceR_Xray_Crouch;
+  else
+    return 0;
+  time_is_frozen_flag = 1;
+  samus_special_transgfx_index = 5;
+  for (int i = 0; i < 256; i++) hdma_table_1[i] = 255;
+  eproj_enable_flag &= ~0x8000;                  // DisableEprojs
+  DisablePLMs();
+  DisableAnimtiles();
+  DisablePaletteFx();
+  xray_reset_state();
+  return 1;
+}
+
+void ResponsibleForXrayStandupGlitch(void) {  // 0x91E2AD
+  if (samus_movement_type == kMovementType_05_Crouching)
+    samus_pose = samus_pose_x_dir == 4 ? kPose_28_FaceL_Crouch : kPose_27_FaceR_Crouch;
+  else
+    samus_pose = samus_pose_x_dir == 4 ? kPose_02_FaceL_Normal : kPose_01_FaceR_Normal;
+  Xray_PoseSet();
+  samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
+  samus_input_handler = FUNC16(Samus_InputHandler_E913);
+  demo_timer_counter = -1;
+  uint16 r18 = kPoseParams[samus_pose].y_radius - samus_y_radius;
+  if (!(r18 & 0x8000)) {
+    samus_y_pos -= r18;
+    samus_prev_y_pos = samus_y_pos;
+  }
+  eproj_enable_flag |= 0x8000;                   // EnableEprojs
+  EnablePLMs();
+  EnableAnimtiles();
+  EnablePaletteFx();
 }
 
 /* ------------------------------------------------------------------ colisión al cambiar de pose ($91:FDAE) */

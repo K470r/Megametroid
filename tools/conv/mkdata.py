@@ -172,6 +172,11 @@ arr('uint16', 'kTanTable', words(0x91C9D4, 128), fmt='0x{:X}')   # tangentes ($9
 # cristal; bank91_word lee una palabra de ahí, byte bajo primero, como RomPtr_91 en el decomp)
 blob('kBank91_Pals', 0x91, 0xD727, 0xDCB4)
 blob('kBank91_SuitHdma', 0x91, 0xD5A2, 0xD692)   # listas del objeto de HDMA de los trajes (suit.c)
+# rayos X: la lista del objeto de HDMA ($91:D223) y la tabla de los bloques que muestran ($91:D2D6, Xray_GetXrayedBlock)
+blob('kBank91_Xray', 0x91, 0xD223, 0xD4DA)
+# rayos X: los bloques de los objetos escondidos (kXrayBlockDrawingInstrs, $84:839D; sus listas $84:A2DF-A336)
+arr('uint16', 'kXrayBlockDrawingInstrs', words(0x84839D, 8), fmt='0x{:X}')
+blob('kBank84_XrayItems', 0x84, 0xA2DF, 0xA337)
 blob('kBank9B_Grapple', 0x9B, 0xC0DB, 0xC9CE)   # tablas del gancho (grapple.c)
 blob('kGrappleSnesTiles', 0x9A, 0x8200, 0x92A0)  # tiles del gancho (el punto y los segmentos: md_engine.c)
 blob('kRainSnesTiles', 0x9A, 0xB700, 0xB740)     # tiles 0x50-0x53 del BG3 (las motas de la lluvia, 2 bpp: md_engine.c)
@@ -394,6 +399,23 @@ C.append(f'const DoorDefN kDoorDefs[{len(doors)}] = {{')
 for d in sorted(doors):
     C.append('  { 0x%X, ' % d + ', '.join('0x%X' % v for v in doors[d]) + ' },')
 C.append('};')
+# rayos X (docs/46): los bloques que se ven distintos en sus estados de sala (xray_special_casing_ptr, $8F): por
+# entrada (puntero, x, y, bloque), ordenadas por puntero; LoadXrayBlocks las mira
+xs = []
+for st_ in sorted(states):
+    sp_ = states[st_][9]
+    if sp_ and sp_ not in {e[0] for e in xs}:
+        q_ = 0x8F0000 | sp_
+        while True:
+            x_, y_ = r(q_, 2)
+            if not x_ and not y_:
+                break
+            xs.append((sp_, x_, y_, w16(q_ + 2)))
+            q_ += 4
+H.append('typedef struct { uint16 ptr; uint8 x, y; uint16 block; } XraySpecialN;')
+H.append(f'#define NT_XRAY_SPECIAL_N {len(xs)}')
+H.append(f'extern const XraySpecialN kXraySpecial[{max(len(xs), 1)}];')
+C.append(f'const XraySpecialN kXraySpecial[{max(len(xs), 1)}] = {{' + ','.join('{0x%X,%d,%d,0x%X}' % e for e in xs or [(0, 0, 0, 0)]) + '};')
 H.append(f'extern const RoomStateN kRoomStates[{len(states)}];')
 C.append(f'const RoomStateN kRoomStates[{len(states)}] = {{')
 for st in sorted(states):

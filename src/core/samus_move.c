@@ -1720,6 +1720,19 @@ void RunSamusMovementHandler(void) {  // 0x90E94B
       samus_y_speed = 0;
     }
     break;
+  case FUNC16(SamusMovementType_Xray):          // 0x90E94F: el brazo según el ángulo de los rayos X
+    if (samus_movement_type != kMovementType_0E_TurningAroundOnGround) {
+      uint16 v0;
+      samus_anim_frame_timer = 15;
+      if (samus_pose_x_dir == 4)
+        v0 = sign16(xray_angle - 153) ? 4 : sign16(xray_angle - 178) ? 3 : sign16(xray_angle - 203) ? 2 :
+             sign16(xray_angle - 228) != 0;
+      else
+        v0 = sign16(xray_angle - 25) ? 0 : sign16(xray_angle - 50) ? 1 : sign16(xray_angle - 75) ? 2 :
+             sign16(xray_angle - 100) ? 3 : 4;
+      samus_anim_frame = v0;
+    }
+    break;
   default: nt_unimpl_v("RunSamusMovementHandler", samus_movement_handler); break;
   }
 }

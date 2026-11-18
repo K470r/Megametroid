@@ -17,6 +17,7 @@
 #include "enemies.h"
 #include "dcompat.h"
 #include "tables.h"
+#include "room.h"
 
 static void HdmaobjInstr_InitMorphBallEyeBeamHdma(uint16 k);
 static void HdmaobjPreInstr_E9E6(uint16 k);
@@ -31,6 +32,11 @@ static inline void set_byte(uint16 *a, uint16 b, uint8 v) {   /* byte b (direcci
   if (b & 1) a[b >> 1] = (a[b >> 1] & 0x00FF) | (uint16)v << 8;
   else a[b >> 1] = (a[b >> 1] & 0xFF00) | v;
 }
+
+/* rayos X (al final del archivo) */
+static void XrayFarFunc(uint32 ea);
+static void xray_blend_flags(uint8 coldata);
+static void HdmaobjPreInstr_Xray_Gen(uint16 k);
 
 /* ------------------------------------------------------------------ alta de objetos ($88:8435) */
 static uint16 SpawnHdmaObjectInner(uint16 k, uint8 bank, uint16 list, uint16 r18, uint16 r20) {  // 0x888477
@@ -1278,6 +1284,8 @@ static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   case FUNC16(HdmaobjPreInstr_E567): HdmaobjPreInstr_E567(k); break;
   case 0xE726: break;                            // (RTL: Mother Brain levantándose, $88:E727)
   case 0xE7BC: HdmaobjPreInstr_E7BC(k); break;     // el rayo arco iris
+  case 0xD27F: xray_blend_flags(1); break;         // HdmaobjPreInstr_XraySetup ($91:D27F)
+  case 0x86EF: HdmaobjPreInstr_Xray_Gen(k); break; // HdmaobjPreInstr_Xray ($88:86EF)
   case 0x943C: break;                            // nullsub_309 ($A4:943C): el HDMA de Crocomire derritiéndose (la onda
                                                  // la escribe su IA en crocomire_bg2_scroll_hdma_data)
   default: nt_unimpl_v("HdmaobjPreInstr (pre-instrucción sin portar)", f); break;
@@ -1295,6 +1303,8 @@ static void CallHdmaobjFarFunc(uint32 ea, uint16 k) {   /* HdmaobjInstr_CallFarF
   case fnnullsub_113: break;                     // $88:DF91 (el agua de Draygon)
   case 0x88E726: break;                          // (RTL: Mother Brain levantándose)
   case 0x88E767: InitializeRainbowBeam(); break;
+  case 0x91CAF9: case 0x91CB1C: case 0x91CB57: case 0x91CB8E: case 0x91D0D3: case 0x91D173: case 0x91D1A0:
+  case 0x91D2BC: XrayFarFunc(ea); break;         /* rayos X: las etapas de $91:D223 */
   default: nt_unimpl_v("HdmaobjInstr_CallFarFunc (función sin portar)", ea); break;
   }
 }
@@ -1304,6 +1314,12 @@ static uint16 ListW(uint8 bank, uint16 a) {
   case 0x88: return B88W(a);
   case 0x81: return B81W(a);
   case 0x91: {                                   /* el rayo de luz de los trajes ($91:D5A2-D691) */
+    if (a < 0xD4DA) {                            /* (los rayos X: $91:D223-D4D9) */
+      const uint8 *x = kBank91_Xray + (uint16)(a - 0xD223);
+      uint16 xl = x[0];
+      __asm__("" : "+d"(xl));
+      return xl | x[1] << 8;
+    }
     const uint8 *q = kBank91_SuitHdma + (uint16)(a - 0xD5A2);
     uint16 lo = q[0];
     __asm__("" : "+d"(lo));
@@ -1907,4 +1923,308 @@ uint16 MotherBrainRisingHdmaObject(void) {  // 0x88E71E
 }
 uint16 SpawnMotherBrainRainbowBeamHdma(void) {  // 0x88E748
   return SpawnHdmaObject(0x88, 0xE751);
+}
+
+/* ------------------------------------------------------------------ rayos X ($91:CAD6, $88:86EF, $91:D223)
+ * Lo que hace el SNES (decomp): al correr con los rayos X elegidos (HudSelectionHandler_Xray), Xray_Initialize
+ * detiene el tiempo y crea el objeto de HDMA de $91:D223, que en ocho cuadros:
+ *   1. guarda el scroll del BG2; 2-3. lee el mapa del BG1 de la VRAM; 4. arma el mapa de los rayos X: el del BG1
+ *      con los bloques "revelados" (Xray_GetXrayedBlock: tabla $91:D2D6 por tipo de bloque y BTS; los objetos
+ *      escondidos de los PLM y los casos especiales del estado de sala: LoadXrayBlocks); 5-7. lo sube al BG2;
+ *   8. el color de fondo gris (palette_buffer[0] = 0x0C63).
+ * Después HdmaobjPreInstr_Xray: el cono (CalculateXrayHdmaTableInner) crece, se mueve con arriba y abajo, y al
+ * soltar el botón se apaga y se devuelve todo (XrayFunc3-5). Dentro de la ventana se ve el BG2 (el mapa revelado,
+ * sin el fondo), fuera todo más oscuro (color math).
+ * En la Genesis (md_cone.c, md_zebes.c): el modo sombra/luz oscurece la pantalla, el cono es de sprites "aclarar"
+ * (la misma forma que el SNES, como el haz del ojo) y los bloques revelados que caen dentro del cono se dibujan en
+ * el plano A (xray_rev: su lista; zebes_xray_frame los pone y los quita). */
+/* bloques revelados: índice del bloque y palabra que se muestra. En hdma_table_1 (7E:9800, la tabla del cono del
+   SNES): en la Genesis el cono va en 7E:9100 (md_cone.c) y la RAM de la partida no tiene lugar */
+#define XR_MAX 128
+uint16 xray_rev_n;
+#define xray_rev_i (hdma_table_1)
+#define xray_rev_w (hdma_table_1 + XR_MAX)
+uint8 xray_on;                       /* el objeto de los rayos X está (desde Xray_Initialize hasta XrayFunc5) */
+uint8 xray_cone_ok;                  /* hay cono en este cuadro (beam_memo con sus valores) */
+
+static void xr_add(int16 bx, int16 by, uint16 w) {
+  if (bx < 0 || by < 0 || bx >= (int16)room_width_in_blocks || by >= (int16)room_height_in_blocks) return;
+  uint16 i = Mult8x8(by, room_width_in_blocks) + bx;
+  if (((level_get(i) ^ w) & 0xFFF) == 0) return;   /* (se ve igual: el aire de siempre) */
+  for (uint16 k = 0; k < xray_rev_n; k++)
+    if (xray_rev_i[k] == i) { xray_rev_w[k] = w; return; }
+  if (xray_rev_n >= XR_MAX) return;
+  xray_rev_i[xray_rev_n] = i; xray_rev_w[xray_rev_n] = w; xray_rev_n++;
+}
+
+static inline uint16 xr_word(uint16 a) {     /* una palabra de $91:D223-D4D9 */
+  const uint8 *q = kBank91_Xray + (uint16)(a - 0xD223);
+  uint16 lo = q[0];
+  __asm__("" : "+d"(lo));
+  return lo | q[1] << 8;
+}
+
+/* Xray_GetXrayedBlock ($91:CDD6): la entrada de la tabla para el bloque i, o 0 */
+static uint16 xr_entry_for(uint16 type, uint16 bts) {
+  for (uint16 t = 0xD2D6;; t += 4) {
+    uint16 v = xr_word(t);
+    if (v == 0xFFFF) return 0;
+    if (v == type) {
+      for (uint16 p = xr_word(t + 2);; p += 4) {
+        uint16 b = xr_word(p);
+        if (b == 0xFFFF) return 0;
+        if (b == 0xFF00 || b == bts) return xr_word(p + 2);
+      }
+    }
+  }
+}
+
+/* Xray_CombinedMove ($91:CE79/CEBB): los bloques de extensión, hasta el bloque que extienden */
+static void xr_combined(int16 bx, int16 by, uint16 i, uint8 vert) {
+  int16 x = bx, y = by;
+  uint16 r48 = level_get(i) & 0xF000;
+  int8 step = (int8)bts_get(i);
+  if (step) {
+    int16 *var = vert ? &y : &x;
+    for (uint16 guard = 0; guard < 64; guard++) {
+      if ((int16)(*var + step) < 0) { xr_add(bx, by, 0xFF); return; }
+      *var += step;
+      uint16 pos = Mult8x8(y, room_width_in_blocks) + x;
+      step = (int8)bts_get(pos);
+      r48 = level_get(pos) & 0xF000;
+      if (r48 == 0xD000) { var = &y; continue; }
+      if (r48 != 0x5000) break;
+      if (step < 0) var = &x;
+    }
+  }
+  if (r48 == xr_word(0xD2D6 + 4)) {               /* stru_91D2D6[1] */
+    for (uint16 p = xr_word(0xD2D6 + 6);; p += 4) {
+      uint16 b = xr_word(p);
+      if (b == 0xFFFF) return;
+      if (b == 0xFF00 || b == (uint16)(step & 0xFF)) { xr_add(bx, by, xr_word(xr_word(p + 2) + 2)); return; }
+    }
+  }
+}
+
+/* un bloque (bx, by) de la pantalla: lo que muestra en los rayos X (Xray_SetupStage4_Func3 y sus funciones) */
+static void xr_block(int16 bx, int16 by, uint8 last_col) {
+  if (bx < 0 || by < 0 || bx >= (int16)room_width_in_blocks || by >= (int16)room_height_in_blocks) return;
+  uint16 i = Mult8x8(by, room_width_in_blocks) + bx;
+  uint16 e = xr_entry_for(level_get(i) & 0xF000, bts_get(i));
+  if (!e) return;
+  switch (xr_word(e)) {
+  case 0xCEBB: xr_combined(bx, by, i, 1); break;                      /* Xray_Func6: vertical */
+  case 0xCE79: xr_combined(bx, by, i, 0); break;                      /* Xray_Func6B: horizontal */
+  case 0xCF36: xr_add(bx, by, xr_word(e + 2)); break;                 /* Func7 */
+  case 0xCF3E: if (area_index == 1) xr_add(bx, by, xr_word(e + 2)); break;   /* Func8 */
+  case 0xCF4E:                                                         /* Func9: y el de la derecha */
+    xr_add(bx, by, xr_word(e + 2));
+    if (!last_col) xr_add(bx + 1, by, xr_word(e + 4));
+    break;
+  case 0xCF62:                                                         /* Func10: y el de abajo */
+    xr_add(bx, by, xr_word(e + 2));
+    xr_add(bx, by + 1, xr_word(e + 2));
+    break;
+  case 0xCF6F:                                                         /* Func11: 2x2 */
+    xr_add(bx, by, xr_word(e + 2));
+    if (!last_col) xr_add(bx + 1, by, xr_word(e + 4));
+    xr_add(bx, by + 1, xr_word(e + 6));
+    if (!last_col) xr_add(bx + 1, by + 1, xr_word(e + 8));
+    break;
+  }
+}
+
+/* LoadBlockToXrayTilemap ($91:D04C): a & 0x800, el bloque al revés (de arriba a abajo) */
+static void xr_load_block(uint16 a, uint16 bx, uint16 by) {
+  int16 dx = bx - (layer1_x_pos >> 4), dy = by - (layer1_y_pos >> 4);
+  if (dx < 0 || dx >= 16 || dy < 0 || dy >= 16) return;
+  xr_add(bx, by, (a & 0x3FF) | (a & 0x800));
+}
+
+/* Xray_SetupStage4 ($91:CB8E) en la Genesis: la lista de bloques revelados de la pantalla */
+static void xray_reveal_build(void) {
+  xray_rev_n = 0;
+  int16 bx0 = layer1_x_pos >> 4, by0 = layer1_y_pos >> 4;
+  for (int16 r = 0; r < 16; r++) {
+    xr_block(bx0 - 1, by0 + r, 0);                 /* (Xray_SetupStage4_Func2: el de la izquierda, si es de dos) */
+    for (int16 c = 0; c < 16; c++) xr_block(bx0 + c, by0 + r, c == 15);
+  }
+  /* LoadXrayBlocks ($84:831A): los objetos escondidos (PLM de objeto no tomado) y los casos especiales */
+  for (int i = 39; i >= 0; i--) {
+    if (plm_header_ptr[i] >= (uint16)fnPlmPreInstr_GotoLinkIfTriggered) {
+      uint16 ia = plm_room_arguments[i];
+      if (!(item_bit_array[ia >> 3] & (1 << (ia & 7)))) {
+        CalculatePlmBlockCoords(2 * i);
+        uint16 j = plm_variables[i] >> 1;
+        if (j < 8) {
+          uint16 a = kXrayBlockDrawingInstrs[j];
+          const uint8 *q = kBank84_XrayItems + (uint16)(a + 2 - 0xA2DF);
+          xr_load_block((q[0] | q[1] << 8) & 0xFFF, plm_x_block, plm_y_block);
+        }
+      }
+    }
+  }
+  uint16 sp = room_state(roomdefroomstate_ptr)->special_xray;
+  if (sp)
+    for (uint16 k = 0; k < NT_XRAY_SPECIAL_N; k++)
+      if (kXraySpecial[k].ptr == sp) xr_load_block(kXraySpecial[k].block, kXraySpecial[k].x, kXraySpecial[k].y);
+}
+
+static uint8 CanXrayShowBlocks(void) {  // 0x91D143
+  if (room_ptr == 0xA66A || room_ptr == 0xCEFB) return 0;
+  if (fx_type == 0x24) return 0;
+  if (boss_id == 3 || boss_id == 6 || boss_id == 7 || boss_id == 8 || boss_id == 10) return 0;
+  return 1;
+}
+
+static void xray_blend_flags(uint8 coldata) {
+  uint16 v1 = 0x1000;
+  if (fx_type != 36) {
+    v1 = 0x2000;
+    if (CanXrayShowBlocks()) {
+      v1 = 0x4000;
+      if (coldata) { reg_COLDATA[0] = 0x27; reg_COLDATA[1] = 0x47; reg_COLDATA[2] = 0x87; }
+    }
+  }
+  fx_layer_blending_config_c |= v1;
+}
+
+/* el fin de Xray_Initialize y Xray_SetupStage7: el cono vuelve a empezar */
+void xray_reset_state(void) {
+  hdma_var_1 = 0;
+  demo_input_pre_instr = 0;
+  demo_input_instr_timer = 0;
+  demo_input_instr_ptr = 0;
+  demo_input = 0;
+  demo_input_new = 0;
+  xray_angle = samus_pose_x_dir == 4 ? 192 : 64;
+}
+
+void XrayRunHandler(void) {  // 0x91CAD6
+  if (!time_is_frozen_flag && (button_config_run_b & joypad1_lastkeys)) {
+    if (Xray_Initialize() & 1) {
+      xray_on = 1;
+      xray_cone_ok = 0;
+      xray_rev_n = 0;
+      SpawnHdmaObject(0x91, 0xD223);
+    }
+  }
+}
+
+/* las funciones de la lista $91:D223 (HdmaobjInstr_CallFarFunc) */
+static void XrayFarFunc(uint32 ea) {
+  switch (ea) {
+  case 0x91CAF9: time_is_frozen_flag = (time_is_frozen_flag & 0xFF00) | 1; break;   /* (el scroll del BG2: no hace falta) */
+  case 0x91CB1C: case 0x91CB57: case 0x91D0D3: case 0x91D173: break;    /* VRAM del SNES */
+  case 0x91CB8E: xray_reveal_build(); break;
+  case 0x91D1A0: xray_reset_state(); break;
+  case 0x91D2BC: palette_buffer[0] = 3171; break;
+  }
+}
+
+/* CalculateXrayHdmaTable ($88:8896): en la Genesis, los valores del cono para md_cone.c (beam_memo) */
+static void CalculateXrayHdmaTable_Gen(void) {
+  int16 v0 = samus_pose_x_dir == 4 ? samus_x_pos - layer1_x_pos - 3 : samus_x_pos - layer1_x_pos + 3;
+  uint16 v1 = samus_movement_type == 5 ? samus_y_pos - layer1_y_pos - 12 : samus_y_pos - layer1_y_pos - 16;
+  if ((v0 < 0 && samus_pose_x_dir == 4) || (v0 >= 256 && samus_pose_x_dir == 8)) {   /* mirando afuera: nada */
+    xray_cone_ok = 0;
+    return;
+  }
+  if (!beam_memo_ok || beam_memo[0] != (uint16)v0 || beam_memo[1] != v1 || beam_memo[2] != xray_angle || beam_memo[3] != demo_input) {
+    beam_memo[0] = v0; beam_memo[1] = v1; beam_memo[2] = xray_angle; beam_memo[3] = demo_input;
+    beam_memo_ok = 1;
+    beam_tab_version++;
+  }
+  xray_cone_ok = 1;
+}
+
+static void MoveXrayUp(void) {  // 0x8887E0
+  if (sign16(xray_angle - 128)) {
+    if (xray_angle != demo_input) {
+      if ((int16)(xray_angle - demo_input) < 0) xray_angle = demo_input;
+      else {
+        uint8 nz = xray_angle != 0;
+        --xray_angle;
+        if ((int16)(xray_angle - (!nz + demo_input)) < 0) xray_angle = demo_input;
+      }
+    }
+  } else if (demo_input + xray_angle != 256) {
+    if ((int16)(demo_input + xray_angle - 256) >= 0) xray_angle = 256 - demo_input;
+    else {
+      uint16 v1 = (uint16)((((uint32)demo_input << 16 | xray_angle) + ((uint32)xray_angle << 16 | 1)) >> 16);
+      ++xray_angle;
+      if (v1 != 256 && (int16)(v1 - 256) >= 0) xray_angle = 256 - demo_input;
+    }
+  }
+}
+
+static void MoveXrayDown(void) {  // 0x888835
+  if (sign16(xray_angle - 128)) {
+    if (demo_input + xray_angle != 128) {
+      if ((int16)(demo_input + xray_angle - 128) >= 0) xray_angle = 128 - demo_input;
+      else {
+        uint16 v0 = (uint16)((((uint32)demo_input << 16 | xray_angle) + ((uint32)xray_angle << 16 | 1)) >> 16);
+        ++xray_angle;
+        if (v0 != 128 && (int16)(v0 - 128) >= 0) xray_angle = 128 - demo_input;
+      }
+    }
+  } else if (xray_angle - demo_input != 128) {
+    if ((int16)(xray_angle - demo_input - 128) < 0) xray_angle = demo_input + 128;
+    else {
+      uint8 nz = xray_angle != 0;
+      --xray_angle;
+      uint16 t = xray_angle - (!nz + demo_input);
+      if (t != 128 && (int16)(t - 128) < 0) xray_angle = demo_input + 128;
+    }
+  }
+}
+
+static void HdmaobjPreInstr_Xray_Gen(uint16 k) {  // 0x8886EF
+  xray_blend_flags(1);
+  uint8 run = (button_config_run_b & joypad1_lastkeys) != 0;
+  switch (demo_input_pre_instr) {
+  case 0:                                     // XrayFunc0_NoBeam
+    if (run) { CalculateXrayHdmaTable_Gen(); ++demo_input_pre_instr; }
+    else demo_input_pre_instr = 3;
+    break;
+  case 1:                                     // XrayFunc1_BeamWidening
+    if (run) {
+      AddToHiLo(&demo_input_instr_timer, &demo_input_instr_ptr, 2048);
+      AddToHiLo(&demo_input, &demo_input_new, __PAIR32__(demo_input_instr_timer, demo_input_instr_ptr));
+      if (!sign16(demo_input - 11)) { demo_input_new = 0; demo_input = 10; ++demo_input_pre_instr; }
+      CalculateXrayHdmaTable_Gen();
+    } else demo_input_pre_instr = 3;
+    break;
+  case 2:                                     // XrayFunc2_FullBeam
+    if (run) {
+      if (button_config_up & joypad1_lastkeys) MoveXrayUp();
+      else if (button_config_down & joypad1_lastkeys) MoveXrayDown();
+      CalculateXrayHdmaTable_Gen();
+    } else ++demo_input_pre_instr;
+    break;
+  case 3:                                     // XrayFunc3: apagar (el mapa del BG2 de vuelta)
+    xray_cone_ok = 0;                         /* (hdma_table_1 tiene la lista de los revelados: la Genesis los quita) */
+    palette_buffer[0] = 0;
+    ++demo_input_pre_instr;
+    break;
+  case 4: ++demo_input_pre_instr; break;      // XrayFunc4
+  default:                                    // XrayFunc5
+    if (time_is_frozen_flag) {
+      time_is_frozen_flag = 0;
+      demo_input_pre_instr = 0;
+      demo_input_instr_timer = 0;
+      demo_input_instr_ptr = 0;
+      xray_angle = 0;
+      demo_input = 0;
+      demo_input_new = 0;
+      ResponsibleForXrayStandupGlitch();
+      hdma_object_channels_bitmask[hdma_object_index >> 1] = 0;
+      QueueSfx1_Max6(0xA);
+      if ((uint8)fx_type != 36) { reg_COLDATA[2] = 0x80; reg_COLDATA[1] = 64; reg_COLDATA[0] = 32; }
+      if (samus_auto_cancel_hud_item_index) { hud_item_index = 0; samus_auto_cancel_hud_item_index = 0; }
+      xray_on = 0;
+      xray_cone_ok = 0;
+    }
+    break;
+  }
 }

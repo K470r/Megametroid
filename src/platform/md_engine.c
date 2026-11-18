@@ -2914,6 +2914,13 @@ void md_post(void) {
          su matemática de color reemplaza la de la sala: HandleLayerBlendingPowerBomb, $88:81FE) */
       int16 pr = 0, pg = 0, pbl = 0;
       if (md_cone_pb_tint(&pr, &pg, &pbl)) { r = pr; g = pg; b = pbl; }
+#ifndef XRAY_TINT
+#define XRAY_TINT 3
+#endif
+      /* rayos X (hdmaobj.c): el SNES suma COLDATA (7, 7, 7) a medias dentro del cono (CGADSUB 0x73) y fuera queda más
+         oscuro; la Genesis oscurece fuera con el modo sombra/luz (md_cone.c) y aclara un poco todo: el cono se
+         distingue más (más tinte aclara también lo de afuera: con 6 quedaba como sin rayos X) */
+      if (xray_on && (fx_layer_blending_config_c & 0x6000)) { r += XRAY_TINT; g += XRAY_TINT; b += XRAY_TINT; }
     }
     uint8 on = r || g || b;
     if (on != tint_on || r != tint_r || g != tint_g || b != tint_b) {

@@ -292,10 +292,19 @@ BOSS_PALETTES = {
     # bebé (247...), iguales al empezar, y salían rojos. La fase 2 y el gris de cuando la bebé lo deja sin energía
     # (FadeToGray_Drained, 145-159) no van como momentos (el cerebro salía crema): 145-159 van en BOSS_KEEP.
     (0xA9, 0x8687): {
-        None: [[(0xA99514, 177, 15), (0xA994F4, 241, 15)], [(0xA994D4, 241, 15)]],
+        None: [[(0xA99514, 177, 15), (0xA994F4, 241, 15)], [(0xA99494, 177, 15), (0xA994B4, 161, 15)],
+               [(0xA994D4, 241, 15)]],
     },
 }
 BOSS_LINE = 1
+# índices de un jefe que nada dibuja antes de un momento de BOSS_PALETTES: al juntar colores cuentan con el color de
+# ese momento también en los de antes. Mother Brain: la línea 7 de sprites (241-255) es gris como su línea 1 hasta
+# que llega la bebé (el momento 2), y sólo la usa la bebé: si no, sus verdes y rojos se juntaban por esos grises
+BOSS_LATE = {0xA9: (frozenset(range(241, 256)), 2)}
+# píxeles del cuerpo de un jefe en el BG2 que van con la línea del jefe (mkzebes.BOSS_BG_LINE): {sala: {índice de
+# palette_buffer de los sprites con el mismo color: píxeles}}. Lo llena mkzebes.py antes de build
+BG_EXTRA = {}
+BG_EXTRA_W = float(os.environ.get("MM_BGX_W", "16"))
 # índices de palette_buffer de un jefe que no se juntan con otros hasta el final (merge_colors, solo): pocos píxeles que
 # cambian mucho entre momentos. El Torizo (banco $AA): los ojos, 156-158 (rosados de estatua; naranjas al despertar el
 # Bomb Torizo, cian el Golden): se juntaban con un marrón y en la Genesis nunca se encendían (docs/59)
@@ -446,6 +455,8 @@ def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset(), solo=frozense
         kp, drop = (ia, ib) if alive[ia] >= alive[ib] else (ib, ia)
         if drop in keep and kp not in keep:
             kp, drop = drop, kp
+        if os.environ.get("MM_MDBG"):
+            print("   junta", drop, "->", kp, [vec(drop), vec(kp)], "w %.0f" % w, file=sys.stderr)
         alive[kp] += alive.pop(drop)
         for i in rep:
             if rep[i] == drop:
@@ -689,7 +700,7 @@ def zkey(k):
 
 
 def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=OBJ_SLOT_LIST, extra_pal=None, base=ZOBJ_BASE,
-                  boss=None, vcopies=(), anim=(), vops=(), key_copies=None):
+                  boss=None, vcopies=(), anim=(), vops=(), key_copies=None, bg_extra=None):
     """boss: (banco del jefe, momentos [{índice: color}]) en los estados con un jefe de BOSS_PALETTES: sus piezas de
     algunas paletas del SNES van en la línea BOSS_LINE (15 colores; se elige el reparto que menos junta).
     anim: los pasos de los ciclos de color de los enemigos (hook_moments), momentos sobre el último del jefe"""
@@ -768,12 +779,25 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
                                 counts[128 + p * 16 + int(c)] += nn
             out.append((x, y, at, p, big, pxs, is_boss, wtrail))
         pieces[k] = out
+    if bg_extra and boss:                                 # (BOSS_BG_LINE: el cuerpo del BG2 con los colores de la línea)
+        for i, n in bg_extra.items():
+            bcounts.setdefault((i - 128) >> 4, Counter())[i] += n
+        for p in {(i - 128) >> 4 for i in bg_extra}:      # (esa paleta pesa más: cuerpo y cerebro)
+            for i in bcounts[p]:
+                bcounts[p][i] *= BG_EXTRA_W
     if not counts and not bcounts:
         return None
     # colores: en cada momento de la pelea (moments); los iguales se comparten, si no alcanzan los lugares se juntan
     # los más parecidos (pesando por píxeles)
     gen = lambda i: mkmd.bgr_to_gen(pal.get(i, 0))
-    vec = lambda i: tuple(mkmd.bgr_to_gen(m.get(i, pal.get(i, 0))) for m in moments)
+    vec0 = lambda i: tuple(mkmd.bgr_to_gen(m.get(i, pal.get(i, 0))) for m in moments)
+    late = BOSS_LATE.get(boss[0]) if boss else None
+    if late:                                              # (BOSS_LATE: antes de ese momento nadie usa esos índices)
+        def vec(i):
+            v = vec0(i)
+            return tuple(v[max(j, late[1])] for j in range(len(v))) if i in late[0] else v
+    else:
+        vec = vec0
     # reparto: las paletas del SNES del jefe en la línea BOSS_LINE (S1) o en la línea de los objetos; el de menor costo
     best = None
     bp = sorted(bcounts)
@@ -783,6 +807,8 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         for p, c in bcounts.items():
             (c1 if p in s1 else c3).update(c)
         if bp and not s1:
+            continue
+        if boss and bg_extra and not {(i - 128) >> 4 for i in bg_extra} <= s1:   # (BG_EXTRA: esas paletas en la línea)
             continue
         # (con jefe o ciclos de color, la fusión pesa con la raíz de los píxeles: un color chico y llamativo, como el
         # ojo del Torizo o el brillo de las caras de 9F11, no se pierde contra las superficies grandes)
@@ -899,7 +925,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
               f"las demás en la {OBJ_LINE} ({len(alive)} colores, {merged} fusiones)", file=sys.stderr)
     return dict(base=base, tiles=tiles, src=src, keys=sorted(index), recs=[v & 0xFFFF for v in recs_all],
                 merged=merged + merged1, ncolors=len(counts) + sum(len(c) for c in bcounts.values()), nspr=nspr,
-                boss_line=bool(boss),
+                boss_line=bool(boss), line1_of={i: slot1[r] for i, r in rep1.items()},
                 patches=[(src, dst, sorted(pt.items())) for (src, size, dst), pt in zip(vops, patches) if pt])
 
 
@@ -1064,18 +1090,18 @@ def build(rom_path, log_paths, states, frozen=None):
             kc = dict(kc or {})
             kc.update({tk: TIMER_COPIES for tk in TIMER_KEYS})
         ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an), tuple(vo),
-              room if kc else None, room in RAINBOW_ROOMS)
+              room if kc else None, room in RAINBOW_ROOMS, repr(sorted(BG_EXTRA.get(room, {}).items())))
         if ck not in cache:                       # (lo mismo: se comparte)
             sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else \
                 [x for x in OBJ_SLOT_LIST if x != RAINBOW_SLOT] if room in RAINBOW_ROOMS else OBJ_SLOT_LIST
             if room in STREAM_ROOMS:              # por cuadro: los tiles no tienen que entrar juntos (base 0)
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room))
             else:
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room))
             if cache[ck] is None and low < ZOBJ_BASE:   # más lugar: desde el final de los tiles de la sala
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room))
             if cache[ck] is None:                 # no entran los tiles: sin juntar piezas (comparten los tiles del SNES)
-                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc)
+                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room))
                 if cache[ck] is None:
                     print(f"  ¡sala {room:04X} (tiles {ts:04X}): sus objetos no entran ni sin juntar piezas!", file=sys.stderr)
             d = cache[ck]

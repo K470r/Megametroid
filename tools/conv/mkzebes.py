@@ -368,7 +368,7 @@ def put_items(table, vram, items):
 
 
 def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None, vis=None,
-            pref_lines=None, keep_cols=None, pref_idx=None,
+            pref_lines=None, keep_cols=None, pref_idx=None, boss_pals=frozenset(),
             own=frozenset()):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
@@ -412,6 +412,8 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     extra = list(bg2 or [])
     for e in [e for mt in blocks for e in ent[mt]] + extra:
         t, p = e & 0x3FF, (e >> 10) & 7
+        if p in boss_pals:                                # (BOSS_BG_LINE: van en la línea del jefe)
+            continue
         if (t, p) not in combos:
             combos[(t, p)] = {gc(p, int(c)) for c in np.unique(px(t)) if c}
             for fr in anim.get(t, {}).values():               # tiles animados: los colores de todos sus cuadros
@@ -438,6 +440,8 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             u = usage.get(mt, 0) + 1 / 64
             for e in ent[mt]:
                 t, p = e & 0x3FF, (e >> 10) & 7
+                if p in boss_pals:
+                    continue
                 a = px(t)
                 for c in np.unique(a):
                     if c:
@@ -446,6 +450,8 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
         if bg2 and nbg2 is not None:                      # y los del cuerpo del jefe (cada tile, como un bloque visto)
             for e in bg2[nbg2:]:
                 t, p = e & 0x3FF, (e >> 10) & 7
+                if p in boss_pals:
+                    continue
                 a = px(t)
                 for c in np.unique(a):
                     if c:
@@ -664,11 +670,26 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
         return tile_index[key], 0, 0
     add_tile(np.zeros((8, 8), np.uint8))
     gtile = {}
+    braw, bidx, bcount = [], {}, {}                       # (BOSS_BG_LINE: tiles con los índices del SNES, sin juntar)
+
+    def boss_tile(t, p):
+        a = px(t)
+        for v, fh, fv in ((a, 0, 0), (a[:, ::-1], 1, 0), (a[::-1, :], 0, 1), (a[::-1, ::-1], 1, 1)):
+            key = genesis_tile_bytes(v)
+            if key in bidx:
+                return bidx[key], fh, fv
+        key = genesis_tile_bytes(a)
+        bidx[key] = len(tile_list)
+        braw.append(len(tile_list))
+        tile_list.append(key)
+        return bidx[key], 0, 0
 
     def cell(e):
         t, p = e & 0x3FF, (e >> 10) & 7
         pri, hf, vf = (e >> 13) & 1, (e >> 14) & 1, (e >> 15) & 1
         k = (t, p)
+        if k not in gtile and p in boss_pals:
+            gtile[k] = (boss_tile(t, p), boss_pals[p], None)
         if k not in gtile:
             bi = assign[k]
             lut = np.zeros(16, np.uint8)
@@ -694,15 +715,23 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     n_before_extra = len(tile_list)               # (nbg2: lo que sigue son los tiles que solo usa el cuerpo del jefe)
     if bg2 and nbg2 is not None:
         bg2c += [cell(e) for e in bg2[nbg2:]]
+        for e in bg2[nbg2:]:                      # (píxeles del cuerpo por índice, para juntar los colores del jefe)
+            t, p = e & 0x3FF, (e >> 10) & 7
+            if p in boss_pals and t:
+                for c in np.unique(px(t)):
+                    if c:
+                        bcount[p * 16 + int(c)] = bcount.get(p * 16 + int(c), 0) + 4 * int((px(t) == c).sum())
     # tiles animados: para cada trozo (origen, VRAM) los tiles de la Genesis que cambia, ya convertidos
     anims = {}
     for (t, p), ((gi, _, _), bi, lut) in gtile.items():
+        if lut is None:
+            continue
         for key, fr in anim.get(t, {}).items():
             anims.setdefault(key, []).append((gi, genesis_tile_bytes(lut[snes_tile(fr, 0)])))
     # tiles propios (own: la pared de Kraid, que su código sube y borra): (tile de la Genesis, sus bytes)
     owns = sorted({gtile[k][0][0] for k in gtile if k[0] in own})
     return {"own": [(gi, tile_list[gi]) for gi in owns], "n_before_extra": n_before_extra, "anims": anims, "bg2": bg2c, "tiles": b"".join(tile_list), "ntiles": len(tile_list), "src": src, "npal": len(palettes),
-            "ids": blocks, "cells": cells, "level": level, "merges": len(merges)}
+            "ids": blocks, "cells": cells, "level": level, "merges": len(merges), "boss_raw": braw, "boss_count": bcount}
 
 
 def kraid_mouth_split(res, cells_b, words, mouth_f):
@@ -906,6 +935,18 @@ KEEP_COLORS = {0xDD58: {(0, 52, 144), (52, 116, 255), (144, 172, 255)}}
 # índices del SNES que lee el lugar que los junta: Mother Brain, el fondo azulado (la línea 3: (32,40,48) sale gris
 # neutro en la Genesis, (24,32,32), el 58, verde azulado oscuro: así el fondo tira a azul como en el SNES)
 PREF_INDEX = {0xDD58: (58,)}
+# colores del cuerpo de un jefe en el BG2 para juntar los de la sala (en vez del registro zbg2.log, que guarda el más
+# brillante de cada índice en toda la pelea: en Mother Brain salían oliva y morado de los destellos del rayo y del gris
+# del final). Mother Brain: MotherBrain_WriteDefaultPalette ($A9:BCCE) pone kMotherBrainsBrain_Palette ($A9:9474) en
+# 7E:C082 (65-79, el cuerpo) y en 7E:C122 (145-159, el cerebro): (dirección, primer índice, cuántos)
+BOSS_BG2_PAL = {0xDD58: (0xA99474, 65, 15)}
+# cuerpos de jefes en el BG2 con los colores de la línea del jefe (mkzobj.BOSS_LINE), no los de la sala: {sala: {línea
+# del BG del SNES: paleta de sprites del SNES con los mismos colores}}. Mother Brain: MotherBrain_WritePalette
+# ($A9:BD1D) escribe siempre lo mismo en la línea 4 del BG (el cuerpo) y en la 1 de los sprites (el cerebro, el cuello,
+# las patas). Con la sala en una línea, el cuerpo tenía ~6 colores (salía marrón oscuro); así comparte los 15 del
+# cerebro y la sala queda con los suyos. Sus tiles se convierten con los índices del SNES y, cuando mkzobj reparte la
+# línea del jefe (BG_EXTRA: sus píxeles pesan al juntar), se pasan a sus lugares
+BOSS_BG_LINE = {0xDD58: {4: 1}}
 # PLMs que pone el código de un jefe con SpawnHardcodedPlm (sus bloques no salen de la lista de PLMs de la sala):
 # Mother Brain dibuja en la falsa muerte el fondo de tubos en el BG1 por filas ($84:B67B-B6A7: el BG2 queda para su
 # cuerpo), borra los tubos y el techo ($84:B677, B6B3-B6C7, B763/B767) y sella la pared (B673, MotherBrain_SealWall)
@@ -954,6 +995,9 @@ BOSS_BG2_ROOMS = {int(x, 16) for x in os.environ.get("MM_BOSS_BG2_ROOMS", "CD13,
 def main():
     global BOSS_BG2
     BOSS_BG2 = boss_bg2_logs()
+    for ra_, (a_, i0_, n_) in BOSS_BG2_PAL.items():   # (los colores de la pelea, no los del registro)
+        if ra_ in BOSS_BG2:
+            BOSS_BG2[ra_] = (BOSS_BG2[ra_][0], {**BOSS_BG2[ra_][1], **{i0_ + c: w16(a_ + 2 * c) for c in range(n_)}})
     rooms = all_rooms()
     doors_in = room_doors_in(rooms)
     th = (out / "tables.h").read_text()
@@ -1104,8 +1148,13 @@ def main():
                               pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
                               nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None,
                               pref_lines=PREF_LINES.get(ra), keep_cols=KEEP_COLORS.get(ra),
-                              pref_idx=PREF_INDEX.get(ra))
+                              pref_idx=PREF_INDEX.get(ra),
+                              boss_pals={p_: mkzobj.BOSS_LINE for p_ in BOSS_BG_LINE.get(ra, {})} if boss else {})
                 res["boss"] = None
+                res["boss_split"] = res["ntiles"]
+                if res["boss_raw"]:
+                    sp_ = BOSS_BG_LINE[ra]
+                    mkzobj.BG_EXTRA[ra] = {128 + sp_[k_ >> 4] * 16 + (k_ & 15): v_ for k_, v_ in res["boss_count"].items()}
                 if bb:                            # celdas del cuerpo: tabla por (línea del SNES, tile)
                     cells_b = res["bg2"][nbg2:]
                     # los tiles que solo usa el cuerpo (los últimos), hasta BOSS_HI_N, van a la VRAM de 0xF000
@@ -1119,6 +1168,7 @@ def main():
                     keep = nt_ - hi
                     hi_tiles = res["tiles"][keep * 32:]
                     res["tiles"] = res["tiles"][:keep * 32]
+                    res["boss_split"] = keep
                     res["ntiles"] = keep
                     if cache:                     # caché: bit 15 (sin uso: la prioridad viene de la palabra) + tile k
                         cells_b = [(c_ & 0x7800) | 0x8000 | ((c_ & 0x7FF) - keep) if (c_ & 0x7FF) >= keep else c_
@@ -1179,11 +1229,39 @@ def main():
             gfx_keys.setdefault(("st", st), gfx_keys[key])
     # ---- objetos (enemigos) de cada estado: mkzobj.py
     logs = zlogs
+    if os.environ.get("MM_BGX_DUMP"):             # (depuración: BG_EXTRA para probar mkzobj solo)
+        Path(os.environ["MM_BGX_DUMP"]).write_text(repr(mkzobj.BG_EXTRA))
     if os.environ.get("MM_ONLY"):
         sys.exit(0)
     st_tiles = {k[1]: entries[v]["ntiles"] for k, v in gfx_keys.items() if k[0] == "st"}
     frozen = {"index": {}, "list": []}       # juego común de los enemigos congelados (mkzobj.frozen_entry, docs/58)
     objs = mkzobj.build(sys.argv[1], logs, [(st, ra, ts, st_tiles.get(st, 432)) for st, ra, ts in obj_states], frozen)
+    for ei, res in enumerate(entries):            # (BOSS_BG_LINE: los tiles del cuerpo a los lugares de la línea del jefe)
+        if not res.get("boss_raw"):
+            continue
+        ra = res["key"][3]
+        sp_ = BOSS_BG_LINE[ra]
+        luts = set()
+        for k_, v_ in gfx_keys.items():
+            if k_[0] == "st" and v_ == ei and objs.get(k_[1]) and objs[k_[1]].get("boss_line"):
+                l1 = objs[k_[1]]["line1_of"]
+                luts.add(tuple(l1.get(128 + sp_[4] * 16 + c, 0) if c else 0 for c in range(16)))
+        assert len(luts) == 1, "BOSS_BG_LINE: sala %04X con %d repartos de la línea del jefe" % (ra, len(luts))
+        lut = luts.pop()
+        need = {k_ & 15 for k_ in res["boss_count"]}
+        assert all(lut[c] for c in need), "BOSS_BG_LINE: un color del cuerpo sin lugar en la línea del jefe"
+        keep = res["boss_split"]
+        tl, hl = bytearray(res["tiles"]), bytearray(res["boss"][2]) if res["boss"] else bytearray()
+
+        def remap(buf, o):
+            for j in range(32):
+                b_ = buf[o + j]
+                buf[o + j] = lut[b_ >> 4] << 4 | lut[b_ & 15]
+        for gi in res["boss_raw"]:
+            remap(tl, gi * 32) if gi < keep else remap(hl, (gi - keep) * 32)
+        res["tiles"] = bytes(tl)
+        if res["boss"]:
+            res["boss"] = (res["boss"][0], res["boss"][1], bytes(hl), res["boss"][3])
     obj_list, obj_of = [], {}
     for st, d in objs.items():
         if id(d) not in obj_of:

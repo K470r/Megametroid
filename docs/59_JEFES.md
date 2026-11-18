@@ -879,7 +879,19 @@ la fase 1). El rayo, en la Genesis desde el cuadro ~16900.
 - **El fondo azulado**: con la sala en una línea, el lugar del fondo leía un índice gris. `mkzebes.PREF_INDEX`
   (DD58: índice 58) manda sobre `PREF_LINES`: el fondo queda verde azulado oscuro (lo más cerca que da la paleta de la
   Genesis con ese lugar compartido; en el SNES es un azul grisáceo). En la huida se pone rojo igual.
-- Falta: el color de la cabeza y del cuerpo (más rosado en el SNES): a revisar con Edwin.
+- **El cuerpo y la cabeza** (2026-11-18): el cuerpo (BG2, línea 4 del SNES) iba en la línea de la sala, con ~6
+  colores juntados con los de la sala y los del registro `zbg2.log` (el más brillante de cada índice en toda la pelea:
+  oliva y morado): salía marrón oscuro. `MotherBrain_WritePalette` escribe lo mismo en la línea 4 del BG y en la 1 de
+  los sprites (el cerebro, el cuello, las patas), así que el cuerpo va ahora con la línea del jefe:
+  `mkzebes.BOSS_BG_LINE` ({DD58: {4: 1}}): sus tiles se convierten con los índices del SNES, sus píxeles van a
+  `mkzobj.BG_EXTRA` (pesan al juntar los colores de la línea del jefe, por 16: `BG_EXTRA_W`) y cuando mkzobj reparte la
+  línea se pasan a sus lugares (`line1_of`). La línea 1 lleva las paletas 1 (14 colores, sin juntar) y 3 (la pata de
+  atrás, casi negra en la fase 2: `BOSS_PALETTES` tiene ese momento, `$A9:9494` en 177 y `$A9:94B4` en 161); la bebé
+  (paleta 7) va en la línea de los objetos, juntada sólo por sus colores (`mkzobj.BOSS_LATE`: antes de la bebé esa
+  paleta es gris y nadie la usa). La sala queda con sus 15 lugares (13 fusiones en vez de 24). `mkzebes.BOSS_BG2_PAL`
+  pone los colores del cuerpo de `$A9:9474` (no los del registro) para juntar los de la sala.
+- La huida: con la sala menos juntada, el fondo lee el índice 57 (carmesí oscuro en el SNES); en algunos cuadros del
+  parpadeo de la alarma la Genesis lo da morado oscuro (el nivel más cercano del DAC).
 
 ## La sala de las estatuas de Tourian (A66A, 2026-11-17)
 

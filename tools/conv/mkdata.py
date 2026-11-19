@@ -729,6 +729,16 @@ for _l in (0x9BB7D3, 0x9BB7E7, 0x9BB7FB, 0x9BB80F):
 arr('uint8', 'kDeathPalsB', [b for v in _dp for b in (v & 0xFF, v >> 8)], fmt='0x{:X}',
     attr='NT_BANK(%d) ' % 7)   # (en la página fría: lo común está lleno; death.c lo lee con nt_paged_w)
 arr('uint8', 'kDeathTimes', list(r(0x9BB823, 18)))
+# el mapa explorado comprimido de las partidas (PackMapToSave, $81:834B): para cada byte k de 7E:D91C, el byte de
+# explored_map_tiles_saved (área * 256 + desplazamiento de las listas de $81:82D6); cuentas en $81:8131
+_sm = []
+for _a in range(6):
+    _n, _po, _uo = r(0x818131 + _a, 1)[0], w16(0x818138 + 2 * _a), w16(0x8182D6 + 2 * _a)
+    assert _po == len(_sm)
+    _sm += [_a * 256 + b for b in r(0x810000 | _uo, _n)]
+arr('uint8', 'kSaveMapIdxB', [b for v in _sm for b in (v & 0xFF, v >> 8)], fmt='0x{:X}',
+    attr='NT_BANK(7) ')   # (página fría: save.c lo lee con nt_paged_w)
+H.append('#define SAVE_MAP_BYTES %d' % len(_sm))
 _, sc = c_array_from_source('sm_94.c', 'kSinCosTable8bit_Sext')
 H.append('extern const int16 kSinCosTable8bit_Sext[%d];' % len(sc))
 C.append('const int16 kSinCosTable8bit_Sext[%d] = { %s };' % (len(sc), ', '.join(str(v) for v in sc)))

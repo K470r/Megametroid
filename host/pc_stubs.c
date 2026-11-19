@@ -139,3 +139,19 @@ void EndingM7Queue(uint16 a, uint16 b, uint16 c) { if (endlog()) fprintf(endlog(
 /* la muerte de Samus (death.c, docs/64): avisos a la capa de dibujo */
 void SamusDeathGfx(void) {}
 void SamusDeathTiles(uint16 i) { (void)i; }
+/* la SRAM (docs/65): en el PC, 16 KB en memoria (MM_SRAM=archivo: se lee al empezar y se escribe al guardar) */
+static uint8_t pc_sram[0x4000];
+static int pc_sram_loaded;
+static void pc_sram_load(void) {
+  if (pc_sram_loaded) return;
+  pc_sram_loaded = 1;
+  const char *f = getenv("MM_SRAM");
+  if (f) { FILE *h = fopen(f, "rb"); if (h) { fread(pc_sram, 1, sizeof pc_sram, h); fclose(h); } }
+}
+void nt_sram_read(uint16_t off, uint8_t *dst, uint16_t n) { pc_sram_load(); memcpy(dst, pc_sram + off, n); }
+void nt_sram_write(uint16_t off, const uint8_t *src, uint16_t n) {
+  pc_sram_load();
+  memcpy(pc_sram + off, src, n);
+  const char *f = getenv("MM_SRAM");
+  if (f) { FILE *h = fopen(f, "wb"); if (h) { fwrite(pc_sram, 1, sizeof pc_sram, h); fclose(h); } }
+}

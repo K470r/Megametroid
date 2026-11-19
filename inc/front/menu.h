@@ -12,6 +12,9 @@ extern u8 g_opt_moonwalk;          /* 1 = caminar hacia atrás */
 #define MENU_EXIT  0               /* volver al título */
 
 u16 menu_run(void);                /* pantalla de partidas + opciones */
+void menu_load_options(void);      /* idioma y opciones guardados en la SRAM */
+extern u16 g_menu_slot;            /* la ranura elegida (0-2) */
+extern u8 g_menu_slot_used;        /* 1 si tiene partida (se carga); 0: partida nueva (la intro) */
 void intro_run(void);              /* texto de la intro (páginas del diario de Samus) */
 
 #endif

@@ -4,8 +4,8 @@
  * LARVA! / TRY AGAIN? / YES / NO" (26) con la bebé metroide y el misil que marca la opción.
  * Lo que va a la VRAM (tiles de los menús, el tilemap del BG1 en 7E:3600) lo dibuja la Genesis: MenuGfx() avisa
  * que se cargan los gráficos del menú, y DrawMenuSpritemap() dibuja los spritemaps de los menús ($82).
- * Las salidas: YES vuelve al juego cargando la partida (estado 31 en Ceres) y NO reinicia la consola; la Genesis las
- * lleva al comienzo de Ceres hasta que estén el título y las partidas guardadas. */
+ * Las salidas: YES vuelve al juego cargando la partida (estado 31 en Ceres; si no, el 5, el mapa de la partida) y NO
+ * reinicia la consola; la Genesis las toma en md_main.c (Ceres de nuevo, la partida guardada, el título). */
 #include "samus.h"
 #include "game.h"
 #include "nmath.h"
@@ -185,7 +185,7 @@ static void GameOverMenu_4_Main(void) {  // 0x81912B
         game_state = loading_game_state;          /* Ceres: se empieza de nuevo (estado 31) */
       else
         ++menu_index;
-      /* LoadFromSram(selected_save_slot): la Genesis vuelve al comienzo de Ceres (sin partidas guardadas todavía) */
+      LoadFromSram(selected_save_slot);
     }
     return;
   }
@@ -218,6 +218,11 @@ static void GameOverMenu(void) {
     if (!(reg_INIDISP & 0xF))
       ++menu_index;
     break;
+  case 6:                                         // GameOverMenu_6_LoadGameMapView ($81:9116)
+    DisableHdmaObjects();
+    game_state = 5;                               /* kGameState_5_FileSelectMap: la Genesis vuelve a empezar con la partida */
+    menu_index = 0;
+    break;
   case 7:                                         // GameOverMenu_7_FadeOutToSoftReset
     DrawMenuSelectionMissile();
     HandleGameOverBabyMetroid();
@@ -225,7 +230,6 @@ static void GameOverMenu(void) {
     if (!(reg_INIDISP & 0xF))
       game_state = 0xFFFF;                        /* SoftReset: la Genesis reinicia (sin título todavía) */
     break;
-  default: nt_unimpl("GameOverMenu (paso sin portar: mapa de la partida)"); break;
   }
 }
 

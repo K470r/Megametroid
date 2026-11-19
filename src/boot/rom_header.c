@@ -12,10 +12,10 @@ const ROMHeader rom_header = {
     0x003FFFFF,
     0xE0FF0000,
     0xE0FFFFFF,
-    "  ",
-    0x0000,
-    0x00000000,
-    0x00000000,
+    "RA",                                         /* SRAM: partidas guardadas (md_sram.c) */
+    0xF820,
+    0x00200001,
+    0x00203FFF,
     "            ",
     "MEGAMETROID: MOTOR NATIVO PARA 68000    ",
     "JUE             "

@@ -1,10 +1,13 @@
 # Textos del menú (una clave por línea: clave | inglés | español).
 # Letras disponibles en la fuente grande: A-Z, 0-9, ! ? + - ( ) y las vocales con tilde y la Ñ.
-# Fuente pequeña (NO DATA, EXIT, pie): A-Z, 0-9, !
+# Fuente pequeña (NO DATA, EXIT, pie): A-Z, 0-9, ! :
+# energy: en inglés se dibuja con las letras apretadas del SNES (el texto de la columna no se usa); en español, con la
+# fuente pequeña y a lo sumo 4 letras (va entre el casco y los tanques).
 fsel_title   | SAMUS DATA              | DATOS DE SAMUS
 slot         | SAMUS                   | SAMUS
 no_data      | NO DATA                 | SIN DATOS
 time         | TIME                    | TIEMPO
+energy       | ENERGY                  | ENER
 exit         | EXIT                    | SALIR
 opt_title    | OPTION MODE             | OPCIONES
 start_game   | START GAME              | INICIAR JUEGO

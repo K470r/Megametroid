@@ -16,6 +16,32 @@
 u8 g_lang = LANG_EN;
 u8 g_opt_icon_cancel = 0;
 u8 g_opt_moonwalk = 0;
+u16 g_menu_slot;                   /* la ranura elegida (0-2) */
+u8 g_menu_slot_used;               /* la ranura tiene partida */
+
+/* las partidas (src/core/save.c) y la SRAM (md_sram.c) */
+extern u8 SramSlotInfo(u16 slot, u16 *health, u16 *max_health, u16 *hours, u16 *minutes);
+extern u16 SramLastSlot(void);
+extern void SramSetLastSlot(u16 s);
+extern void nt_sram_read(u16 off, u8 *dst, u16 n);
+extern void nt_sram_write(u16 off, const u8 *src, u16 n);
+
+/* las opciones de la Genesis, después de la SRAM del SNES (0x2000): "MM", idioma, cancelar ícono, caminar atrás */
+#define OPT_SRAM 0x2000
+void menu_load_options(void)
+{
+    u8 b[5];
+    nt_sram_read(OPT_SRAM, b, 5);
+    if (b[0] != 'M' || b[1] != 'M') return;
+    g_lang = b[2] == LANG_ES ? LANG_ES : LANG_EN;
+    g_opt_icon_cancel = b[3] & 1;
+    g_opt_moonwalk = b[4] & 1;
+}
+static void save_options(void)
+{
+    u8 b[5] = { 'M', 'M', g_lang, g_opt_icon_cancel, g_opt_moonwalk };
+    nt_sram_write(OPT_SRAM, b, 5);
+}
 
 #define TB          TILE_USER_INDEX
 #define FONT_N      g_mnu_font_tiles
@@ -238,6 +264,41 @@ static void load_screen(void)
 }
 
 /* ------------------------------------------------------------------ pantallas */
+/* DrawFileSelectionHealth / DrawFileSelectionTime ($81:A087 / $81:A14E): "ENERGY", los tanques (de a 7 por fila,
+   la segunda fila arriba), la energía que sobra de los tanques y la hora; sin partida, NO DATA */
+static void cell(u16 tile, u16 x, u16 y) { VDP_setTileMapXY(BG_A, ATTR_TEXT + TB + tile, x, y); }
+static void draw_slot_data(u16 i, u16 x, u16 y)
+{
+    u16 hp, mhp, hh, mm;
+    if (!SramSlotInfo(i, &hp, &mhp, &hh, &mm))
+    {
+        draw_small(mstr(S_NO_DATA), x + 1, y + 1);
+        return;
+    }
+    if (g_lang == LANG_EN)
+    {
+        static const u8 kEnergy[4] = { 0x9D, 0x9E, 0x9F, 0xCC };
+        for (u16 k = 0; k < 4; k++) cell(kEnergy[k], x + k, y);
+    }
+    else
+        draw_small(mstr(S_ENERGY), x, y);
+    u16 full = hp / 100, tanks = mhp / 100, tx = x + 4, ty = y + 1, m = 7;
+    for (u16 k = 0; k < tanks; k++)
+    {
+        cell(full ? (full--, 0x98) : 0x99, tx++, ty);
+        if (!--m) { tx = x + 4; ty--; m = 8; }
+    }
+    u16 r = hp % 100;
+    cell(0x60 + r / 10, x + 1, y + 1);
+    cell(0x60 + r % 10, x + 2, y + 1);
+    /* la hora (7E:3000 + 0x1B4: fila de abajo, columnas 26-30) */
+    cell(0x60 + hh / 10, 26, y + 1);
+    cell(0x60 + hh % 10, 27, y + 1);
+    cell(0x8C, 28, y + 1);
+    cell(0x60 + mm / 10, 29, y + 1);
+    cell(0x60 + mm % 10, 30, y + 1);
+}
+
 static void draw_fsel(void)
 {
     clear_rows(0, 28);
@@ -252,7 +313,7 @@ static void draw_fsel(void)
         name[n++] = 'A' + i;
         name[n] = 0;
         draw_big(name, 3, 5 + i * 5, FALSE);
-        draw_small(mstr(S_NO_DATA), 15, 6 + i * 5);
+        draw_slot_data(i, 14, 5 + i * 5);
         if (g_lang == LANG_EN)
             for (u16 k = 0; k < 3; k++)
                 VDP_setTileMapXY(BG_A, ATTR_TEXT + TB + (g_mnu_icons[12 + k] & 0x3FF), 27 + k, 5 + i * 5);
@@ -313,11 +374,11 @@ static bool run_options(void)
         /* GameOptionsMenu_3_OptionsScreen ($82): arriba/abajo 1/$37, A o START 1/$38 */
         if (p & BUTTON_UP) { sel = (sel + 4) % 5; snd_request(0x106, 0x37); }
         else if (p & BUTTON_DOWN) { sel = (sel + 1) % 5; snd_request(0x106, 0x37); }
-        if (p & BUTTON_B) return FALSE;
+        if (p & BUTTON_B) { save_options(); return FALSE; }
         if (p & (BUTTON_A | BUTTON_C | BUTTON_START))
         {
             snd_request(0x106, 0x38);
-            if (sel == 0) return TRUE;
+            if (sel == 0) { save_options(); return TRUE; }
             if (sel == 1 || sel == 2)
             {
                 g_lang = sel == 1 ? LANG_EN : LANG_ES;
@@ -365,12 +426,12 @@ u16 menu_run(void)
     load_screen();
     draw_fsel();
     fade_to(0, 15);
-    u16 sel = 0, prev = 0xFFFF;
+    u16 sel = SramLastSlot(), prev = 0xFFFF;     /* (FileSelectMenu: la última ranura usada, SRAM 0x1FEC) */
     reset_helmets();
     for (;;)
     {
         u16 p = read_pad(&prev);
-        /* FileSelectMenu_4_Main ($81:A1C2) sin partidas guardadas: ranuras A-C y EXIT */
+        /* FileSelectMenu_4_Main ($81:A1C2): ranuras A-C y EXIT (copiar y borrar partidas: todavía no) */
         if (p & BUTTON_UP) { sel = (sel + 3) % 4; snd_request(0x106, 0x37); }
         else if (p & BUTTON_DOWN) { sel = (sel + 1) % 4; snd_request(0x106, 0x37); }
         else if ((p & BUTTON_B) && !(p & (BUTTON_A | BUTTON_C | BUTTON_START)))
@@ -391,6 +452,9 @@ u16 menu_run(void)
                de frente o hasta otro botón, y se pasa a las opciones */
             snd_request(0x106, 0x2A);
             helm_timer[sel] = 1;
+            SramSetLastSlot(sel);
+            g_menu_slot = sel;
+            { u16 a, b, c, d; g_menu_slot_used = SramSlotInfo(sel, &a, &b, &c, &d); }
             for (;;)
             {
                 SYS_doVBlankProcess();

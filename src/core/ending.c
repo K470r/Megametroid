@@ -252,7 +252,6 @@ void CinematicFunction_Intro_Func133(void) {
 
 void EnableNMI(void) { reg_NMITIMEN |= 0x80; }   /* 0x80834B */
 
-void CopySuperMetroidString(void) {}          /* "supermetroid" en la partida guardada: la Genesis todavía no guarda */
 
 /* ------------------------------------------------------------------ las estrellas (7E:0E0C, en enemy_data) */
 #define STAR(i) ((uint16 *)enemy_data + 8 * (i))

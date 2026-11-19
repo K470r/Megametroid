@@ -10,6 +10,7 @@
 #include "enemies.h"
 #include "nmath.h"
 #include "hdmaobj.h"
+int DisplayMessageBox_Poll(uint16 a);   /* msgbox.c */
 
 #define GS_W(a) kBankA2_Gunship[(uint16)((a) - kBankA2_Gunship_LO)]
 enum {                                     /* listas de instrucciones ($A2) */
@@ -165,7 +166,7 @@ static void GunshipTop_7(uint16 k) {  // 0xA2A987: Samus libre
     loading_game_state = 5;                       // kLoadingGameState_5_Main
     used_save_stations_and_elevators[0] |= 1;     /* palabra |= 1: el bit 0 del byte del área 0 */
     load_station_index = 0;
-    SaveExploredMapTilesToSaved();                /* SaveToSram: la Genesis todavía no guarda partidas */
+    SaveToSram(selected_save_slot);
   }
 }
 
@@ -224,10 +225,15 @@ static void GunshipTop_12(uint16 k) {  // 0xA2AAA2: recargar todo (o, con la bom
     gEnemyData(k)->ai_preinstr = fGunship_13;
 }
 
-static void GunshipTop_13(uint16 k) {  // 0xA2AB1F: "¿guardar?" (caja de mensaje aún sin portar: se guarda)
-  used_save_stations_and_elevators[0] |= 1;
-  load_station_index = 0;
-  SaveExploredMapTilesToSaved();
+static void GunshipTop_13(uint16 k) {  // 0xA2AB1F: "¿guardar?" (la caja 0x1C)
+  int rv = DisplayMessageBox_Poll(0x1c);
+  if (rv < 0)
+    return;
+  if (rv != 2) {
+    used_save_stations_and_elevators[0] |= 1;
+    load_station_index = 0;
+    SaveToSram(selected_save_slot);
+  }
   gEnemyData(k)->ai_preinstr = fGunship_14;
   HatchAnim(k, kIlist_A5BE, 0x14);
 }

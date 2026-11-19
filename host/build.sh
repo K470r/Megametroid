@@ -17,5 +17,6 @@ gcc $CF -o $HERE/tour $HERE/tour.c $HERE/pc_stubs.c $SRC
 gcc $CF -o $HERE/simsum $HERE/simsum.c $HERE/pc_stubs.c $SRC
 gcc $CF -o $HERE/vardump $HERE/vardump.c $HERE/pc_stubs.c $SRC
 gcc $CF -o $HERE/zcover $HERE/zcover.c $HERE/pc_stubs.c $SRC
+gcc $CF -o $HERE/savetest $HERE/savetest.c $HERE/pc_stubs.c $SRC
 gcc $CF -o $HERE/mkinit $HERE/mkinit.c $HERE/pc_stubs.c $SRC
 echo OK $HERE/check $HERE/mkinit

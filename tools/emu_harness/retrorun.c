@@ -5,6 +5,7 @@
  * Uso: retrorun core.so rom.bin guion.txt
  * Comandos del guion (uno por línea, '#' = comentario):
  *   sram <archivo>                 carga SRAM (antes de ejecutar frames)
+ *   dumpsram <archivo>             vuelca la SRAM (la del juego: lo que guardó)
  *   hold <frames> <botones>        botones libretro: B Y s(select) S(start) U D L R A X l r  o '-'
  *   shot <archivo.ppm>
  *   save <archivo>  / load <archivo>   savestates
@@ -249,6 +250,10 @@ int main(int argc, char **argv) {
             size_t sz = p_retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
             FILE *f = fopen(a, "rb"); size_t got = fread(s, 1, sz, f); fclose(f);
             printf("sram %zu/%zu bytes\n", got, sz);
+        } else if (sscanf(line, "dumpsram %511s", a) == 1) {
+            uint8_t *s = p_retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+            size_t sz = p_retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+            FILE *f = fopen(a, "wb"); if (s && f) fwrite(s, 1, sz, f); if (f) fclose(f);
         } else if (sscanf(line, "hold %511s %511s", a, b) == 2) {
             cur_buttons = parse_buttons(b);
             for (int i = atoi(a); i > 0; i--) { run_frame(); frame++; }

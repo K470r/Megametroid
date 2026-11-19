@@ -394,6 +394,26 @@ void Samus_DrawWhenNotAnimatingOrDying(void) {  // 0x908A00
   SetSamusTilesDefsForCurAnim();
 }
 
+NT_LATE void Samus_DrawDuringDeathAnim(void);
+NT_LATE void Samus_DrawStartingDeathAnim(void) {  // 0x908976 (death.c)
+  if ((int16)--samus_anim_frame_timer <= 0) {
+    ++samus_anim_frame;
+    Samus_HandleAnimDelay();
+  }
+  Samus_DrawDuringDeathAnim();
+}
+
+/* Samus muriendo (death.c): samus_x_pos ya es de pantalla (StartSamusDeathAnimation le restó la cámara) */
+NT_LATE void Samus_DrawDuringDeathAnim(void) {  // 0x908998
+  uint16 a = samus_anim_frame + kSamusPoseToBaseSpritemapIndexTop[samus_pose];
+  Samus_CalcSpritemapPos(2 * samus_pose);
+  DrawSamusSpritemap(a, layer1_x_pos + samus_spritemap_x_pos, layer1_y_pos + samus_spritemap_y_pos);
+  if (SamusBottomDrawn() & 1)
+    DrawSamusSpritemap(samus_anim_frame + kSamusPoseToBaseSpritemapIndexBottom[samus_pose],
+                       layer1_x_pos + samus_spritemap_x_pos, layer1_y_pos + samus_spritemap_y_pos);
+  SetSamusTilesDefsForCurAnim();
+}
+
 static PairU16 Samus_CalcSpritemapPos_Default(uint16 j) {  // 0x908C94
   int v1 = (int8)kPoseParams[j >> 1].y_offset_to_gfx;
   samus_spritemap_y_pos = samus_y_pos - v1 - layer1_y_pos;

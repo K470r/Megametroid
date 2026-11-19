@@ -718,6 +718,17 @@ arr('uint16', 'kPalettes_Intro2', words(0x8CE5E9, 256), fmt='0x{:X}')        # $
 # CinematicFunction_Intro_Func126; CreditsObject_Func1 copia de a 32 celdas)
 _cr = decompress(0x97EEFF)
 arr('uint16', 'kCreditsRows', [_cr[2 * i] | _cr[2 * i + 1] << 8 for i in range(len(_cr) // 2)], fmt='0x{:X}')
+
+# la muerte de Samus ($9B:B5CE, $9B:B4B6; death.c): las paletas de la secuencia (por traje: $9B:B7D3/B7E7/B7FB; sin
+# traje: $9B:B80F; 10 cada una) y los tiempos ($9B:B823)
+_dp = []
+for _l in (0x9BB7D3, 0x9BB7E7, 0x9BB7FB, 0x9BB80F):
+    for _i in range(10):
+        _p = w16(_l + 2 * _i)
+        _dp += [w16(0x9B0000 | (_p + 2 * _c)) for _c in range(16)]
+arr('uint8', 'kDeathPalsB', [b for v in _dp for b in (v & 0xFF, v >> 8)], fmt='0x{:X}',
+    attr='NT_BANK(%d) ' % 7)   # (en la página fría: lo común está lleno; death.c lo lee con nt_paged_w)
+arr('uint8', 'kDeathTimes', list(r(0x9BB823, 18)))
 _, sc = c_array_from_source('sm_94.c', 'kSinCosTable8bit_Sext')
 H.append('extern const int16 kSinCosTable8bit_Sext[%d];' % len(sc))
 C.append('const int16 kSinCosTable8bit_Sext[%d] = { %s };' % (len(sc), ', '.join(str(v) for v in sc)))

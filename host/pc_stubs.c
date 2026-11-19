@@ -136,3 +136,6 @@ void EndingTextUpload(uint16 vram) {            /* el mapa del texto (cinematic_
 }
 void EndingStar(uint16 x, uint16 y, uint16 chr) { if (endlog()) fprintf(endlog(), "star %d %d %04X\n", x, y, chr); }
 void EndingM7Queue(uint16 a, uint16 b, uint16 c) { if (endlog()) fprintf(endlog(), "m7q %04X %04X %04X\n", a, b, c); }
+/* la muerte de Samus (death.c, docs/64): avisos a la capa de dibujo */
+void SamusDeathGfx(void) {}
+void SamusDeathTiles(uint16 i) { (void)i; }

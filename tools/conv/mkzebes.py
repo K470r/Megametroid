@@ -1393,6 +1393,15 @@ def main():
             sz = sum(tsz_[t] * int(x) + 2 for t, x in re.findall(r'ED_PAGE_ATTR static const (\w+) \w+\[(\d+)\]', et))
             # (+ 16 KB: el código del final, md_ending.c, también va en esa página: ED_CODE)
             pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz + 16384
+    # la muerte de Samus (mkdeath.py, md_death_data.c): sus tiles y registros
+    ddat = HERE.parent.parent / "res" / "gen" / "md" / "md_death_data.c"
+    if ddat.exists():
+        dt = ddat.read_text()
+        pg = re.search(r'#define DEATH_PAGE_ATTR __attribute__\(\(section\("\.bank(\d+)"\)\)\)', dt)
+        if pg:
+            tsz_ = {'uint8_t': 1, 'uint16_t': 2}
+            sz = sum(tsz_[t] * int(x) + 2 for t, x in re.findall(r'DEATH_PAGE_ATTR const (\w+) \w+\[(\d+)\]', dt))
+            pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz
     # lo que ocupa la intro en sus páginas (de las declaraciones de md_intro_data.c, con margen): el resto de esas
     # páginas también sirve para Zebes
     tsz = {'uint8': 1, 'int8': 1, 'uint16': 2, 'int16': 2, 'uint32': 4}

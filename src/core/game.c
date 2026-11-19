@@ -84,9 +84,9 @@ void DetermineWhichEnemiesToProcess(void) {  // 0xA08EB6
   interactive_enemy_indexes[iw >> 1] = 0xFFFF;
 }
 
+uint8 SamusOutOfHealth(void);
 static void HandleSamusOutOfHealthAndGameTile(void) {  // 0x82DB69
-  if ((int16)samus_health <= 0)
-    nt_unimpl("HandleSamusOutOfHealthAndGameTile (sin energía)");
+  if ((int16)samus_health <= 0 && SamusOutOfHealth()) return;   /* (death.c: tanques de reserva o la muerte) */
   if (!sign16(++game_time_frames - 60)) {
     game_time_frames = 0;
     if (!sign16(++game_time_seconds - 60)) {
@@ -220,12 +220,131 @@ RESUME_2:
 /* la pausa (estados 12-18, pause.c; docs/53): fuera del switch de RunGameState para no cambiar cómo se compila (los
    tiempos de las escenas de Ceres dependen del ciclo exacto) */
 static uint8 RunGameState(uint16 st);
+static uint8 DeathGameState(uint16 st);
+uint8 RefillHealthFromReserveTanks(void);
 NT_LATE static uint8 PauseGameState(uint16 st) {
-  if (st == 12 || st == 18) {                      // GameState_12_Pausing_Darkening_Async / GameState_18_Unpausing
+  /* (también la muerte: 19-24 y 27, death.c; los que corren el juego usan esta misma llamada a RunGameState(8)) */
+  if (st == 12 || st == 18 || st == 19 || st == 20 || st == 27) {   // GameState_12_Pausing_Darkening_Async / _18_Unpausing
+    if (st == 27 && RefillHealthFromReserveTanks()) {   // GameState_27_ReserveTanksAuto ($82:DC10): antes del juego
+      time_is_frozen_flag = 0;
+      game_state = 8;
+      CallSomeSamusCode(0x10);
+    }
     if (RunGameState(8)) return 1;                 /* GameState_8_MainGameplay (así no se agrega otra llamada) */
-    return PauseFadeStates(st);
+    return st >= 19 ? DeathGameState(st) : PauseFadeStates(st);
   }
+  if (st >= 19) return DeathGameState(st);
   return PauseStates(st);                          /* 13-17 */
+}
+
+/* la muerte de Samus (estados 19-25 y 27; death.c, docs/64): fuera del switch de RunGameState, como la pausa */
+void StartSamusDeathAnimation(void);
+void Samus_DrawStartingDeathAnim(void);
+void Samus_DrawDuringDeathAnim(void);
+uint16 HandleSamusDeathSequence(void);
+void GameState_24_SamusNoHealth_Explosion_1(void);
+uint16 GameState_24_SamusNoHealth_Explosion_2(void);
+uint8 RefillHealthFromReserveTanks(void);
+void SamusDeathGfx(void);
+void Samus_DrawWhenNotAnimatingOrDying(void);
+void Samus_LowHealthCheck_(void);
+uint8 AdvancePaletteFadeForAllPalettes(void);
+void WaitUntilEndOfVblankAndClearHdma(void);
+void HandleFadeOut(void);
+void EnableNMI(void);
+void nt_clear_ram(uint16 from, uint16 to);
+/* (19, 20 y 27 corren el juego antes: PauseGameState tiene la llamada a RunGameState(8); otra hacía que gcc copiara
+   toda la máquina de estados: 27 KB de la ROM fija) */
+NT_LATE __attribute__((optimize("Os"))) static uint8 DeathGameState(uint16 st) {
+  switch (st) {
+  case 27:                                       // GameState_27_ReserveTanksAuto ($82:DC10), después del juego
+    Samus_LowHealthCheck_();
+    return 0;
+  case 19:                                       // GameState_19_SamusNoHealth ($82:DC80)
+    for (int i = 255; i >= 0; --i)
+      cinematic_text_tilemap[i + 384] = palette_buffer[i];   /* (7E:3300: la paleta del juego, guardada) */
+    for (int j = 0; j < 192; j++) target_palettes[j] = 0;
+    for (int k = 0; k < 48; k++) target_palettes[k + 208] = 0;
+    for (int m = 0; m < 16; m++) target_palettes[m + 192] = palette_buffer[m + 192];
+    game_options_screen_index = 3;
+    g_word_7E0DE4 = 0;
+    g_word_7E0DE6 = 0;
+    g_word_7E0DE8 = 0;
+    hud_item_index = 0;
+    samus_auto_cancel_hud_item_index = 0;
+    samus_invincibility_timer = 0;
+    samus_knockback_timer = 0;
+    ++game_state;
+    return 0;
+  case 20:                                       // GameState_20_SamusNoHealth_BlackOut ($82:DCE0)
+    palette_change_denom = 6;
+    if (AdvancePaletteFadeForAllPalettes()) {
+      WaitUntilEndOfVblankAndClearHdma();
+      reg_NMITIMEN &= ~0x30;                     /* DisableIrqInterrupts ($80:985F) */
+      fx_layer_blending_config_a = 0;
+      cur_irq_handler = 0;
+      next_gameplay_CGWSEL = 0;
+      next_gameplay_CGADSUB = 0;
+      reg_TM = 16; reg_TS = 0; reg_TMW = 0; reg_TSW = 0;
+      reg_BGMODE = 9;
+      game_options_screen_index = 0;
+      screen_fade_delay = 0;
+      screen_fade_counter = 0;
+      nt_clear_ram(0x1A8D, 0x1B8D);                /* (eproj_y_subpos[15] y las 127 palabras que siguen: 7E:1A8D-1B8C) */
+      g_word_7E0DE8 = 16;
+      game_options_screen_index = 3;
+      g_word_7E0DE4 = 0;
+      g_word_7E0DE6 = 0;
+      ++game_state;
+      power_bomb_explosion_status = 0;
+      QueueSfx1_Max15(2);
+      QueueSfx2_Max15(0x71);
+      QueueSfx3_Max15(1);
+      QueueMusic_Delayed8(0);
+      QueueMusic_Delayed8(0xFF39);
+      QueueMusic_DelayedY(5, 0xE);
+      SamusDeathGfx();                           /* Genesis: Samus sola en negro */
+    }
+    return 0;
+  case 21:                                       // GameState_21_SamusNoHealth ($82:DD71)
+    Samus_DrawWhenNotAnimatingOrDying();
+    if (!HasQueuedMusic()) {
+      StartSamusDeathAnimation();
+      ++game_state;
+    }
+    return 0;
+  case 22:                                       // GameState_22_SamusNoHealth_Dying ($82:DD87)
+    Samus_DrawStartingDeathAnim();
+    if ((int16)--g_word_7E0DE8 <= 0)
+      ++game_state;
+    return 0;
+  case 23:                                       // GameState_23_SamusNoHealth_Flashing ($82:DD9A)
+    if (HandleSamusDeathSequence())
+      ++game_state;
+    else
+      Samus_DrawDuringDeathAnim();
+    return 0;
+  case 24:                                       // GameState_24_SamusNoHealth_Explosion ($82:DDAF)
+    GameState_24_SamusNoHealth_Explosion_1();
+    if (GameState_24_SamusNoHealth_Explosion_2()) {
+      screen_fade_delay = 1;
+      screen_fade_counter = 1;
+      ++game_state;
+    }
+    return 0;
+  case 25:                                       // GameState_25_SamusNoHealth_BlackOut ($82:DDC7)
+    HandleFadeOut();
+    if (reg_INIDISP == 0x80) {
+      EnableNMI();
+      screen_fade_delay = 0;
+      screen_fade_counter = 0;
+      ++game_state;
+      menu_index = 0;
+      debug_disable_sounds = 0;
+    }
+    return 0;
+  }
+  return 0;
 }
 
 /* RunOneFrameOfGame ($82:8948) + NMI ($80:9583) + interrupciones de línea del cuadro.
@@ -329,8 +448,11 @@ static uint8 RunGameState(uint16 st) {
       QueueSfx1_Max15(2);
       QueueSfx2_Max15(0x71);
       QueueSfx3_Max15(1);
-      if (CheckEventHappened(0xE)) {
-        nt_unimpl("GameState_36 (tiempo agotado en el escape de Zebes)");
+      if (CheckEventHappened(0xE)) {             /* la huida de Zebes: el menú de fin de juego (docs/64) */
+        game_options_screen_index = 0;
+        menu_index = 0;
+        nt_clear_ram(0x1A8D, 0x1B8D);            /* (eproj_y_subpos[15] y las 127 palabras que siguen) */
+        game_state = 25;
       } else {
         game_state = 37;
         cinematic_function = FUNC16(CinematicFunctionBlackoutFromCeres);
@@ -351,6 +473,7 @@ static uint8 RunGameState(uint16 st) {
   case 25: case 26: return GameOverStates(st);      /* gameover.c */
   default:
     if ((uint16)(st - 12) <= 6) return PauseGameState(st);   /* 12-18: la pausa */
+    if ((uint16)(st - 19) <= 6 && st != 25 || st == 27) return PauseGameState(st);   /* 19-24, 27: la muerte (death.c; 25: gameover.c) */
     nt_unimpl("game_frame (estado de juego sin portar)"); return 0;
   }
 }

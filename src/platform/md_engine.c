@@ -1195,6 +1195,7 @@ void DrawSamusSpritemap(uint16 idx, uint16 x, uint16 y) {  // 0x8189AE
      allí no importa porque la y del sprite es de 8 bits. Aquí se toma igual solo el byte bajo cuando la y es absurda
      (si no, Samus desaparecía un cuadro al tocar el suelo). */
   if ((int16)y < -128 || (int16)y > 384) y &= 0xFF;
+  if ((uint16)(idx - 2076) <= 2093 - 2076) { extern void dh_samus_spr_(uint16, uint16, uint16); dh_samus_spr_(idx, x, y); return; }
   if (idx >= SAMUS_SPRITEMAP_COUNT) { missing(9, idx, 0, 0); return; }
   uint16 o = kSamusSprIndex[idx];
   if (o == 0xFFFF) { missing(6, idx, 0, 0); return; }
@@ -2123,6 +2124,7 @@ static const MdRoom *find_room(void) {
 static void md_use_room(const MdRoom *R);
 static void md_room_gfx(void) {   /* g_hooks.room_gfx: la sala nueva ya está en las variables del motor */
   md_sync();                                   /* lo del vblank cambia: que antes tome el cuadro anterior */
+  { extern uint8 dh_on; dh_on = 0; }           /* (la muerte terminó: md_death.c) */
   memset(ep_cache, 0, sizeof ep_cache);        /* las claves de sprites son de la sala */
   cine_stage = 0;
   pz_on = 0;                                   /* (al salir de la pausa: ResumeGameplay) */
@@ -2578,7 +2580,7 @@ static void cine_start(uint8 stage, uint16 id) {
   m7_lock = 0;
 }
 void CinematicGfx(uint16 which) { cine_start((uint8)which, 0xC000 | which); }
-void MenuGfx(void) { cine_start(3, 0xC0FF); }
+void MenuGfx(void) { extern uint8 dh_on; dh_on = 0; cine_start(3, 0xC0FF); }
 void Mode7Transfers(uint16 list) {
   if (list == addr_kCinematicFunction_Intro_Func76_M7_0) cine_var = 2;
   else if (list == addr_kCinematicFunction_Intro_Func76_M7_2) cine_var = 3;
@@ -2862,8 +2864,11 @@ static void rain_vblank(void) {                 /* los 4 tiles (rain_post los co
 
 void md_ending_frame(void);
 void ed_vblank(void);
+void md_death_frame(void);
+extern uint8 dh_on;
 void md_post(void) {
   if (ed_on) { md_ending_frame(); return; }   /* el final (estado 39): md_ending.c */
+  if (dh_on) { md_death_frame(); return; }    /* la muerte de Samus: md_death.c */
   if (pz_dim) { rain_slot_k = 0xFF; rain_pal_dirty = 1; md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c (pisa la RAM de los tiles de la lluvia) */
   pipe_take();
   md_haze_read();
@@ -3392,3 +3397,4 @@ void md_vblank(uint16_t late) {
 }
 
 #include "md_ending.c"                        /* el final: escenas en modo 1 (docs/63) */
+#include "md_death.c"                         /* la muerte de Samus (docs/64) */

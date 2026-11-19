@@ -19,6 +19,7 @@ static void hud_prepare(void);
 extern uint8 md_spr_reserved;
 
 uint8 pz_on;                                   /* la pausa se está dibujando (de PAUSE_GFX_ENTER a la sala otra vez) */
+uint8 pz_fsel;                                 /* el mapa de la partida (md_filemap.c): sin HUD, el pie del marco */
 uint8 pz_dim;                                  /* estados 12-18 (md_post y md_vblank pasan por aquí) */
 static uint8 pz_line3;                         /* 12 y 18: los colores de la línea 3 están oscurecidos (pz_line3_save) */
 static uint16 pz_line3_save[15];
@@ -147,7 +148,7 @@ NT_LATE static void md_pause_post(void) {
   scroll_bx = reg_BG2HOFS;
   scroll_by = reg_BG2VOFS;
   const uint16 *b = &cinematic_text_tilemap[0x320];   /* 7E:3640: filas 25-26 del BG2 (UpdatePauseMenuLRStartVramTilemap) */
-  for (uint16 i = 0; i < 64; i++)
+  for (uint16 i = 0; i < (pz_fsel ? 0 : 64); i++)
     if (b[i] != pz_braw[i]) { pz_braw[i] = b[i]; pz_bcells[i] = pz_cell(b[i]); pz_brows |= 1 << (i >> 5); }
   pz_mn = 0;
   if (pz_amode == 0) {                         /* mapa (LoadPauseMenuMapTilemap): el BG1 de 64x32 del SNES son dos
@@ -193,7 +194,10 @@ NT_LATE static void md_pause_post(void) {
 NT_LATE static void pz_plane_b(void) {                 /* (pantalla apagada) el marco: $B6:E000, 32x32, y el nombre del área */
   vdp_set_vram_write(MD_VRAM_PLANE_B);
   for (uint16 r = 0; r < 32; r++) {
-    for (uint16 c = 0; c < 32; c++) VDP_DATA = pz_lookup(kBankB6_Pause[r * 32 + c]);   /* BB6W(0xE000 + ...) */
+    for (uint16 c = 0; c < 32; c++)              /* BB6W(0xE000 + ...); el mapa de la partida: desde la fila 25 el pie
+                                                    (kFileSelectExpandingSquareTilemap, $81:B14B, corrido una palabra)
+                                                    y 0x2801 (FileSelectMap_5_ExpandingSquare) */
+      VDP_DATA = pz_lookup(!pz_fsel || r < 25 ? kBankB6_Pause[r * 32 + c] : r < 30 ? B81W(0xB14B + 2 * ((r - 25) * 32 + c + 1)) : 0x2801);
     for (uint16 c = 0; c < 32; c++) VDP_DATA = 0;
   }
 }
@@ -202,7 +206,7 @@ NT_LATE static void pz_label(void) {                   /* kPauseAreaLabelTilemap
   uint16 a = area_index < 7 ? area_index : 0;
   uint16 p = B82W(0x965F + 2 * a);
   vdp_set_vram_write(MD_VRAM_PLANE_B + (5 * 64 + 10) * 2);
-  for (uint16 i = 0; i < 12; i++) VDP_DATA = pz_lookup(B82W(p + 2 * i));
+  for (uint16 i = 0; i < 12; i++) VDP_DATA = pz_lookup(B82W(p + 2 * i) & (pz_fsel ? 0xEFFF : 0xFFFF));
 }
 
 /* lo propio de la pausa en la VRAM (desde md_pause_frame; la CRAM, los sprites, el HUD y el scroll los escribe md_vblank
@@ -217,7 +221,7 @@ NT_LATE static void md_pause_vblank(void) {
       pz_dma(kPzTiles, PZ_TILE_BASE * 32, PZ_TILE_COUNT * 16);
       pz_map_page(lp);
       vdp_reg(0x10, 0x01);                      /* planos de 64x32 (BG1SC = 0x31, BG2SC = 0x38) */
-      vdp_reg(0x12, 0x04);                      /* el HUD en la ventana */
+      vdp_reg(0x12, pz_fsel ? 0x00 : 0x04);     /* el HUD en la ventana (no en el mapa de la partida) */
       vdp_fill_vram(MD_VRAM_PLANE_A, 0, 0x1000);
       pz_plane_b();
       pz_brows = 3;
@@ -285,6 +289,7 @@ NT_LATE void md_pause_frame(void) {            /* md_post en los estados 12-18 *
     if (nt_palette_hi - nt_palette_lo < 32) {  /* pocos índices (la flecha, la paleta animada): solo sus colores */
       for (uint16 i = nt_palette_lo; i <= nt_palette_hi; i++)
         for (uint8 slot = cram_rev[i]; slot != 0xFF; slot = cram_next[slot]) {
+          if (pz_fsel && kPzFselCol[slot] != 0xFFFF) continue;
           uint16 v = kCram555[palette_buffer[i] & 0x7FFF];
           if (v != cram[slot]) { cram[slot] = v; cram_dirty = 1; }
         }
@@ -293,7 +298,8 @@ NT_LATE void md_pause_frame(void) {            /* md_post en los estados 12-18 *
       uint16 *c = cram;
       for (uint16 i = 64; i; i--, c++) {
         uint16 o = *off++;
-        uint16 v = o >= 0xFFFE ? 0 : kCram555[palette_buffer[o >> 1] & 0x7FFF];
+        uint16 f = pz_fsel ? kPzFselCol[64 - i] : 0xFFFF;   /* (el mapa de la partida: los fijos, de la pausa) */
+        uint16 v = f != 0xFFFF ? kCram555[f] : o >= 0xFFFE ? 0 : kCram555[palette_buffer[o >> 1] & 0x7FFF];
         if (v != *c) { *c = v; cram_dirty = 1; }
       }
     }

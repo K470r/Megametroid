@@ -27,3 +27,26 @@ uint16 g_word_7E0DE8 @0xDE8
 # las partidas (save.c, docs/65): parte del equipo que se guarda; NewSaveFile ($81:B2CB) las pone a 1
 uint16 debug_flag @0x9E6
 uint16 UNUSED_word_7E09E8 @0x9E8
+# el mapa de la partida (filemap.c, docs/67): la estación de la partida, el cuadrado (7E:9E20-9E51: dentro de
+# hdma_table_2, como las tablas de las ventanas de 7E:9E00) y el contador de 7E:0787
+uint16 sram_save_station_index @0xD916
+uint16 g_word_7E0787 @0x787
+alias expand_sq_topbottom_margin_right_pos = hdma_table_2[144]
+alias expand_sq_topbottom_margin_left_pos = hdma_table_2[145]
+alias expand_sq_left_subpos = hdma_table_2[152]
+alias expand_sq_left_pos = hdma_table_2[153]
+alias expand_sq_right_subpos = hdma_table_2[154]
+alias expand_sq_right_pos = hdma_table_2[155]
+alias expand_sq_top_subpos = hdma_table_2[156]
+alias expand_sq_top_pos = hdma_table_2[157]
+alias expand_sq_bottom_subpos = hdma_table_2[158]
+alias expand_sq_bottom_pos = hdma_table_2[159]
+alias expand_sq_left_subvel = hdma_table_2[160]
+alias expand_sq_left_vel = hdma_table_2[161]
+alias expand_sq_right_subvel = hdma_table_2[162]
+alias expand_sq_right_vel = hdma_table_2[163]
+alias expand_sq_top_subvel = hdma_table_2[164]
+alias expand_sq_top_vel = hdma_table_2[165]
+alias expand_sq_bottom_subvel = hdma_table_2[166]
+alias expand_sq_bottom_vel = hdma_table_2[167]
+alias expand_sq_timer = hdma_table_2[168]

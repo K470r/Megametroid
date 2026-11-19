@@ -34,10 +34,13 @@ al escribir. Se guarda donde el SNES: la estación de guardado (plm.c), la nave 
 - **Menú de partidas** (`src/front/menu.c`): cada ranura con su energía, tanques y hora como `DrawFileSelectionHealth`
   / `DrawFileSelectionTime` ($81:A087 / A14E), o NO DATA. El cursor empieza en la última ranura usada.
 - **Elegir una ranura** (md_main.c): con partida, `StartLoadedGame` (save.c): `LoadFromSram` y lo que sigue en el SNES
-  según `loading_game_state` (0x1F Ceres, 0x22 la huida de Ceres, 5 el estado 6: cargar en la estación). Sin partida,
-  la intro (partida nueva en esa ranura).
+  según `loading_game_state` (0x1F Ceres, 0x22 la huida de Ceres, 5 el mapa de la partida, docs/67, y después el
+  estado 6: cargar en la estación). Sin partida, la intro (partida nueva en esa ranura).
 - **Fin de juego, YES**: `LoadFromSram` como el SNES; en Ceres otra vez Ceres, si no el estado 5 (el mapa de la
-  partida). La Genesis empieza de nuevo el juego con la partida cargada.
+  partida, dentro del motor, como en el SNES).
+- **Copiar y borrar partidas** (DATA COPY / DATA CLEAR, aparecen si hay alguna partida): elegir la ranura (y el
+  destino), confirmar con YES / NO; se copian o se ponen a cero los 0x65C bytes y las cuatro sumas, como
+  `FileSelectMenu_13` / `_25` ($81:9A2C / $81:9C9E). Los textos, en `tools/lang/menu.txt`.
 
 ## Pruebas
 
@@ -55,7 +58,5 @@ al escribir. Se guarda donde el SNES: la estación de guardado (plm.c), la nave 
 
 ## Falta
 
-- El mapa de la partida (estado 5, FileSelectMap: el planeta y el área) antes de cargar: se salta al estado 6.
-- Copiar y borrar partidas (DATA COPY / DATA CLEAR del menú).
-- Al volver del fin de juego la Genesis empieza con la RAM del comienzo (md_init) y no con la que quedó: el estado 6
-  vuelve a armar casi todo, pero no es byte por byte lo del SNES.
+- Elegir una partida desde el menú empieza con la RAM del comienzo (md_init) más la partida cargada: el SNES llega
+  ahí desde sus menús, con la RAM que dejaron. El estado 6 vuelve a armar casi todo.

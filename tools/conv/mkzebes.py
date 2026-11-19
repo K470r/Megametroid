@@ -1402,6 +1402,17 @@ def main():
             tsz_ = {'uint8_t': 1, 'uint16_t': 2}
             sz = sum(tsz_[t] * int(x) + 2 for t, x in re.findall(r'DEATH_PAGE_ATTR const (\w+) \w+\[(\d+)\]', dt))
             pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz
+    # el mapa de la partida (mkfilemap.py, md_fmap_data.c): el planeta, sus sprites y (16 KB) el código de filemap.c y
+    # md_filemap.c (FM_CODE)
+    fdat = HERE.parent.parent / "res" / "gen" / "md" / "md_fmap_data.c"
+    if fdat.exists():
+        ft = fdat.read_text()
+        pg = re.search(r'#define FM_ATTR __attribute__\(\(section\("\.bank(\d+)"\)\)\)', ft)
+        if pg:
+            tsz_ = {'uint8_t': 1, 'uint16_t': 2, 'FmImage': 16}
+            sz = sum(tsz_[t] * int(x) + 2 for t, x in re.findall(r'FM_ATTR const (\w+) \w+\[(\d+)\]', ft))
+            # (+ 12 KB: el código del menú de partidas, src/front/menu.c, también va ahí: md_ssf2.ld)
+            pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz + 16384 + 12288
     # lo que ocupa la intro en sus páginas (de las declaraciones de md_intro_data.c, con margen): el resto de esas
     # páginas también sirve para Zebes
     tsz = {'uint8': 1, 'int8': 1, 'uint16': 2, 'int16': 2, 'uint32': 4}

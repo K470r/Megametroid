@@ -257,6 +257,7 @@ static void reset_game_vars(void) {
 #define PG_CERES 1
 #define PG_INTRO 2
 #define PG_LOAD 3
+#define PG_OPTIONS 4                            /* B en el planeta del mapa de la partida: a las opciones (estado 2) */
 static u16 g_slot;                              /* selected_save_slot (las variables del juego vuelven a empezar) */
 static u16 play_game(u16 mode) {
   u16 intro = mode == PG_INTRO;
@@ -285,9 +286,9 @@ static u16 play_game(u16 mode) {
     u32 t0 = now_lines();                         /* líneas de la consola que usa el cuadro (sin las esperas) */
     md_logic(read_joy());
     u32 t1 = now_lines();
-    { extern uint16_t game_state;                 /* fin de juego: 31 = YES en Ceres, 5 = YES con partida, 0xFFFF = NO */
-      if (game_state == 31 || game_state == 5 || game_state == 0xFFFF) {
-        u16 again = game_state == 31 ? PG_CERES : game_state == 5 ? PG_LOAD : PG_TITLE;
+    { extern uint16_t game_state;                 /* fin de juego: 31 = YES en Ceres, 0xFFFF = NO; 2 = las opciones */
+      if (game_state == 31 || game_state == 2 || game_state == 0xFFFF) {
+        u16 again = game_state == 31 ? PG_CERES : game_state == 2 ? PG_OPTIONS : PG_TITLE;
         md_wait_free();
         SYS_disableInts();
         SYS_setVIntCallback(NULL);
@@ -319,14 +320,28 @@ static u16 play_game(u16 mode) {
 /* Título -> partidas y opciones (SALIR vuelve al título) -> juego. Con MD_TEST_INPUT (comparación cuadro a cuadro
    con la grabación del SNES) o MD_NO_TITLE se empieza directo en el juego. */
 #define MD_TITLE_PAGE 22                        /* el título va al final de la página 22 (md_ssf2.ld, .bank22) */
-static void front_screens(void) {
+#define MD_MENU_PAGE 23                         /* el código del menú (md_ssf2.ld; mkzebes.py lo cuenta) */
+static void title_page(void) {
+  __asm__ volatile("" ::: "memory");
+  *(volatile u8 *)0xA130FF = MD_TITLE_PAGE;
+  __asm__ volatile("" ::: "memory");
+}
+static u16 menu_at(u16 options) {                 /* el menú con su página en la ventana 7 (no lee la del título) */
+  __asm__ volatile("" ::: "memory");
+  *(volatile u8 *)0xA130FF = MD_MENU_PAGE;
+  __asm__ volatile("" ::: "memory");
+  return menu_run_at(options);
+}
+static void front_screens(u16 options) {         /* options: B en el mapa de la partida (las opciones de esa ranura) */
   __asm__ volatile("" ::: "memory");
   *(volatile u8 *)0xA130FF = MD_TITLE_PAGE;       /* la ventana 7 con la página del título (el menú no la lee) */
   __asm__ volatile("" ::: "memory");
   VDP_init();                                     /* el juego deja el VDP a su manera: SGDK lo vuelve a armar */
+  if (options && menu_at(1) == MENU_START) return;
   for (;;) {
+    title_page();
     title_run();
-    if (menu_run() == MENU_START) break;
+    if (menu_at(0) == MENU_START) break;
   }
 }
 
@@ -342,7 +357,7 @@ int main(bool hard) {
   menu_load_options();                            /* el idioma y las opciones guardados */
   { extern void VerifySRAM(void); VerifySRAM(); }   /* (la firma del SNES al encender: save.c) */
 #if !defined(MD_TEST_INPUT) && !defined(MD_NO_TITLE)
-  front_screens();
+  front_screens(0);
 #endif
 #if (!defined(MD_TEST_INPUT) && !defined(MD_NO_TITLE)) || defined(MD_TEST_INTRO)
   u16 mode = PG_INTRO;                            /* partida nueva: la intro y después Ceres */
@@ -354,8 +369,8 @@ int main(bool hard) {
   if (g_menu_slot_used) mode = PG_LOAD;
 #endif
   for (;;) {
-    while ((mode = play_game(mode)) != PG_TITLE) {}   /* fin de la intro o YES: Ceres o la partida guardada */
-    front_screens();                              /* NO: al título */
+    while ((mode = play_game(mode)) != PG_TITLE && mode != PG_OPTIONS) {}   /* fin de la intro o YES: Ceres */
+    front_screens(mode == PG_OPTIONS);            /* NO: al título; B en el planeta: a las opciones */
     g_slot = g_menu_slot;
     mode = g_menu_slot_used ? PG_LOAD : PG_INTRO;
   }

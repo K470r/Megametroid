@@ -469,7 +469,8 @@ static uint8 RunGameState(uint16 st) {
       ++game_state;
     }
     return 0;
-  case 5: case 31: case 0xFFFF: return 0;           /* fin de juego -> la partida guardada / Ceres / reinicio: la Genesis */
+  case 5: { void FileSelectMapPaged(void); FileSelectMapPaged(); return 0; }   /* el mapa de la partida (filemap.c) */
+  case 2: case 31: case 0xFFFF: return 0;           /* opciones / Ceres de nuevo / reinicio: la Genesis (md_main.c) */
   case 25: case 26: return GameOverStates(st);      /* gameover.c */
   default:
     if ((uint16)(st - 12) <= 6) return PauseGameState(st);   /* 12-18: la pausa */

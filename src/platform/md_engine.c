@@ -2128,6 +2128,7 @@ static void md_room_gfx(void) {   /* g_hooks.room_gfx: la sala nueva ya está en
   memset(ep_cache, 0, sizeof ep_cache);        /* las claves de sprites son de la sala */
   cine_stage = 0;
   pz_on = 0;                                   /* (al salir de la pausa: ResumeGameplay) */
+  { extern uint8 fm_on, pz_fsel; fm_on = 0; pz_fsel = 0; }   /* (o del mapa de la partida: md_filemap.c) */
   if (area_index != 6) {                       /* Zebes: se dibuja desde el nivel (md_zebes.c) */
     const MdRoom *z = zebes_use();
     if (z) { md_use_room(z); return; }
@@ -2594,8 +2595,11 @@ void DrawCinematicSpritemap(uint16 sm, uint16 x, uint16 y, uint16 chr, uint8 off
 }
 #include "nmath.h"
 #include "md_pause.c"                         /* la pausa: mapa y equipo (docs/53) */
+extern uint8 fm_on;
+void fm_spr(uint16 idx, uint16 x, uint16 y, uint16 chr);   /* md_filemap.c */
 void DrawMenuSpritemap(uint16 idx, uint16 x, uint16 y, uint16 chr) {   /* $81:891F */
   if (pz_on) { pz_spr(idx, x, y, chr); return; }
+  if (fm_on) { fm_spr(idx, x, y, chr); return; }
   if (!drawkey(10, idx, chr, 0, (int16)x, (int16)y - 2)) missing(10, idx, chr, 0);
 }
 
@@ -2866,7 +2870,9 @@ void md_ending_frame(void);
 void ed_vblank(void);
 void md_death_frame(void);
 extern uint8 dh_on;
+uint8 md_filemap_frame_(void);
 void md_post(void) {
+  if (fm_on && md_filemap_frame_()) return; /* el mapa de la partida (estado 5): md_filemap.c */
   if (ed_on) { md_ending_frame(); return; }   /* el final (estado 39): md_ending.c */
   if (dh_on) { md_death_frame(); return; }    /* la muerte de Samus: md_death.c */
   if (pz_dim) { rain_slot_k = 0xFF; rain_pal_dirty = 1; md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c (pisa la RAM de los tiles de la lluvia) */
@@ -3398,3 +3404,4 @@ void md_vblank(uint16_t late) {
 
 #include "md_ending.c"                        /* el final: escenas en modo 1 (docs/63) */
 #include "md_death.c"                         /* la muerte de Samus (docs/64) */
+#include "md_filemap.c"                       /* el mapa de la partida (docs/67) */

@@ -13,7 +13,8 @@ de arriba, como hace `make_menu_data.py`).
 
 | texto | de dónde sale | ¿traducible? |
 |---|---|---|
-| Menú de partidas y opciones (SAMUS DATA, NO DATA, TIME, ENERGY, EXIT, OPTION MODE, controles, ajustes especiales) | `tools/lang/menu.txt` (clave \| inglés \| español) | **sí, ya funciona** |
+| Menú de partidas y opciones (SAMUS DATA, NO DATA, TIME, ENERGY, EXIT, OPTION MODE, controles, ajustes especiales, copiar y borrar partidas con sus preguntas) | `tools/lang/menu.txt` (clave \| inglés \| español) | **sí, ya funciona** |
+| Mapa de la partida: "PLANET ZEBES" y los nombres de las áreas (sprites), "MAP SCROLL / START / CANCEL" (pie del marco) | spritemaps del menú ($82) y $81:B14B (docs/67) | **no todavía**: los nombres de las áreas no se traducen; "PLANET ZEBES" y el pie, como las cajas de mensaje |
 | Intro: "THE LAST METROID IS IN CAPTIVITY..." y las 5 páginas del diario de Samus | el motor dibuja el texto del SNES (objetos de texto $8C, fuente de la ROM: `mkintro.py`) | **falta conectar**: `tools/lang/intro_es.txt` existe (lo lee `make_menu_data.py`, con el límite de letras por línea) pero está vacío y la intro nativa no lo usa |
 | Cajas de mensaje (ítems obtenidos, "¿guardar?", MAP DATA, ENERGY RECHARGED, etc.: 28) | mapas de tiles del banco $85 (`kBank85_MsgBox`, msgbox.c) dibujados con la fuente del BG3 | **no todavía**: son mapas de la ROM; hace falta un `msgbox.txt` y armar los mapas en español con la misma fuente |
 | Pausa: MAP / SAMUS / EQUIPMENT, los nombres de los ítems y de las áreas, START/L/R | tiles y mapas de la ROM (`mkpause.py`) | **no todavía**: mismo caso; los nombres son letras de la fuente de la pausa, así que se pueden armar |

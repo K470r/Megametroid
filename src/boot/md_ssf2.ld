@@ -54,7 +54,7 @@ SECTIONS
 {
   .text 0x00000000:
   {
-    KEEP(*(.text.keepboot)) *(EXCLUDE_FILE(*pause.o *md_pause_data.o) .text.* EXCLUDE_FILE(*pause.o *md_pause_data.o) .text)
+    KEEP(*(.text.keepboot)) *(EXCLUDE_FILE(*pause.o *md_pause_data.o *front_menu.o) .text.* EXCLUDE_FILE(*pause.o *md_pause_data.o *front_menu.o) .text)
     . = ALIGN(0x4);
      __CTOR_LIST__ = .;
     LONG((__CTOR_END__ - __CTOR_LIST__) / 4 - 2)
@@ -163,7 +163,7 @@ SECTIONS
   /* el título (src/front/title.c) va al final de la página 22: se ve con la ventana 7 en MD_TITLE_PAGE (md.h) */
   .bank22 0x380000 : AT (0xB00000) { KEEP(*(.bank22)) . = ALIGN(0x4); __mm_title_start = .; KEEP(*(.rodata_title)) __mm_title_end = .; }
   ASSERT(SIZEOF (.bank22) <= 0x80000, "MegaMetroid: la pagina 22 pasa de 512 KB")
-  .bank23 0x380000 : AT (0xB80000) { KEEP(*(.bank23)) }
+  .bank23 0x380000 : AT (0xB80000) { KEEP(*(.bank23)) *front_menu.o(.text .text.*) }   /* (el menú: md_main.c la pone) */
   ASSERT(SIZEOF (.bank23) <= 0x80000, "MegaMetroid: la pagina 23 pasa de 512 KB")
   /* 24 y 25: Zebes (los objetos de los enemigos de todas las áreas); el sonido va en la 6 y de la 26 a la 31 */
   .bank24 0x380000 : AT (0xC00000) { KEEP(*(.bank24)) }

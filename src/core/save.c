@@ -50,6 +50,7 @@ void SaveToSram(uint16 a) {  // 0x818000
   uint16 slot = a & 3;
   if (slot > 2) return;
   SaveExploredMapTilesToSaved();
+  sram_save_station_index = load_station_index;
   sram_area_index = area_index;
   uint16 sum = 0, off = kSlotOff[slot];
   uint8 buf[64];
@@ -129,7 +130,7 @@ void SramSetLastSlot(uint16 s) { SramW(0x1FEC, s); SramW(0x1FEE, (uint16)~s); }
 /* Genesis: empezar el juego con la partida de la ranura (después de md_init, con el estado del comienzo en Ceres).
    Lo que sigue en el SNES a elegir la partida (GameOptionsMenu_4_StartGame, $82:EEB4): con loading_game_state 0x1F
    se empieza en Ceres (el estado inicial, tal cual), con 0x22 la huida de Ceres (estado 34) y con 5 en Zebes: el
-   mapa de la partida (estado 5, FileSelectMap: todavía no) y el estado 6, cargar en la estación. */
+   mapa de la partida (estado 5, filemap.c) y después el estado 6, cargar en la estación. */
 void StartLoadedGame(uint16 slot) {
   selected_save_slot = slot;
   if (LoadFromSram(slot))
@@ -138,7 +139,8 @@ void StartLoadedGame(uint16 slot) {
     game_state = 34;
     cinematic_function = FUNC16(CinematicFunctionBlackoutFromCeres);
   } else if (loading_game_state != 0x1F) {
-    game_state = 6;
+    game_state = 5;
+    menu_index = 0;
   }
 }
 

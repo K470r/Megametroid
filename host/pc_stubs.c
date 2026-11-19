@@ -155,3 +155,7 @@ void nt_sram_write(uint16_t off, const uint8_t *src, uint16_t n) {
   const char *f = getenv("MM_SRAM");
   if (f) { FILE *h = fopen(f, "wb"); if (h) { fwrite(pc_sram, 1, sizeof pc_sram, h); fclose(h); } }
 }
+/* el mapa de la partida (filemap.c, docs/67): en el PC sin página ni dibujo */
+void FileSelectMapFrame(void);
+void FileSelectMapPaged(void) { FileSelectMapFrame(); }
+void FileMapGfx(uint16_t what) { (void)what; }

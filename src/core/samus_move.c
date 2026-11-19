@@ -2501,8 +2501,49 @@ static void Samus_FrameHandlerBeta_Func17(void) {  // 0x90E725
   Samus_LowHealthCheck_();
 }
 
+void PlayRoomMusicTrackAfterAFrames(uint16 a);   /* door.c */
+void QueueMusic_DelayedY(uint16 a, uint16 j);
+void Samus_SetRadius(void);
+static uint8 PlaySamusFanfare(void) {  // 0x92ED24: la fanfarria al empezar desde una partida (360 cuadros)
+  if (substate) {
+    if (substate == 5)
+      PlayRoomMusicTrackAfterAFrames(0x168);
+  } else {
+    QueueMusic_DelayedY(1, 0xE);
+  }
+  if (sign16(substate - 359)) {
+    ++substate;
+    return 0;
+  }
+  samus_last_different_pose = samus_prev_pose;
+  samus_last_different_pose_x_dir = samus_prev_pose_x_dir;          /* (palabras del SNES: dirección y tipo de */
+  samus_last_different_pose_movement_type = samus_prev_movement_type2;   /*  movimiento juntos) */
+  samus_prev_pose = samus_pose;
+  samus_prev_pose_x_dir = samus_pose_x_dir;
+  samus_prev_movement_type2 = samus_movement_type;
+  substate = 0;
+  return 1;
+}
+
+static void Samus_Func16(void) {  // 0x90E86A: Samus quieta de frente hasta que termina la fanfarria
+  Samus_SetRadius();
+  UpdateMinimap();
+  Samus_Animate();
+  elevator_status = 0;
+  samus_prev_y_pos = samus_y_pos;
+  if (PlaySamusFanfare() & 1) {
+    if (sign16(debug_invincibility - 7) || (joypad2_last & 0x8000) == 0)
+      debug_invincibility = 0;
+    frame_handler_alfa = FUNC16(Samus_FrameHandlerAlfa_Func11);
+    frame_handler_beta = FUNC16(Samus_FrameHandlerBeta_Func17);
+  }
+}
+
 void HandleSamusMovementAndPause(void) {  // 0x90E722
   switch (frame_handler_beta) {
+  case FUNC16(Samus_Func16):                    // 0x90E86A: al empezar desde una partida guardada
+    Samus_Func16();
+    break;
   case FUNC16(Samus_FrameHandlerBeta_Func17):
     Samus_FrameHandlerBeta_Func17();
     break;

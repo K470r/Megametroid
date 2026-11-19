@@ -271,7 +271,9 @@ static u16 play_game(u16 mode) {
   md_init(intro);
   { extern uint16_t selected_save_slot; selected_save_slot = g_slot; }
   { extern void StartLoadedGame(uint16_t slot); if (mode == PG_LOAD) StartLoadedGame(g_slot); }
-  { extern uint8_t nt_viewer, nt_viewer_place, nt_viewer_enemies; nt_viewer = 1; nt_viewer_place = 1; nt_viewer_enemies = 1; }   /* Zebes: visor de salas (src/viewer.c) */
+#ifdef MD_TEST_INPUT
+  { extern uint8_t nt_viewer, nt_viewer_place, nt_viewer_enemies; nt_viewer = 1; nt_viewer_place = 1; nt_viewer_enemies = 1; }   /* ROM de prueba: el visor de salas (src/viewer.c) */
+#endif
   SYS_setHIntCallback(md_hint);
   SYS_setVIntCallback(md_vint);
   SYS_enableInts();

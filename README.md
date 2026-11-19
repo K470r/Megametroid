@@ -136,8 +136,8 @@ normal (`out/rom.bin`) en un emulador.
   la transición de puerta.
 
 **Falta.** Para poder terminarlo (bloqueos):
-1. El visor de pruebas sigue encendido en la ROM normal (`md_main.c` pone `nt_viewer`: START + izquierda/derecha
-   cambia de sala). Apagarlo fuera de las ROM de prueba.
+1. (Hecho) El visor de pruebas ya no está en la ROM normal (solo en las de prueba y en el PC); con él Samus no perdía
+   energía. Y al cargar una partida Samus ya recibe el control después de la fanfarria (`Samus_Func16`).
 2. Jugar el juego entero de principio a fin, con las salidas secretas y los atajos: hasta ahora se probó por partes
    (sala por sala contra el SNES, cada jefe, la huida con saltos de sala).
 3. El destello de cristal (crystal flash): sus paletas están, el movimiento no (`Hdmaobj_CrystalFlash`). No hace falta

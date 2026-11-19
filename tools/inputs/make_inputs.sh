@@ -67,7 +67,7 @@ rm -rf $WORK/ga
 # misma ruta que tools/compare/final_snes.sh (cuadro grabado k = cuadro 23500 + k)
 echo "   capturas del final"
 cat $BOT/in_z2.txt $ROOT/tools/compare/final_in.txt > $WORK/in_final.txt
-HL_VRAM="27000:$SNAP/END_D1.bin,36100:$SNAP/END_D2.bin,36600:$SNAP/END_D2B.bin,37100:$SNAP/END_D3.bin" \
+HL_VRAM="24500:$SNAP/END_D0A.bin,24650:$SNAP/END_D0B.bin,24726:$SNAP/END_D0C.bin,25200:$SNAP/END_D0S.bin,25750:$SNAP/END_D0T.bin,27000:$SNAP/END_D1.bin,36100:$SNAP/END_D2.bin,36600:$SNAP/END_D2B.bin,37100:$SNAP/END_D3.bin" \
 HL_WARP_ALIGN=1 HL_SETXY_SCROLL=1 HL_POKE=D820:4000,D82C:0200,943:2,A5A:E0E6 HL_WARP=21:89B2 HL_SETXY=200:1152:1100 \
 HL_ENEMIES=1 HL_GOD=1 run $HL "$SMROM" $WORK/in_final.txt /dev/null 23500
 

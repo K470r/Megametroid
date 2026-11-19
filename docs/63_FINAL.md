@@ -1,4 +1,4 @@
-# 63 — El final y los créditos (en curso: la lógica está; el dibujo, desde los créditos)
+# 63 — El final y los créditos (lógica y dibujo hechos; quedan detalles del color math y los otros finales)
 
 Referencia del SNES: `tools/compare/final_snes.sh` (el despegue de docs/62 y 16000 cuadros: capturas en
 `work/final/snes`; con `REF=archivo`, la RAM por cuadro para `host/check`).
@@ -60,42 +60,55 @@ En la última pantalla, debajo del porcentaje de objetos, mientras gira el símb
   instrucción $88:EC9F y pre-instrucción $88:ECB6, hdmaobj.c).
 - Regresión: 0 distintos. Código nuevo: ~12 KB a mano (ending.o, ending_disp.o) y ~1500 líneas traducidas.
 
-## El dibujo (2026-11-19): de los créditos a la pantalla final
+## El dibujo (2026-11-19)
 
 Escenas del final (cuadro grabado k = cuadro 23500 + k del SNES; el motor de la Genesis va por los mismos cuadros):
 
-| cuadros | escena | SNES | Genesis |
-|---|---|---|---|
-| 900-1302 | la nave sale: Zebes de cerca (modo 7) y las nubes (sprites grandes) | modo 7 + OBJ | **pendiente** (negro) |
-| 1303-2246 | el espacio, Zebes chico y su explosión | modo 1, color math | **pendiente** |
-| 2247-3456 | el casco y el tiempo | modo 7 + texto con onda | **pendiente** |
-| 3457-12566 | créditos; Samus (con traje o sin él según el tiempo) | modo 1: BG1 texto, BG2 Samus, OBJ | hecho |
-| 12567-13303 | Samus chica y el símbolo que gira | OBJ (y el símbolo en modo 7 desde 13088) | sprites hechos; el modo 7, pendiente |
-| 13304- | "SEE YOU NEXT MISSION", el porcentaje y **"GENESIS DOES..."** | modo 1: BG1 texto, BG2 el símbolo | hecho |
+| cuadros | escena | SNES | Genesis | grupo |
+|---|---|---|---|---|
+| 900-1107 | Zebes de cerca y las nubes que se abren | modo 7 + sprites de 32x32 | modo 7 a bloques + sprites | D0A |
+| 1108-1222 | las nubes grises | modo 7 + sprites | ídem | D0B |
+| 1223-1302 | Zebes se aleja | modo 7 + sprites | ídem | D0C |
+| 1303-2246 | el espacio, Zebes chico y su explosión | modo 1 (BG1/BG2 fijos, color math) | planos A/B | D0S |
+| 2247-3456 | la nave se acerca; "THE OPERATION WAS..." y el tiempo | modo 7 + sprites (letras) | modo 7 a bloques + sprites | D0T |
+| 3457-12566 | créditos; Samus (con traje o sin él según el tiempo) | modo 1: BG1 texto, BG2 Samus | planos A/B | D1 |
+| 12567-13303 | Samus chica y el símbolo que gira | sprites; el símbolo en modo 7 | sprites + modo 7 a bloques | D2, D2B |
+| 13304- | "SEE YOU NEXT MISSION", el porcentaje y **"GENESIS DOES..."** | modo 1 | planos A/B | D3 |
 
 Cómo (como la pausa, docs/53):
-- **Datos** (`tools/conv/mkending.py` → `md_ending_data.c`, todo en la página 24 del SSF2, 40 KB): por grupo de escenas
-  que comparten la VRAM del SNES (D1 créditos y Samus, D2/D2B el símbolo, D3 la pantalla final), desde una captura de
-  la VRAM del SNES con tu ROM (`snes_ref/END_*.bin`, `make_inputs.sh`) y lo que el juego dibuja
-  (`snes_ref/ending_draw.log`: palabras de mapa y spritemaps, solo números; lo arma `tools/snes_ref/ending_log.py`
-  desde `MM_ENDLOG` de `host/check`): tiles de la Genesis, tabla palabra del SNES → celda (por tile y paleta), la
-  pantalla fija del BG2, los sprites y los colores por índice de `palette_buffer` (los fundidos y brillos del final
-  cambian los colores: la Genesis los copia en cada cuadro).
-- **Genesis** (`src/platform/md_ending.c`, incluido al final de md_engine.c; `md_post` lo llama en el estado 39):
-  plano A = BG1 (las filas de 7E:3000 que el juego sube: `EndingTextUpload` y `UpdateCinematicBgTilemap`; solo las
-  filas que cambiaron, por suma), plano B = BG2 fijo; las capas apagadas (TM) se esconden con el scroll (columnas
-  32-63 vacías); los sprites, con `DrawCinematicSpritemap` y las estrellas (`EndingStar`, nuevo aviso de
+- **Datos** (`tools/conv/mkending.py` → `md_ending_data.c`, página 24 del SSF2: ~390 KB con el código): por grupo de
+  escenas que comparten la VRAM del SNES, desde una captura de la VRAM del SNES con tu ROM (`snes_ref/END_*.bin`,
+  `make_inputs.sh`) y lo que el juego dibuja (`snes_ref/ending_draw.log`: palabras de mapa y spritemaps, solo
+  números; lo arma `tools/snes_ref/ending_log.py` desde `MM_ENDLOG` de `host/check`): tiles de la Genesis, tabla
+  palabra del SNES → celda (por tile y paleta), las pantallas fijas de cada BG, los sprites (de 8x8 a 64x64 del SNES:
+  los de 64 se parten en cuatro de 32; los vecinos de la misma fila se juntan en sprites de hasta 32 de ancho, porque
+  la Genesis en H32 muestra 16 por línea) y los colores por índice de `palette_buffer` (los fundidos y brillos del
+  final cambian los colores: la Genesis los copia en cada cuadro).
+- **Modo 7** (`md_ending.c`): la Genesis no gira ni escala un plano. El 68000 calcula la imagen a bloques de 8x4
+  píxeles en el plano B (un tile por par de colores, arriba y abajo: 256 tiles fijos) desde la textura del SNES
+  (256x256 texels: la superficie se repite cada 256 y las nubes cada 128; la nave y el símbolo, acotadas: fuera no hay
+  nada), con la misma matriz del motor (M7A-D, M7X/Y, el scroll). Cada índice de la paleta de la textura tiene su
+  color (hasta 15). Solo se arma una imagen nueva si cambian los registros (las escenas fijas no cuestan nada) y solo
+  con el tiempo que le sobra al cuadro (hasta la línea 206): en las escenas pesadas la imagen cambia menos veces por
+  segundo pero el final no se atrasa. Costo medido: ~10 líneas de la consola por fila de celdas (28 por imagen). Con
+  bloques de 4x4 en los dos planos se veía mejor pero cada imagen costaba ~600 líneas: ~8 imágenes por segundo y el
+  final se atrasaba.
+- **El brillo del SNES:** cuando el SNES suma el BG1 a sí mismo (color math), los colores de la textura van al doble.
+- **Genesis** (`src/platform/md_ending.c`, incluido al final de md_engine.c; `md_post` lo llama en el estado 39; el
+  código pesado va en la página 24, `ED_CODE`, porque lo común de la ROM está lleno): plano A = BG1 (pantallas fijas o
+  las filas de 7E:3000 que el juego sube: `EndingTextUpload` y `UpdateCinematicBgTilemap`; solo las filas que
+  cambiaron, por suma), plano B = BG2 fijo; las capas apagadas (TM) se esconden con el scroll (columnas 32-63
+  vacías); los sprites, con `DrawCinematicSpritemap` y las estrellas (`EndingStar`, aviso nuevo de
   `CinematicFunction_Intro_Func149`); sin sprites si TM/TS no los tienen; los que el SNES solo suma por el color math
   van detrás del BG2.
+- **Velocidad:** los fundidos de paleta del final (`FadeIn/OutYColorsFromIndexX`, `ComposeFadingPalettes`...) usan
+  ahora las versiones nativas de la intro (intro.c, componen solo los colores que cambiaron; `host/check` sigue en 0
+  distintos). Medido con `MD_BUSYLOG` y `MD_EDPROF` (md_ending.c): el final va a 0,89-1,0 de la velocidad del SNES
+  (antes de este trabajo, partes al 0,5).
 - **El slogan:** "GENESIS DOES..." con la letra grande blanca de "SEE YOU NEXT MISSION", en las filas 16-17 (justo
   debajo del porcentaje), desde que aparece el porcentaje.
 - **Comparación** lado a lado: `tools/compare/final.sh` (como despegue.sh).
 
-Diferencias que quedan en lo hecho: el SNES suma capas con el color math (el brillo azul del traje con el BG3, Samus
-sin traje que aparece sumada sobre la del traje): en la Genesis se ve una u otra.
-
-## Lo que sigue
-
-Las escenas en modo 7 (Zebes, el casco, el símbolo: imágenes preparadas como `mkm7.py`, con la matriz del motor), las
-nubes (sprites de 64x64 del SNES: en un plano), el espacio con la explosión, y los otros finales según el tiempo
-(Samus con o sin traje: capturas de cada uno).
+Lo que queda: el color math que la Genesis no tiene (destellos blancos de la explosión y del símbolo, el brillo azul
+del traje, Samus sin traje que aparece sumada sobre la del traje: en la Genesis se ve una u otra capa), y los otros
+finales según el tiempo (Samus con o sin traje: capturas de cada uno; la grabación de prueba tiene uno solo).

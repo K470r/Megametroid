@@ -47,19 +47,32 @@ void nt_clear_ram(uint16 from, uint16 to);
 #define CINE_RAM_TO   (0x198D + 658)
 
 /* ------------------------------------------------------------------ el cuadro del estado 39 ($8B:D443) */
+#ifdef MD_EDPROF                                /* medición (prueba): líneas de cada parte del cuadro */
+void md_edprof(uint8 i);
+#define EDP(i) md_edprof(i)
+#else
+#define EDP(i)
+#endif
 void GameState_39_EndingAndCredits(void) {
+  EDP(0);
   EndingCinematicFunction(cinematic_function);   /* (ending_disp.c; las nullsub no están: no hacen nada) */
+  EDP(1);
   if (!(cinematic_var11 & 0x8000))
     ++cinematic_var11;
   ++cinematic_var12;
   HandleCinematicSprites_();
+  EDP(2);
   if (!sign16(cinematic_function + 0x1AFC))   // MaybeHandleCinematicBgObjects
     HandleCinematicBgObjects_();
   CreditsObject_Process();
+  EDP(3);
   PaletteFxHandler();
+  EDP(4);
   DrawCinematicSpriteObjects_Ending();
+  EDP(5);
   CinematicFunction_Intro_Func149();
   HandleMode7TransformationMatrix_();
+  EDP(6);
 }
 
 /* ------------------------------------------------------------------ PPU */

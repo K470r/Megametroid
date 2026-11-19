@@ -1391,7 +1391,8 @@ def main():
         if pg:
             tsz_ = {'uint8': 1, 'uint16': 2}
             sz = sum(tsz_[t] * int(x) + 2 for t, x in re.findall(r'ED_PAGE_ATTR static const (\w+) \w+\[(\d+)\]', et))
-            pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz
+            # (+ 16 KB: el código del final, md_ending.c, también va en esa página: ED_CODE)
+            pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz + 16384
     # lo que ocupa la intro en sus páginas (de las declaraciones de md_intro_data.c, con margen): el resto de esas
     # páginas también sirve para Zebes
     tsz = {'uint8': 1, 'int8': 1, 'uint16': 2, 'int16': 2, 'uint32': 4}

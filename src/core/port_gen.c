@@ -130,18 +130,23 @@ uint8 HasQueuedMusic(void);
 NT_BOSS uint16 HandleMotherBrainInstructionList(uint16 a);
 void HandleFadeIn(void);
 void GrappleBeam_Func2(void);
+void FadeOutYColorsFromIndexX(uint16 k, uint16 n);
+void FadeInYColorsFromIndexX(uint16 k, uint16 n);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 EprojBlockCollisition_Horiz(uint16 k);
 void EnableNMI(void);
 void DrawSpritemapOffScreen(uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
 void DisableMinimapAndMarkBossRoomAsExplored(void);
+void DecomposePaletteDataForFading(void);
 NT_BOSS uint16 Crocomire_Func_67(void);
 void CreditsObject_Func1(uint16 j);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
 void CopySuperMetroidString(void);
 uint16 ComputeSinMult(uint16 m, uint16 ang);
 uint16 ComputeCosMult(uint16 m, uint16 ang);
+void ComposeFadingPalettes(void);
+void ClearYColorsFromIndexX(uint16 k, uint16 n);
 void ClearEventHappened(uint16 a);
 void ClearCinematicSprites(void);
 void CinematicUpdateSomeBg(void);
@@ -542,11 +547,6 @@ static void EprojInit_Sparks(uint16 j);
 void EprojPreInstr_Sparks(uint16 k);
 void SetupPpu_5_Mode7(void);
 void CopyPalettesToFadingPalettes(void);
-void DecomposePaletteDataForFading(void);
-void ClearYColorsFromIndexX(uint16 k, uint16 j);
-void FadeOutYColorsFromIndexX(uint16 k, uint16 j);
-void FadeInYColorsFromIndexX(uint16 k, uint16 j);
-void ComposeFadingPalettes(void);
 uint8 AdvanceFastScreenFadeOut(void);
 uint8 AdvanceFastScreenFadeIn(void);
 void EnableCinematicBgObjects(void);
@@ -7060,65 +7060,6 @@ void CopyPalettesToFadingPalettes(void) {  // 0x8B8BE9
     v1 += 2;
     --v0;
   } while (v0);
-}
-void DecomposePaletteDataForFading(void) {  // 0x8B8C09
-  uint16 v0 = 0;
-  int v1 = 256;
-  do {
-    int v2 = v0 >> 1;
-    uint16 r18 = tilemap_stuff[v2 + 256];
-    int v3 = (r18 & 0x1F);
-    tilemap_stuff[v2 + 512] = v3 << 8;
-    tilemap_stuff[v2 + 1280] = v3 << 3;
-    int v4 = (r18 & 0x3E0) >> 5;
-    tilemap_stuff[v2 + 768] = v4 << 8;
-    tilemap_stuff[v2 + 1536] = v4 << 3;
-    int v6 = (r18 & 0x7C00) >> 10;
-    tilemap_stuff[v2 + 1024] = v6 << 8;
-    tilemap_stuff[v2 + 1792] = v6 << 3;
-    v0 += 2;
-  } while (--v1);
-}
-void ClearYColorsFromIndexX(uint16 k, uint16 j) {  // 0x8B8C5E
-  do {
-    int v2 = k >> 1;
-    tilemap_stuff[v2 + 256] = 0;
-    tilemap_stuff[v2 + 512] = 0;
-    tilemap_stuff[v2 + 768] = 0;
-    tilemap_stuff[v2 + 1024] = 0;
-    k += 2;
-  } while (--j);
-}
-void FadeOutYColorsFromIndexX(uint16 k, uint16 j) {  // 0x8B8C83
-  do {
-    int v2 = k >> 1;
-    tilemap_stuff[v2 + 512] -= tilemap_stuff[v2 + 1280];
-    tilemap_stuff[v2 + 768] -= tilemap_stuff[v2 + 1536];
-    tilemap_stuff[v2 + 1024] -= tilemap_stuff[v2 + 1792];
-    k += 2;
-  } while (--j);
-}
-void FadeInYColorsFromIndexX(uint16 k, uint16 j) {  // 0x8B8CB2
-  do {
-    int v2 = k >> 1;
-    tilemap_stuff[v2 + 512] = (tilemap_stuff[v2 + 1280] + tilemap_stuff[v2 + 512]) & 0x1FFF;
-    tilemap_stuff[v2 + 768] = (tilemap_stuff[v2 + 1536] + tilemap_stuff[v2 + 768]) & 0x1FFF;
-    tilemap_stuff[v2 + 1024] = (tilemap_stuff[v2 + 1792] + tilemap_stuff[v2 + 1024]) & 0x1FFF;
-    k += 2;
-  } while (--j);
-}
-void ComposeFadingPalettes(void) {  // 0x8B8CEA
-  uint16 v0 = 0;
-  int v1 = 256;
-  do {
-    int v2 = v0 >> 1;
-    int r18 = HIBYTE(tilemap_stuff[v2 + 512]) & 0x1F;
-    r18 |= (tilemap_stuff[v2 + 768] >> 3) & 0x3E0;
-    uint16 v3 = r18 | (tilemap_stuff[v2 + 1024] << 2) & 0x7C00;
-    tilemap_stuff[v2] = v3;
-    { palette_buffer[v2] = v3; nt_pal_dirty((uint8)(v2), (uint8)(v2)); }
-    v0 += 2;
-  } while (--v1);
 }
 uint8 AdvanceFastScreenFadeOut(void) {  // 0x8B90B8
   if ((reg_INIDISP & 0xF) != 0) {
@@ -38500,8 +38441,6 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0x86F0F7: Eproj_Pickup_SuperMissiles(); return 1;
   case 0x8B8293: SetupPpu_5_Mode7(); return 1;
   case 0x8B8BE9: CopyPalettesToFadingPalettes(); return 1;
-  case 0x8B8C09: DecomposePaletteDataForFading(); return 1;
-  case 0x8B8CEA: ComposeFadingPalettes(); return 1;
   case 0x8B95A2: EnableCinematicBgObjects(); return 1;
   case 0x8B95B8: EnableCinematicBgTilemapUpdates(); return 1;
   case 0x8B9799: DrawCinematicSpriteObjects_Ending(); return 1;

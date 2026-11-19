@@ -2861,6 +2861,7 @@ static void rain_vblank(void) {                 /* los 4 tiles (rain_post los co
 }
 
 void md_ending_frame(void);
+void ed_vblank(void);
 void md_post(void) {
   if (ed_on) { md_ending_frame(); return; }   /* el final (estado 39): md_ending.c */
   if (pz_dim) { rain_slot_k = 0xFF; rain_pal_dirty = 1; md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c (pisa la RAM de los tiles de la lluvia) */
@@ -3343,6 +3344,7 @@ void md_vblank(uint16_t late) {
      imagen (cuadro con retraso), los datos siguientes (HUD, scroll) caerían en la CRAM y cambiarían los colores. */
   /* cinemáticas: la capa del modo 7 y el círculo, con lo que queda del vblank (colores y scroll ya están) */
   if (cine_stage == 1 || cine_stage == 2) cine_vblank();
+  else if (ed_on) ed_vblank();                 /* el final: las celdas del modo 7 (md_ending.c) */
   if (cv_line) {                              /* círculo: una interrupción por línea (la dirección del VDP, la última) */
     if (!cv_active) { SYS_setHIntCallback((void (*)(void))(void *)cv_code); cv_active = 1; }
     uint16 vc = VDP_VCOUNT >> 8;

@@ -2,13 +2,14 @@
 """MegaMetroid — lo que dibuja el final (estado 39), para mkending.py (docs/63): de la salida de MM_ENDLOG (host/check
 con la grabación del final) a res/snes_ref/ending_draw.log. Solo números (palabras de mapa del SNES, spritemaps y su
 chr): nada de la ROM.
-Grupos (escenas que comparten la VRAM del SNES): D1 créditos y Samus (cuadros 3457-12566), D2 y D2B el símbolo en
+Grupos (escenas que comparten la VRAM del SNES): D0A-D0T la huida, el espacio y la nave (900-3456), D1 créditos y Samus (cuadros 3457-12566), D2 y D2B el símbolo en
 modo 7 (12567-12883 y 12884-13303: cambia la base de los sprites), D3 la pantalla final (desde 13304). Líneas: "<grupo> w <palabra>" (mapas que sube el juego: el texto) y "<grupo> s <spritemap> <chr>"
 (sprites; spritemap "star" = las estrellas, chr = el de la OAM).
 Uso: ending_log.py endlog.txt salida.log"""
 import sys
 
-GROUPS = (("D1", 3457, 12567), ("D2", 12567, 12884), ("D2B", 12884, 13304), ("D3", 13304, 1 << 30))
+GROUPS = (("D0A", 900, 1108), ("D0B", 1108, 1223), ("D0C", 1223, 1303), ("D0S", 1303, 2247), ("D0T", 2247, 3457),
+          ("D1", 3457, 12567), ("D2", 12567, 12884), ("D2B", 12884, 13304), ("D3", 13304, 1 << 30))
 
 
 def group(k):

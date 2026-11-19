@@ -220,7 +220,7 @@ static void GameOverMenu(void) {
     break;
   case 6:                                         // GameOverMenu_6_LoadGameMapView ($81:9116)
     DisableHdmaObjects();
-    game_state = 5;                               /* kGameState_5_FileSelectMap: la Genesis vuelve a empezar con la partida */
+    game_state = 5;                               /* kGameState_5_FileSelectMap (filemap.c) */
     menu_index = 0;
     break;
   case 7:                                         // GameOverMenu_7_FadeOutToSoftReset

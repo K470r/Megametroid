@@ -28,7 +28,8 @@ extern void nt_sram_write(u16 off, const u8 *src, u16 n);
 
 /* las opciones de la Genesis, después de la SRAM del SNES (0x2000): "MM", idioma, cancelar ícono, caminar atrás */
 #define OPT_SRAM 0x2000
-void menu_load_options(void)
+/* (el código del menú va en la página 23, que front_screens pone antes de llamarlo; esto se llama antes: en lo común) */
+__attribute__((section(".text.keepboot"), noinline)) void menu_load_options(void)
 {
     u8 b[5];
     nt_sram_read(OPT_SRAM, b, 5);
@@ -421,12 +422,27 @@ static bool run_options(void)
     }
 }
 
-u16 menu_run(void)
+u16 menu_run(void) { return menu_run_at(0); }
+
+/* options: empezar en las opciones de la ranura g_menu_slot (B en el mapa de la partida: GameOptionsMenu) */
+u16 menu_run_at(u16 options)
 {
     load_screen();
+    u16 sel = SramLastSlot(), prev = 0xFFFF;     /* (FileSelectMenu: la última ranura usada, SRAM 0x1FEC) */
+    if (options)
+    {
+        sel = g_menu_slot;
+        draw_opt(g_lang);
+        fade_to(0, 15);
+        if (run_options())
+        {
+            fade_to(15, 0);
+            return MENU_START;
+        }
+        fade_to(15, 0);
+    }
     draw_fsel();
     fade_to(0, 15);
-    u16 sel = SramLastSlot(), prev = 0xFFFF;     /* (FileSelectMenu: la última ranura usada, SRAM 0x1FEC) */
     reset_helmets();
     for (;;)
     {

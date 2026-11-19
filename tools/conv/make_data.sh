@@ -26,6 +26,7 @@ if [ -z "$ONLY_SND" ]; then
   python3 $CONV/mkpbomb.py $SMROM $GEN                     # la luz de la bomba de poder (docs/58)
   python3 $CONV/mkending.py $SMROM $SNAP $GEN              # el final en modo 1 (docs/63; antes de mkzebes.py)
   python3 $CONV/mkdeath.py $SMROM $GEN                     # la muerte de Samus: los pedazos del traje (docs/64)
+  python3 $CONV/mkfilemap.py $SMROM $GEN                   # el mapa de la partida: el planeta (docs/67)
   # las cinemáticas antes que mkzebes.py: él reparte sus bloques en las páginas del SSF2 (md_cine.s, docs/48)
   python3 $CONV/mkgetaway.py $SNAP/getaway.npz $GEN
   python3 $CONV/mkm7.py $SNAP $GEN

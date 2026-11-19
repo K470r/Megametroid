@@ -359,3 +359,6 @@ uint8 InitAndLoadGameData_Async(void) {  // 0x828000
   coroutine_state_1 = 0;
   return 0;
 }
+
+/* el mapa de la partida (filemap.c, FileSelectMap_9_InitRoomSelectMap) */
+void LoadFromLoadStation_(void) { LoadFromLoadStation(); }

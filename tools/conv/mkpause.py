@@ -91,6 +91,14 @@ for v in ws(0xB6E640, 64):
 for a in range(8):
     for v in ws(0x820000 | w(0x82965F + 2 * a), 12):
         add(v)
+# el mapa de la partida (docs/67): el nombre del área sin el bit 12 (DrawRoomSelectMapAreaLabel, $82:9628), las filas
+# de abajo del marco (kFileSelectExpandingSquareTilemap, $81:B14B) y su relleno
+for a in range(8):
+    for v in ws(0x820000 | w(0x82965F + 2 * a), 12):
+        add(v & 0xEFFF)
+for v in ws(0x81B14B, 161):
+    add(v)
+add(0x2801)
 # equipo: $B6:E800 y lo que se le escribe encima
 base = ws(0xB6E800, 1024)
 for v in base:
@@ -125,6 +133,8 @@ def spr(i, pal):
 
 for i in (9, 0x62, 0xB, 0xA, 0x4E, 0x63, 0x5F, 0x60, 0x61):
     spr(i, 7)
+spr(0x12, 7)                                            # el mapa de la partida: la estación titilando
+LATE = {(0x12, 7)}   # (fuera del reparto de colores: con los más cercanos de su línea, así la pausa no cambia)
 spr(9, 6)
 spr(8, 2)
 for i in (0x28, 0x29, 0x2B):
@@ -200,6 +210,8 @@ for v in words:
     need[('b', t, p)] = bg_group(t, p)
 for i, lst in pieces.items():
     for pal in SPR[i]:
+        if (i, pal) in LATE:
+            continue
         for x, y, big, attr in lst:
             for t in spr_tiles(attr & 0x1FF, big):
                 assert t < 0x100, "sprite fuera de $B6:C000"
@@ -269,6 +281,10 @@ def pack():
                     return r
         return None
     return rec(0, [set(), set(), set(), set()]), hudk
+
+
+def ckey_v(idx):
+    return ('v', gen_to_cram(bgr_to_gen(PAL[idx] & 0x7FFF)))
 
 
 def cram_rgb(k):
@@ -366,12 +382,24 @@ for i in sorted(pieces):
             t = attr & 0x1FF
             key = (t, big, pal)
             gg = set().union(*(tile_keys('s', tt, pal) for tt in spr_tiles(t, big)))
-            li = next((l for l in range(4) if gg <= set(lines[l])), None)
+            late = (i, pal) in LATE
+            if late:
+                li = max(range(3), key=lambda l: len(gg & set(lines[l])))
+            else:
+                li = next((l for l in range(4) if gg <= set(lines[l])), None)
             assert li is not None, "sprite grande con colores en dos líneas: %X" % t
+
+            def slot_near(k, li=li):
+                if k in lines[li]:
+                    return slot_of(li, k)
+                if k[0] == 'i':
+                    k = ckey_v(k[1])
+                return 1 + min(range(len(lines[li])), key=lambda j: sum((a - b) ** 2 for a, b in zip(
+                    cram_rgb(lines[li][j]) if lines[li][j][0] == 'v' else cram_rgb(ckey_v(lines[li][j][1])), cram_rgb(k))))
             if key not in spr_tile_of:
                 first = len(tiles)
                 for tt in spr_tiles(t, big):
-                    rows = [[slot_of(li, K((8 + pal) * 16 + c)) if c else 0 for c in row] for row in tile_px(0x200 + tt)]
+                    rows = [[slot_near(K((8 + pal) * 16 + c)) if c else 0 for c in row] for row in tile_px(0x200 + tt)]
                     tiles.append(tbytes(rows))
                 spr_tile_of[key] = (first, li)
             first, li = spr_tile_of[key]
@@ -425,6 +453,17 @@ arr("uint16", "kPzLutT", lt)
 arr("uint8", "kPzLutP", lp, per=32)
 arr("uint16", "kPzLutV", lv)
 arr("uint8", "kPzSrc", src)
+# el mapa de la partida (md_filemap.c, docs/67): palette_buffer tiene los colores del menú ($8E:E400), no los de la
+# pausa; lo que se ve ahí (BG con la línea 2: igual en las dos) se dibuja con los colores fijos de la pausa, y solo los
+# animados (los de índice propio) se leen de palette_buffer. kPzFselCol: color del SNES de cada uno (0xFFFF: animado)
+fsel_col = [0xFFFF] * 64
+for li in range(4):
+    for j, k in enumerate(lines[li]):
+        s_ = li * 16 + 1 + j
+        if k[0] != 'i' and src[s_] != 0xFF:
+            fsel_col[s_] = PAL[src[s_]] & 0x7FFF
+fsel_col[0] = 0
+arr("uint16", "kPzFselCol", fsel_col)
 arr("uint16", "kPzSprRecs", recs)
 idx = []
 for i in range(NSM):
@@ -443,6 +482,7 @@ h = ["/* Generado por tools/conv/mkpause.py (docs/53). No editar. */", "#ifndef 
      "extern const uint8 kPzLutP[%d];" % len(lp),
      "extern const uint16 kPzLutV[%d];" % len(lv),
      "extern const uint8 kPzSrc[64];      /* color de la CRAM -> índice de palette_buffer (0xFF: nada) */",
+     "extern const uint16 kPzFselCol[64]; /* el mapa de la partida: color fijo de cada uno (0xFFFF: de palette_buffer) */",
      "extern const uint16 kPzSprRecs[%d];" % len(recs),
      "extern const uint16 kPzSprIdx[%d];   /* [spritemap * 8 + paleta] -> kPzSprRecs (0xFFFF: no está) */" % len(idx),
      "#endif"]

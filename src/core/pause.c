@@ -248,6 +248,10 @@ static void LoadPauseScreenBaseTilemaps(void) {  // 0x828EDA
   LoadEqupmentScreenReserveHealthTilemap();
 }
 
+/* lo no explorado sin la estación del mapa: 0x1F en la pausa, 0xF en el mapa de la partida (DrawRoomSelectMap,
+   $82:9517; filemap.c) */
+uint16 pause_map_blank = 0x1F;
+
 /* una celda del mapa de la pausa (64x32, índice 0-2047), como la arma LoadPauseMenuMapTilemap ($82:943D) en
    7E:4000; la Genesis la usa para dibujar el plano */
 uint16 PauseMapCell(uint16 i) {
@@ -266,7 +270,7 @@ uint16 PauseMapCell(uint16 i) {
   }
   /* sin la estación: solo lo explorado (el SNES rota cada byte de map_tiles_explored 8 veces: queda igual) */
   if (!(map_tiles_explored[i >> 3] & bit))
-    return 0x1f;
+    return pause_map_blank;
   return tile & 0xFBFF;
 }
 
@@ -278,8 +282,9 @@ void PauseMapCells8(uint16 i, uint16 *out) {
   const uint16 *t = &kAreaMapTilemaps[2048 * v0 + i];
   uint8 ex = map_tiles_explored[i >> 3];
   uint8 md = map_station_byte_array[area_index] ? kAreaMapData[256 * v0 + (i >> 3)] : 0;
+  uint16 blank = map_station_byte_array[area_index] ? 31 : pause_map_blank;
   for (uint8 bit = 0x80; bit; bit >>= 1, t++)
-    *out++ = (ex & bit) ? (*t & ~0x400) : (md & bit) ? *t : 31;
+    *out++ = (ex & bit) ? (*t & ~0x400) : (md & bit) ? *t : blank;
 }
 
 static void LoadPauseMenuMapTilemapAndAreaLabel(void) {  // 0x8293C3
@@ -1637,3 +1642,14 @@ uint8 PauseStates(uint16 st) {
   }
   return 0;
 }
+
+/* el mapa de la partida (filemap.c, docs/67): lo de la pausa que usa */
+void PauseFsel_ResetAnimations(void) { ResetPauseMenuAnimations(); }
+void PauseFsel_DetermineMapScrollLimits(void) { DetermineMapScrollLimits(); }
+void PauseFsel_PaletteAnimation(void) { HandlePauseScreenPaletteAnimation(); }
+void PauseFsel_DrawBossMapIcons(uint16 a, uint16 k) { DrawBossMapIcons(a, k); }
+void PauseFsel_DrawSimpleMapIcons(uint16 a, uint16 k, uint16 r3) { DrawSimpleMapIcons(a, k, r3); }
+uint16 PauseFsel_SamusIndicator(void) { return UpdateSamusPositionIndicatorAnimation(); }
+void PauseFsel_ElevatorDestinations(void) { DisplayMapElevatorDestinations(); }
+void PauseFsel_MapScrolling(void) { MapScrolling(); }
+void PauseFsel_SpriteAnim(uint16 a, uint16 k, uint16 j) { DrawPauseScreenSpriteAnim(a, k, j); }

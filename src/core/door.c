@@ -90,6 +90,7 @@ static uint16 CalculateNthTransitionColorComponentFromXtoY(uint16 a, uint16 k, u
   return (uint16)(r18 + (k << 8)) >> 8;
 }
 
+uint16 NtTransitionColor(uint16 a, uint16 k, uint16 j);
 static uint16 CalculateNthTransitionColorFromXtoY(uint16 a, uint16 k, uint16 j) {  // 0x82DA4A
   return CalculateNthTransitionColorComponentFromXtoY(a, k & 0x1F, j & 0x1F) |
          CalculateNthTransitionColorComponentFromXtoY(a, (k >> 5) & 0x1F, (j >> 5) & 0x1F) << 5 |
@@ -1538,3 +1539,6 @@ uint8 AdvancePaletteFade_BgPalette6(void) {  // 0x82D96C
     return 1;
   }
 }
+
+/* (el mapa de la partida, filemap.c: AdvanceGradualColorChangeOfPalette) */
+uint16 NtTransitionColor(uint16 a, uint16 k, uint16 j) { return CalculateNthTransitionColorFromXtoY(a, k, j); }

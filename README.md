@@ -165,7 +165,10 @@ Extras ya acordados:
 17. La música en CD (Mega CD, modo 1): si hay Mega CD y el disco de MegaMetroid, la música sale del CD; si no, la del
     cartucho ([docs/48](docs/48_TAMANO_ROM.md)).
 18. Los instrumentos ajustados a oído (el eco del SNES no existe en la Genesis).
-19. Espacio en la ROM: recortar las copias de bancos del SNES (782 KB); la parte común (los primeros 3 MB) está casi
+19. Los botones dibujados como los de la Genesis: en la pausa "L" / "R" (en el mando de 6 botones son C, al mapa, y
+    Z, a SAMUS; con 3 botones, A y B) y los botones que muestran las cajas de mensaje al agarrar un ítem nuevo
+    (SELECT, X, Y, L, R del SNES).
+20. Espacio en la ROM: recortar las copias de bancos del SNES (782 KB); la parte común (los primeros 3 MB) está casi
     llena y lo nuevo va en las páginas del SSF2.
 
 ## Estructura

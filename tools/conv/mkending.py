@@ -43,6 +43,10 @@ GROUPS = {
     "D3": dict(slogan=True, snap="END_D3.bin", bg1_chr=0x4000, bg2_chr=0x6000, obj=0x6000, sizes=(8, 16),
                scr_b=(0x5400,)),
 }
+# los otros finales (el tiempo de juego: de 3 a 9 horas y de 10 en adelante): cambia Samus (sprites y paletas)
+for _h in (5, 12):
+    for _g in ("D1", "D2", "D2B"):
+        GROUPS["%s_%d" % (_g, _h)] = dict(GROUPS[_g], snap="END_%s_%d.bin" % (_g, _h))
 ED_M7_PAT = 1024             # modo 7: tiles de los bloques (256: dos colores, arriba y abajo) desde aquí: los del grupo, antes
 
 

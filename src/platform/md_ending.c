@@ -139,8 +139,10 @@ NT_LATE static void ed_spr(uint16 sm, uint16 x, uint16 y, uint16 chr) {   /* Dra
   if (!found) missing(9, sm, chr, 0xC2FF);
 }
 
+#define ED_STAR0 (((uint8 *)cv_tab)[700])       /* la primera estrella en la lista de sprites de este cuadro (0xFF: ninguna) */
 NT_LATE void EndingStar(uint16 x, uint16 y, uint16 chr) {
   if (!ed_g || (uint16)(chr - 0x09F0) > 3 || sp_ptr >= spr + MAX_SPR) return;
+  if (ED_STAR0 == 0xFF || ED_STAR0 > (uint16)(sp_ptr - spr)) ED_STAR0 = (uint8)(sp_ptr - spr);
   GenSpr *s = sp_ptr++;
   s->y = y + 129;
   s->size_link = (uint16)(s - spr + 1);
@@ -159,8 +161,13 @@ ED_CODE static const EdGroup *ed_want(void) {
     if (reg_BGMODE != 7) { ed_space = 1; return &kEd_d0s; }   /* el espacio y la explosión */
     return ed_space ? &kEd_d0t : &kEd_d0c;     /* la nave y el tiempo / Zebes se aleja */
   }
-  if (reg_BGMODE == 7) return reg_OBSEL == 0 ? &kEd_d2 : &kEd_d2b;   /* Samus chica / el símbolo */
-  return reg_BG1SC == 0x4E ? &kEd_d3 : &kEd_d1;
+  /* los finales según el tiempo de juego (CinematicFunction_Intro_Func134...): Samus cambia */
+  uint8 v = game_time_hours < 3 ? 0 : game_time_hours < 10 ? 1 : 2;
+  static const EdGroup *const kD1[3] = { &kEd_d1, &kEd_d1_5, &kEd_d1_12 };
+  static const EdGroup *const kD2[3] = { &kEd_d2, &kEd_d2_5, &kEd_d2_12 };
+  static const EdGroup *const kD2B[3] = { &kEd_d2b, &kEd_d2b_5, &kEd_d2b_12 };
+  if (reg_BGMODE == 7) return reg_OBSEL == 0 ? kD2[v] : kD2B[v];   /* Samus chica / el símbolo */
+  return reg_BG1SC == 0x4E ? &kEd_d3 : kD1[v];
 }
 
 /* una pantalla fija del grupo (dirección del SNES) para el BG1 (b = 0) o el BG2 (b = 1); NULL si no está */
@@ -386,6 +393,27 @@ NT_LATE void md_ending_frame(void) {          /* md_post en el estado 39 */
 
 ED_CODE static void md_ed_body(void) {
   nspr = (reg_TM | reg_TS) & 0x10 ? (uint16)(sp_ptr - spr) : 0;   /* sprites apagados (TM/TS): el SNES no los muestra */
+  /* Samus (créditos): los sprites que el SNES solo suma sobre el BG2 (Samus sin traje que aparece sobre la del traje,
+     con su paleta subiendo desde negro) taparían la del traje con una figura oscura: no se muestran */
+  if (!(reg_TM & 0x10) && (reg_CGADSUB & 0x02) && (ed_g == &kEd_d1 || ed_g == &kEd_d1_5 || ed_g == &kEd_d1_12)) {
+    /* el SNES suma las dos (una se apaga y la otra se enciende: CinematicFunction_Intro_Func136/138): se ve la más
+       brillante; las estrellas, siempre */
+    uint16 lb = 0, lo = 0;
+    for (uint16 i = 0; i < 16; i++) {
+      uint16 c = palette_buffer[32 + i], d = palette_buffer[208 + i];
+      lb += (c & 31) + ((c >> 5) & 31) + ((c >> 10) & 31);
+      lo += (d & 31) + ((d >> 5) & 31) + ((d >> 10) & 31);
+    }
+    if (lo <= lb) {
+      uint16 s0 = ED_STAR0 < nspr ? ED_STAR0 : nspr, n = nspr - s0;
+      for (uint16 i = 0; i < n; i++) {
+        spr[i] = spr[s0 + i];
+        spr[i].size_link = (spr[i].size_link & 0x0F00) | (i + 1);
+      }
+      nspr = n;
+    }
+  }
+  ED_STAR0 = 0xFF;
   /* sprites en la pantalla principal (TM): encima de todo. Solo en la secundaria (TS, sumados por el color math: Samus
      sin traje que aparece sobre la del traje, las estrellas de la pantalla final): detrás del BG2 (sus celdas van con
      prioridad alta) */
@@ -401,18 +429,38 @@ ED_CODE static void md_ed_body(void) {
   const uint8 *src = ed_g ? ed_g->src : 0;
   /* el SNES suma el BG1 a sí mismo (color math: BG1 en la pantalla secundaria, suma sin la mitad): el doble de brillo */
   uint8 dbl = (reg_CGWSEL & 2) && (reg_TS & 1) && (reg_CGADSUB & 0xC1) == 0x01;
+  /* el color fijo (COLDATA) sumado a las capas del color math (CGWSEL sin la pantalla secundaria): los destellos
+     blancos que se apagan (la nave, la pantalla final). Por línea de la CRAM: el 0 es el fondo; con modo 7 la línea
+     0 es el BG1 y las demás los sprites; sin modo 7, las capas van mezcladas en las líneas: todas */
+  uint8 fx = !(reg_CGWSEL & 2) && !(reg_CGADSUB & 0x80) ? reg_CGADSUB & 0x33 : 0;
+  uint16 fr = reg_COLDATA[0] & 31, fg = reg_COLDATA[1] & 31, fb = reg_COLDATA[2] & 31;
+  if (!(fr | fg | fb)) fx = 0;
+  uint8 m7g = ed_g && ed_g->m7;
+  /* Samus con el traje (créditos): el SNES suma el BG3 (un campo azul con rayas, palette_buffer[7]) al BG2: aquí se
+     suma ese azul a los colores del BG (índices < 128) */
+  uint8 bg3 = (reg_CGWSEL & 2) && (reg_TS & 4) && (reg_CGADSUB & 0x82) == 0x02 && !m7g;
+  uint16 b3 = palette_buffer[7];
   for (uint16 i = 0; i < 64; i++) {
-    uint16 v = 0;
-    if (ed_g && ed_g->m7 && i && i < 16) {
-      uint16 c = palette_buffer[ed_g->m7->col[i]] & 0x7FFF;
-      if (dbl) {
-        uint16 r = (c & 31) << 1, g = ((c >> 5) & 31) << 1, bl = ((c >> 10) & 31) << 1;
-        c = (r > 31 ? 31 : r) | (g > 31 ? 31 : g) << 5 | (bl > 31 ? 31 : bl) << 10;
+    uint16 c = 0;
+    uint8 use = 1;
+    if (m7g && i && i < 16) c = palette_buffer[ed_g->m7->col[i]] & 0x7FFF;
+    else if (src && src[i] != 0xFF) c = palette_buffer[src[i]] & 0x7FFF;
+    else if (!i) c = palette_buffer[0] & 0x7FFF;
+    else use = 0;
+    if (use) {
+      uint16 r = c & 31, g = (c >> 5) & 31, bl = (c >> 10) & 31;
+      if (dbl && m7g && i && i < 16) { r <<= 1; g <<= 1; bl <<= 1; }
+      uint8 lay = !i ? 0x20 : !m7g ? 0x13 : i < 16 ? 0x01 : 0x10;
+      if (bg3 && i && src && src[i] != 0xFF && src[i] < 128) {
+        r += b3 & 31; g += (b3 >> 5) & 31; bl += (b3 >> 10) & 31;
       }
-      v = kCram555[c];
+      if (fx & lay) {
+        r += fr; g += fg; bl += fb;
+        if (reg_CGADSUB & 0x40) { r >>= 1; g >>= 1; bl >>= 1; }
+      }
+      c = (r > 31 ? 31 : r) | (g > 31 ? 31 : g) << 5 | (bl > 31 ? 31 : bl) << 10;
     }
-    else if (src && src[i] != 0xFF) v = kCram555[palette_buffer[src[i]] & 0x7FFF];
-    else if (!i) v = kCram555[palette_buffer[0] & 0x7FFF];
+    uint16 v = kCram555[c];
     if (v != cram[i]) { cram[i] = v; cram_dirty = 1; }
   }
   uint8 b = (reg_INIDISP & 0x80) ? 0 : (reg_INIDISP & 0xF);

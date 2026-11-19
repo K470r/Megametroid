@@ -244,11 +244,11 @@ int main(int argc, char **argv) {
     if (game_state == 39) {                       /* MM_ENDLOG (pc_stubs.c): los registros del cuadro del final */
       extern FILE *endlog(void);
       if (endlog())
-        fprintf(endlog(), "f %ld %04X %d %02X %02X %02X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %02X %02X %02X %02X %02X %04X %04X %04X %04X %d\n",
+        fprintf(endlog(), "f %ld %04X %d %02X %02X %02X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %02X %02X %02X %02X %02X %04X %04X %04X %04X %d %02X %02X\n",
                 f, cinematic_function, reg_BGMODE, reg_TM, reg_TS, reg_INIDISP, reg_M7A, reg_M7B, reg_M7C, reg_M7D,
                 reg_M7X, reg_M7Y, reg_BG1HOFS, reg_BG1VOFS, reg_BG2HOFS, reg_BG2VOFS, reg_BG3HOFS, reg_BG3VOFS,
                 reg_MOSAIC, reg_CGWSEL, reg_CGADSUB, reg_COLDATA[0], reg_COLDATA[2], cinematic_var5, cinematic_var6,
-                cinematic_var8, cinematic_var10, cinematic_glow_ptr[7] != 0);
+                cinematic_var8, cinematic_var10, cinematic_glow_ptr[7] != 0, reg_OBSEL, reg_BG1SC);
       /* UpdateCinematicBgTilemap ($8B:87A0): 7E:3000 (960 palabras) a cinematicbg_var3 en cada cuadro */
       if (endlog() && (cinematic_enable_objs & 0x8000) && (cinematic_enable_bg_tilemap & 0x8000) && reg_BGMODE != 7) {
         fprintf(endlog(), "bgt %04X", cinematicbg_var3);

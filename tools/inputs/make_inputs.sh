@@ -71,6 +71,13 @@ HL_VRAM="24500:$SNAP/END_D0A.bin,24650:$SNAP/END_D0B.bin,24726:$SNAP/END_D0C.bin
 HL_WARP_ALIGN=1 HL_SETXY_SCROLL=1 HL_POKE=D820:4000,D82C:0200,943:2,A5A:E0E6 HL_WARP=21:89B2 HL_SETXY=200:1152:1100 \
 HL_ENEMIES=1 HL_GOD=1 run $HL "$SMROM" $WORK/in_final.txt /dev/null 23500
 
+# los otros finales (docs/63): el tiempo de juego en 5 y en 12 horas (7E:09E0)
+for H in 5 12; do
+  HL_VRAM="27000:$SNAP/END_D1_$H.bin,36100:$SNAP/END_D2_$H.bin,36600:$SNAP/END_D2B_$H.bin" \
+  HL_WARP_ALIGN=1 HL_SETXY_SCROLL=1 HL_POKE=D820:4000,D82C:0200,943:2,A5A:E0E6,9E0:$(printf %04X $H) HL_WARP=21:89B2 \
+  HL_SETXY=200:1152:1100 HL_ENEMIES=1 HL_GOD=1 run $HL "$SMROM" $WORK/in_final.txt /dev/null 23500
+done
+
 echo "== 4. título y menú (snes9x)"
 if [ -f "$SNES9X" ] && [ -x "$RETRORUN" ]; then
   python3 $ROOT/tools/snes_ref/record_title.py "$RETRORUN" "$SNES9X" "$SMROM" $SNAP/title.rec

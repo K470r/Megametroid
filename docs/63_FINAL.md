@@ -1,4 +1,4 @@
-# 63 — El final y los créditos (lógica y dibujo hechos; quedan detalles del color math y los otros finales)
+# 63 — El final y los créditos (hecho: los tres finales, dibujo y lógica)
 
 Referencia del SNES: `tools/compare/final_snes.sh` (el despegue de docs/62 y 16000 cuadros: capturas en
 `work/final/snes`; con `REF=archivo`, la RAM por cuadro para `host/check`).
@@ -109,6 +109,23 @@ Cómo (como la pausa, docs/53):
   debajo del porcentaje), desde que aparece el porcentaje.
 - **Comparación** lado a lado: `tools/compare/final.sh` (como despegue.sh).
 
-Lo que queda: el color math que la Genesis no tiene (destellos blancos de la explosión y del símbolo, el brillo azul
-del traje, Samus sin traje que aparece sumada sobre la del traje: en la Genesis se ve una u otra capa), y los otros
-finales según el tiempo (Samus con o sin traje: capturas de cada uno; la grabación de prueba tiene uno solo).
+### Los tres finales (el tiempo de juego, 7E:09E0)
+
+Menos de 3 horas (Samus sin traje), de 3 a 9 (se quita el casco) y 10 o más (con casco): cambian los sprites y las
+paletas de Samus desde los créditos (`CinematicFunction_Intro_Func126/134-145`). Grabaciones del SNES con el tiempo
+puesto (`HL_POKE=...,9E0:5` y `9E0:C`; `final.sh` con `HORAS=5` o `12`): `host/check` da 0 cuadros distintos en los
+tres. Grupos propios D1/D2/D2B `_5` y `_12` (`END_*_5.bin`, `END_*_12.bin` en `make_inputs.sh`); `ending_log.py`
+elige el grupo por el estado (escena, modo, OBSEL, BG1SC, que `host/check` escribe en la línea "f" de `MM_ENDLOG`),
+como `ed_want` en la Genesis, que además mira `game_time_hours`.
+
+### El color math del SNES en la Genesis (md_ending.c, en los colores de cada cuadro)
+
+- Color fijo sumado (CGWSEL sin la pantalla secundaria, COLDATA): los destellos blancos que se apagan (la nave, la
+  pantalla final) se suman a los colores de las capas que el SNES marca (el fondo, el BG1 del modo 7, los sprites).
+- El BG1 sumado a sí mismo (la superficie y las nubes): colores al doble.
+- El BG3 azul sumado al traje de Samus (créditos): su azul se suma a los colores del BG.
+- Las dos Samus que se cruzan (una se apaga y la otra se enciende, sumadas): se ve la más brillante; las estrellas
+  quedan.
+
+Lo que queda: la nave al principio de su escena es tan chica que en bloques de 8x4 casi no se ve (en el SNES son
+~10 píxeles); las rayas del BG3 sobre el traje no están (solo su azul); destellos de uno o dos cuadros.

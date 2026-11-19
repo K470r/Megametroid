@@ -16,6 +16,11 @@
 #include "hdmaobj.h"
 #include "cinematic.h"
 
+/* el final (ending_disp.c): los casos de los objetos que no son de la intro */
+uint8 EndingSpriteSetup(uint16 f, uint16 j);
+uint8 EndingSpritePreInstr(uint16 f, uint16 k);
+uint16 EndingSpriteInstr(uint16 f, uint16 k, uint16 j);
+
 void CinematicGfx(uint16 which);          /* capa de la Genesis: 1 = Ceres explotando, 2 = Zebes */
 void Mode7Transfers(uint16 list);         /* capa de la Genesis: QueueMode7Transfers($8B, list) */
 void DrawCinematicSpritemap(uint16 sm, uint16 x, uint16 y, uint16 chr, uint8 offscreen);   /* $8C (Genesis) */
@@ -161,7 +166,9 @@ static void CallCinematicSpriteObjectSetup(uint16 f, uint16 j) {
   case FUNC16(CinematicFunction_Intro_Func101): SetSprPos(j, 208, 207, 2048); break;   // 0x8BC97E
   case FUNC16(CinematicFunction_Intro_Func102): SetSprPos(j, 128, 186, 0); break;      // 0x8BC992
   case FUNC16(CinematicFunction_Intro_Func104): SetSprPos(j, 128, 204, 0); break;      // 0x8BC9E6
-  default: if (!IntroSpriteSetup(f, j)) nt_unimpl_v("CinematicSpriteObjectSetup (inicio sin portar)", f); break;
+  default:
+    if (!IntroSpriteSetup(f, j) && !EndingSpriteSetup(f, j)) nt_unimpl_v("CinematicSpriteObjectSetup (inicio sin portar)", f);
+    break;
   }
 }
 
@@ -237,7 +244,9 @@ static void CallCinematicSprPreInstr(uint16 f, uint16 k) {
   case FUNC16(CinematicFunction_Intro_Func91): MoveUp(k, 64); break;   // 0x8BC85D
   case FUNC16(CinematicFunction_Intro_Func94): MoveUp(k, 32); break;   // 0x8BC8B9 (al salir: Func95)
   case FUNC16(CinematicFunction_Intro_Func97): MoveUp(k, 32); break;   // 0x8BC908
-  default: if (!IntroSpritePreInstr(f, k)) nt_unimpl_v("CinematicSprPreInstr (pre-instrucción sin portar)", f); break;
+  default:
+    if (!IntroSpritePreInstr(f, k) && !EndingSpritePreInstr(f, k)) nt_unimpl_v("CinematicSprPreInstr (pre-instrucción sin portar)", f);
+    break;
   }
 }
 
@@ -278,6 +287,8 @@ static uint16 CallCinematicSprInstr(uint16 f, uint16 k, uint16 j) {
   default: {
     uint16 r = IntroSpriteInstr(f, k, j);
     if (r != 0xFFFF) return r;
+    r = EndingSpriteInstr(f, k, j);             /* el final (ending_disp.c) */
+    if (r != 0xFFFF) return r;
     nt_unimpl_v("CinematicSprInstr (instrucción sin portar)", f);
     cinematicspr_whattodraw[v] = 0; cinematicspr_instr_ptr[v] = 0;
     return 0;
@@ -311,6 +322,9 @@ static void HandleCinematicSprites(void) {  // 0x8B93EF
     }
   }
 }
+
+void HandleCinematicSprites_(void) { HandleCinematicSprites(); }   /* (ending.c) */
+void HandleMode7TransformationMatrix_(void) { HandleMode7TransformationMatrix(); }
 
 static void DrawCinematicSpriteObjects_Intro(void) {  // 0x8B9746
   for (int i = 15; i >= 0; i--) {

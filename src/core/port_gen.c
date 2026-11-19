@@ -61,6 +61,9 @@ void SpawnHardcodedPlm(uint8 x, uint8 y, uint16 id);
 void SpawnEprojWithRoomGfx(uint16 j, uint16 a);
 void SpawnEprojWithGfx(uint16 a, uint16 k, uint16 j);
 uint16 SpawnEnemy(uint8 db, uint16 k);
+uint8 SpawnCinematicSpriteObjectToR18(uint16 d, uint16 r18);
+uint8 SpawnCinematicSpriteObject(uint16 d, uint16 a);
+uint8 SpawnCinematicBgObject(uint16 j, uint16 a);
 void SpawnBombTorizoHaze(void);
 void SpawnBG3ScrollHdmaObject(void);
 void SomeMotherBrainScripts(uint16 a);
@@ -95,6 +98,7 @@ void QueueSfx1_Max6(uint16 v);
 void QueueSfx1_Max3(uint16 v);
 void QueueSfx1_Max15(uint16 v);
 void QueueSfx1_Max1(uint16 v);
+void QueueMusic_DelayedY(uint16 a, uint16 j);
 void QueueMusic_Delayed8(uint16 a);
 void ProjectileReflection(uint16 r20);
 NT_BOSS uint8 ProcessSpriteTilesTransfers(uint8 db, uint16 k);
@@ -105,6 +109,7 @@ NT_BOSS void PauseHook_Kraid(void);
 void NormalEnemyTouchAiSkipDeathAnim(void);
 uint16 NextRandom(void);
 uint32 Multiply16x16(uint16 a, uint16 j);
+void MoveUnusedSpritesOffScreen(void);
 uint16 MoveEprojWithVelocityY(uint16 k);
 uint16 MoveEprojWithVelocityX(uint16 k);
 uint16 MoveEprojWithVelocity(uint16 k);
@@ -121,16 +126,35 @@ NT_BOSS void Kraid_HurtFlash_Handling(void);
 NT_BOSS void Kraid_HealthBasedPaletteHandling(void);
 NT_BOSS void Kraid_Death_Fadeout(void);
 NT_BOSS void InitializeEnemyCorpseRotting(uint16 k, uint16 j);
+uint8 HasQueuedMusic(void);
 NT_BOSS uint16 HandleMotherBrainInstructionList(uint16 a);
+void HandleFadeIn(void);
 void GrappleBeam_Func2(void);
+void FadeOutYColorsFromIndexX(uint16 k, uint16 n);
+void FadeInYColorsFromIndexX(uint16 k, uint16 n);
 uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 EprojBlockCollisition_Horiz(uint16 k);
+void EnableNMI(void);
+void DrawSpritemapOffScreen(uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
+void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
 void DisableMinimapAndMarkBossRoomAsExplored(void);
+void DecomposePaletteDataForFading(void);
 NT_BOSS uint16 Crocomire_Func_67(void);
+void CreditsObject_Func1(uint16 j);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
+void CopySuperMetroidString(void);
 uint16 ComputeSinMult(uint16 m, uint16 ang);
 uint16 ComputeCosMult(uint16 m, uint16 ang);
+void ComposeFadingPalettes(void);
+void ClearYColorsFromIndexX(uint16 k, uint16 n);
 void ClearEventHappened(uint16 a);
+void ClearCinematicSprites(void);
+void CinematicUpdateSomeBg(void);
+void CinematicFunction_Intro_Func133(void);
+void CinematicFunction_Intro_Func126(void);
+void CinematicFunction_Intro_Func118(void);
+void CinematicFunction_Intro_Func115(void);
+void CinematicFunction_Intro_Func112(void);
 uint16 CheckIfEprojIsOffScreen(uint16 k);
 uint8 CheckEventHappened(uint16 a);
 uint8 CheckBossBitForCurArea(uint16 a);
@@ -521,6 +545,134 @@ uint16 RandomDropRoutine(uint16 k);
 void RespawnEnemy(uint16 v0);
 static void EprojInit_Sparks(uint16 j);
 void EprojPreInstr_Sparks(uint16 k);
+void SetupPpu_5_Mode7(void);
+void CopyPalettesToFadingPalettes(void);
+uint8 AdvanceFastScreenFadeOut(void);
+uint8 AdvanceFastScreenFadeIn(void);
+void EnableCinematicBgObjects(void);
+void EnableCinematicBgTilemapUpdates(void);
+void DrawCinematicSpriteObjects_Ending(void);
+void EnableTextGlowObjects_(void);
+void DisableTextGlowObjects_(void);
+void CinematicFunction_Intro_Func128(uint16 a);
+void CreditsObject_Init(uint16 j);
+void CreditsObject_Process(void);
+void CreditsObject_ProcessOne(void);
+uint16 IntroObject_Delete(uint16 k, uint16 j);
+uint16 IntroObject_Goto(uint16 k, uint16 j);
+uint16 IntroObject_DecTimerGoto(uint16 k, uint16 j);
+uint16 IntroObject_SetTimer(uint16 k, uint16 j);
+void ClearEnglishTextTilemap(void);
+void SetSomeStuffForSpriteObject_16(void);
+void CinematicFunction_Intro_Func15b(void);
+void CinematicBgPreInstr_SamusBlink(uint16 k);
+void CallCreditsObjectFunc(uint32 ea, uint16 k);
+void CinematicFunction_Intro_Func109(void);
+void CinematicFunction_Intro_Func110(void);
+void CinematicFunction_Intro_Func111(void);
+void CinematicFunction_Intro_Func114(void);
+void CinematicFunction_Intro_Func113(void);
+void CinematicFunction_Intro_Func116(void);
+void CinematicFunction_Intro_Func117(void);
+void CinematicFunction_Intro_Func119(void);
+void CinematicFunction_Intro_Func120(void);
+void CinematicFunction_Intro_Func122(void);
+void CinematicFunction_Intro_Func121(void);
+void CinematicFunction_Intro_Func123(void);
+void CinematicFunction_Intro_Func124(void);
+void CinematicFunction_Intro_Func125(void);
+void CinematicFunction_Intro_Func129(void);
+void CinematicFunction_Intro_Func130(void);
+void CinematicFunction_Intro_Func131(void);
+void CinematicFunction_Intro_Func132(void);
+void CinematicFunction_Intro_Func134(void);
+void CinematicFunction_Intro_Func136(void);
+void CinematicFunction_Intro_Func135(void);
+void CinematicFunction_Intro_Func137(void);
+void CinematicFunction_Intro_Func138(void);
+void CinematicFunction_Intro_Func145(void);
+void CinematicFunction_Intro_Func140(void);
+void CinematicFunction_Intro_Func139(void);
+void CinematicFunction_Intro_Func142(void);
+void CinematicFunction_Intro_Func141(void);
+void CinematicFunction_Intro_Func143(void);
+void CinematicFunction_Intro_Func144(void);
+uint16 CinematicFunction_Intro_Func146(uint16 k, uint16 j);
+uint16 CinematicFunction_Intro_Func147(uint16 k, uint16 j);
+void CinematicFunction_Intro_Func148(void);
+void CinematicFunction_Intro_Func150(uint16 j);
+void CinematicFunction_Intro_Func151(uint16 k);
+void CinematicFunction_Intro_Func152(uint16 j);
+void CinematicFunction_Intro_Func153(uint16 j);
+void CinematicFunction_Intro_Func154(uint16 j);
+void CinematicFunction_Intro_Func155(uint16 j);
+void CinematicFunction_Intro_Func156(uint16 j);
+void CinematicFunction_Intro_Func157(uint16 j);
+void CinematicFunction_Intro_Func158(uint16 j);
+void CinematicFunction_Intro_Func159(uint16 j);
+void CinematicFunction_Intro_Func161(uint16 j);
+void CinematicFunction_Intro_Func162(uint16 j);
+void CinematicFunction_Intro_Func163(uint16 j);
+void CinematicFunction_Intro_Func164(uint16 j);
+void CinematicFunction_Intro_Func160(uint16 j, uint16 a);
+void CinematicFunction_Intro_Func165(uint16 j);
+void CinematicFunction_F0B8(uint16 j);
+void CinematicFunction_Intro_Func166(uint16 j);
+void CinematicFunction_Intro_Func167(uint16 j);
+void CinematicFunction_Intro_Func168(uint16 j);
+void CinematicFunction_Intro_Func169(uint16 j);
+void CinematicFunction_Intro_Func170(uint16 j);
+void CinematicFunction_Intro_Func171(uint16 j);
+void CinematicFunction_Intro_Func172(uint16 j);
+void CinematicFunction_Intro_Func173(uint16 j);
+void CinematicFunction_Intro_Func174(uint16 j);
+void CinematicFunction_Intro_Func175(uint16 j);
+void CinematicFunction_Intro_Func176(uint16 j);
+void CinematicFunction_Intro_Func177(uint16 j);
+void CinematicFunction_Intro_Func178(uint16 j);
+void CinematicFunction_Intro_Func179(uint16 k);
+void CinematicFunction_Intro_Func180(uint16 k);
+uint16 CinematicSprInstr_Func181(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func182(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func183(uint16 k, uint16 j);
+void CinematicFunction_Intro_Func184(uint16 j);
+uint16 CinematicSprInstr_Func185(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func186(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func187(uint16 k, uint16 j);
+void CinematicSprPreInstr_F35A(uint16 k);
+void CinematicFunction_Intro_Func189(uint16 k);
+void CinematicFunction_Intro_Func189b(uint16 k);
+uint16 CinematicSprInstr_Func190(uint16 k, uint16 j);
+void CinematicFunction_Intro_Func191(uint16 k);
+uint16 CinematicSprInstr_Func192(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func193(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func194(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func195(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func196(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func197(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func198(uint16 k, uint16 j);
+void CinematicFunction_Intro_Func199(uint16 k);
+void CinematicFunction_Intro_Func200(uint16 k);
+void CinematicFunction_Intro_Func201(uint16 k);
+void CinematicFunction_Intro_Func202(uint16 k);
+void CinematicFunction_Intro_Func203(uint16 k);
+void CinematicFunction_Intro_Func204(uint16 k);
+void CinematicFunction_Intro_Func205(uint16 k);
+void CinematicFunction_Intro_Func206(uint16 k);
+void CinematicFunction_Intro_Func207(uint16 k);
+uint16 CinematicSprInstr_Func208(uint16 k, uint16 j);
+void CinematicSprPreInstr_F528(uint16 k);
+uint16 CinematicSprInstr_Func211(uint16 k, uint16 j);
+void CinematicSprPreInstr_F57F(uint16 k);
+uint16 CinematicSprInstr_Func213(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func214(uint16 k, uint16 j);
+void CinematicFunction_Intro_Func215(uint16 k);
+uint16 CinematicSprInstr_Func217(uint16 k, uint16 j);
+uint16 CinematicSprInstr_Func218(uint16 k, uint16 j);
+void CinematicFunction_Intro_Func210_EndingSamusFall(uint16 k);
+void CinematicFunction_Intro_Func216(void);
+uint16 CinematicFunction_Intro_Func219(uint16 k, uint16 j);
+uint16 CallIntroObjectInstr(uint32 ea, uint16 k, uint16 j);
 void Enemy_NormalTouchAI_A0(void);
 void Enemy_NormalTouchAI_SkipDeathAnim_A0(void);
 void Enemy_NormalShotAI_A0(void);
@@ -3057,7 +3209,6 @@ static Func_V *const off_A9B887[4];
 static Func_CalcHdma *const off_ADE024[4];
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
 void DeadTorizo_Func_1(void);
-void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
 uint16 PrepareBitAccess(uint16 a);
 void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k);
@@ -3067,7 +3218,6 @@ void WriteReg(uint16 reg, uint8 value);
 
 void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) { nt_unimpl("DeadTorizo_CopyLineOfSandHeapTileData"); }
 void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
-void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22) { nt_unimpl("DrawSpritemap"); }
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
 uint16 PrepareBitAccess(uint16 a) { nt_unimpl("PrepareBitAccess"); return 0; }
 void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_CorpseRottingCopyFunc"); }
@@ -6847,6 +6997,1272 @@ void EprojPreInstr_Sparks(uint16 k) {  // 0x86F3F0
   AddToHiLo(&eproj_x_pos[v1], &eproj_x_subpos[v1], __PAIR32__(eproj_F[v1], eproj_E[v1]));
   if ((nmi_frame_counter_byte & 3) == 0)
     CreateSpriteAtPos(eproj_x_pos[v1], eproj_y_pos[v1], 48, eproj_gfx_idx[v1]);
+}
+void SetupPpu_5_Mode7(void) {  // 0x8B8293
+  (void)0;
+  reg_INIDISP = 0x80;
+  (void)0;
+  reg_OBSEL = -93;
+  (void)0;
+  reg_BGMODE = 7;
+  (void)0;
+  reg_M7SEL = 0;
+  reg_BG1SC = 0;
+  (void)0;
+  reg_BG2SC = 0;
+  (void)0;
+  reg_BG3SC = 0;
+  (void)0;
+  reg_BG4SC = 0;
+  (void)0;
+  reg_BG12NBA = 0;
+  (void)0;
+  reg_BG34NBA = 0;
+  (void)0;
+  (void)0;
+  reg_TM = 17;
+  (void)0;
+  reg_TS = 0;
+  (void)0;
+  reg_TMW = 0;
+  (void)0;
+  (void)0;
+  next_gameplay_CGWSEL = 0;
+  (void)0;
+  next_gameplay_CGADSUB = 0;
+  reg_CGWSEL = 0;
+  reg_CGADSUB = 0;
+  (void)0;
+  (void)0;
+  reg_SETINI = 0;
+  reg_COLDATA[0] = 32;
+  reg_COLDATA[1] = 64;
+  reg_COLDATA[2] = 0x80;
+  oam_next_ptr = 0;
+  screen_fade_delay = 0;
+  screen_fade_counter = 0;
+  cinematic_var5 = 0;
+  cinematic_var6 = 256;
+  cinematic_var7 = 0;
+  cinematic_var8 = 0;
+  cinematic_var9 = 0;
+  cinematic_var10 = 0;
+  g_word_7E1999 = 0;
+  g_word_7E199B = 0;
+  g_word_7E199D = 0;
+  g_word_7E199F = 0;
+}
+void CopyPalettesToFadingPalettes(void) {  // 0x8B8BE9
+  int v0 = 256;
+  uint16 v1 = 0;
+  do {
+    tilemap_stuff[(v1 >> 1) + 256] = palette_buffer[v1 >> 1];
+    v1 += 2;
+    --v0;
+  } while (v0);
+}
+uint8 AdvanceFastScreenFadeOut(void) {  // 0x8B90B8
+  if ((reg_INIDISP & 0xF) != 0) {
+    if ((int8)((reg_INIDISP & 0xF) - screen_fade_counter) > 0) {
+      reg_INIDISP = (reg_INIDISP & 0xF) - screen_fade_counter;
+      return 0;
+    }
+    reg_INIDISP = 0x80;
+  }
+  return 1;
+}
+uint8 AdvanceFastScreenFadeIn(void) {  // 0x8B9100
+  if (sign8(((screen_fade_counter + reg_INIDISP) & 0x1F) - 15)) {
+    reg_INIDISP = (screen_fade_counter + reg_INIDISP) & 0x1F;
+    return 0;
+  } else {
+    reg_INIDISP = 15;
+    return 1;
+  }
+}
+void EnableCinematicBgObjects(void) {  // 0x8B95A2
+  cinematic_enable_objs |= 0x8000;
+}
+void EnableCinematicBgTilemapUpdates(void) {  // 0x8B95B8
+  cinematic_enable_bg_tilemap |= 0x8000;
+}
+void DrawCinematicSpriteObjects_Ending(void) {  // 0x8B9799
+  for (int i = 30; i >= 0; i -= 2) {
+    int v1 = i >> 1;
+    if (cinematicspr_whattodraw[v1]) {
+      uint16 v2 = cinematicspr_whattodraw[v1];
+      uint16 chr = cinematicbg_arr9[v1];
+      uint16 x = cinematicbg_arr7[v1] - layer1_x_pos;
+      uint16 y = cinematicbg_arr8[v1] - layer1_y_pos;
+      if ((y & 0xFF00) != 0) {
+        if ((uint16)(y + 128) < 0x1FF)
+          DrawSpritemapOffScreen(v2, x, y, chr);
+      } else if ((uint16)(y + 128) < 0x1FF) {
+        DrawSpritemap(0x8C, v2, x, y, chr);
+      }
+    }
+  }
+  if (sign16(cinematic_function - 0xDA02 /* CinematicFunction_Intro_Func116 */))
+    MoveUnusedSpritesOffScreen();
+}
+void EnableTextGlowObjects_(void) {
+  cinematic_var25 |= 0x8000;
+}
+void DisableTextGlowObjects_(void) {
+  cinematic_var25 &= ~0x8000;
+}
+void CinematicFunction_Intro_Func128(uint16 a) {  // 0x8B98F9
+  for (int i = 2046; i >= 0; i -= 2)
+    cinematic_text_tilemap[(uint16)((uint16)i) >> 1] = a;
+  cinematic_var26 = 0;
+  cinematic_var21 = 0;
+  cinematic_var22 = 0;
+  cinematic_var23 = 0;
+  cinematic_var24 = 0;
+  cinematicbg_var3 = 18432;
+  cinematic_glow_ptr[6] = 0;
+  cinematic_var7 = 0;
+  cinematic_var8 = 0;
+  cinematic_var9 = 0;
+  cinematic_var10 = 0;
+}
+void CreditsObject_Init(uint16 j) {  // 0x8B9932
+  uint16 v1 = (j);
+  cinematic_var24 = BW_8B(v1 + 2);
+  cinematic_var21 = BW_8B(v1 + 4);
+  cinematic_var22 = 1;
+  cinematic_var23 = 0;
+  CallCreditsObjectFunc(BW_8B(v1) | 0x8B0000, 0);
+}
+void CreditsObject_Process(void) {  // 0x8B9955
+  if ((cinematic_var25 & 0x8000) != 0) {
+    if (cinematic_var21)
+      CreditsObject_ProcessOne();
+    CinematicUpdateSomeBg();
+  }
+}
+void CreditsObject_ProcessOne(void) {  // 0x8B996A
+  int i;
+
+  CallCreditsObjectFunc(cinematic_var24 | 0x8B0000, 0);
+  AddToHiLo(&cinematic_var10, &cinematic_var9, 0x8000);
+  if (!sign16(cinematic_var10 - cinematic_glow_ptr[6] - 8)) {
+    cinematic_glow_ptr[6] = cinematic_var10;
+    for (i = cinematic_var21; ; ) {
+      const uint16 v2 = (i);
+      uint16 v3 = BW_8C(v2);
+      if ((BW_8C(v2) & 0x8000) == 0)
+        break;
+      i = CallIntroObjectInstr(v3 | 0x8B0000, 0, i + 2);
+      if (!i)
+        return;
+    }
+    CreditsObject_Func1(i);
+    cinematic_var26 = (cinematic_var26 + 1) & 0x1F;
+    cinematic_var21 = i + 4;
+  }
+}
+uint16 IntroObject_Delete(uint16 k, uint16 j) {  // 0x8B99FE
+  cinematic_var21 = 0;
+  return 0;
+}
+uint16 IntroObject_Goto(uint16 k, uint16 j) {  // 0x8B9A06
+  return BW_8C(j);
+}
+uint16 IntroObject_DecTimerGoto(uint16 k, uint16 j) {  // 0x8B9A0D
+  if (--cinematic_var23)
+    return IntroObject_Goto(k, j);
+  else
+    return j + 2;
+}
+uint16 IntroObject_SetTimer(uint16 k, uint16 j) {  // 0x8B9A17
+  cinematic_var23 = BW_8C(j);
+  return j + 2;
+}
+void ClearEnglishTextTilemap(void) {  // 0x8BA856
+  uint16 v0 = 128;
+  do
+    cinematic_text_tilemap[v0++] = 47;
+  while ((int16)(v0 * 2 - 1536) < 0);
+}
+void SetSomeStuffForSpriteObject_16(void) {  // 0x8BADEE
+  cinematicbg_arr7[15] = 8;
+  cinematicbg_arr8[15] = 24;
+  cinematicspr_instr_ptr[15] = addr_word_8BCBFB;
+  cinematicspr_instr_timer[15] = 1;
+}
+void CinematicFunction_Intro_Func15b(void) {  // 0x8BB207
+  EnableCinematicBgTilemapUpdates();
+  ClearEnglishTextTilemap();
+  SpawnCinematicBgObject(addr_kCinematicBgObjectDef_8BCF5D, 0x4C00);
+  cinematic_function = 0xA390 /* nullsub_121 */;
+  SetSomeStuffForSpriteObject_16();
+  QueueMusic_Delayed8(0);
+}
+void CinematicBgPreInstr_SamusBlink(uint16 k) {  // 0x8BB4BC
+  if (cinematic_function == 0xB207 /* CinematicFunction_Intro_Func15b */
+      || cinematic_function == 0xA390 /* nullsub_121 */) {
+    int v1 = k >> 1;
+    cinematicbg_instr_ptr[v1] = -10733;
+    cinematicbg_instr_timer[v1] = 1;
+    cinematicbg_preinstr[v1] = 0x93D9 /* CinematicFunction_nullsub_116 */;
+  }
+}
+void CallCreditsObjectFunc(uint32 ea, uint16 k) {
+  switch (ea) {
+  case 0x8B93D9: return;
+  case 0x8BB4BC: CinematicBgPreInstr_SamusBlink(k); return;
+  default: nt_unimpl("Unreachable");
+  }
+}
+void CinematicFunction_Intro_Func109(void) {  // 0x8BD6D7
+  if (!(HasQueuedMusic() & 1)) {
+    SpawnPalfxObject(addr_kPalfx_E1D8);
+    SpawnPalfxObject(addr_kPalfx_E1DC);
+    cinematic_function = 0xD6F2 /* CinematicFunction_Intro_Func110 */;
+  }
+}
+void CinematicFunction_Intro_Func110(void) {  // 0x8BD6F2
+  CinematicFunction_Intro_Func111();
+  if (AdvanceFastScreenFadeIn() & 1)
+    cinematic_function = 0xD701 /* CinematicFunction_Intro_Func111 */;
+}
+void CinematicFunction_Intro_Func111(void) {  // 0x8BD701
+  if ((cinematic_var12 & 1) == 0)
+    cinematic_var5 = (uint8)(cinematic_var5 - 1);
+  cinematic_var6 += 2;
+  if (!sign16(cinematic_var6 - 384)) {
+    if (AdvanceFastScreenFadeOut() & 1)
+      cinematic_function = 0xD731 /* CinematicFunction_Intro_Func112 */;
+  }
+}
+void CinematicFunction_Intro_Func114(void) {  // 0x8BD807
+  if ((cinematic_var12 & 1) == 0)
+    cinematic_var5 = (uint8)(cinematic_var5 - 1);
+  cinematic_var6 += 3;
+  if (!sign16(cinematic_var6 - 384)) {
+    if (AdvanceFastScreenFadeOut() & 1)
+      cinematic_function = 0xD837 /* CinematicFunction_Intro_Func115 */;
+  }
+}
+void CinematicFunction_Intro_Func113(void) {  // 0x8BD7F8
+  CinematicFunction_Intro_Func114();
+  if (AdvanceFastScreenFadeIn() & 1)
+    cinematic_function = 0xD807 /* CinematicFunction_Intro_Func114 */;
+}
+void CinematicFunction_Intro_Func116(void) {  // 0x8BDA02
+  CinematicFunction_Intro_Func117();
+  if (AdvanceFastScreenFadeIn() & 1) {
+    screen_fade_delay = 2;
+    screen_fade_counter = 2;
+    cinematic_function = 0xDA1A /* CinematicFunction_Intro_Func117 */;
+  }
+}
+void CinematicFunction_Intro_Func117(void) {  // 0x8BDA1A
+  cinematic_var6 += 4;
+  if ((cinematic_var4 & 1) == 0) {
+    FadeOutYColorsFromIndexX(0xE0, 0x10);
+    FadeInYColorsFromIndexX(0x1A0, 0x10);
+    FadeInYColorsFromIndexX(0x1E0, 0x10);
+    ComposeFadingPalettes();
+  }
+  if ((--cinematic_var4 & 0x8000) != 0) {
+    uint16 v0 = 0;
+    do {
+      { palette_buffer[v0 >> 1] = ((uint16)BW_8C(0xEBE9 + 2 * (v0 >> 1))); nt_pal_dirty((uint8)(v0 >> 1), (uint8)(v0 >> 1)); }
+      v0 += 2;
+    } while ((int16)(v0 - 256) < 0);
+    reg_M7SEL = 0;
+    reg_BG1SC = 112;
+    reg_BG2SC = 120;
+    reg_BG3SC = 0;
+    reg_BG4SC = 0;
+    reg_BG12NBA = 68;
+    reg_BG34NBA = 0;
+    reg_TM = 16;
+    reg_TS = 0;
+    reg_TMW = 0;
+    reg_TSW = 0;
+    next_gameplay_CGWSEL = 0;
+    next_gameplay_CGADSUB = 0;
+    reg_CGWSEL = 0;
+    reg_CGADSUB = 0;
+    (void)0;
+    reg_COLDATA[0] = 32;
+    reg_COLDATA[1] = 64;
+    reg_COLDATA[2] = 0x80;
+    reg_MOSAIC = 0;
+    cinematic_var7 = 0;
+    cinematic_var8 = 0;
+    cinematic_var9 = 0;
+    cinematic_var10 = 0;
+    g_word_7E1999 = 0;
+    g_word_7E199B = 0;
+    g_word_7E199D = 0;
+    g_word_7E199F = 0;
+    fx_layer_blending_config_a = 0;
+    reg_BG2HOFS = 0;
+    reg_BG2VOFS = 0;
+    screen_fade_delay = 0;
+    screen_fade_counter = 2;
+    cinematic_function = 0xDAD3 /* CinematicFunction_Intro_Func118 */;
+    cinematic_var4 = 0;
+  }
+}
+void CinematicFunction_Intro_Func119(void) {  // 0x8BDB9E
+  bool v0 = (--cinematic_var4 & 0x8000) != 0;
+  if (!cinematic_var4 || v0) {
+    QueueMusic_Delayed8(0);
+    QueueMusic_Delayed8(0xFF3C);
+    QueueMusic_DelayedY(5, 0xE);
+    cinematic_function = 0xDBC4 /* CinematicFunction_Intro_Func120 */;
+  }
+}
+void CinematicFunction_Intro_Func120(void) {  // 0x8BDBC4
+  if (!(HasQueuedMusic() & 1)) {
+    reg_BGMODE = 7;
+    reg_M7SEL = 0x80;
+    reg_TM = 17;
+    reg_TS = 0;
+    reg_CGWSEL = 0;
+    reg_CGADSUB = 48;
+    reg_COLDATA[0] = 63;
+    reg_COLDATA[1] = 95;
+    reg_COLDATA[2] = -97;
+    reg_BG1SC = 0;
+    reg_BG12NBA = 0;
+    { palette_buffer[0] = 0; nt_pal_dirty((uint8)(0), (uint8)(0)); }
+    { palette_buffer[16] = 0; nt_pal_dirty((uint8)(16), (uint8)(16)); }
+    { palette_buffer[128] = 0; nt_pal_dirty((uint8)(128), (uint8)(128)); }
+    SpawnPalfxObject(addr_kPalfx_E1D4);
+    SpawnPalfxObject(addr_kPalfx_E1E4);
+    reg_M7X = 56;
+    reg_M7Y = 24;
+    cinematic_var8 = -72;
+    cinematic_var10 = -104;
+    cinematic_var6 = 3072;
+    cinematic_var5 = -112;
+    cinematic_var4 = 1;
+    cinematic_var13 = 192;
+    cinematic_var14 = 0;
+    cinematic_function = 0xDCA5 /* CinematicFunction_Intro_Func121 */;
+  }
+}
+void CinematicFunction_Intro_Func122(void) {  // 0x8BDC4C
+  bool v0 = (--cinematic_var4 & 0x8000) != 0;
+  if (!cinematic_var4 || v0) {
+    if (sign8(--reg_COLDATA[0] - 32))
+      reg_COLDATA[0] = 32;
+    if (sign8(--reg_COLDATA[1] - 64))
+      reg_COLDATA[1] = 64;
+    if (sign8(--reg_COLDATA[2] + 0x80))
+      reg_COLDATA[2] = 0x80;
+    if (reg_COLDATA[0] == 32 && reg_COLDATA[1] == 64 && reg_COLDATA[2] == 0x80) {
+      reg_CGWSEL = 0;
+      reg_CGADSUB = 0;
+    }
+    cinematic_var4 = 8;
+  }
+}
+void CinematicFunction_Intro_Func121(void) {  // 0x8BDCA5
+  if (cinematic_var13)
+    --cinematic_var13;
+  else
+    CinematicFunction_Intro_Func122();
+  cinematic_var5 = (uint8)(cinematic_var5 - 4);
+  int v0 = 2 * cinematic_var14;
+  AddToHiLo(&cinematic_var8, &cinematic_var7, __PAIR32__(((uint16)BW_8B(0xDD02 + 2 * (v0))), ((uint16)BW_8B(0xDD02 + 2 * (v0 + 1)))));
+  cinematic_var14 = (cinematic_var14 + 1) & 0xF;
+  cinematic_var6 -= 8;
+  if (sign16(cinematic_var6 - 1456)) {
+    cinematic_var13 = 1;
+    cinematic_var14 = 0;
+    cinematic_function = 0xDD42 /* CinematicFunction_Intro_Func123 */;
+  }
+}
+void CinematicFunction_Intro_Func123(void) {  // 0x8BDD42
+  CinematicFunction_Intro_Func122();
+  if (cinematic_var5 != 224)
+    cinematic_var5 = (uint8)(cinematic_var5 - 1);
+  int v0 = 2 * cinematic_var14;
+  AddToHiLo(&cinematic_var8, &cinematic_var7, __PAIR32__(((uint16)BW_8B(0xDDAD + 2 * (v0))), ((uint16)BW_8B(0xDDAD + 2 * (v0 + 1)))));
+  cinematic_var14 = (cinematic_var14 + 1) & 7;
+  cinematic_var6 -= 2;
+  if (sign16(cinematic_var6 - 1184)) {
+    cinematic_function = 0xDDCD /* CinematicFunction_Intro_Func124 */;
+    cinematic_var14 = 0x8000;
+    cinematic_var13 = 0;
+    if (CheckEventHappened(0xF)) {
+      SpawnCinematicSpriteObjectToR18(0xEF21, 4);
+    }
+  }
+}
+void CinematicFunction_Intro_Func124(void) {  // 0x8BDDCD
+  CinematicFunction_Intro_Func122();
+  AddToHiLo(&cinematic_var13, &cinematic_var14, -256);
+  AddToHiLo(&cinematic_var8, &cinematic_var7, __PAIR32__(cinematic_var13, cinematic_var14));
+  if (sign16(cinematic_var6 - 384) && (cinematic_var12 & 3) == 0 && cinematic_var5 != 16)
+    cinematic_var5 = (uint8)(cinematic_var5 + 2);
+  if (sign16(cinematic_var6 - 32)) {
+    SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEEC7, cinematic_var6);
+    cinematic_function = 0xDE63 /* nullsub_126 */;
+    for (int i = 30; i >= 0; i -= 2)
+      { palette_buffer[(i >> 1) + 80] = ((uint16)BW_8B(0xDE43 + 2 * (i >> 1))); nt_pal_dirty((uint8)((i >> 1) + 80), (uint8)((i >> 1) + 80)); }
+  } else {
+    cinematic_var6 -= 4;
+  }
+}
+void CinematicFunction_Intro_Func125(void) {  // 0x8BDE64
+  screen_fade_counter = 1;
+  if (AdvanceFastScreenFadeOut() & 1) {
+    EnableNMI();
+    screen_fade_delay = 0;
+    screen_fade_counter = 0;
+    cinematic_function = 0xDE80 /* CinematicFunction_Intro_Func126 */;
+  }
+}
+void CinematicFunction_Intro_Func129(void) {  // 0x8BE0F4
+  bool v0 = (--cinematic_var4 & 0x8000) != 0;
+  if (!cinematic_var4 || v0) {
+    cinematic_function = 0xE110 /* CinematicFunction_Intro_Func130 */;
+    cinematic_var4 = 120;
+    reg_TM = 16;
+  }
+}
+void CinematicFunction_Intro_Func130(void) {  // 0x8BE110
+  HandleFadeIn();
+  if (reg_INIDISP == 15) {
+    reg_TM = 2;
+    reg_TS = 16;
+    reg_CGWSEL = 2;
+    reg_CGADSUB = 34;
+    screen_fade_delay = 0;
+    screen_fade_counter = 0;
+    CopyPalettesToFadingPalettes();
+    DecomposePaletteDataForFading();
+    ClearYColorsFromIndexX(0x40, 0x10);
+    ComposeFadingPalettes();
+    cinematic_var4 = 32;
+    cinematic_function = 0xE158 /* CinematicFunction_Intro_Func131 */;
+  }
+}
+void CinematicFunction_Intro_Func131(void) {  // 0x8BE158
+  FadeInYColorsFromIndexX(0x40, 0x10);
+  ComposeFadingPalettes();
+  bool v0 = (--cinematic_var4 & 0x8000) != 0;
+  if (!cinematic_var4 || v0) {
+    reg_TM = 18;
+    reg_TS = 4;
+    reg_CGWSEL = 2;
+    reg_CGADSUB = 2;
+    cinematic_var4 = 180;
+    cinematic_function = 0xE190 /* CinematicFunction_Intro_Func132 */;
+    CinematicFunction_Intro_Func133();
+  }
+}
+void CinematicFunction_Intro_Func132(void) {  // 0x8BE190
+  reg_BG3VOFS += 2;
+  bool v0 = (--cinematic_var4 & 0x8000) != 0;
+  if (!cinematic_var4 || v0) {
+    uint16 v1 = 0;
+    do {
+      cinematic_text_tilemap[v1 + 288] = ((uint16)BW_8C(0xDC9B + 2 * (v1)));
+      ++v1;
+    } while ((int16)(v1 * 2 - 576) < 0);
+    CinematicUpdateSomeBg();
+    reg_TM = 1;
+    reg_TS = 0;
+    reg_CGWSEL = 0;
+    reg_CGADSUB = 0;
+    cinematic_var4 = 180;
+    cinematic_function = 0xE1D2 /* CinematicFunction_Intro_Func134 */;
+    g_word_7E0D9C = 0;
+  }
+}
+void CinematicFunction_Intro_Func134(void) {  // 0x8BE1D2
+  if (!--cinematic_var4) {
+    cinematic_var4 = 127;
+    if (sign16(game_time_hours - 3)) {
+      CopyPalettesToFadingPalettes();
+      DecomposePaletteDataForFading();
+      SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF27, 0);
+      SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF2D, 0);
+    } else {
+      if (!sign16(game_time_hours - 10)) {
+        SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF4B, 0);
+        SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF45, 0);
+        cinematic_function = 0xE293 /* CinematicFunction_Intro_Func135 */;
+        reg_TM = 16;
+        reg_TS = 0;
+        reg_CGWSEL = 0;
+        reg_CGADSUB = 0;
+        return;
+      }
+      CopyPalettesToFadingPalettes();
+      DecomposePaletteDataForFading();
+      SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF51, 0);
+      SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF45, 0);
+      ClearYColorsFromIndexX(0x1C0, 0x10);
+    }
+    ClearYColorsFromIndexX(0x1A0, 0x10);
+    ComposeFadingPalettes();
+    reg_TM = 2;
+    reg_TS = 16;
+    reg_CGWSEL = 2;
+    reg_CGADSUB = 34;
+    cinematic_function = 0xE265 /* CinematicFunction_Intro_Func136 */;
+  }
+}
+void CinematicFunction_Intro_Func136(void) {  // 0x8BE265
+  if ((cinematic_var4 & 3) != 0) {
+    CinematicFunction_Intro_Func135();
+  } else {
+    FadeOutYColorsFromIndexX(0x40, 0x10);
+    if (!sign16(game_time_hours - 3))
+      FadeInYColorsFromIndexX(0x1C0, 0x10);
+    FadeInYColorsFromIndexX(0x1A0, 0x10);
+    ComposeFadingPalettes();
+    CinematicFunction_Intro_Func135();
+  }
+}
+void CinematicFunction_Intro_Func135(void) {  // 0x8BE293
+  if (sign16(--cinematic_var4 - 65)) {
+    for (int i = 574; i >= 0; i -= 2)
+      *(uint16 *)((uint8 *)&cinematic_text_tilemap[288] + (uint16)i) = 127;
+    uint16 v1 = 0;
+    do {
+      cinematic_text_tilemap[v1 + 384] = ((uint16)BW_8C(0xDEDB + 2 * (v1)));
+      ++v1;
+    } while ((int16)(v1 * 2 - 128) < 0);
+    CinematicUpdateSomeBg();
+    reg_TM = 1;
+    reg_TS = 0;
+    reg_CGWSEL = 0;
+    reg_CGADSUB = 0;
+    cinematic_var13 = 180;
+    cinematic_function = 0xE2DD /* CinematicFunction_Intro_Func137 */;
+  }
+}
+void CinematicFunction_Intro_Func137(void) {  // 0x8BE2DD
+  bool v0 = (--cinematic_var13 & 0x8000) != 0;
+  if (!cinematic_var13 || v0) {
+    if (sign16(game_time_hours - 3) || sign16(game_time_hours - 10)) {
+      reg_TM = 2;
+      reg_TS = 16;
+      reg_CGWSEL = 2;
+      reg_CGADSUB = 34;
+      cinematic_function = 0xE314 /* CinematicFunction_Intro_Func138 */;
+    } else {
+      cinematic_function = 0xE342 /* CinematicFunction_Intro_Func145 */;
+    }
+  }
+}
+void CinematicFunction_Intro_Func138(void) {  // 0x8BE314
+  if ((cinematic_var4 & 3) != 0) {
+    CinematicFunction_Intro_Func145();
+  } else {
+    FadeOutYColorsFromIndexX(0x40, 0x10);
+    if (!sign16(game_time_hours - 3))
+      FadeInYColorsFromIndexX(0x1C0, 0x10);
+    FadeInYColorsFromIndexX(0x1A0, 0x10);
+    ComposeFadingPalettes();
+    CinematicFunction_Intro_Func145();
+  }
+}
+void CinematicFunction_Intro_Func145(void) {  // 0x8BE342
+  if ((--cinematic_var4 & 0x8000) != 0) {
+    reg_TM = 16;
+    reg_TS = 0;
+    reg_CGWSEL = 0;
+    reg_CGADSUB = 0;
+    reg_BGMODE = 7;
+    reg_M7SEL = 0x80;
+    reg_BG1SC = 0;
+    reg_BG12NBA = 0;
+    cinematic_function = 0xDB9D /* nullsub_125 */;
+    cinematic_var14 = 0;
+    if (sign16(game_time_hours - 3)) {
+      SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF33, 0);
+      SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF39, 0);
+    } else {
+      if (sign16(game_time_hours - 10))
+        SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF69, 0);
+      else
+        SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF63, 0);
+      SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF5D, 0);
+      SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF57, 0);
+    }
+  }
+}
+void CinematicFunction_Intro_Func140(void) {  // 0x8BE409
+  if (cinematic_var17) {
+    --cinematic_var17;
+    FadeOutYColorsFromIndexX(0x1E0, 0x10);
+    ComposeFadingPalettes();
+  }
+}
+void CinematicFunction_Intro_Func139(void) {  // 0x8BE3AE
+  if (cinematic_var14) {
+    --cinematic_var14;
+    FadeOutYColorsFromIndexX(0x180, 0x10);
+    if (cinematic_var4)
+      ComposeFadingPalettes();
+  }
+  if (cinematic_var4)
+    --cinematic_var4;
+  else
+    CinematicFunction_Intro_Func140();
+  cinematic_var5 = (uint8)(cinematic_var5 - 8);
+  cinematic_var6 -= 64;
+  if (sign16(cinematic_var6 - 24)) {
+    cinematic_var6 = 24;
+    cinematic_function = 0xE48A /* CinematicFunction_Intro_Func141 */;
+    cinematic_var4 = 180;
+    cinematic_var14 = 0;
+  }
+}
+void CinematicFunction_Intro_Func142(void) {  // 0x8BE41F
+  if (!cinematic_var17) {
+    if (sign16(cinematic_var14 - 6)) {
+      uint16 v0 = 4 * cinematic_var14;
+      uint16 v1 = vram_write_queue_tail;
+      int v2 = (8 * cinematic_var14) >> 1;
+      nt_vwq_w16((uint16)((vram_write_queue_tail) + 0), ((uint16)BW_8B(0xE45A + 2 * (v2))));
+      v1 += 2;
+      nt_vwq_w16((uint16)((v1) + 0), ((uint16)BW_8B(0xE45A + 2 * (v2 + 1))));
+      v1 += 2;
+      nt_vwq_w8((uint16)((v1++)), ((uint16)BW_8B(0xE45A + 2 * (v0 + 2))));
+      nt_vwq_w16((uint16)((v1) + 0), ((uint16)BW_8B(0xE45A + 2 * (v2 + 3))));
+      vram_write_queue_tail = v1 + 2;
+      ++cinematic_var14;
+    }
+  }
+}
+void CinematicFunction_Intro_Func141(void) {  // 0x8BE48A
+  CinematicFunction_Intro_Func140();
+  CinematicFunction_Intro_Func142();
+  if (!--cinematic_var4) {
+    reg_BGMODE = 1;
+    reg_TM = 17;
+    reg_TS = 0;
+    reg_CGWSEL = 0;
+    reg_CGADSUB = 49;
+    reg_COLDATA[0] = 63;
+    reg_COLDATA[1] = 95;
+    reg_COLDATA[2] = -97;
+    reg_M7SEL = 0;
+    reg_BG1SC = 78;
+    reg_BG12NBA = 84;
+    uint16 v0 = 384;
+    do {
+      { palette_buffer[v0 >> 1] = ((uint16)BW_8C(0xE7E9 + 2 * (v0 >> 1))); nt_pal_dirty((uint8)(v0 >> 1), (uint8)(v0 >> 1)); }
+      v0 += 2;
+    } while ((int16)(v0 - 416) < 0);
+    cinematic_var8 = 0;
+    cinematic_var10 = 0;
+    cinematic_function = 0xE504 /* CinematicFunction_Intro_Func143 */;
+    cinematic_var4 = 32;
+    EnableCinematicBgObjects();
+    EnableCinematicBgTilemapUpdates();
+    cinematicbg_var3 = 19456;
+    for (int i = 126; i >= 0; i -= 2)
+      *(uint16 *)((uint8 *)&cinematic_text_tilemap[384] + (uint16)i) = 127;
+    CinematicUpdateSomeBg();
+  }
+}
+void CinematicFunction_Intro_Func143(void) {  // 0x8BE504
+  uint16 j;
+
+  if (sign8(--reg_COLDATA[0] - 32))
+    reg_COLDATA[0] = 32;
+  if (sign8(--reg_COLDATA[1] - 64))
+    reg_COLDATA[1] = 64;
+  if (sign8(--reg_COLDATA[2] + 0x80))
+    reg_COLDATA[2] = 0x80;
+  bool v0 = (--cinematic_var4 & 0x8000) != 0;
+  if (!cinematic_var4 || v0) {
+    cinematic_function = 0xE7BA /* nullsub_127 */;
+    cinematicbg_var3 = 20480;
+    CinematicUpdateSomeBg();
+    layer1_x_pos = 256;
+    layer1_y_pos = 256;
+    SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF81, 0);
+    SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF87, 0);
+    SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF8D, 0);
+    SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF93, 0);
+    for (int i = 30; i >= 0; i -= 2)
+      { palette_buffer[(i >> 1) + 16] = 0; nt_pal_dirty((uint8)((i >> 1) + 16), (uint8)((i >> 1) + 16)); }
+    for (j = 30; (j & 0x8000) == 0; j -= 2)
+      { palette_buffer[(j >> 1) + 240] = ((uint16)BW_8C(0xEFE9 + 2 * (j >> 1))); nt_pal_dirty((uint8)((j >> 1) + 240), (uint8)((j >> 1) + 240)); }
+  }
+}
+void CinematicFunction_Intro_Func144(void) {  // 0x8BE58A
+  uint16 j;
+
+  int v0 = (uint16)(4 * cinematic_var4) >> 1;
+  uint16 v5 = ((uint16)BW_8B(0xE5E7 + 2 * (v0 + 1)));
+  uint16 v1 = ((uint16)BW_8B(0xE5E7 + 2 * (v0)));
+  for (int i = 30; i >= 0; i -= 2) {
+    { palette_buffer[(i >> 1) + 16] = BW_8C(v1); nt_pal_dirty((uint8)((i >> 1) + 16), (uint8)((i >> 1) + 16)); }
+    v1 -= 2;
+  }
+  uint16 v3 = v5;
+  for (j = 30; (j & 0x8000) == 0; j -= 2) {
+    { palette_buffer[(j >> 1) + 240] = BW_8C(v3); nt_pal_dirty((uint8)((j >> 1) + 240), (uint8)((j >> 1) + 240)); }
+    v3 -= 2;
+  }
+  if (!sign16(++cinematic_var4 - 16)) {
+    cinematic_function = 0xE7BA /* nullsub_127 */;
+    ClearCinematicSprites();
+    SpawnCinematicBgObject(addr_kCinematicBgObjectDef_8BF74E, 0x4C00);
+  }
+}
+uint16 CinematicFunction_Intro_Func146(uint16 k, uint16 j) {  // 0x8BE769
+  if (japanese_text_flag) {
+    for (int i = 63; i >= 0; --i)
+      cinematic_text_tilemap[i + 736] = ((uint16)BW_8C(0xDF5B + 2 * (i)));
+  }
+  return j;
+}
+uint16 CinematicFunction_Intro_Func147(uint16 k, uint16 j) {  // 0x8BE780
+  for (int i = 126; i >= 0; i -= 2)
+    *(uint16 *)((uint8 *)&cinematic_text_tilemap[736] + (uint16)i) = 127;
+  cinematic_function = 0xE797 /* CinematicFunction_Intro_Func148 */;
+  return j;
+}
+void CinematicFunction_Intro_Func148(void) {  // 0x8BE797
+  cinematic_var10 -= 2;
+  if (sign16(cinematic_var10 + 79)) {
+    SpawnCinematicBgObject(addr_kCinematicBgObjectDef_8BF748, 0x4C00);
+    cinematic_function = 0xE7BA /* nullsub_127 */;
+    CopySuperMetroidString();
+  }
+}
+void CinematicFunction_Intro_Func150(uint16 j) {  // 0x8BEF99
+  int v1 = j >> 1;
+  cinematicbg_arr8[v1] = 128;
+  cinematicbg_arr7[v1] = 128;
+  cinematicbg_arr9[v1] = 3584;
+  cinematicspr_goto_timer[v1] = 260;
+}
+void CinematicFunction_Intro_Func151(uint16 k) {  // 0x8BEFB2
+  int v1 = k >> 1;
+  AddToHiLo(&cinematicbg_arr8[v1], &cinematicspr_arr7[v1], 128);
+  cinematicspr_arr6[v1] = cinematicspr_arr6[v1];
+  if (!sign16(++cinematicbg_arr7[v1] - 272)) {
+    cinematicspr_instr_timer[v1] = 1;
+    cinematicspr_instr_ptr[v1] = addr_off_8BEE9B;
+  }
+}
+void CinematicFunction_Intro_Func152(uint16 j) {  // 0x8BEFEA
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 128;
+  cinematicbg_arr8[v1] = 128;
+  cinematicbg_arr9[v1] = 3584;
+}
+void CinematicFunction_Intro_Func153(uint16 j) {  // 0x8BEFFD
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = -128;
+  cinematicbg_arr8[v1] = 128;
+  cinematicbg_arr9[v1] = 3584;
+}
+void CinematicFunction_Intro_Func154(uint16 j) {  // 0x8BF005
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 128;
+  cinematicbg_arr8[v1] = 128;
+  cinematicbg_arr9[v1] = 2560;
+}
+void CinematicFunction_Intro_Func155(uint16 j) {  // 0x8BF018
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 128;
+  cinematicbg_arr8[v1] = 128;
+  cinematicbg_arr9[v1] = 3072;
+}
+void CinematicFunction_Intro_Func156(uint16 j) {  // 0x8BF02B
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 128;
+  cinematicbg_arr8[v1] = 96;
+  cinematicbg_arr9[v1] = 1024;
+}
+void CinematicFunction_Intro_Func157(uint16 j) {  // 0x8BF03E
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 128;
+  cinematicbg_arr8[v1] = 160;
+  cinematicbg_arr9[v1] = 512;
+}
+void CinematicFunction_Intro_Func158(uint16 j) {  // 0x8BF051
+  int v1 = j >> 1;
+  cinematicbg_arr8[v1] = 160;
+  cinematicbg_arr9[v1] = 0;
+}
+void CinematicFunction_Intro_Func159(uint16 j) {  // 0x8BF05E
+  CinematicFunction_Intro_Func160(j, substate);
+  cinematicbg_arr7[j >> 1] = 156;
+  CinematicFunction_Intro_Func158(j);
+}
+void CinematicFunction_Intro_Func161(uint16 j) {  // 0x8BF06D
+  CinematicFunction_Intro_Func160(j, suit_pickup_light_beam_pos);
+  cinematicbg_arr7[j >> 1] = 164;
+  CinematicFunction_Intro_Func158(j);
+}
+void CinematicFunction_Intro_Func162(uint16 j) {  // 0x8BF07C
+  cinematicbg_arr7[j >> 1] = 172;
+  CinematicFunction_Intro_Func158(j);
+}
+void CinematicFunction_Intro_Func163(uint16 j) {  // 0x8BF085
+  CinematicFunction_Intro_Func160(j, nt_ram_w(0x0DF0));
+  cinematicbg_arr7[j >> 1] = 180;
+  CinematicFunction_Intro_Func158(j);
+}
+void CinematicFunction_Intro_Func164(uint16 j) {  // 0x8BF094
+  CinematicFunction_Intro_Func160(j, nt_ram_w(0x0DF2));
+  cinematicbg_arr7[j >> 1] = 188;
+  CinematicFunction_Intro_Func158(j);
+}
+void CinematicFunction_Intro_Func160(uint16 j, uint16 a) {  // 0x8BF0A3
+  cinematicspr_instr_ptr[j >> 1] += 8 * a;
+}
+void CinematicFunction_Intro_Func165(uint16 j) {  // 0x8BF0B2
+  cinematicbg_arr8[j >> 1] = -96;
+  CinematicFunction_F0B8(j);
+}
+void CinematicFunction_F0B8(uint16 j) {  // 0x8BF0B8
+  int v1 = j >> 1;
+  if (cinematic_spawn_param) {
+    cinematicbg_arr7[v1] = 384;
+    cinematicbg_arr9[v1] = 2560;
+    cinematicspr_instr_ptr[v1] += 4;
+  } else {
+    cinematicbg_arr7[v1] = 128;
+    cinematicbg_arr9[v1] = 2560;
+  }
+}
+void CinematicFunction_Intro_Func166(uint16 j) {  // 0x8BF0E1
+  cinematicbg_arr8[j >> 1] = -32;
+  CinematicFunction_F0B8(j);
+}
+void CinematicFunction_Intro_Func167(uint16 j) {  // 0x8BF0E9
+  cinematicbg_arr8[j >> 1] = 288;
+  CinematicFunction_F0B8(j);
+}
+void CinematicFunction_Intro_Func168(uint16 j) {  // 0x8BF0F1
+  cinematicbg_arr8[j >> 1] = 352;
+  CinematicFunction_F0B8(j);
+}
+void CinematicFunction_Intro_Func169(uint16 j) {  // 0x8BF0F9
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 320;
+  if (cinematic_spawn_param)
+    cinematicbg_arr8[v1] = 448;
+  else
+    cinematicbg_arr8[v1] = 192;
+  cinematicbg_arr9[v1] = 2560;
+}
+void CinematicFunction_Intro_Func170(uint16 j) {  // 0x8BF11E
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = -64;
+  if (cinematic_spawn_param)
+    cinematicbg_arr8[v1] = -192;
+  else
+    cinematicbg_arr8[v1] = 64;
+  cinematicbg_arr9[v1] = 2560;
+}
+void CinematicFunction_Intro_Func171(uint16 j) {  // 0x8BF143
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 120;
+  cinematicbg_arr8[v1] = 136;
+  cinematicbg_arr9[v1] = 2560;
+}
+void CinematicFunction_Intro_Func172(uint16 j) {  // 0x8BF156
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 120;
+  cinematicbg_arr8[v1] = 152;
+  cinematicbg_arr9[v1] = 3072;
+}
+void CinematicFunction_Intro_Func173(uint16 j) {  // 0x8BF169
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 124;
+  cinematicbg_arr8[v1] = 108;
+  cinematicbg_arr9[v1] = 3072;
+}
+void CinematicFunction_Intro_Func174(uint16 j) {  // 0x8BF17C
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 121;
+  cinematicbg_arr8[v1] = 107;
+  cinematicbg_arr9[v1] = 2560;
+}
+void CinematicFunction_Intro_Func175(uint16 j) {  // 0x8BF18F
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 530;
+  cinematicbg_arr8[v1] = 231;
+  cinematicbg_arr9[v1] = 3584;
+  cinematicspr_goto_timer[v1] = 8;
+}
+void CinematicFunction_Intro_Func176(uint16 j) {  // 0x8BF1A8
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 246;
+  cinematicbg_arr8[v1] = 519;
+  cinematicbg_arr9[v1] = 3584;
+  cinematicspr_goto_timer[v1] = 8;
+}
+void CinematicFunction_Intro_Func177(uint16 j) {  // 0x8BF1C1
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 385;
+  cinematicbg_arr8[v1] = 366;
+  cinematicbg_arr9[v1] = 3584;
+}
+void CinematicFunction_Intro_Func178(uint16 j) {  // 0x8BF1D4
+  int v1 = j >> 1;
+  cinematicbg_arr7[v1] = 391;
+  cinematicbg_arr8[v1] = 384;
+  cinematicbg_arr9[v1] = 3584;
+}
+void CinematicFunction_Intro_Func179(uint16 k) {  // 0x8BF1E7
+  int v1 = k >> 1;
+  cinematicbg_arr8[v1] += cinematicspr_goto_timer[v1];
+  uint16 v2 = cinematicbg_arr7[v1] - cinematicspr_goto_timer[v1];
+  cinematicbg_arr7[v1] = v2;
+  if (sign16(v2 - 395)) {
+    cinematicbg_arr7[v1] = 394;
+    cinematicbg_arr8[v1] = 367;
+    cinematicspr_preinstr_func[v1] = 0x93D9 /* CinematicFunction_nullsub_116 */;
+    SpawnPalfxObject(addr_kPalfx_E200);
+  } else {
+    cinematicspr_goto_timer[v1] += 2;
+  }
+}
+void CinematicFunction_Intro_Func180(uint16 k) {  // 0x8BF227
+  int v1 = k >> 1;
+  cinematicbg_arr8[v1] -= cinematicspr_goto_timer[v1];
+  uint16 v2 = cinematicspr_goto_timer[v1] + cinematicbg_arr7[v1];
+  cinematicbg_arr7[v1] = v2;
+  if (sign16(v2 - 382)) {
+    cinematicspr_goto_timer[v1] += 2;
+  } else {
+    cinematicbg_arr7[v1] = 382;
+    cinematicbg_arr8[v1] = 383;
+    cinematicspr_preinstr_func[v1] = 0x93D9 /* CinematicFunction_nullsub_116 */;
+  }
+}
+uint16 CinematicSprInstr_Func181(uint16 k, uint16 j) {  // 0x8BF25E
+  reg_TM = 3;
+  reg_TS = 16;
+  reg_CGWSEL = 2;
+  reg_CGADSUB = 34;
+  reg_BG12NBA = 100;
+  reg_BG2SC = 84;
+  cinematic_var4 = 0;
+  cinematic_function = 0xE58A /* CinematicFunction_Intro_Func144 */;
+  return j;
+}
+uint16 CinematicSprInstr_Func182(uint16 k, uint16 j) {  // 0x8BF284
+  SpawnPalfxObject(addr_kPalfx_E1C4);
+  { palette_buffer[254] = 1; nt_pal_dirty((uint8)(254), (uint8)(254)); }
+  return j;
+}
+uint16 CinematicSprInstr_Func183(uint16 k, uint16 j) {  // 0x8BF295
+  uint16 v0 = 0;
+  SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEEB5, v0);
+  { palette_buffer[0] = 0x7FFF; nt_pal_dirty((uint8)(0), (uint8)(0)); }
+  return j;
+}
+void CinematicFunction_Intro_Func184(uint16 j) {  // 0x8BF2A5
+  if (!cinematicspr_instr_ptr[15]) {
+    int v2 = j >> 1;
+    cinematicspr_instr_timer[v2] = 1;
+    cinematicspr_instr_ptr[v2] = addr_off_8BEE9B;
+  }
+}
+uint16 CinematicSprInstr_Func185(uint16 k, uint16 j) {  // 0x8BF2B7
+  uint16 v0;
+
+  reg_TM = 17;
+  reg_TS = 2;
+  reg_CGWSEL = 2;
+  reg_CGADSUB = 17;
+  LOBYTE(v0) = 124;
+  reg_BG2SC = 124;
+  SpawnCinematicSpriteObjectToR18(addr_kCinematicSpriteObjectDef_8BEEBB, 0);
+  SpawnCinematicSpriteObjectToR18(addr_kCinematicSpriteObjectDef_8BEEF7, 2);
+  SpawnPalfxObject(addr_kPalfx_E1C8);
+  SpawnPalfxObject(addr_kPalfx_E1D0);
+  SpawnPalfxObject(addr_kPalfx_E1E8);
+  return j;
+}
+uint16 CinematicSprInstr_Func186(uint16 k, uint16 j) {  // 0x8BF2FA
+  reg_TM = 3;
+  reg_TS = 18;
+  reg_CGWSEL = 2;
+  reg_CGADSUB = 51;
+  reg_BG1SC = 116;
+  reg_BG2SC = 120;
+  SpawnPalfxObject(addr_kPalfx_E1CC);
+  SpawnCinematicSpriteObjectToR18(addr_kCinematicSpriteObjectDef_8BEEC1, 6);
+  return j;
+}
+uint16 CinematicSprInstr_Func187(uint16 k, uint16 j) {  // 0x8BF32B
+  reg_TM = 0;
+  reg_TS = 0;
+  { palette_buffer[0] = 0x7FFF; nt_pal_dirty((uint8)(0), (uint8)(0)); }
+  { palette_buffer[128] = 0x7FFF; nt_pal_dirty((uint8)(128), (uint8)(128)); }
+  for (int i = 30; i >= 0; i -= 2)
+    { palette_buffer[(i >> 1) + 16] = 0x7FFF; nt_pal_dirty((uint8)((i >> 1) + 16), (uint8)((i >> 1) + 16)); }
+  cinematic_function = 0xDB9E /* CinematicFunction_Intro_Func119 */;
+  cinematic_var4 = 120;
+  return j;
+}
+void CinematicSprPreInstr_F35A(uint16 k) {  // 0x8BF35A
+  if (cinematic_function == 0xDCA5 /* CinematicFunction_Intro_Func121 */) {
+    int v1 = k >> 1;
+    cinematicspr_preinstr_func[v1] = 0xF375 /* CinematicFunction_Intro_Func189 */;
+    cinematicspr_arr7[v1] = 0x4000;
+    cinematicspr_goto_timer[v1] = 0;
+  }
+}
+void CinematicFunction_Intro_Func189(uint16 k) {  // 0x8BF375
+  int v1 = k >> 1;
+  AddToHiLo(&cinematicspr_goto_timer[v1], &cinematicspr_arr7[v1], -32);
+  AddToHiLo(&cinematicbg_arr7[v1], &cinematicspr_arr6[v1], __PAIR32__(cinematicspr_goto_timer[v1], cinematicspr_arr7[v1]));
+  CinematicFunction_Intro_Func189b(k);
+}
+void CinematicFunction_Intro_Func189b(uint16 k) {  // 0x8BF39B
+  if (cinematic_function == 0xDE63 /* nullsub_126 */) {
+    int v5 = k >> 1;
+    cinematicspr_instr_timer[v5] = 1;
+    cinematicspr_instr_ptr[v5] = addr_off_8BEE9B;
+  }
+}
+uint16 CinematicSprInstr_Func190(uint16 k, uint16 j) {  // 0x8BF3B0
+  uint16 v0 = 0;
+  SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEECD, v0);
+  return j;
+}
+void CinematicFunction_Intro_Func191(uint16 k) {  // 0x8BF3B9
+  if (cinematic_function == 0xDE80 /* CinematicFunction_Intro_Func126 */) {
+    int v1 = k >> 1;
+    cinematicspr_instr_timer[v1] = 1;
+    cinematicspr_instr_ptr[v1] = addr_off_8BEE9B;
+  }
+}
+uint16 CinematicSprInstr_Func192(uint16 k, uint16 j) {  // 0x8BF3CE
+  SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEEFD, 0);
+
+  int hours1 = game_time_hours / 10;
+  int hours2 = game_time_hours % 10;
+  substate = hours1;
+  suit_pickup_light_beam_pos = hours2;
+
+  int min1 = game_time_minutes / 10;
+  int min2 = game_time_minutes % 10;
+
+  nt_ram_set_w(0x0DF0, (uint16)(min1));
+  nt_ram_set_w(0x0DF2, (uint16)(min2));
+  return j;
+}
+uint16 CinematicSprInstr_Func193(uint16 k, uint16 j) {  // 0x8BF41B
+  SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF03, 0);
+  return j;
+}
+uint16 CinematicSprInstr_Func194(uint16 k, uint16 j) {  // 0x8BF424
+  SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF09, 0);
+  return j;
+}
+uint16 CinematicSprInstr_Func195(uint16 k, uint16 j) {  // 0x8BF42D
+  SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF0F, 0);
+  return j;
+}
+uint16 CinematicSprInstr_Func196(uint16 k, uint16 j) {  // 0x8BF436
+  SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF15, 0);
+  return j;
+}
+uint16 CinematicSprInstr_Func197(uint16 k, uint16 j) {  // 0x8BF43F
+  SpawnCinematicSpriteObject(addr_kCinematicSpriteObjectDef_8BEF1B, 0);
+  return j;
+}
+uint16 CinematicSprInstr_Func198(uint16 k, uint16 j) {  // 0x8BF448
+  screen_fade_delay = 0;
+  screen_fade_counter = 0;
+  cinematic_function = 0xDE64 /* CinematicFunction_Intro_Func125 */;
+  return j;
+}
+void CinematicFunction_Intro_Func199(uint16 k) {  // 0x8BF455
+  if (sign16(cinematic_var6 - 176))
+    cinematicspr_preinstr_func[k >> 1] = 0xF464 /* CinematicFunction_Intro_Func200 */;
+}
+void CinematicFunction_Intro_Func200(uint16 k) {  // 0x8BF464
+  int v1 = k >> 1;
+  cinematicspr_arr7[v1] = cinematicspr_arr7[v1];
+  ++cinematicbg_arr8[v1];
+}
+void CinematicFunction_Intro_Func201(uint16 k) {  // 0x8BF478
+  if (sign16(cinematic_var6 - 176))
+    cinematicspr_preinstr_func[k >> 1] = 0xF487 /* CinematicFunction_Intro_Func202 */;
+}
+void CinematicFunction_Intro_Func202(uint16 k) {  // 0x8BF487
+  int v1 = k >> 1;
+  cinematicspr_arr7[v1] = cinematicspr_arr7[v1];
+  --cinematicbg_arr8[v1];
+}
+void CinematicFunction_Intro_Func203(uint16 k) {  // 0x8BF49B
+  if (!sign16(cinematic_var6 - 96))
+    cinematicspr_preinstr_func[k >> 1] = 0xF4AA /* CinematicFunction_Intro_Func204 */;
+}
+void CinematicFunction_Intro_Func204(uint16 k) {  // 0x8BF4AA
+  int v1 = k >> 1;
+  cinematicspr_arr7[v1] = cinematicspr_arr7[v1];
+  cinematicbg_arr8[v1] -= 2;
+  cinematicspr_arr6[v1] = cinematicspr_arr6[v1];
+  --cinematicbg_arr7[v1];
+}
+void CinematicFunction_Intro_Func205(uint16 k) {  // 0x8BF4D1
+  if (!sign16(cinematic_var6 - 96))
+    cinematicspr_preinstr_func[k >> 1] = 0xF4E0 /* CinematicFunction_Intro_Func206 */;
+}
+void CinematicFunction_Intro_Func206(uint16 k) {  // 0x8BF4E0
+  int v1 = k >> 1;
+  cinematicspr_arr7[v1] = cinematicspr_arr7[v1];
+  cinematicbg_arr8[v1] += 2;
+  cinematicspr_arr6[v1] = cinematicspr_arr6[v1];
+  ++cinematicbg_arr7[v1];
+}
+void CinematicFunction_Intro_Func207(uint16 k) {  // 0x8BF507
+  if (cinematic_function == 0xDB9D /* nullsub_125 */) {
+    int v1 = k >> 1;
+    cinematicspr_instr_timer[v1] = 1;
+    cinematicspr_instr_ptr[v1] = addr_off_8BEE9B;
+  }
+}
+uint16 CinematicSprInstr_Func208(uint16 k, uint16 j) {  // 0x8BF51D
+  SpawnCinematicSpriteObjectToR18(addr_kCinematicSpriteObjectDef_8BEF3F, 0);
+  return j;
+}
+void CinematicSprPreInstr_F528(uint16 k) {  // 0x8BF528
+  CinematicFunction_Intro_Func210_EndingSamusFall(k);
+  int v1 = k >> 1;
+  if (sign16(cinematicbg_arr8[v1] + 80)) {
+    reg_OBSEL = 3;
+    cinematicspr_instr_timer[v1] = 1;
+    cinematicspr_instr_ptr[v1] = addr_word_8BED95;
+    cinematicspr_preinstr_func[v1] = 0xF5DD /* CinematicFunction_Intro_Func215 */;
+    cinematicbg_arr9[v1] = 3072;
+  }
+}
+uint16 CinematicSprInstr_Func211(uint16 k, uint16 j) {  // 0x8BF554
+  if (sign16(game_time_hours - 10))
+    SpawnCinematicSpriteObjectToR18(addr_kCinematicSpriteObjectDef_8BEF7B, 2);
+  else
+    SpawnCinematicSpriteObjectToR18(addr_kCinematicSpriteObjectDef_8BEF75, 2);
+  SpawnCinematicSpriteObjectToR18(addr_kCinematicSpriteObjectDef_8BEF6F, 0);
+  return j;
+}
+void CinematicSprPreInstr_F57F(uint16 k) {  // 0x8BF57F
+  CinematicFunction_Intro_Func210_EndingSamusFall(k);
+  int v1 = k >> 1;
+  if (sign16(cinematicbg_arr8[v1] + 80)) {
+    cinematicspr_instr_timer[v1] = 1;
+    cinematicspr_instr_ptr[v1] = addr_off_8BEE9B;
+  }
+}
+uint16 CinematicSprInstr_Func213(uint16 k, uint16 j) {  // 0x8BF597
+  int v1 = k >> 1;
+  if (sign16(game_time_hours - 10))
+    cinematicbg_arr7[v1 + 1] = 120;
+  else
+    cinematicbg_arr7[v1 + 1] = 118;
+  cinematicbg_arr8[v1 + 1] = 120;
+  return j;
+}
+uint16 CinematicSprInstr_Func214(uint16 k, uint16 j) {  // 0x8BF5BA
+  int v1 = k >> 1;
+  if (sign16(game_time_hours - 10)) {
+    cinematicbg_arr7[v1 + 1] = 121;
+    cinematicbg_arr8[v1 + 1] = 116;
+  } else {
+    cinematicbg_arr7[v1 + 1] = 120;
+    cinematicbg_arr8[v1 + 1] = 114;
+  }
+  return j;
+}
+void CinematicFunction_Intro_Func215(uint16 k) {  // 0x8BF5DD
+  CinematicFunction_Intro_Func216();
+  CinematicFunction_Intro_Func210_EndingSamusFall(k);
+  int v1 = k >> 1;
+  if (!sign16(cinematicbg_arr8[v1] - 136)) {
+    cinematicbg_arr8[v1] = 136;
+    cinematicspr_instr_timer[v1] = 1;
+    cinematicspr_instr_ptr[v1] = addr_word_8BED9D;
+    cinematicspr_preinstr_func[v1] = 0x93D9 /* CinematicFunction_nullsub_116 */;
+  }
+}
+uint16 CinematicSprInstr_Func217(uint16 k, uint16 j) {  // 0x8BF604
+  cinematicbg_arr9[k >> 1] = 3584;
+  cinematic_function = 0xE3AE /* CinematicFunction_Intro_Func139 */;
+  reg_TM = 17;
+  reg_TS = 16;
+  reg_CGWSEL = 2;
+  reg_CGADSUB = -127;
+  cinematic_var8 = -4;
+  cinematic_var10 = -8;
+  cinematic_var4 = 16;
+  cinematic_var14 = 32;
+  cinematic_var17 = 32;
+  CopyPalettesToFadingPalettes();
+  DecomposePaletteDataForFading();
+  QueueSfx1_Max15(0x22);
+  return j;
+}
+uint16 CinematicSprInstr_Func218(uint16 k, uint16 j) {  // 0x8BF651
+  samus_y_subspeed = 0;
+  samus_y_speed = -16;
+  return j;
+}
+void CinematicFunction_Intro_Func210_EndingSamusFall(uint16 k) {  // 0x8BF65B
+  AddToHiLo(&samus_y_speed, &samus_y_subspeed, 0x3800);
+  int v1 = k >> 1;
+  AddToHiLo(&cinematicbg_arr8[v1], &cinematicspr_arr7[v1], __PAIR32__(samus_y_speed, samus_y_subspeed));
+}
+void CinematicFunction_Intro_Func216(void) {  // 0x8BF682
+  if (sign16(cinematic_var14 - 16)) {
+    uint16 v0 = 2 * cinematic_var14;
+    uint16 v1 = vram_write_queue_tail;
+    nt_vwq_w16((uint16)((vram_write_queue_tail) + 0), 2048);
+    v1 += 2;
+    int v2 = v0 >> 1;
+    nt_vwq_w16((uint16)((v1) + 0), ((uint16)BW_8B(0xF6B8 + 2 * (v2))));
+    v1 += 2;
+    nt_vwq_w8((uint16)((v1++)), 127);
+    nt_vwq_w16((uint16)((v1) + 0), ((uint16)BW_8B(0xF6D8 + 2 * (v2))));
+    vram_write_queue_tail = v1 + 2;
+    ++cinematic_var14;
+  }
+}
+uint16 CinematicFunction_Intro_Func219(uint16 k, uint16 j) {  // 0x8BF6FE
+  DisableTextGlowObjects_();
+  uint16 v0 = 8;
+  do {
+    { palette_buffer[v0 >> 1] = ((uint16)BW_8C(0xE7E9 + 2 * (v0 >> 1))); nt_pal_dirty((uint8)(v0 >> 1), (uint8)(v0 >> 1)); }
+    v0 += 2;
+  } while ((int16)(v0 - 512) < 0);
+  reg_TM = 0;
+  reg_INIDISP = 0x80;
+  screen_fade_delay = 0;
+  screen_fade_counter = 0;
+  cinematic_var9 = 0;
+  cinematic_var10 = 0;
+  cinematic_glow_ptr[7] = 1;
+  cinematic_function = 0xE0F4 /* CinematicFunction_Intro_Func129 */;
+  cinematic_var4 = 60;
+  return j;
+}
+uint16 CallIntroObjectInstr(uint32 ea, uint16 k, uint16 j) {
+  switch (ea) {
+  case 0x8B99FE: return IntroObject_Delete(k, j);
+  case 0x8B9A06: return IntroObject_Goto(k, j);
+  case 0x8B9A0D: return IntroObject_DecTimerGoto(k, j);
+  case 0x8B9A17: return IntroObject_SetTimer(k, j);
+  case 0x8BF6FE: return CinematicFunction_Intro_Func219(k, j);
+  default: nt_unimpl("Unreachable"); return 0;
+  }
 }
 void Enemy_NormalTouchAI_A0(void) {  // 0xA08023
   NormalEnemyTouchAi();
@@ -37023,6 +38439,47 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
   case 0x86F0D9: Eproj_Pickup_PowerBombs(); return 1;
   case 0x86F0E8: Eproj_Pickup_Missiles(); return 1;
   case 0x86F0F7: Eproj_Pickup_SuperMissiles(); return 1;
+  case 0x8B8293: SetupPpu_5_Mode7(); return 1;
+  case 0x8B8BE9: CopyPalettesToFadingPalettes(); return 1;
+  case 0x8B95A2: EnableCinematicBgObjects(); return 1;
+  case 0x8B95B8: EnableCinematicBgTilemapUpdates(); return 1;
+  case 0x8B9799: DrawCinematicSpriteObjects_Ending(); return 1;
+  case 0x8B9955: CreditsObject_Process(); return 1;
+  case 0x8B996A: CreditsObject_ProcessOne(); return 1;
+  case 0x8BA856: ClearEnglishTextTilemap(); return 1;
+  case 0x8BADEE: SetSomeStuffForSpriteObject_16(); return 1;
+  case 0x8BB207: CinematicFunction_Intro_Func15b(); return 1;
+  case 0x8BD6D7: CinematicFunction_Intro_Func109(); return 1;
+  case 0x8BD6F2: CinematicFunction_Intro_Func110(); return 1;
+  case 0x8BD701: CinematicFunction_Intro_Func111(); return 1;
+  case 0x8BD807: CinematicFunction_Intro_Func114(); return 1;
+  case 0x8BD7F8: CinematicFunction_Intro_Func113(); return 1;
+  case 0x8BDA02: CinematicFunction_Intro_Func116(); return 1;
+  case 0x8BDA1A: CinematicFunction_Intro_Func117(); return 1;
+  case 0x8BDB9E: CinematicFunction_Intro_Func119(); return 1;
+  case 0x8BDBC4: CinematicFunction_Intro_Func120(); return 1;
+  case 0x8BDC4C: CinematicFunction_Intro_Func122(); return 1;
+  case 0x8BDD42: CinematicFunction_Intro_Func123(); return 1;
+  case 0x8BDDCD: CinematicFunction_Intro_Func124(); return 1;
+  case 0x8BDE64: CinematicFunction_Intro_Func125(); return 1;
+  case 0x8BE0F4: CinematicFunction_Intro_Func129(); return 1;
+  case 0x8BE110: CinematicFunction_Intro_Func130(); return 1;
+  case 0x8BE158: CinematicFunction_Intro_Func131(); return 1;
+  case 0x8BE190: CinematicFunction_Intro_Func132(); return 1;
+  case 0x8BE1D2: CinematicFunction_Intro_Func134(); return 1;
+  case 0x8BE265: CinematicFunction_Intro_Func136(); return 1;
+  case 0x8BE293: CinematicFunction_Intro_Func135(); return 1;
+  case 0x8BE2DD: CinematicFunction_Intro_Func137(); return 1;
+  case 0x8BE314: CinematicFunction_Intro_Func138(); return 1;
+  case 0x8BE342: CinematicFunction_Intro_Func145(); return 1;
+  case 0x8BE409: CinematicFunction_Intro_Func140(); return 1;
+  case 0x8BE3AE: CinematicFunction_Intro_Func139(); return 1;
+  case 0x8BE41F: CinematicFunction_Intro_Func142(); return 1;
+  case 0x8BE48A: CinematicFunction_Intro_Func141(); return 1;
+  case 0x8BE504: CinematicFunction_Intro_Func143(); return 1;
+  case 0x8BE58A: CinematicFunction_Intro_Func144(); return 1;
+  case 0x8BE797: CinematicFunction_Intro_Func148(); return 1;
+  case 0x8BF682: CinematicFunction_Intro_Func216(); return 1;
   case 0xA08023: Enemy_NormalTouchAI_A0(); return 1;
   case 0xA08028: Enemy_NormalTouchAI_SkipDeathAnim_A0(); return 1;
   case 0xA0802D: Enemy_NormalShotAI_A0(); return 1;
@@ -38254,6 +39711,8 @@ uint8 port_call_void(uint32 ea) {  /* cualquier función void(void) traducida, p
 uint8 port_bank_word(uint8 bank, uint16 a, uint16 *w) {
   switch (bank) {
   case 0x86: *w = BW_86(a); return 1;
+  case 0x8B: *w = BW_8B(a); return 1;
+  case 0x8C: *w = BW_8C(a); return 1;
   case 0x91: *w = BW_91(a); return 1;
   case 0x94: *w = BW_94(a); return 1;
   case 0xA0: *w = BW_A0(a); return 1;
@@ -38278,6 +39737,8 @@ uint8 port_bank_word(uint8 bank, uint16 a, uint16 *w) {
 const uint8 *port_bank_base(uint8 bank) {
   switch (bank) {
   case 0x86: return kBank86B;
+  case 0x8B: return kBank8BB;
+  case 0x8C: return kBank8CB;
   case 0x91: return kBank91B;
   case 0x94: return kBank94B;
   case 0xA0: return kBankA0B;

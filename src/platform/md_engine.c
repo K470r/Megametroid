@@ -2583,7 +2583,10 @@ void Mode7Transfers(uint16 list) {
   if (list == addr_kCinematicFunction_Intro_Func76_M7_0) cine_var = 2;
   else if (list == addr_kCinematicFunction_Intro_Func76_M7_2) cine_var = 3;
 }
+static void ed_spr(uint16 sm, uint16 x, uint16 y, uint16 chr);   /* el final (md_ending.c) */
+extern uint8 ed_on;
 void DrawCinematicSpritemap(uint16 sm, uint16 x, uint16 y, uint16 chr, uint8 off) {   /* $81:879F con banco $8C */
+  if (ed_on) { ed_spr(sm, x, y, chr); return; }
   if (intro_on) { if (!it_skip_cursor(sm, x, y)) it_draw(INTRO_KIND_SPR8C, sm, chr, it_x9(x), (uint8)y); return; }
   if (!drawkey(9, sm, chr, 0, (int16)x, (int16)y - 2)) missing(9, sm, chr, 0);   /* sin HUD: sin las 2 líneas del juego */
 }
@@ -2857,7 +2860,10 @@ static void rain_vblank(void) {                 /* los 4 tiles (rain_post los co
   vdp_dma_vram(rain_tiles, RAIN_TILE * 32, 64);
 }
 
+void md_ending_frame(void);
+void ed_vblank(void);
 void md_post(void) {
+  if (ed_on) { md_ending_frame(); return; }   /* el final (estado 39): md_ending.c */
   if (pz_dim) { rain_slot_k = 0xFF; rain_pal_dirty = 1; md_pause_frame(); return; }   /* pausa (estados 12-18): md_pause.c (pisa la RAM de los tiles de la lluvia) */
   pipe_take();
   md_haze_read();
@@ -3338,6 +3344,7 @@ void md_vblank(uint16_t late) {
      imagen (cuadro con retraso), los datos siguientes (HUD, scroll) caerían en la CRAM y cambiarían los colores. */
   /* cinemáticas: la capa del modo 7 y el círculo, con lo que queda del vblank (colores y scroll ya están) */
   if (cine_stage == 1 || cine_stage == 2) cine_vblank();
+  else if (ed_on) ed_vblank();                 /* el final: las celdas del modo 7 (md_ending.c) */
   if (cv_line) {                              /* círculo: una interrupción por línea (la dirección del VDP, la última) */
     if (!cv_active) { SYS_setHIntCallback((void (*)(void))(void *)cv_code); cv_active = 1; }
     uint16 vc = VDP_VCOUNT >> 8;
@@ -3383,3 +3390,5 @@ void md_vblank(uint16_t late) {
   VBS(6);
   __asm__ volatile("move.w %0,%%sr" : : "d"(sr) : "memory");
 }
+
+#include "md_ending.c"                        /* el final: escenas en modo 1 (docs/63) */

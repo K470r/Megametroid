@@ -23,6 +23,12 @@ extern uint8 md_cur_page;
 static inline uint16 BW_86(uint16 a) { const uint8 *p = kBank86B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_86(uint16 a) { return kBank86B[(uint16)(a - 0x8000)]; }
 #define IW_86(a) BW_86(a)
+static inline uint16 BW_8B(uint16 a) { return B8BW(a); }
+static inline uint8 BB_8B(uint16 a) { return B8BB(a); }
+#define IW_8B(a) BW_8B(a)
+static inline uint16 BW_8C(uint16 a) { return B8CW(a); }
+static inline uint8 BB_8C(uint16 a) { return B8CB(a); }
+#define IW_8C(a) BW_8C(a)
 static inline uint16 BW_91(uint16 a) { const uint8 *p = kBank91B + (uint16)(a - 0x8000); uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }
 static inline uint8 BB_91(uint16 a) { return kBank91B[(uint16)(a - 0x8000)]; }
 #define IW_91(a) BW_91(a)

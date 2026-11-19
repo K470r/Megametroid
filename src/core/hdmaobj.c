@@ -1237,6 +1237,35 @@ static void HdmaobjPreInstr_E7BC(uint16 k) {  // 0x88E7BC
   reg_COLDATA[2] = (((uint16)(v0 >> 2) >> 8) & 0x1F) | 0x80;
 }
 
+/* $88:ECB6: "THE OPERATION WAS COMPLETED SUCCESSFULLY" ondula: desplazamiento del BG3 por línea en hdma_table_1
+   (128 líneas de seno y su reflejo); la amplitud va en 7E:0D9E-0D9F (palabra fija 8.8) */
+static void HdmaobjPreInstr_ECB6(uint16 k) {  // 0x88ECB6
+  if (!g_word_7E0D9C) {
+    int v2 = hdma_object_index >> 1;
+    hdma_object_instruction_list_pointers[v2] += 2;
+    hdma_object_instruction_timers[v2] = 1;
+    return;
+  }
+  uint16 amp = nt_ram_w(0x0D9E);
+  uint8 alo = amp, ahi = amp >> 8;
+  int v3 = k >> 1;
+  hdma_object_A[v3] = (2 * loop_counter_transfer_enemies_to_vram + hdma_object_A[v3]) & 0x1FF;
+  uint16 r20 = hdma_object_A[v3];
+  for (int i = 0; i < 64; i++) {
+    int16 s = kSinCosTable8bit_Sext[(r20 >> 1) + 64];
+    uint16 r18 = s < 0 ? -s : s;
+    uint16 r22 = Mult8x8(r18, alo) >> 8;
+    r22 += Mult8x8(r18 >> 8, alo);
+    r22 += Mult8x8(r18, ahi);
+    uint8 mult = Mult8x8(r18 >> 8, ahi);
+    r18 = ((r22 + (mult << 8)) & 0xFF00) >> 8;
+    r20 = (r20 + 4) & 0x1FF;
+    hdma_table_1[i] = s < 0 ? reg_BG3HOFS - r18 : r18 + reg_BG3HOFS;
+  }
+  for (int i = 63; i >= 0; i--)
+    hdma_table_1[i + 64] = reg_BG3HOFS + reg_BG3HOFS - hdma_table_1[i];
+}
+
 static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   switch (f) {
   case FUNC16(nullsub_293): case addr_locret_88858A: case FUNC16(nullsub_56): break;
@@ -1284,6 +1313,7 @@ static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   case FUNC16(HdmaobjPreInstr_E567): HdmaobjPreInstr_E567(k); break;
   case 0xE726: break;                            // (RTL: Mother Brain levantándose, $88:E727)
   case 0xE7BC: HdmaobjPreInstr_E7BC(k); break;     // el rayo arco iris
+  case 0xECB6: HdmaobjPreInstr_ECB6(k); break;     // la onda del texto del final
   case 0xD27F: xray_blend_flags(1); break;         // HdmaobjPreInstr_XraySetup ($91:D27F)
   case 0x86EF: HdmaobjPreInstr_Xray_Gen(k); break; // HdmaobjPreInstr_Xray ($88:86EF)
   case 0x943C: break;                            // nullsub_309 ($A4:943C): el HDMA de Crocomire derritiéndose (la onda
@@ -1376,6 +1406,9 @@ static uint16 HdmaobjInstr(uint16 f, uint16 k, uint16 p, uint8 bank) {
   case FUNC16(HdmaobjInstr_SetFlagB_Copy): case FUNC16(HdmaobjInstr_SetFlagB_Copy2):
   case FUNC16(HdmaobjInstr_SetFlagB_Copy3): case FUNC16(HdmaobjInstr_SetFlagB):
     hdma_object_B[v] = 1;
+    return p;
+  case 0xEC9F:                                   /* HdmaobjInstr_EC9F_ClearVars ($88:EC9F): la onda del final */
+    hdma_object_A[v] = -2; hdma_object_B[v] = 1; hdma_object_C[v] = 0; hdma_object_D[v] = 0;
     return p;
   case FUNC16(HdmaobjInstr_1938_RandomNumber):                                                                     // $88:D981
     hdma_object_D[v] = B88W(0xD992 + ((random_number >> 1) & 6));

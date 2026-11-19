@@ -75,7 +75,7 @@ def roots_from(path, g, section=None):
 ENEMY_BANKS = {0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xAD, 0xB2, 0xB3}   # ($AD: Mother Brain)
 # bancos que se traducen enteros si hacen falta (enemigos, su núcleo $A0 y sus proyectiles $86); de los demás, lo que
 # no esté escrito a mano queda como función vacía que avisa (SIN PORTAR) para hacerla a mano
-XLATE_BANKS = ENEMY_BANKS | {0xA0, 0x86}
+XLATE_BANKS = ENEMY_BANKS | {0xA0, 0x86, 0x8B, 0x8C}   # ($8B, $8C: el final y los créditos, docs/63)
 
 # funciones del decomp que no se traducen (usan la RAM o la VRAM del SNES directamente): quedan vacías y avisan
 # hasta que se escriban a mano para la Genesis
@@ -435,7 +435,10 @@ def main():
     text = re.sub(r'(\*\s*\()\(uint8 \*\)(\w+) \+ (\w+(?: \+ \d+)?)\)', be_byte, text)
     open(OUT, 'w').write(text + '\n')
     banks = sorted(x.used_banks | {(g.funcs[n][3] >> 16) for n in funcs if g.funcs[n][3]} | set(ROM_STRUCTS.values()))
-    open(os.path.join(HERE, 'banks.txt'), 'w').write(' '.join('%02X' % b for b in banks) + '\n')
+    # ($8B y $8C: ya están en la ROM como bancos fríos de mkdata.py, COLD_BANKS: se leen con B8BW/B8CW de nmath.h, que
+    # ponen su página un momento; no van en banks.txt)
+    COLD = {0x8B: 'B8B', 0x8C: 'B8C'}
+    open(os.path.join(HERE, 'banks.txt'), 'w').write(' '.join('%02X' % b for b in banks if b not in COLD) + '\n')
     h = ['/* Generado por tools/port/port.py: lectura de los bancos de la ROM (kBankXXB, gen/tables.c) */',
          '#ifndef PORT_GEN_H', '#define PORT_GEN_H', '#include "nt.h"', '#include "dcompat.h"', '#include "samus.h"',
          '#include "game.h"', '#include "enemies.h"', '#include "plm.h"', '#include "hdmaobj.h"', '#include "room.h"', '#include "nmath.h"', '#include "tables.h"',
@@ -445,6 +448,11 @@ def main():
          'extern uint8 md_cur_page;',
          '#define NT_BOSS_AWAY(f) ((uint32)(f) >= 0x380000 && md_cur_page != %d)' % BOSS_PAGE, '#else', '#define NT_BOSS', '#endif']
     for b in banks:
+        if b in COLD:
+            h.append('static inline uint16 BW_%02X(uint16 a) { return %sW(a); }' % (b, COLD[b]))
+            h.append('static inline uint8 BB_%02X(uint16 a) { return %sB(a); }' % (b, COLD[b]))
+            h.append('#define IW_%02X(a) BW_%02X(a)' % (b, b))
+            continue
         h.append('static inline uint16 BW_%02X(uint16 a) { const uint8 *p = kBank%02XB + (uint16)(a - 0x8000); '
                  'uint8 hi = p[1]; __asm__("" : "+r"(hi)); return (uint16)(p[0] | hi << 8); }' % (b, b))
         h.append('static inline uint8 BB_%02X(uint16 a) { return kBank%02XB[(uint16)(a - 0x8000)]; }' % (b, b))

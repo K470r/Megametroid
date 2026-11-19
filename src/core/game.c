@@ -298,9 +298,11 @@ static uint8 RunGameState(uint16 st) {
       QueueSfx3_Max15(1);
     }
     return 0;
-  case 39:                                          // GameState_39_EndingAndCredits ($8B:D443): falta (docs/46)
-    nt_unimpl("GameState_39 (el final y los créditos)");
+  case 39: {                                        // GameState_39_EndingAndCredits ($8B:D443): ending.c
+    extern void GameState_39_EndingAndCredits(void);
+    GameState_39_EndingAndCredits();
     return 0;
+  }
   case 35:                                          // GameState_35_TimeUp ($82:8411)
     if (GameState_8_MainGameplay()) return 1;
     palette_change_denom = 8;

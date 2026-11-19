@@ -714,6 +714,10 @@ def _intro_level(addr, nwords, total):
 arr('uint16', 'kIntroLevelMotherBrain', _intro_level(0x8CBEC3, 224, 256), fmt='0x{:X}')
 arr('uint16', 'kIntroLevelBabyMetroid', _intro_level(0x8CC083, 384, 512), fmt='0x{:X}')
 arr('uint16', 'kPalettes_Intro2', words(0x8CE5E9, 256), fmt='0x{:X}')        # $8C:E5E9
+# el final (docs/63): las filas de los créditos, descomprimidas de $97:EEFF (en el SNES, en 7F:0000:
+# CinematicFunction_Intro_Func126; CreditsObject_Func1 copia de a 32 celdas)
+_cr = decompress(0x97EEFF)
+arr('uint16', 'kCreditsRows', [_cr[2 * i] | _cr[2 * i + 1] << 8 for i in range(len(_cr) // 2)], fmt='0x{:X}')
 _, sc = c_array_from_source('sm_94.c', 'kSinCosTable8bit_Sext')
 H.append('extern const int16 kSinCosTable8bit_Sext[%d];' % len(sc))
 C.append('const int16 kSinCosTable8bit_Sext[%d] = { %s };' % (len(sc), ', '.join(str(v) for v in sc)))

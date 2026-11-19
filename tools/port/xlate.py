@@ -255,6 +255,13 @@ class Xlate:
                 body = body[:m.start()] + '(' + rep_ + ')' + body[e + 1:]
         # *(TABLA + i) -> TABLA[i] (Phantoon_Shot) y el byte bajo de una tabla de palabras (MotherBrain_SetPainfulWalkingTimer)
         body = re.sub(r'\*\((g_(?:byte|word)_[0-9A-F]{6}) \+ (\w+)\)', r'\1[\2]', body)
+        # 7E:3000 (el mapa del texto de las cinemáticas y de los créditos): en el motor, cinematic_text_tilemap
+        body = body.replace('ram3000.pause_menu_map_tilemap', 'cinematic_text_tilemap')
+        # el final ($8B): 7E:1A03 y 1A05 (eproj_pre_instr[0], [1] en el decomp: el banco $8B reusa la RAM de los
+        # proyectiles) son, para las cinemáticas del motor, cinematic_glow_ptr[6] y [7] (docs/63)
+        if bank == 0x8B:
+            body = re.sub(r'\beproj_pre_instr\[([01])\]', lambda m_: 'cinematic_glow_ptr[%d]' % (6 + int(m_.group(1))), body)
+            assert not re.search(r'\beproj_pre_instr\[', body), name + ': eproj_pre_instr con otro índice'
         body = re.sub(r'\bLOBYTE\((g_word_[0-9A-F]{6}\[[^\]]+\])\)', r'(uint8)(\1)', body)
         # RAM extra 7E:7800 con la forma de Kraid (Ram7800_Kraid, la usa también el mini Kraid): campos -> ERAM
         KR = {'kraid_next': 0, 'field_2': 2, 'field_4': 4, 'kraid_thinking': 6, 'kraid_min_y_pos_eject': 8,

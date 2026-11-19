@@ -2491,6 +2491,7 @@ void HandleSamusMovementAndPause(void) {  // 0x90E722
     if (frame_handler_gamma == FUNC16(DrawTimer_) && game_state != 35)
       game_state = 35;
     break;
+  case 0xE902: Samus_LowHealthCheck_(); break;   // Samus_LowHealthCheck ($90:E902): el final
   case FUNC16(SetContactDamageIndexAndUpdateMinimap):  // 0x90E8DC
     samus_contact_damage_index = 0;
     UpdateMinimap();

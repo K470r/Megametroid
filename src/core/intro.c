@@ -96,7 +96,7 @@ static void FadeMark(uint16 i, uint16 n) {
   fade_n[fade_nr++] = (uint8)n;
 }
 
-static void DecomposePaletteDataForFading(void) {  // 0x8B8C09
+void DecomposePaletteDataForFading(void) {  // 0x8B8C09
   for (int i = 0; i < 256; i++) {
     uint16 c = tilemap_stuff[i + 256];
     uint16 r = c & 0x1F, g = (c >> 5) & 0x1F, b = (c >> 10) & 0x1F;
@@ -106,12 +106,12 @@ static void DecomposePaletteDataForFading(void) {  // 0x8B8C09
   }
   fade_full = 1;
 }
-static void ClearYColorsFromIndexX(uint16 k, uint16 n) {  // 0x8B8C5E
+void ClearYColorsFromIndexX(uint16 k, uint16 n) {  // 0x8B8C5E
   FadeMark(k >> 1, n);
   for (int i = k >> 1; n; n--, i++)
     tilemap_stuff[i + 256] = tilemap_stuff[i + 512] = tilemap_stuff[i + 768] = tilemap_stuff[i + 1024] = 0;
 }
-static void FadeOutYColorsFromIndexX(uint16 k, uint16 n) {  // 0x8B8C83
+void FadeOutYColorsFromIndexX(uint16 k, uint16 n) {  // 0x8B8C83
   FadeMark(k >> 1, n);
   uint16 *c = tilemap_stuff + 512 + (k >> 1);
   for (; n; n--, c++) {
@@ -120,7 +120,7 @@ static void FadeOutYColorsFromIndexX(uint16 k, uint16 n) {  // 0x8B8C83
     c[512] -= c[1280];
   }
 }
-static void FadeInYColorsFromIndexX(uint16 k, uint16 n) {  // 0x8B8CB2
+void FadeInYColorsFromIndexX(uint16 k, uint16 n) {  // 0x8B8CB2
   FadeMark(k >> 1, n);
   uint16 *c = tilemap_stuff + 512 + (k >> 1);
   for (; n; n--, c++) {
@@ -136,7 +136,7 @@ static void FadeCompose(int k, int n) {
   for (; n > 0; n--)
     *o++ = (uint16)((*r++ >> 8) & 0x1F) | (uint16)((*g++ & 0x1F00) >> 3) | (uint16)((*b++ & 0x1F00) << 2);
 }
-static void ComposeFadingPalettes(void) {  // 0x8B8CEA
+void ComposeFadingPalettes(void) {  // 0x8B8CEA
   if (fade_full) {
     FadeCompose(0, 256);
     fade_full = 0;
@@ -188,7 +188,7 @@ uint8 SpawnCinematicBgObject(uint16 j, uint16 a) {  // 0x8B95F0
 }
 
 /* objetos de brillo del texto ($8B:97F7): la letra recién escrita pasa por 3 paletas */
-static void SpawnTextGlowObject(uint16 j, uint16 r18) {  // 0x8B97F7
+void SpawnTextGlowObject(uint16 j, uint16 r18) {  // 0x8B97F7 (también la usa el final: ending)
   int v = 7;
   while (cinematic_glow_ptr[v])
     if (--v < 0)
@@ -333,6 +333,8 @@ static void ProcessCinematicBgObjectsInstrs(uint16 k) {  // 0x8B9659
   }
 }
 
+static void HandleCinematicBgObjects(void);
+void HandleCinematicBgObjects_(void) { HandleCinematicBgObjects(); }   /* (ending.c) */
 static void HandleCinematicBgObjects(void) {  // 0x8B962F
   if (cinematic_enable_objs & 0x8000) {
     for (int i = 6; i >= 0; i -= 2) {
@@ -784,7 +786,11 @@ static uint16 CallCinematicBgInstr(uint16 f, uint16 k, uint16 j) {
     screen_fade_delay = 1;
     screen_fade_counter = 1;
     return j;
-  default:
+  default: {
+    extern uint16 EndingBgInstr(uint16 f, uint16 k, uint16 j);   /* el final (ending_disp.c) */
+    uint16 r = EndingBgInstr(f, k, j);
+    if (r != 0xFFFF) return r;
+    }
     nt_unimpl_v("CinematicBgInstr (instrucción sin portar)", f);
     cinematicbg_arr1[v] = 0; cinematicbg_instr_ptr[v] = 0;
     return 0;

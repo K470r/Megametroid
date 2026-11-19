@@ -250,9 +250,16 @@ static void reset_game_vars(void) {
   { extern void md_snd_reset(void); md_snd_reset(); }   /* el sonido: el Z80 y la ventana 6 no volvieron a empezar */
 }
 
-/* Una partida: desde la intro (intro = 1) o desde Ceres hasta que el juego termina. Devuelve 1 para seguir en Ceres
-   (la intro terminó, o YES en el fin de juego) y 0 para ir al título (NO). */
-static u16 play_game(u16 intro) {
+/* Una partida: desde Ceres (PG_CERES), la intro (PG_INTRO) o la partida guardada de la ranura (PG_LOAD) hasta que el
+   juego termina. Devuelve lo que sigue: PG_CERES (la intro terminó, o YES en Ceres), PG_LOAD (YES con la partida
+   guardada: LoadFromSram y el estado 5, que el SNES sigue con el mapa de la partida) o PG_TITLE (NO). */
+#define PG_TITLE 0
+#define PG_CERES 1
+#define PG_INTRO 2
+#define PG_LOAD 3
+static u16 g_slot;                              /* selected_save_slot (las variables del juego vuelven a empezar) */
+static u16 play_game(u16 mode) {
+  u16 intro = mode == PG_INTRO;
   SYS_disableInts();
   /* primero las variables y después el bloque: el puntero gamehi es una variable de la partida (.bss del juego) y
      reset_game_vars lo pondría a cero; con el orden al revés gamehi_give no soltaba nada al terminar la intro y la
@@ -261,6 +268,8 @@ static u16 play_game(u16 intro) {
   gamehi_take();
   six = JOY_getJoypadType(JOY_1) == JOY_TYPE_PAD6;
   md_init(intro);
+  { extern uint16_t selected_save_slot; selected_save_slot = g_slot; }
+  { extern void StartLoadedGame(uint16_t slot); if (mode == PG_LOAD) StartLoadedGame(g_slot); }
   { extern uint8_t nt_viewer, nt_viewer_place, nt_viewer_enemies; nt_viewer = 1; nt_viewer_place = 1; nt_viewer_enemies = 1; }   /* Zebes: visor de salas (src/viewer.c) */
   SYS_setHIntCallback(md_hint);
   SYS_setVIntCallback(md_vint);
@@ -276,9 +285,9 @@ static u16 play_game(u16 intro) {
     u32 t0 = now_lines();                         /* líneas de la consola que usa el cuadro (sin las esperas) */
     md_logic(read_joy());
     u32 t1 = now_lines();
-    { extern uint16_t game_state;                 /* fin de juego: 31 = YES (otra vez Ceres), 0xFFFF = NO (al título) */
-      if (game_state == 31 || game_state == 0xFFFF) {
-        u16 again = game_state == 31;
+    { extern uint16_t game_state;                 /* fin de juego: 31 = YES en Ceres, 5 = YES con partida, 0xFFFF = NO */
+      if (game_state == 31 || game_state == 5 || game_state == 0xFFFF) {
+        u16 again = game_state == 31 ? PG_CERES : game_state == 5 ? PG_LOAD : PG_TITLE;
         md_wait_free();
         SYS_disableInts();
         SYS_setVIntCallback(NULL);
@@ -330,18 +339,25 @@ int main(bool hard) {
   DMA_setMaxQueueSize(DMA_QUEUE_SIZE_MIN);        /* (también vacía la cola: el puntero del búfer vuelve a NULL) */
   { extern void md_snd_init(void); md_snd_init(); }
   JOY_setSupport(PORT_2, JOY_SUPPORT_OFF);
+  menu_load_options();                            /* el idioma y las opciones guardados */
+  { extern void VerifySRAM(void); VerifySRAM(); }   /* (la firma del SNES al encender: save.c) */
 #if !defined(MD_TEST_INPUT) && !defined(MD_NO_TITLE)
   front_screens();
 #endif
 #if (!defined(MD_TEST_INPUT) && !defined(MD_NO_TITLE)) || defined(MD_TEST_INTRO)
-  u16 intro = 1;                                  /* partida nueva: la intro y después Ceres */
+  u16 mode = PG_INTRO;                            /* partida nueva: la intro y después Ceres */
 #else
-  u16 intro = 0;
+  u16 mode = PG_CERES;
+#endif
+#if !defined(MD_TEST_INPUT) && !defined(MD_NO_TITLE)
+  g_slot = g_menu_slot;
+  if (g_menu_slot_used) mode = PG_LOAD;
 #endif
   for (;;) {
-    while (play_game(intro)) intro = 0;           /* fin de la intro o YES: otra vez desde Ceres */
+    while ((mode = play_game(mode)) != PG_TITLE) {}   /* fin de la intro o YES: Ceres o la partida guardada */
     front_screens();                              /* NO: al título */
-    intro = 1;
+    g_slot = g_menu_slot;
+    mode = g_menu_slot_used ? PG_LOAD : PG_INTRO;
   }
   return 0;
 }

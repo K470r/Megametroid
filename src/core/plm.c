@@ -1067,7 +1067,7 @@ static uint16 PlmInstr_ActivateSaveStationAndGotoIfNo(uint16 p, uint16 k) {  // 
   load_station_index = plm_room_arguments[plm_id >> 1] & 7;
   PrepareBitAccess(load_station_index);
   used_save_stations_and_elevators[2 * area_index] |= bitmask;
-  SaveExploredMapTilesToSaved();   /* SaveToSram: la Genesis todavía no guarda partidas */
+  SaveToSram(selected_save_slot);
   return p + 2;
 }
 

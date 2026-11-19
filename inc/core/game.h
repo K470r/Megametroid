@@ -51,6 +51,11 @@ void AddSuperMissilesToHudTilemap(void);
 void AddPowerBombsToHudTilemap(void);
 void PlayRoomMusicTrackAfterAFrames(uint16 a); /* $82:E118 */
 void SaveExploredMapTilesToSaved(void);         /* $80:85C6 */
+void SaveToSram(uint16 a);                      /* $81:8000 (save.c) */
+uint8 LoadFromSram(uint16 a);                   /* $81:8085: 0 cargada, 1 vacía */
+uint8 SramSlotInfo(uint16 slot, uint16 *health, uint16 *max_health, uint16 *hours, uint16 *minutes);
+uint16 SramLastSlot(void);
+void SramSetLastSlot(uint16 s);
 void LoadMirrorOfExploredMapTiles(void);        /* $80:858C */
 void SetElevatorsAsUsed(void);                  /* $80:CD07 */                       /* $80:894D */
 uint8 AdvancePaletteFadeForAllPalettes(void);  /* $82:DA02 */

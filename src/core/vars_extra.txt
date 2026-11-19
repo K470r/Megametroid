@@ -24,3 +24,6 @@ alias crocomire_bg2_scroll_hdma_data = cinematic_text_tilemap + 0x398   # 7E:CAF
 uint16 g_word_7E0DE4 @0xDE4
 uint16 g_word_7E0DE6 @0xDE6
 uint16 g_word_7E0DE8 @0xDE8
+# las partidas (save.c, docs/65): parte del equipo que se guarda; NewSaveFile ($81:B2CB) las pone a 1
+uint16 debug_flag @0x9E6
+uint16 UNUSED_word_7E09E8 @0x9E8

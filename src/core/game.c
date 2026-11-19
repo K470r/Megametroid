@@ -383,7 +383,7 @@ static uint8 RunGameState(uint16 st) {
       screen_fade_counter = 0;
       loading_game_state = 0x22;                    // kLoadingGameState_22_EscapingCeres
       game_state = 34;
-      SaveExploredMapTilesToSaved();                /* parte de SaveToSram en RAM (la Genesis todavía no guarda partidas) */
+      SaveToSram(selected_save_slot);
       cinematic_function = FUNC16(CinematicFunctionBlackoutFromCeres);
       ceres_status = 0;
       timer_status = 0;
@@ -469,7 +469,7 @@ static uint8 RunGameState(uint16 st) {
       ++game_state;
     }
     return 0;
-  case 31: case 0xFFFF: return 0;                   /* fin de juego -> Ceres de nuevo / reinicio: lo hace la Genesis */
+  case 5: case 31: case 0xFFFF: return 0;           /* fin de juego -> la partida guardada / Ceres / reinicio: la Genesis */
   case 25: case 26: return GameOverStates(st);      /* gameover.c */
   default:
     if ((uint16)(st - 12) <= 6) return PauseGameState(st);   /* 12-18: la pausa */

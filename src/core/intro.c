@@ -1444,7 +1444,7 @@ uint8 IntroCinematicFunction(uint16 f) {
     game_state = kGameState_31_SetUpNewGame;
     area_index = 6;
     load_station_index = 0;
-    /* SaveToSram(selected_save_slot): las partidas guardadas aún no están */
+    SaveToSram(selected_save_slot);
     return 1;
   default: return 0;
   }

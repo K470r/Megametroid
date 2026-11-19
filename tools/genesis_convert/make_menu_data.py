@@ -253,9 +253,10 @@ def main():
     snaps = {n: Snap(a.snaps, n) for n in ("fsel", "opt", "page1", "page2", "scient", "mbdemo", "larva")}
     fsel, opt = snaps["fsel"], snaps["opt"]
 
-    # ---------------- fuente del menú ($8E:8000): tiles 0x00-0xBF + variante apagada (13,14 -> 11,12)
-    mfont = rom[lorom(0x8E8000):lorom(0x8E8000) + 0xC0 * 32]
-    tiles_n = [t4(mfont, i * 32) for i in range(0xC0)]
+    # ---------------- fuente del menú ($8E:8000): tiles 0x00-0xCF + variante apagada (13,14 -> 11,12)
+    # (0x98/0x99: tanques llenos y vacíos; 0x9D-0x9F y 0xCC: "ENERGY" de las partidas, $81:B496)
+    mfont = rom[lorom(0x8E8000):lorom(0x8E8000) + 0xD0 * 32]
+    tiles_n = [t4(mfont, i * 32) for i in range(0xD0)]
     tiles_d = [np.where(t == 13, 11, np.where(t == 14, 12, t)).astype(np.uint8) for t in tiles_n]
     extra = [accent_tile(ACUTE, 14, 13), accent_tile(TILDE, 14, 13), accent_tile(DIAER, 14, 13)]
     extra_d = [np.where(t == 13, 11, np.where(t == 14, 12, t)).astype(np.uint8) for t in extra]
@@ -284,6 +285,7 @@ def main():
     for k in range(26):
         gs[65 + k] = 0x6A + k
     gs[ord("!")] = 0x84
+    gs[ord(":")] = 0x8C                                   # (el de la hora de las partidas, $81:B4A8)
     for ch, (base, acc) in ACC.items():
         gs[ord(ch.encode("latin-1").decode("latin-1"))] = gs[ord(base)]
     font_bytes = b"".join(genesis_tile_bytes(t) for t in tiles_n + extra + tiles_d + extra_d)

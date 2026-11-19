@@ -34,3 +34,4 @@ host/zcover
 __pycache__/
 # arte propio derivado de la ROM (redibujos): fuera del repositorio público (docs/47)
 res/private/
+host/savetest

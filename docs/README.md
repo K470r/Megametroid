@@ -36,6 +36,8 @@ Empezar por [46 — Estado y cómo continuar](46_ESTADO_Y_CONTINUACION.md).
 | 56 | Samus completa: salto espacial, speed booster, shinespark, trajes, rayos y SBA, bomba de poder, gancho |
 | 57 | Rayos en la Genesis: juego de claves común, tiles del rayo equipado en un lugar fijo de la VRAM |
 | 58 | Enemigos congelados (juego común), luz de la bomba de poder (tinte y sombra/luz), estelas de la onda |
+| 65 | Partidas guardadas: la SRAM del SNES byte por byte, guardar y cargar, menú de partidas, fin de juego (YES) |
+| 66 | Textos en inglés y español: inventario de lo que se puede traducir y cómo seguir |
 
 Los documentos 01-25 (análisis y prototipos anteriores al motor nativo) quedaron en la carpeta de trabajo, fuera del
 repositorio.

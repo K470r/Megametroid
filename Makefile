@@ -81,7 +81,8 @@ I_MD   := -I$(INC)/platform -I$(INC)/core -I$(GEN) -I$(GEN_E)
 # --- fuentes ---------------------------------------------------------------------------------------------------------
 # el motor (src/core) y lo generado que es parte de él; la capa de la Genesis sin SGDK (md_intro.c lo incluye md_engine.c)
 CORE_C := $(wildcard $(SRC)/core/*.c) $(GEN_E)/vars.c $(GEN_E)/tables.c $(GEN_E)/zebes.c
-MD_C   := $(SRC)/platform/md_engine.c $(SRC)/platform/md_zebes.c $(SRC)/platform/md_cone.c $(SRC)/platform/md_rbeam.c
+MD_C   := $(SRC)/platform/md_engine.c $(SRC)/platform/md_zebes.c $(SRC)/platform/md_cone.c $(SRC)/platform/md_rbeam.c \
+          $(SRC)/platform/md_sram.c
 GEN_C  := $(GEN)/md_data.c $(GEN)/md_getaway.c $(GEN)/md_m7.c $(GEN)/md_intro_data.c $(GEN)/init_state.c \
           $(GEN)/md_pause_data.c $(GEN)/md_pbomb_data.c $(GEN)/md_ending_data.c $(GEN)/md_death_data.c
 SGDK_C := $(SRC)/platform/md_main.c $(SRC)/platform/md_snd.c
@@ -144,6 +145,8 @@ $(OBJ)/front_%_s.o: $(GEN)/front/%.s $(FLAGS_STAMP)
 $(OBJ)/test_input.o: $(GEN)/test_input.s $(FLAGS_STAMP)
 	python3 $(ROOT)/tools/conv/rle_test_input.py $< $(OBJ)/test_input_rle.s
 	$(CC) -m68000 -c $(OBJ)/test_input_rle.s -o $@
+# (el blob del estado inicial incluye los .bin de mkinit: se rearma si cambian)
+$(OBJ)/init_blob.o: $(GEN)/init_state.bin $(GEN)/init_state_intro.bin
 $(OBJ)/%.o: $(GEN)/%.s $(FLAGS_STAMP)
 	cd $(GEN) && $(CC) -m68000 -c $*.s -o $@
 $(GEN)/md_voice.s $(GEN)/md_snd_data.s:

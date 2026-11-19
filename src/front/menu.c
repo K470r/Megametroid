@@ -264,6 +264,38 @@ static void load_screen(void)
     SYS_enableInts();
 }
 
+/* ------------------------------------------------------------------ ranuras en la SRAM */
+static const u16 kSlotOffs[3] = { 0x10, 0x66C, 0xCC8 };   /* kOffsetToSaveSlot ($81:812B) */
+static u8 slot_used(u16 i) { u16 a, b, c, d; return SramSlotInfo(i, &a, &b, &c, &d); }
+static u8 any_used(void) { return slot_used(0) || slot_used(1) || slot_used(2); }
+
+/* FileSelectMenu_13_FileCopyDoIt ($81:9A2C): los 0x65C bytes de la ranura y sus cuatro sumas */
+static void sram_copy_slot(u16 src, u16 dst)
+{
+    u8 buf[64];
+    for (u16 o = 0; o < 0x65C; o += 64)
+    {
+        u16 n = 0x65C - o < 64 ? 0x65C - o : 64;
+        nt_sram_read(kSlotOffs[src] + o, buf, n);
+        nt_sram_write(kSlotOffs[dst] + o, buf, n);
+    }
+    static const u16 kSums[4] = { 0, 8, 0x1FF0, 0x1FF8 };
+    for (u16 k = 0; k < 4; k++)
+    {
+        nt_sram_read(kSums[k] + 2 * src, buf, 2);
+        nt_sram_write(kSums[k] + 2 * dst, buf, 2);
+    }
+}
+/* FileSelectMenu_25_FileClearDoClear ($81:9C9E): la ranura y sus sumas a cero */
+static void sram_clear_slot(u16 s)
+{
+    u8 z[64] = { 0 };
+    for (u16 o = 0; o < 0x65C; o += 64)
+        nt_sram_write(kSlotOffs[s] + o, z, 0x65C - o < 64 ? 0x65C - o : 64);
+    static const u16 kSums[4] = { 0, 8, 0x1FF0, 0x1FF8 };
+    for (u16 k = 0; k < 4; k++) nt_sram_write(kSums[k] + 2 * s, z, 2);
+}
+
 /* ------------------------------------------------------------------ pantallas */
 /* DrawFileSelectionHealth / DrawFileSelectionTime ($81:A087 / $81:A14E): "ENERGY", los tanques (de a 7 por fila,
    la segunda fila arriba), la energía que sobra de los tanques y la hora; sin partida, NO DATA */
@@ -320,6 +352,11 @@ static void draw_fsel(void)
                 VDP_setTileMapXY(BG_A, ATTR_TEXT + TB + (g_mnu_icons[12 + k] & 0x3FF), 27 + k, 5 + i * 5);
         else
             draw_small(mstr(S_TIME), 25, 5 + i * 5);
+    }
+    if (any_used())
+    {
+        draw_big(mstr(S_DATA_COPY), 4, 19, FALSE);
+        draw_big(mstr(S_DATA_CLEAR), 4, 22, FALSE);
     }
     draw_small(mstr(S_EXIT), 4, 26);
 }
@@ -422,6 +459,120 @@ static bool run_options(void)
     }
 }
 
+/* ------------------------------------------------------------------ copiar y borrar (FileSelectMenu 6-26) */
+static void slot_name(char *o, u16 i)          /* "SAMUS A" (con el texto de la ranura del idioma) */
+{
+    const char *s = mstr(S_SLOT);
+    u16 n = 0;
+    while (s[n] && n < 9) { o[n] = s[n]; n++; }
+    o[n++] = ' ';
+    o[n++] = 'A' + i;
+    o[n] = 0;
+}
+/* (de a un byte y sin juntar: gcc escribía " " como una palabra, y en una dirección impar el 68000 se detiene) */
+static __attribute__((noinline)) void cat(char *o, const char *s)
+{
+    while (*o) o++;
+    for (; *s; s++) { volatile char *v = o++; *v = *s; }
+    *(volatile char *)o = 0;
+}
+
+static const char kSp[2] = " ";
+static void prompt(const char *l1, const char *l2)   /* las filas de abajo (19-27): dos líneas grandes */
+{
+    clear_rows(18, 28);
+    if (l1) draw_big(l1, 3, 19, FALSE);
+    if (l2) draw_big(l2, 3, 22, FALSE);
+}
+
+/* una ranura con el cursor (allowed: bits de las que se pueden elegir); -1 con B */
+static s16 choose_slot(u16 allowed, u16 *prev)
+{
+    u16 s = 0;
+    while (!(allowed & (1 << s))) s++;
+    for (;;)
+    {
+        u16 p = read_pad(prev);
+        if (p & BUTTON_B) { snd_request(0x106, 0x37); return -1; }
+        if (p & (BUTTON_A | BUTTON_C | BUTTON_START)) { snd_request(0x106, 0x38); return s; }
+        if (p & (BUTTON_UP | BUTTON_DOWN))
+        {
+            u16 d = (p & BUTTON_UP) ? 2 : 1;
+            do s = (s + d) % 3; while (!(allowed & (1 << s)));
+            snd_request(0x106, 0x37);
+        }
+        for (u16 i = 0; i < 3; i++) helmet_slot(i);
+        cursor(6, 44 + s * 40);
+        spr_end();
+        SYS_doVBlankProcess();
+    }
+}
+
+static u8 confirm(u16 *prev)                   /* YES / NO (fila 25); 1 = YES */
+{
+    u16 s = 1;
+    draw_big(mstr(S_YES), 6, 25, FALSE);
+    draw_big(mstr(S_NO), 18, 25, FALSE);
+    for (;;)
+    {
+        u16 p = read_pad(prev);
+        if (p & BUTTON_B) { snd_request(0x106, 0x37); return 0; }
+        if (p & (BUTTON_A | BUTTON_C | BUTTON_START)) { snd_request(0x106, 0x38); return s == 0; }
+        if (p & (BUTTON_LEFT | BUTTON_RIGHT | BUTTON_UP | BUTTON_DOWN)) { s ^= 1; snd_request(0x106, 0x37); }
+        for (u16 i = 0; i < 3; i++) helmet_slot(i);
+        cursor(s ? 16 * 8 - 4 : 4 * 8 - 4, 25 * 8 + 4);
+        spr_end();
+        SYS_doVBlankProcess();
+    }
+}
+
+static void wait_any(u16 *prev)
+{
+    for (;;)
+    {
+        if (read_pad(prev)) { snd_request(0x106, 0x37); return; }
+        for (u16 i = 0; i < 3; i++) helmet_slot(i);
+        cursor(-32, -32);
+        spr_end();
+        SYS_doVBlankProcess();
+    }
+}
+
+static void copy_or_clear(u8 copy)
+{
+    u16 prev = 0xFFFF, used = 0;
+    for (u16 i = 0; i < 3; i++) if (slot_used(i)) used |= 1 << i;
+    clear_rows(0, 4);
+    draw_box_title(mstr(copy ? S_COPY_TITLE : S_CLEAR_TITLE));
+    prompt(mstr(copy ? S_COPY_WHICH : S_CLEAR_WHICH), 0);
+    s16 a = choose_slot(used, &prev);
+    if (a < 0) return;
+    s16 b = -1;
+    char l1[32], na[12], nb[12];
+    slot_name(na, a);
+    l1[0] = 0;
+    if (copy)
+    {
+        prompt(mstr(S_COPY_WHERE), 0);
+        b = choose_slot(7 & ~(1 << a), &prev);
+        if (b < 0) return;
+        slot_name(nb, b);
+        cat(l1, mstr(S_COPY_VERB)); cat(l1, kSp); cat(l1, na); cat(l1, kSp); cat(l1, mstr(S_COPY_TO)); cat(l1, kSp); cat(l1, nb);
+    }
+    else
+    {
+        cat(l1, mstr(S_CLEAR_VERB)); cat(l1, kSp); cat(l1, na);
+    }
+    prompt(l1, mstr(S_IS_OK));
+    if (!confirm(&prev)) return;
+    if (copy) sram_copy_slot(a, b); else sram_clear_slot(a);
+    draw_fsel();                               /* las ranuras como quedaron */
+    clear_rows(0, 4);
+    draw_box_title(mstr(copy ? S_COPY_TITLE : S_CLEAR_TITLE));
+    prompt(mstr(copy ? S_COPIED : S_CLEARED), 0);
+    wait_any(&prev);
+}
+
 u16 menu_run(void) { return menu_run_at(0); }
 
 /* options: empezar en las opciones de la ranura g_menu_slot (B en el mapa de la partida: GameOptionsMenu) */
@@ -447,9 +598,10 @@ u16 menu_run_at(u16 options)
     for (;;)
     {
         u16 p = read_pad(&prev);
-        /* FileSelectMenu_4_Main ($81:A1C2): ranuras A-C y EXIT (copiar y borrar partidas: todavía no) */
-        if (p & BUTTON_UP) { sel = (sel + 3) % 4; snd_request(0x106, 0x37); }
-        else if (p & BUTTON_DOWN) { sel = (sel + 1) % 4; snd_request(0x106, 0x37); }
+        /* FileSelectMenu_4_Main ($81:A1C2): ranuras A-C, DATA COPY y DATA CLEAR (si hay partidas) y EXIT */
+        u8 used = any_used();
+        if (p & BUTTON_UP) { do sel = (sel + 5) % 6; while (!used && (sel == 3 || sel == 4)); snd_request(0x106, 0x37); }
+        else if (p & BUTTON_DOWN) { do sel = (sel + 1) % 6; while (!used && (sel == 3 || sel == 4)); snd_request(0x106, 0x37); }
         else if ((p & BUTTON_B) && !(p & (BUTTON_A | BUTTON_C | BUTTON_START)))
         {
             snd_request(0x106, 0x37);                   /* B: al título */
@@ -458,11 +610,20 @@ u16 menu_run_at(u16 options)
         }
         if (p & (BUTTON_A | BUTTON_C | BUTTON_START))
         {
-            if (sel == 3)
+            if (sel == 5)
             {
                 snd_request(0x106, 0x37);
                 fade_to(15, 0);
                 return MENU_EXIT;
+            }
+            if (sel == 3 || sel == 4)
+            {
+                snd_request(0x106, 0x37);
+                copy_or_clear(sel == 3);
+                draw_fsel();
+                sel = any_used() ? sel : 0;
+                prev = 0xFFFF;
+                continue;
             }
             /* ranura elegida: el casco gira (FileSelectMenu_31_TurnSamusHelmet, $81:9D77) hasta quedar
                de frente o hasta otro botón, y se pasa a las opciones */
@@ -499,7 +660,7 @@ u16 menu_run_at(u16 options)
             prev = 0xFFFF;
         }
         for (u16 i = 0; i < 3; i++) helmet_slot(i);
-        cursor(6, sel < 3 ? 44 + sel * 40 : 26 * 8);
+        cursor(6, sel < 3 ? 44 + sel * 40 : sel == 3 ? 19 * 8 + 4 : sel == 4 ? 22 * 8 + 4 : 26 * 8);
         spr_end();
         SYS_doVBlankProcess();
     }

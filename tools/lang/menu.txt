@@ -33,3 +33,19 @@ sp_auto      | AUTO                    | AUTO
 sp_manual    | MANUAL                  | MANUAL
 sp_on        | ON                      | SÍ
 sp_off       | OFF                     | NO
+# copiar y borrar partidas (FileSelectMenu 6-26 del SNES): fuente grande, a lo sumo 26 letras por línea
+data_copy    | DATA COPY               | COPIAR DATOS
+data_clear   | DATA CLEAR              | BORRAR DATOS
+copy_title   | DATA COPY MODE          | COPIAR DATOS
+clear_title  | DATA CLEAR MODE         | BORRAR DATOS
+copy_which   | COPY WHICH DATA?        | ELIGE QUÉ COPIAR
+copy_where   | COPY TO WHERE?          | ELIGE DÓNDE COPIAR
+copy_verb    | COPY                    | COPIAR
+copy_to      | TO                      | EN
+clear_which  | CLEAR WHICH DATA?       | ELIGE QUÉ BORRAR
+clear_verb   | CLEAR                   | BORRAR
+is_ok        | IS THIS OK?             | ESTÁ BIEN?
+yes          | YES                     | SÍ
+no           | NO                      | NO
+copied       | COPY COMPLETED          | COPIA TERMINADA
+cleared      | DATA CLEARED            | DATOS BORRADOS

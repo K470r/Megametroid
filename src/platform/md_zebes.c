@@ -461,6 +461,7 @@ const MdRoom *zebes_use(void) {
     uint16 n = 0;
     memset(seen, 0, sizeof seen);
     #define ZFADE_ADD(c) do { uint8 c_ = (c); if (!(seen[c_ >> 3] & (1 << (c_ & 7)))) { seen[c_ >> 3] |= 1 << (c_ & 7); zfade[n++] = c_; } } while (0)
+    ZFADE_ADD(0);                                  /* el fondo (se ve siempre: el tiempo agotado lo pone blanco) */
     for (uint16 i = 0; i < base->nfade; i++) ZFADE_ADD(base->fade[i]);
     for (uint16 i = 1; i < 64; i++) if (zsrc[i] != 0xFF) ZFADE_ADD(zsrc[i]);
     if (zo) {

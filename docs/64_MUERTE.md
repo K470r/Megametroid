@@ -41,3 +41,12 @@ los de la sala; la CRAM: el fondo (color 0), la línea de Samus (palette_buffer 
 
 Diferencia: el último fantasma del traje es casi blanco sobre blanco (0x77BD sobre 0x7BDE); con 3 bits por canal en la
 Genesis los dos son el mismo blanco.
+
+## El tiempo agotado en la huida de Zebes
+
+`GameState_36` con el evento 0x0E (la bomba puesta): después del blanqueo va al estado 25 (se apaga) y al menú de fin
+de juego, sin la cinemática de Ceres (game.c). Referencia: la huida en la sala DE4D (`huida.sh`) con el contador a
+0:00 en el cuadro 300 (`HL_POKE_AT=300:946:0`): `host/check` del 250 al 549, 0 cuadros distintos. En la Genesis
+(`HU_FL="-DMD_TEST_POKE_AT=13043 -DMD_TEST_POKE_ADDR=0x946 -DMD_TEST_POKE_VAL=0"`) el poke de la prueba cae unos
+cuadros después que en el SNES; la secuencia es la misma. El color de fondo entra en la lista del fundido de las salas
+de Zebes (md_zebes.c, `zfade`): el blanqueo también lo cambia.

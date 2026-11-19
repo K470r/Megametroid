@@ -448,8 +448,11 @@ static uint8 RunGameState(uint16 st) {
       QueueSfx1_Max15(2);
       QueueSfx2_Max15(0x71);
       QueueSfx3_Max15(1);
-      if (CheckEventHappened(0xE)) {
-        nt_unimpl("GameState_36 (tiempo agotado en el escape de Zebes)");
+      if (CheckEventHappened(0xE)) {             /* la huida de Zebes: el menú de fin de juego (docs/64) */
+        game_options_screen_index = 0;
+        menu_index = 0;
+        nt_clear_ram(0x1A8D, 0x1B8D);            /* (eproj_y_subpos[15] y las 127 palabras que siguen) */
+        game_state = 25;
       } else {
         game_state = 37;
         cinematic_function = FUNC16(CinematicFunctionBlackoutFromCeres);

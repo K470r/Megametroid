@@ -654,6 +654,23 @@ def bankwords(name, bank):
     vals = [data[i] | data[i + 1] << 8 for i in range(0x8000)]
     arr('uint16', name, vals, per=24, fmt='0x{:X}')
 
+# Las copias de los bancos sin el relleno del final (docs/68): los bytes 0xFF que quedan libres al final de cada banco
+# en la ROM del SNES nadie los lee (medido: host/bankcov.c); la copia termina ahí (más dos bytes, por las lecturas de
+# palabra en el último). "base + dirección - 0x8000" sigue igual para todo lo de antes del relleno.
+BANK_TRIM_KEEP = 2
+_trimmed = []
+
+
+def bank_data(bank):
+    d = r((bank << 16) | 0x8000, 0x8000) + r(((bank + 1) << 16) | 0x8000, 1)
+    f = 0
+    while f < 0x8000 and d[0x7FFF - f] == 0xFF:
+        f += 1
+    n = min(0x8001, 0x8000 - f + BANK_TRIM_KEEP)
+    _trimmed.append((bank, 0x8001 - n))
+    return list(d[:n])
+
+
 # $A6: kBankA6B (banks.txt); las palabras se leen de a dos bytes (nmath.h), como los demás bancos
 # bancos que lee el código traducido del decomp (tools/port/banks.txt, docs/42): bytes tal cual
 import os as _os
@@ -664,7 +681,7 @@ if '86' not in _bl:
 BOSS_BANKS = {0x91, 0xA4, 0xA5, 0xA9, 0xAD}      # solo los leen los jefes (Crocomire, Mother Brain; $91: su rayo; $A9: y los cadáveres; $A5: Draygon y Spore Spawn, 9DC7 en BOSS_ROOMS): en su página
 for _b in _bl:
     _b = int(_b, 16)
-    arr('uint8', 'kBank%02XB' % _b, list(r((_b << 16) | 0x8000, 0x8000) + r(((_b + 1) << 16) | 0x8000, 1)), per=32,
+    arr('uint8', 'kBank%02XB' % _b, bank_data(_b), per=32,
         attr='NT_BANK(%d) ' % BOSS_PAGE if _b in BOSS_BANKS else '')
 # Kraid (Kraid_SetupGfxWithTilePrioClear $A7:AAC6): DecompressToMem($B9:FE3E) a 7E:2000 (tilemap_stuff, 2048 palabras) y
 # DecompressToMem($B9:FA38) a 7E:4000, del que lee las primeras 1024 palabras: ya descomprimidos, en la página de los jefes
@@ -677,7 +694,7 @@ COLD_PAGE = 7   # página del SSF2 de los bancos que se leen poco (nmath.h: nt_p
 COLD_BANKS = {0x81, 0x82, 0x8B, 0x8C}   # fin de juego, pausa, cinemáticas, intro: fuera de la ROM fija (que está llena)
 H.append('#define NT_COLD_PAGE %d   /* (mkdata.py, COLD_BANKS: kBank81B, 82B, 8BB, 8CB) */' % COLD_PAGE)
 def bankbytes(name, bank):
-    arr('uint8', name, list(r((bank << 16) | 0x8000, 0x8000) + r(((bank + 1) << 16) | 0x8000, 1)), per=32,
+    arr('uint8', name, bank_data(bank), per=32,
         attr='NT_BANK(%d) ' % COLD_PAGE if bank in COLD_BANKS else '')
 # cinemáticas: listas de instrucciones ($8B), efectos de paleta ($8D), objetos de HDMA y tablas del power bomb ($88)
 bankbytes('kBank81B', 0x81)   # menú de fin de juego: tilemaps y objetos de HDMA
@@ -752,3 +769,4 @@ out.mkdir(parents=True, exist_ok=True)
 (out / 'tables.h').write_text('\n'.join(H) + '\n')
 (out / 'tables.c').write_text('\n'.join(C) + '\n')
 print('tablas:', len([l for l in H if l.startswith('extern')]))
+print('bancos: %d KB de relleno fuera (%s)' % (sum(t for _, t in _trimmed) // 1024, ' '.join('%02X:%d' % bt for bt in _trimmed)))

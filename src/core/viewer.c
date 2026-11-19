@@ -8,6 +8,7 @@
 #include "game.h"
 #include "room.h"
 #include "viewer.h"
+#ifndef NT_NO_VIEWER                       /* (fuera de la ROM normal: viewer.h) */
 
 uint8 nt_viewer;                          /* la Genesis lo enciende (md_main); en el PC (comparación con el SNES), no */
 uint8 nt_viewer_place;                    /* la Genesis: al llegar a la sala, Samus a un lugar libre en la pantalla */
@@ -107,3 +108,4 @@ uint16 viewer_input(uint16 joy) {
   }
   return joy;
 }
+#endif

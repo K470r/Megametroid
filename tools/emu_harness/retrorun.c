@@ -14,7 +14,7 @@
  *   dumpvram <archivo>             vuelca la VRAM (si el núcleo la expone)
  *   trace <archivo> <addr_hex:len,...>  a partir de aquí, cada frame agrega esos bytes (binario)
  *   untrace
- *   (variable RR_PAD=6: mando de 6 botones en Genesis Plus GX)
+ *   (variable RR_PAD=6 / RR_PAD=3: mando de 6 o de 3 botones en Genesis Plus GX)
  *   (variable RR_WAV=archivo.wav: graba lo que suena, 16 bits estéreo a la frecuencia del núcleo: docs/55)
  *   (variable RR_VARS="clave=valor;...": opciones del núcleo, p. ej. snes9x_layer_5=disabled)
  *   input <archivo>                reproduce un archivo de entrada: una línea por frame con botones
@@ -238,6 +238,7 @@ int main(int argc, char **argv) {
         const char *pad = getenv("RR_PAD");
         unsigned dev = RETRO_DEVICE_JOYPAD;
         if (pad && atoi(pad) == 6) dev = RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 1);
+        if (pad && atoi(pad) == 3) dev = RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 0);   /* (sin RR_PAD: el núcleo elige; GPGX, 6) */
         p_retro_set_controller_port_device(0, dev);
     }
     FILE *sf = fopen(argv[3], "r");

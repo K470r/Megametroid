@@ -8,7 +8,7 @@
  *               A correr (B)                  B saltar (A)    C apuntar abajo (L)
  *               MODE elegir ítem (SELECT)     START pausa/mapa (START)
  *   3 botones:  A correr (B)  B disparar (X)  C saltar (A)
- *               START corto = elegir ítem (SELECT; dando la vuelta se llega a "nada" = cancelar),
+ *               START corto = elegir ítem (SELECT), START + abajo = cancelar ítem (Y),
  *               START mantenido = pausa/mapa (START); sin apuntar en diagonal quieto (sí caminando o corriendo)
  *               en la pausa (docs/53; no hay L ni R): A = L, B = R, C = A (equipar), START = START
  * Con MD_TEST_INPUT la entrada sale de la grabación del SNES (para comparar cuadro a cuadro). */
@@ -46,6 +46,7 @@ extern u16 game_state;                          /* el motor (vars.c) */
 static bool six;
 #define START_HOLD 20                           /* mando de 3 botones: cuadros de START mantenido para la pausa */
 static u16 start_frames;
+static u8 start_used;                           /* mando de 3 botones: START ya sirvió con abajo (cancelar) */
 
 static u16 read_joy(void) {
 #ifdef MD_TEST_INPUT
@@ -153,23 +154,30 @@ static u16 read_joy(void) {
     if (pad & BUTTON_MODE) s |= SNES_SELECT;
     if (pad & BUTTON_START) s |= SNES_START;
     start_frames = 0;
+    start_used = 0;
   } else if (game_state >= 12 && game_state <= 16) {   /* pausa: L y R para pasar del mapa al equipo */
     if (pad & BUTTON_A) s |= SNES_L;
     if (pad & BUTTON_B) s |= SNES_R;
     if (pad & BUTTON_C) s |= SNES_A;
     if (pad & BUTTON_START) s |= SNES_START;
     start_frames = (pad & BUTTON_START) ? START_HOLD : 0;   /* (al volver al juego, START todavía apretado: nada) */
+    start_used = 0;
   } else {
     if (pad & BUTTON_C) s |= SNES_A;
     if (pad & BUTTON_A) s |= SNES_B;
     if (pad & BUTTON_B) s |= SNES_X;
-    /* START: toque corto = SELECT (un cuadro, al soltar); mantenido START_HOLD cuadros = START */
+    /* START: toque corto = SELECT (un cuadro, al soltar); mantenido START_HOLD cuadros = START; START + abajo antes
+       de eso = Y (cancelar el ítem: un cuadro), y ese START ya no es SELECT ni la pausa. Mientras START está apretado,
+       abajo no llega al juego */
     if (pad & BUTTON_START) {
+      s &= ~SNES_DOWN;
+      if (!start_used && (pad & BUTTON_DOWN) && start_frames < START_HOLD) { s |= SNES_Y; start_used = 1; }
       if (start_frames < 0xFFFF) start_frames++;
-      if (start_frames >= START_HOLD) s |= SNES_START;
+      if (start_frames >= START_HOLD && !start_used) s |= SNES_START;
     } else {
-      if (start_frames && start_frames < START_HOLD) s |= SNES_SELECT;
+      if (start_frames && start_frames < START_HOLD && !start_used) s |= SNES_SELECT;
       start_frames = 0;
+      start_used = 0;
     }
   }
   return s;

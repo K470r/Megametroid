@@ -19,13 +19,21 @@ foot_select  | SELECT                  | ELEGIR
 foot_ok      | OK!                     | OK!
 foot_cancel  | CANCEL                  | CANCELAR
 ctl_title    | CONTROLLER              | CONTROL
-ctl_jump     | C  JUMP                 | C  SALTAR
-ctl_run      | A  DASH                 | A  CORRER
-ctl_shoot    | B  SHOOT                | B  DISPARAR
-ctl_aim6     | X-Z  AIM DOWN-UP        | X-Z  APUNTAR ABAJO-ARRIBA
-ctl_sel6     | Y  ITEM   MODE  CANCEL  | Y  ARMA   MODE  CANCELAR
-ctl_pad3     | 3 BUTTON PAD            | CONTROL DE 3 BOTONES
-ctl_pad6     | 3 BUTTONS START UP DOWN AIM | 3 BOTONES START ARRIBA ABAJO
+# la pantalla CONTROLLER: lo que hace el mando conectado (md_main.c, read_joy); a lo sumo 26 letras por línea
+c3_title     | 3 BUTTON PAD            | CONTROL DE 3 BOTONES
+c3_jump      | C  JUMP                 | C  SALTAR
+c3_run       | A  DASH                 | A  CORRER
+c3_shoot     | B  SHOOT                | B  DISPARAR
+c3_item      | START  ITEM             | START  ARMA
+c3_pause     | HOLD START  PAUSE       | START LARGO  PAUSA
+c3_cancel    | START+DOWN  CANCEL      | START+ABAJO  CANCELAR
+c6_title     | 6 BUTTON PAD            | CONTROL DE 6 BOTONES
+c6_jump      | B  JUMP                 | B  SALTAR
+c6_run       | A  DASH                 | A  CORRER
+c6_shoot     | Y  SHOOT                | Y  DISPARAR
+c6_aim       | C-Z  AIM DOWN-UP        | C-Z  APUNTAR ABAJO-ARRIBA
+c6_item      | MODE  ITEM   X  CANCEL  | MODE  ARMA   X  CANCELAR
+c6_pause     | START  PAUSE            | START  PAUSA
 sp_title     | SPECIAL SETTING         | AJUSTES ESPECIALES
 sp_icon      | ICON CANCEL             | CANCELAR ÍCONO
 sp_moon      | MOON WALK               | CAMINAR HACIA ATRÁS

@@ -391,12 +391,12 @@ static void draw_controller(void)
 {
     clear_rows(0, 28);
     draw_box_title(mstr(S_CTL_TITLE));
-    draw_big(mstr(S_CTL_JUMP), 3, 5, FALSE);
-    draw_big(mstr(S_CTL_RUN), 3, 8, FALSE);
-    draw_big(mstr(S_CTL_SHOOT), 3, 11, FALSE);
-    draw_big(mstr(S_CTL_AIM6), 3, 14, FALSE);
-    draw_big(mstr(S_CTL_SEL6), 3, 17, FALSE);
-    draw_small(mstr(S_CTL_PAD6), 3, 21);
+    /* lo que hace el mando conectado (md_main.c, read_joy) */
+    static const u16 k3[7] = { S_C3_TITLE, S_C3_JUMP, S_C3_RUN, S_C3_SHOOT, S_C3_ITEM, S_C3_PAUSE, S_C3_CANCEL };
+    static const u16 k6[7] = { S_C6_TITLE, S_C6_JUMP, S_C6_RUN, S_C6_SHOOT, S_C6_AIM, S_C6_ITEM, S_C6_PAUSE };
+    const u16 *k = JOY_getJoypadType(JOY_1) == JOY_TYPE_PAD6 ? k6 : k3;
+    draw_small(mstr(k[0]), 3, 5);
+    for (u16 i = 1; i < 7; i++) draw_big(mstr(k[i]), 3, 4 + i * 3, FALSE);
     draw_footer();
 }
 

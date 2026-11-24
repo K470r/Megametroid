@@ -1,19 +1,19 @@
 # 69 — El destello de cristal
 
-Con poca energía (menos de 50), sin reserva y al menos 10 misiles, 10 superbombas y 10 bombas de poder, si Samus en
+Con poca energía (menos de 50), sin reserva y al menos 10 misiles, 10 supermisiles y 10 bombas de poder, si Samus en
 bola pone una bomba de poder, se queda quieta donde la puso y mantiene L + R + abajo + disparo, al terminar la
 explosión se cambian las municiones por energía.
 
 ## Cómo se hace en la Genesis
 
-1. Tener menos de 50 de energía, los tanques de reserva vacíos y al menos 10 misiles, 10 superbombas y 10 bombas de
+1. Tener menos de 50 de energía, los tanques de reserva vacíos y al menos 10 misiles, 10 supermisiles y 10 bombas de
    poder.
 2. En bola, elegir la bomba de poder y ponerla. No moverse: Samus tiene que quedar donde la puso.
 3. Antes de que termine la explosión, mantener apretado:
    - **mando de 6 botones**: abajo + C + Z + Y (C = L, Z = R, Y = disparo);
    - **mando de 3 botones**: abajo + A + B + C.
 4. Mantenerlo hasta que la explosión termine: Samus sube, se rodea de la burbuja y cada 8 cuadros cambia una munición
-   por energía (primero misiles, después superbombas y bombas de poder).
+   por energía (primero misiles, después supermisiles y bombas de poder).
 
 Como en el SNES, tiene que ser exactamente esa combinación (con izquierda, derecha o arriba no sale).
 
@@ -36,7 +36,7 @@ Fuera de eso los botones hacen lo de siempre. Con la bomba puesta, mantener los 
 - `Hdmaobj_CrystalFlash` ($90:D5A2, samus_move.c): las condiciones; pone la pose D3/D4 y el manejador
   `SamusMoveHandler_CrystalFlashStart` ($90:D678): sube 2 píxeles por cuadro, 10 cuadros, y crea los objetos de HDMA
   (`SpawnCrystalFlashHdmaObjs` $88:A2A6, hdmaobj.c); `…Main` ($90:D6CE): cada 8 cuadros una munición por 50 de
-  energía (misiles, superbombas, bombas de poder); `…Finish` ($90:D75B): vuelve a la bola en la y del comienzo.
+  energía (misiles, supermisiles, bombas de poder); `…Finish` ($90:D75B): vuelve a la bola en la y del comienzo.
 - Los objetos de HDMA: `CrystalFlash_CustomLayerBlend`, `Stage1_Explosion` (el círculo, las mismas tablas que la
   bomba de poder) y `Stage2_AfterGlow`.
 - `host/check` con la grabación del destello (salto al aterrizaje 89B2): 0 diferencias.
@@ -63,7 +63,7 @@ Fuera de eso los botones hacen lo de siempre. Con la bomba puesta, mantener los 
 `tools/compare/cristal.sh`: el Parlor, lado a lado con el SNES; y con el mando de 3 botones (la grabación termina al
 poner la bomba y sigue el mando de retrorun, `RR_PAD=3`):
 
-| botones mantenidos | energía | misiles / superbombas / bombas de poder |
+| botones mantenidos | energía | misiles / supermisiles / bombas de poder |
 |---|---|---|
 | abajo + A + B + C | 99 | 0 / 0 / 0 (destello) |
 | solo abajo | 40 | 10 / 10 / 10 |

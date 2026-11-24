@@ -2,7 +2,7 @@
 # MegaMetroid — el destello de cristal lado a lado con el SNES (docs/69).
 #
 # En el Parlor (puerta 8916) Samus en bola en (1200, 187), con 28 de energía (40 en la Genesis, ver HL_POKE_AT), sin
-# tanques de reserva y 10 misiles / 10 superbombas / 11 bombas de poder (una se gasta al ponerla). La entrada
+# tanques de reserva y 10 misiles / 10 supermisiles / 11 bombas de poder (una se gasta al ponerla). La entrada
 # (tools/snes_ref/ceres_bot/in_crystal.txt) pone la bomba de poder y mantiene L+R+abajo+X hasta que termina.
 # Salida: work/crystal/lado (pares Genesis | SNES con mont.py).
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -30,7 +30,7 @@ for c in YBAD D YBA; do
 import sys
 r = open(sys.argv[1], 'rb').read()
 g = lambda a: r[int(a, 16)] | r[int(a, 16) + 1] << 8
-print("3 botones, %-5s energía %2d  misiles %2d  superbombas %2d  bombas de poder %2d" % (
+print("3 botones, %-5s energía %2d  misiles %2d  supermisiles %2d  bombas de poder %2d" % (
     {'YBAD': 'abajo+A+B+C', 'D': 'abajo', 'YBA': 'A+B+C'}[sys.argv[2]], *(g(a) for a in sys.argv[3:7])))
 P
 done

@@ -334,7 +334,9 @@ BG_EXTRA_W = float(os.environ.get("MM_BGX_W", "16"))
 # índices de palette_buffer de un jefe que no se juntan con otros hasta el final (merge_colors, solo): pocos píxeles que
 # cambian mucho entre momentos. El Torizo (banco $AA): los ojos, 156-158 (rosados de estatua; naranjas al despertar el
 # Bomb Torizo, cian el Golden): se juntaban con un marrón y en la Genesis nunca se encendían (docs/59)
-BOSS_SOLO = {0xAA: frozenset({156, 157, 158})}
+# Mother Brain (banco $A9): el cerebro magenta (213, 214: la paleta 5 de los sprites) se juntaba con el rojo de la bebé
+# (247) y salía rojo oscuro
+BOSS_SOLO = {0xAA: frozenset({156, 157, 158}), 0xA9: frozenset({213, 214})}
 # índices de un jefe que cambian en la pelea y que, al juntarse con otros, quedan como el color del lugar
 # (merge_colors, keep): Mother Brain, su paleta 1 de sprites (145-159: patas, cuello y cerebro), que la bebé pone gris
 # (MotherBrain_FadeToGray_Drained). Si quedaba otro (247, rojo que no cambia), las patas y la cara seguían rojas

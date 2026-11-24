@@ -3250,6 +3250,7 @@ void md_vblank(uint16_t late) {
   if (nspr_shown > n) vdp_fill_vram(MD_VRAM_SPRITES + n * 8, 0, (nspr_shown - n) * 4);
   nspr_shown = n;
   if (c) vdp_dma_vram(md_cone_sat(md_spr_bank(so)), MD_VRAM_SPRITES + (MAX_SPR - c) * 8, c * 4);
+  { void zebes_frz_vblank(void); if (md_zebes && !cine_stage && !room_pending) zebes_frz_vblank(); }   /* (md_zebes.c) */
   VBS(2);
   if (mb_dma_n) { vdp_dma_vram(mb_buf, mb_dma_dst, mb_dma_n); mb_dma_n = 0; }
   if (!mb_shown) md_cone_vblank();

@@ -478,10 +478,7 @@ void ProcessPlmDrawInstruction(uint16 v0) {  // 0x84861E: escribe los bloques de
     uint16 step = (n & 0x8000) ? w : 1;           /* columna o fila */
     for (int i = 0; i < (uint8)n; i++, p += 2) {
       level_set(dst + i * step, DrawW(p));
-      /* el vidrio de Mother Brain (PLM $84:D6DE): al cargar la sala (estado 11) pone aire y el bloque del disparo en
-         el nivel, pero en el SNES el BG1 sigue con el tanque (lo dibujó la sala antes): no se redibuja */
-      if (!(game_state == 11 && plm_header_ptr[v1] == 0xD6DE))
-        nt_block_changed(dst + i * step);
+      nt_block_changed(dst + i * step);
     }
     uint16 d = DrawW(p);
     if (!d)

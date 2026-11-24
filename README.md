@@ -145,12 +145,15 @@ normal (`out/rom.bin`) en un emulador.
    botones: abajo + A + B + C (solo con una bomba de poder puesta; cómo se hace, en docs/69).
 
 Funcionan, pero no se ven igual que en el SNES:
-4. Mother Brain: el tanque de vidrio no desaparece al romperse; la cabeza algo más oscura después de la bebé; el
-   efecto de color del hiperrayo (`ResetProjectileData`).
+4. (Hecho) Mother Brain: el tanque de vidrio, el cerebro magenta, los colores del hiperrayo en la huida y la bebé
+   (ya no desaparece ni sale con tiles a medio subir: docs/59).
 5. Los cadáveres que se pudren (el Torizo y otros jefes: `CorpseRotting`).
 6. La huida: el cielo del aterrizaje de un solo color (el SNES: nubes moradas); los colores de la alarma de Tourian.
 7. El mapa de la partida: adentro del cuadrado queda negro mientras se abre o se cierra; la cuadrícula algo más oscura.
-8. Kraid: una uña se dispara un cuadro antes que en el SNES.
+8. Kraid: una uña se dispara un cuadro antes que en el SNES. (Draygon: en algunos cuadros la Genesis dibuja partes de
+   Draygon a la izquierda de la pantalla donde el SNES no las muestra.) En su sala los colores de los sprites no van: los misiles
+   de Samus (los disparados y los que quedan al morir los enemigos) se ven rosados con gris, los supermisiles también
+   se ven raros, y la plataforma que lanza de la panza se ve rosada.
 9. Rendimiento: algunas salas pesadas pierden cuadros (la peor, 92B3: [docs/44](docs/44_OPTIMIZACION.md)).
 10. La niebla sin la forma de las nubes y la neblina con un color medio en vez del degradado.
 
@@ -169,8 +172,8 @@ Extras ya acordados:
 19. Los botones dibujados como los de la Genesis: en la pausa "L" / "R" (en el mando de 6 botones son C, al mapa, y
     Z, a SAMUS; con 3 botones, A y B) y los botones que muestran las cajas de mensaje al agarrar un ítem nuevo
     (SELECT, X, Y, L, R del SNES).
-20. Espacio en la ROM: recortar las copias de bancos del SNES (782 KB); la parte común (los primeros 3 MB) está casi
-    llena y lo nuevo va en las páginas del SSF2.
+20. Espacio en la ROM: las copias de los bancos del SNES ya van recortadas ([docs/68](docs/68_RECORTE_BANCOS.md)); la
+    parte común (los primeros 3 MB) sigue casi llena y lo nuevo va en las páginas del SSF2.
 
 ## Estructura
 

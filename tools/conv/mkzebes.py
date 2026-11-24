@@ -27,6 +27,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 BOSS_PAGE = 25                                               # (port.py)
 BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(320 * 1024)))
+FRZ_CONTIG_MIN = 48        # objetos por cuadro con tantos tiles o más: sus tiles seguidos en el depósito (una copia propia)
 POOL_CHUNK = 512           # tiles por trozo del depósito común (16 KB: llenan mejor los huecos de las páginas)
 PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "1024"))   # bytes libres al final de cada página: la cuenta
 # no incluye las alineaciones; medido en rom.map (docs/58), lo real queda hasta ~1 KB por encima de la cuenta. El
@@ -1531,7 +1532,16 @@ def main():
     for q in range(0, len(frz_idx), 4):                       # los tramos de cada congelado, con los índices nuevos
         r0, nr = frz_idx[q], frz_idx[q + 1]
         rr = []
-        for t in tile_list(frz_runs[2 * r0:2 * (r0 + nr)]):
+        tl = tile_list(frz_runs[2 * r0:2 * (r0 + nr)])
+        if len(tl) >= FRZ_CONTIG_MIN and nr > 4:
+            # los grandes, seguidos (una copia propia, sin compartir): se suben en el vblank con uno o dos DMA. Repartidos
+            # en tramos (la bebé de Mother Brain: 103 tiles en 20) no entraban en el vblank y se veían a medio subir
+            j0 = len(hot_l)
+            hot_l.extend(tl)
+            frz_idx[q], frz_idx[q + 1] = len(frz_runs2) // 2, 1
+            frz_runs2 += [j0, len(tl)]
+            continue
+        for t in tl:
             j = hot_new[t]
             if rr and rr[-2] + rr[-1] == j and rr[-1] < 0xFFFF:
                 rr[-1] += 1

@@ -925,3 +925,36 @@ Prueba: `tools/compare/estatuas_in.txt` (sin jefes vencidos) y `estatuas4_in.txt
   sala anterior (x 1595) y deja `bg1_x_offset` en 0xB3B (no múltiplo de 256): el BG1 del SNES sale 11 píxeles corrido
   y los dibujos de los PLM (CalculatePlmDrawTilemapVramDst) van a otras celdas del tilemap. Entrando por la puerta el
   desplazamiento es múltiplo de 256.
+
+### Mother Brain: el vidrio, el cerebro y el hiperrayo (2026-11-24)
+
+- **El tanque de vidrio**: plm.c ya no deja de redibujar los bloques del PLM del vidrio ($84:D6DE) al cargar la sala.
+  Lo de "el SNES sigue mostrando el tanque" venía de la prueba con el BG1 corrido (antes de `HL_WARP_ALIGN`): con el
+  evento puesto (vidrio ya roto) la lista salta a dibujar aire (`PlmInstr_GotoIfBossBitSet`) y el SNES no muestra el
+  tanque. El vidrio entero se rompe con misiles o supermisiles en su bloque, el (9, 5): x 144-160, y 80-96, el borde
+  derecho del tanque (`PlmPreInstr_IncrementRoomArgIfShotBySuperMissile` cuenta los golpes). Prueba: Samus puesta a
+  la derecha del tanque (`HL_POKE_AT` / `MD_TEST_POKES` de 7E:0AF6 = 0xC8 y 7E:0AFA = 0x58 cada 40 cuadros) y
+  disparando a la izquierda: las etapas del vidrio (grietas, bordes rotos, los fragmentos) se ven igual.
+- **El cerebro magenta** (213, 214: la paleta 5 de los sprites) se juntaba con el rojo de la bebé (247) en la línea
+  de los objetos y salía rojo oscuro: `mkzobj.BOSS_SOLO` ({$A9: 213, 214}). Ahora sale magenta como en el SNES.
+- **El hiperrayo**: `ResetProjectileData` (proj.c) con `hyper_beam_flag` crea el objeto de paleta $8D:E1F0, como el
+  SNES (en cada puerta y ascensor de la huida: los colores del rayo, palette_buffer 225-232, siguen ciclando).
+  Comprobado en la RAM de la Genesis (prueba: `huida` con 7E:0A76 = 0x8000).
+- **La bebé** (sala por cuadro, md_zebes.c, el depósito `frz_*`): se perdía o salía rota por tres cosas.
+  - No había lugar: pide 13 lugares de 8 tiles seguidos (104 tiles) de 48, y los objetos chicos quedaban repartidos;
+    los grandes ahora se buscan desde el final y los chicos desde el principio, y cada clave pide los lugares que
+    necesita también por sus registros (`FRZ_REC`). El depósito usa un reloj de cuadros de lógica (`frz_lf`) y tres
+    pasadas: guardando lo de los últimos 8 cuadros, lo del anterior, y nada (si el vblank ya tomó el cuadro
+    anterior; la última no pisa los respaldos).
+  - La subida no entraba en el vblank: cada DMA del depósito cuesta 2-4 líneas más la preparación; con la bebé y los
+    objetos chicos nuevos del cuadro se pasaba a la imagen (tiles a medio subir: los "anillos" y los cuadros rotos).
+    Ahora: los tiles de los objetos de 48 tiles o más van seguidos en el depósito de la ROM (`mkzebes.FRZ_CONTIG_MIN`,
+    una copia propia: un DMA; ~50 KB), la subida va al principio del vblank (después de la lista de sprites,
+    `zebes_frz_vblank`), sube lo que entra dejando 12 líneas para lo que sigue (los tiles de Samus) y lo demás queda
+    para el vblank siguiente; un lugar en cola (`frz_pend`) no se dibuja hasta que sus tiles están.
+  - Mientras la clave nueva de una pieza grande se sube (o no tiene lugar), se dibuja la última que esa pieza del
+    enemigo dibujó entera (`frz_fb`: 32 enemigos x 2 piezas).
+  Lado a lado (`mb.sh`, la bebé chupando a Mother Brain): igual al SNES cuadro a cuadro, salvo algún cuadro en que la
+  Genesis muestra un instante más el anterior (el respaldo). Regresión: 0 distintos.
+- Visto de paso (ya pasaba antes): en la pelea con Draygon, en algunos cuadros la Genesis dibuja partes de Draygon a la
+  izquierda de la pantalla donde el SNES no las muestra.

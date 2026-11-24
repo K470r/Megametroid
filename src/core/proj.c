@@ -2,6 +2,7 @@
  * Escrito a mano desde snesrev/sm sm_90.c y sm_93.c. */
 #include "samus.h"
 #include "nmath.h"
+#include "hdmaobj.h"
 
 /* ------------------------------------------------------------------ selección del HUD ($90:C4B5) */
 void ClearFlareAnimationState(void) {  // 0x90BCBE
@@ -712,7 +713,7 @@ void ResetProjectileData(void) {  // 0x90AD22
     Samus_LoadSuitTargetPalette();
   }
   if (hyper_beam_flag)
-    nt_unimpl("ResetProjectileData (hiperrayo: SpawnPalfxObject)");
+    SpawnPalfxObject(0xE1F0);                    /* addr_stru_8DE1F0: los colores del hiperrayo */
 }
 
 /* ------------------------------------------------------------------ datos del banco $93 (listas de instrucciones) */

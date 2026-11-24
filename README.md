@@ -145,8 +145,9 @@ normal (`out/rom.bin`) en un emulador.
    botones: abajo + A + B + C (solo con una bomba de poder puesta; cómo se hace, en docs/69).
 
 Funcionan, pero no se ven igual que en el SNES:
-4. Mother Brain: el tanque de vidrio no desaparece al romperse; la cabeza algo más oscura después de la bebé; el
-   efecto de color del hiperrayo (`ResetProjectileData`).
+4. (Hecho) Mother Brain: el tanque de vidrio, el cerebro magenta y los colores del hiperrayo en la huida (docs/59).
+   Quedan detalles de la bebé: en algunos cuadros de golpe sale con anillos verdes y rosados (el SNES: morada) y en
+   algún cuadro suelto no se dibuja.
 5. Los cadáveres que se pudren (el Torizo y otros jefes: `CorpseRotting`).
 6. La huida: el cielo del aterrizaje de un solo color (el SNES: nubes moradas); los colores de la alarma de Tourian.
 7. El mapa de la partida: adentro del cuadrado queda negro mientras se abre o se cierra; la cuadrícula algo más oscura.

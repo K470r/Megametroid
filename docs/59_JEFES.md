@@ -925,3 +925,19 @@ Prueba: `tools/compare/estatuas_in.txt` (sin jefes vencidos) y `estatuas4_in.txt
   sala anterior (x 1595) y deja `bg1_x_offset` en 0xB3B (no múltiplo de 256): el BG1 del SNES sale 11 píxeles corrido
   y los dibujos de los PLM (CalculatePlmDrawTilemapVramDst) van a otras celdas del tilemap. Entrando por la puerta el
   desplazamiento es múltiplo de 256.
+
+### Mother Brain: el vidrio, el cerebro y el hiperrayo (2026-11-24)
+
+- **El tanque de vidrio**: plm.c ya no deja de redibujar los bloques del PLM del vidrio ($84:D6DE) al cargar la sala.
+  Lo de "el SNES sigue mostrando el tanque" venía de la prueba con el BG1 corrido (antes de `HL_WARP_ALIGN`): con el
+  evento puesto (vidrio ya roto) la lista salta a dibujar aire (`PlmInstr_GotoIfBossBitSet`) y el SNES no muestra el
+  tanque. El vidrio entero se rompe con misiles o supermisiles en su bloque, el (9, 5): x 144-160, y 80-96, el borde
+  derecho del tanque (`PlmPreInstr_IncrementRoomArgIfShotBySuperMissile` cuenta los golpes). Prueba: Samus puesta a
+  la derecha del tanque (`HL_POKE_AT` / `MD_TEST_POKES` de 7E:0AF6 = 0xC8 y 7E:0AFA = 0x58 cada 40 cuadros) y
+  disparando a la izquierda: las etapas del vidrio (grietas, bordes rotos, los fragmentos) se ven igual.
+- **El cerebro magenta** (213, 214: la paleta 5 de los sprites) se juntaba con el rojo de la bebé (247) en la línea
+  de los objetos y salía rojo oscuro: `mkzobj.BOSS_SOLO` ({$A9: 213, 214}). Ahora sale magenta como en el SNES.
+- **El hiperrayo**: `ResetProjectileData` (proj.c) con `hyper_beam_flag` crea el objeto de paleta $8D:E1F0, como el
+  SNES (en cada puerta y ascensor de la huida: los colores del rayo, palette_buffer 225-232, siguen ciclando).
+  Comprobado en la RAM de la Genesis (prueba: `huida` con 7E:0A76 = 0x8000).
+- Quedan: la bebé en algunos cuadros de golpe (anillos verdes y rosados; el SNES morada) y algún cuadro sin ella.

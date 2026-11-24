@@ -42,6 +42,19 @@ al escribir. Se guarda donde el SNES: la estación de guardado (plm.c), la nave 
   destino), confirmar con YES / NO; se copian o se ponen a cero los 0x65C bytes y las cuatro sumas, como
   `FileSelectMenu_13` / `_25` ($81:9A2C / $81:9C9E). Los textos, en `tools/lang/menu.txt`.
 
+## El sonido y la SRAM (MiSTer)
+
+Con la SRAM puesta ($A130F1 = 1) un cartucho de verdad la repite en toda la zona 0x200000-0x3FFFFF; Genesis Plus GX
+la pone solo en 0x200000-0x203FFF (su comentario: "normally mirrored up to $3fffff but this breaks Sonic Megamix").
+El MiSTer hace como el cartucho. El Z80 (XGM2) lee la música de la ventana 6 (0x300000) y efectos de la parte fija:
+si leía mientras el 68000 tenía la SRAM puesta, recibía basura y el sonido quedaba roto (al entrar al menú de
+partidas, que lee las tres ranuras, y al guardar). `md_sram_copy` (md_sram.c) ahora le quita el bus al Z80 mientras
+la SRAM está puesta.
+
+Prueba: `tools/emu_harness/gpgx_sram_mirror.patch` (Genesis Plus GX con la SRAM repetida hasta 0x3FFFFF, como el
+hardware; aplicarlo en una copia de `third_party/gpgx` y compilar con `make -f Makefile.libretro`). Con la ROM de antes
+el audio se aparta del normal desde que el menú lee las ranuras; con la de ahora es igual muestra por muestra.
+
 ## Pruebas
 
 - `host/savetest`: guardar, borrar y cargar en el PC; el equipo, los eventos y el mapa vuelven iguales, y una ranura

@@ -1,0 +1,39 @@
+--- a/core/cart_hw/md_cart.c
++++ b/core/cart_hw/md_cart.c
+@@ -1219,6 +1219,7 @@
+ /* 
+   "official" ROM/SRAM bankswitch (Phantasy Star IV, Story of Thor/Beyond Oasis, Sonic 3 & Knuckles)
+ */
++static uint8 *hw_saved[0x20];
+ static void mapper_sega_w(uint32 data)
+ {
+   int i;
+@@ -1235,10 +1236,13 @@
+         cart.hw.regs[0] = ((m68k.memory_map[0x20].base - cart.rom) >> 16) & 0xff;
+ 
+         /* Backup RAM mapped to $200000-$20ffff (normally mirrored up to $3fffff but this breaks Sonic Megamix and no game need it) */
+-        m68k.memory_map[0x20].base    = sram.sram;
+-        m68k.memory_map[0x20].read8   = sram_read_byte;
+-        m68k.memory_map[0x20].read16  = sram_read_word;
+-        zbank_memory_map[0x20].read   = sram_read_byte;
++        for (i = 0x20; i < 0x40; i++) {   /* (prueba: como el hardware, repetida hasta $3fffff) */
++        hw_saved[i - 0x20] = m68k.memory_map[i].base;
++        m68k.memory_map[i].base    = sram.sram;
++        m68k.memory_map[i].read8   = sram_read_byte;
++        m68k.memory_map[i].read16  = sram_read_word;
++        zbank_memory_map[i].read   = sram_read_byte;
++        }
+       }
+ 
+       /* Backup RAM write protection */
+@@ -1272,6 +1276,10 @@
+     if (m68k.memory_map[0x20].base == sram.sram)
+     {
+       /* current cartridge ROM bank mapped to $200000-$20ffff */
++      for (i = 0x21; i < 0x40; i++) {
++        m68k.memory_map[i].base = hw_saved[i - 0x20];
++        m68k.memory_map[i].read8 = NULL; m68k.memory_map[i].read16 = NULL; zbank_memory_map[i].read = NULL;
++      }
+       m68k.memory_map[0x20].base    = cart.rom + (cart.hw.regs[0] << 16);
+       m68k.memory_map[0x20].read8   = NULL;
+       m68k.memory_map[0x20].read16  = NULL;

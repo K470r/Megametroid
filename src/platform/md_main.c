@@ -10,6 +10,7 @@
  *   3 botones:  A correr (B)  B disparar (X)  C saltar (A)
  *               START corto = elegir ítem (SELECT), START + abajo = cancelar ítem (Y),
  *               START mantenido = pausa/mapa (START); sin apuntar en diagonal quieto (sí caminando o corriendo)
+ *               con una bomba de poder puesta: abajo + A + B + C = L + R + abajo + disparo (destello de cristal, docs/69)
  *               en la pausa (docs/53; no hay L ni R): A = L, B = R, C = A (equipar), START = START
  * Con MD_TEST_INPUT la entrada sale de la grabación del SNES (para comparar cuadro a cuadro). */
 #include <genesis.h>
@@ -166,6 +167,13 @@ static u16 read_joy(void) {
     if (pad & BUTTON_C) s |= SNES_A;
     if (pad & BUTTON_A) s |= SNES_B;
     if (pad & BUTTON_B) s |= SNES_X;
+    /* destello de cristal (docs/69): sin L ni R, abajo + A + B + C cuenta como L + R + abajo + disparo, solo mientras
+       hay una bomba de poder puesta (power_bomb_flag: desde que se pone hasta que termina la explosión o el
+       destello). Fuera de eso los tres botones hacen lo de siempre */
+    { extern uint16_t power_bomb_flag, button_config_shoot_x;
+      const u16 abc = BUTTON_A | BUTTON_B | BUTTON_C | BUTTON_DOWN;
+      if (power_bomb_flag && (pad & (abc | BUTTON_START)) == abc)
+        s = (s & ~(SNES_A | SNES_B | SNES_X)) | SNES_L | SNES_R | button_config_shoot_x; }
     /* START: toque corto = SELECT (un cuadro, al soltar); mantenido START_HOLD cuadros = START; START + abajo antes
        de eso = Y (cancelar el ítem: un cuadro), y ese START ya no es SELECT ni la pausa. Mientras START está apretado,
        abajo no llega al juego */

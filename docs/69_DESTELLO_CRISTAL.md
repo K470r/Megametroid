@@ -1,9 +1,35 @@
 # 69 — El destello de cristal
 
 Con poca energía (menos de 50), sin reserva y al menos 10 misiles, 10 superbombas y 10 bombas de poder, si Samus en
-bola pone una bomba de poder, se queda quieta donde la puso y mantiene L + R + abajo + disparo (en la Genesis de 6
-botones: C + Z + abajo + Y), al terminar la explosión se cambian las municiones por energía. Con el mando de 3 botones
-no se puede: en el juego no tiene L ni R (falta decidir una combinación).
+bola pone una bomba de poder, se queda quieta donde la puso y mantiene L + R + abajo + disparo, al terminar la
+explosión se cambian las municiones por energía.
+
+## Cómo se hace en la Genesis
+
+1. Tener menos de 50 de energía, los tanques de reserva vacíos y al menos 10 misiles, 10 superbombas y 10 bombas de
+   poder.
+2. En bola, elegir la bomba de poder y ponerla. No moverse: Samus tiene que quedar donde la puso.
+3. Antes de que termine la explosión, mantener apretado:
+   - **mando de 6 botones**: abajo + C + Z + Y (C = L, Z = R, Y = disparo);
+   - **mando de 3 botones**: abajo + A + B + C.
+4. Mantenerlo hasta que la explosión termine: Samus sube, se rodea de la burbuja y cada 8 cuadros cambia una munición
+   por energía (primero misiles, después superbombas y bombas de poder).
+
+Como en el SNES, tiene que ser exactamente esa combinación (con izquierda, derecha o arriba no sale).
+
+## El mando de 3 botones
+
+No tiene L ni R en el juego. `md_main.c` (lectura del mando): **solo mientras hay una bomba de poder puesta**
+(`power_bomb_flag`, desde que se pone hasta que termina la explosión o el destello) y sin START, abajo + A + B + C se
+convierte en L + R + abajo + disparo (`button_config_shoot_x`). El juego recibe lo mismo que en el SNES; la lógica no
+cambia.
+
+Fuera de eso los botones hacen lo de siempre. Con la bomba puesta, mantener los tres a la vez con abajo:
+- si se dan las condiciones del destello, el destello;
+- si no (energía de sobra, munición que no alcanza, Samus se movió): lo mismo que L + R + abajo + disparo en el SNES.
+  En bola eso es disparar (poner bombas normales; otra bomba de poder no, hasta que termine la que está) sin saltar ni
+  correr mientras se mantienen. Al soltar cualquiera de los cuatro, todo vuelve a lo normal.
+
 
 ## En el motor (a mano desde el decomp)
 
@@ -34,4 +60,11 @@ no se puede: en el juego no tiene L ni R (falta decidir una combinación).
 
 ## Prueba
 
-`tools/compare/cristal.sh`: el Parlor, lado a lado con el SNES.
+`tools/compare/cristal.sh`: el Parlor, lado a lado con el SNES; y con el mando de 3 botones (la grabación termina al
+poner la bomba y sigue el mando de retrorun, `RR_PAD=3`):
+
+| botones mantenidos | energía | misiles / superbombas / bombas de poder |
+|---|---|---|
+| abajo + A + B + C | 99 | 0 / 0 / 0 (destello) |
+| solo abajo | 40 | 10 / 10 / 10 |
+| A + B + C sin abajo | 40 | 10 / 10 / 10 |

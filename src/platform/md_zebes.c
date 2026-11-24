@@ -1143,6 +1143,7 @@ static void vcp_vblank(void) {
 }
 
 /* (md_post, con el vblank libre) lo de la lógica pasa a las colas del vblank */
+uint16 frz_lf;                           /* cuadros de lógica (zebes_take): el reloj del depósito por cuadro */
 void zebes_take(void) {
   if (lfull) { full_redraw = 1; lfull = 0; }
   for (uint16 k = 0; k < nlblk; k++) block_changed(lblk[k]);
@@ -1154,6 +1155,7 @@ void zebes_take(void) {
   nlvcp = 0;
   for (uint16 k = 0; k < frz_nq_l && frz_nq < frz_ns; k++) frz_q[frz_nq++] = frz_q_l[k];   /* congelados */
   frz_nq_l = 0;
+  frz_lf++;
 }
 static void anim_vblank(void) {
   uint8 lp = md_cur_page;
@@ -1201,7 +1203,6 @@ void zebes_vblank(void) {
   if (bb_n && !bc_npend) bb_vblank();
   if (melt_n) melt_vblank();
   if (zw && (kq_conv || wall_pend || mouth_pend)) kq_vblank();                    /* (después de la caché: los tiles de Crocomire derritiéndose) */
-  if (frz_nq) frz_vblank();
   if (nanim) anim_vblank();
   if (nvcp && zo && zo->vcp) vcp_vblank();
   if (full_redraw) {                          /* salto grande: toda la ventana (rara vez: puertas, temblores) */
@@ -1387,10 +1388,31 @@ void zebes_plane_b_low(uint8 low) {
    Un congelado no se anima: el mismo spritemap mientras dura. 3 lugares de 18 tiles (el 90 % de los congelados
    tiene 16 o menos; uno más grande toma lugares seguidos). Sin lugar (o con la caja de mensaje, que usa esas filas,
    o en las salas del ojo, donde las usa el haz) se dibuja con su paleta (md_engine.c). */
+/* por cuadro, en la zona del jefe después de los registros: frz_pend (por lugar: 1 = sus tiles todavía no se subieron;
+   no se dibuja) y frz_fb (por enemigo: la última clave grande que se dibujó entera, para dibujarla mientras se sube la
+   nueva) */
+#define FRZ_PEND_OFF 3840
+#define FRZ_FB_OFF (FRZ_PEND_OFF + FRZ_NMAX)
+#define FRZ_FB_N 64                              /* respaldos: 32 enemigos x 2 piezas grandes */
+_Static_assert(FRZ_NMAX * 40 * 2 <= FRZ_PEND_OFF && FRZ_FB_OFF + 2 * FRZ_FB_N <= MD_BOSS_BYTES, "frz_rec: no entra en la zona del jefe");
+#define frz_rec md_boss_zone
+#define frz_pend ((uint8 *)md_boss_zone + FRZ_PEND_OFF)   /* 1: el lugar está en una cola (sus tiles por subir) */
+#define frz_fb ((uint16 *)((uint8 *)md_boss_zone + FRZ_FB_OFF))
+#define FRZ_VB_KEEP 12                           /* líneas del vblank que frz_vblank deja para lo que sigue */
+#define FRZ_FB_MIN 48                            /* tiles desde los que una clave tiene respaldo (frz_fb) */
+static uint8 frz_is_fb(uint16 id) {              /* (la última pasada no pisa los respaldos: la bebé no desaparece) */
+  const uint16 *f = frz_fb;
+  for (uint16 i = 0; i < FRZ_FB_N; i++) if (f[i] == id) return 1;
+  return 0;
+}
 static void frz_reset(void) {
   frz_nq = 0;
   for (uint16 i = 0; i < frz_ns; i++) frz_id[i] = 0xFFFF;
   frz_nq_l = 0;
+  if (frz_stream) {
+    memset(frz_pend, 0, FRZ_NMAX);
+    memset(frz_fb, 0xFF, 2 * FRZ_FB_N);
+  }
 }
 void zebes_frz_reset(void) { frz_reset(); }   /* md_engine.c: la caja de mensaje usó las filas del Window */
 /* (con la página ZEBES_FRZ_PAGE puesta) primer tile de la VRAM del congelado n, o 0 si no hay lugar */
@@ -1401,8 +1423,6 @@ void zebes_frz_reset(void) { frz_reset(); }   /* md_engine.c: la caja de mensaje
    su lugar ya sumado, en FRZ_REC palabras por lugar desde su cabeza: zfrz_put los dibuja sin cambiar a la página del
    depósito. 0xFFFF: no entra (más de 8 sprites por lugar de 8 tiles: 7 congelados de 1321), por la página. */
 #define FRZ_REC 40
-_Static_assert(FRZ_NMAX * FRZ_REC * 2 <= MD_BOSS_BYTES, "frz_rec: no entra en la zona del jefe");
-#define frz_rec md_boss_zone
 static void frz_rec_fill(uint16 i, uint16 n, uint16 k) {   /* (con la página ZEBES_FRZ_PAGE puesta) */
   uint16 *d = frz_rec + i * FRZ_REC;
   const uint16 *s = kZebesFrzRecs + kZebesFrz[4 * n + 3];
@@ -1414,29 +1434,62 @@ static void frz_rec_fill(uint16 i, uint16 n, uint16 k) {   /* (con la página ZE
   for (uint16 j = 0; j < c; j++, d += 4, s += 4) { d[0] = s[0]; d[1] = s[1]; d[2] = s[2] + t; d[3] = s[3]; }
 }
 static uint16 frz_get(uint16 n) {
-  uint16 now = md_frame_count;
+  uint16 now = frz_stream ? frz_lf : md_frame_count;
   if (frz_stream) {
     uint8 c = frz_hc[n & 127];
-    if (c < frz_ns && frz_id[c] == n) { frz_last[c] = now; return frz_t0 + (c << 3); }   /* (por cuadro: lugares de 8) */
+    if (c < frz_ns && frz_id[c] == n) { frz_last[c] = now; if (frz_pend[c]) return 0; return frz_t0 + (c << 3); }   /* (por cuadro: lugares de 8) */
   }
   for (uint16 i = 0; i < frz_ns; i++)
-    if (frz_id[i] == n) { frz_last[i] = now; if (frz_stream) frz_hc[n & 127] = (uint8)i; return frz_t0 + i * frz_slot; }
+    if (frz_id[i] == n) {
+      frz_last[i] = now;
+      if (frz_stream) { frz_hc[n & 127] = (uint8)i; if (frz_pend[i]) return 0; }
+      return frz_t0 + i * frz_slot;
+    }
   uint16 k = (kZebesFrz[4 * n + 2] + frz_slot - 1) / frz_slot;   /* lugares que necesita */
+  if (frz_stream) {                             /* (y por sus registros: FRZ_REC palabras por lugar) */
+    uint16 kr = (5 + 4 * kZebesFrzRecs[kZebesFrz[4 * n + 3]] + FRZ_REC - 1) / FRZ_REC;
+    if (kr > k) k = kr;
+  }
   if (k > frz_ns) return 0;
   /* libres: sin usar o sin dibujarse hace FRZ_KEEP cuadros (los del cuadro anterior no: puede no haberse visto; por
      cuadro: 1, los tiles y la lista de sprites cambian juntos en el vblank, frz_q). Una pasada por los bloques (cabeza
      y su resto, 0xFFFE): el primer tramo de bloques libres seguidos con k lugares, desde su comienzo */
   uint16 i = 0, run = 0, st = 0;
-  uint16 keep = frz_stream ? 1 : FRZ_KEEP;
+  /* por cuadro, tres pasadas (frz_lf: cuadros de lógica): guardando lo de los últimos FRZ_KEEP cuadros (lo que
+     parpadea o se dibuja cada tanto no se vuelve a subir), lo del cuadro anterior, y nada (salvo los respaldos de las
+     claves grandes, frz_fb). La última solo si el vblank ya tomó el cuadro anterior: si no (la lógica de este empieza
+     antes cuando el anterior fue pesado, pipe_wait), sus lugares siguen siendo suyos. Lo nuevo no se dibuja hasta que
+     el vblank sube sus tiles (frz_pend); lo pisado lo usa solo la lista de sprites de antes, que cambia en ese vblank */
+  uint8 md_published(void);
+  static const uint8 kKeepPass[3] = { FRZ_KEEP, 1, 0 };
+  uint8 npass = !frz_stream ? 1 : md_published() ? 2 : 3;
+  for (uint8 pass = 0; pass < npass; pass++) {
+  uint16 keep = frz_stream ? kKeepPass[pass] : FRZ_KEEP;
+  run = 0; st = 0;
+  if (frz_stream && k >= 4) {
+    /* por cuadro, los grandes (la bebé de Mother Brain: 13) desde el final y los chicos desde el principio: si no, los
+       chicos quedaban repartidos y no había k lugares seguidos (la bebé no se dibujaba). Libre: el lugar sin usar, o
+       el de un objeto (su cabeza: hacia atrás por los 0xFFFE) que no se dibujó en el cuadro anterior */
+    for (int16 j = (int16)frz_ns - 1; j >= 0; j--) {
+      int16 h = j;
+      while (h > 0 && frz_id[h] == 0xFFFE) h--;
+      uint16 id = frz_id[h];
+      uint8 fr = id == 0xFFFF || (id == 0xFFFE && h == j) || ((uint16)(now - frz_last[h]) > keep && !(keep == 0 && frz_is_fb(id)));
+      if (!fr) { run = 0; continue; }
+      if (++run >= k) { st = (uint16)j; break; }
+    }
+  } else
   for (uint16 h = 0; h < frz_ns; ) {
     uint16 j = h + 1;
     while (j < frz_ns && frz_id[j] == 0xFFFE) j++;
     uint16 id = frz_id[h];
-    if (!(id >= 0xFFFE || (uint16)(now - frz_last[h]) > keep)) { run = 0; h = j; continue; }
+    if (!(id >= 0xFFFE || ((uint16)(now - frz_last[h]) > keep && !(frz_stream && keep == 0 && frz_is_fb(id))))) { run = 0; h = j; continue; }
     if (!run) st = h;
     run += j - h;
     h = j;
     if (run >= k) break;
+  }
+  if (run >= k) break;
   }
   if (run < k) return 0;
   i = st;
@@ -1452,21 +1505,40 @@ static uint16 frz_get(uint16 n) {
     frz_id[i] = n; frz_last[i] = now;
     if (frz_stream) { frz_hc[n & 127] = (uint8)i; frz_rec_fill(i, n, k); }
     for (m = 1; m < k; m++) frz_id[i + m] = 0xFFFE;
+    if (frz_stream) {
+      /* (por cuadro: no se dibuja hasta que el vblank suba sus tiles, frz_vblank; si el lugar ya estaba en una cola,
+         se sube con la clave que tenga entonces) */
+      if (!frz_pend[i]) { frz_pend[i] = 1; if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i; }
+      return 0;
+    }
     if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i;
     return frz_t0 + i * frz_slot;
   }
 }
+/* (md_vblank, justo después de la lista de sprites: la lista de este cuadro ya usa estos tiles. La bebé de Mother Brain
+   sube 104 de una vez; al final del vblank, detrás del cuerpo y las filas, se terminaban de subir con la imagen ya
+   empezada y se veía un cuadro con tiles a medio subir) */
+void zebes_frz_vblank(void) { if (frz_nq) frz_vblank(); }
 static void frz_vblank(void) {
+  /* por cuadro: lo que entra en el vblank (FRZ_VB_KEEP líneas para lo que viene después: los tiles de Samus...; al menos
+     un lugar por vblank); lo demás queda en la cola para el siguiente, sin dibujarse (frz_pend) */
+  int16 md_vb_lines_left(void);
   uint8 lp = md_cur_page;
-  for (uint16 q = 0; q < frz_nq; q++) {
+  uint16 q = 0;
+  for (; q < frz_nq; q++) {
     uint16 i = frz_q[q];
     map_page(ZEBES_FRZ_PAGE);
     uint16 n = frz_id[i];
-    if (n >= 0xFFFE) continue;
-    const uint16 *e = kZebesFrz + 4 * n;
-    zebes_dma_runs(ZEBES_FRZ_PAGE, kZebesFrzRuns + 2 * e[0], e[1], frz_t0 + i * frz_slot);
+    if (n < 0xFFFE) {
+      const uint16 *e = kZebesFrz + 4 * n;
+      if (frz_stream && q && md_vb_lines_left() < FRZ_VB_KEEP + 2 + (int16)(e[2] / 3)) break;
+      zebes_dma_runs(ZEBES_FRZ_PAGE, kZebesFrzRuns + 2 * e[0], e[1], frz_t0 + i * frz_slot);
+    }
+    if (frz_stream) frz_pend[i] = 0;
   }
-  frz_nq = 0;
+  uint16 r = 0;
+  for (; q < frz_nq; q++) frz_q[r++] = frz_q[q];
+  frz_nq = r;
   map_page(lp);
 }
 typedef struct { int16 y; uint16 size_link; uint16 attr; int16 x; } GenSpr;   /* (md_engine.c) */
@@ -1507,8 +1579,8 @@ static __attribute__((noinline)) void zebes_ep_draw_slow(uint16 n, int16 x, int1
 }
 void zebes_ep_draw(uint16 n, int16 x, int16 y) {   /* (lo común, corto: el lugar ya puesto) */
   uint8 c = frz_hc[n & 127];
-  if (c < frz_ns && frz_id[c] == n) {
-    frz_last[c] = md_frame_count;
+  if (c < frz_ns && frz_id[c] == n && !frz_pend[c]) {
+    frz_last[c] = frz_lf;
     uint8 lp = md_cur_page;
     map_page(ZEBES_FRZ_PAGE);
     put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, frz_t0 + (c << 3));   /* (por cuadro: lugares de 8) */
@@ -1538,7 +1610,28 @@ static __attribute__((noinline, noclone, used)) uint8 zebes_obj_draw_slow(uint16
     if (frz_stream || !(nt_msgbox_active || zg->eye)) {   /* (la caja y el haz usan las filas del Window) */
       map_page(ZEBES_FRZ_PAGE);
       uint16 t = frz_get(n);
-      if (t) { put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t); ok = 1; }
+      uint16 *fb = 0;
+      if (frz_stream && kZebesFrz[4 * n + 2] >= FRZ_FB_MIN) {
+        /* (por enemigo y por pieza grande del cuadro: un enemigo dibuja varias, Draygon el cuerpo y los brazos) */
+        static uint16 fb_en = 0xFFFF, fb_lf;
+        static uint8 fb_part;
+        if (cur_enemy_index == fb_en && frz_lf == fb_lf) fb_part++;
+        else { fb_en = cur_enemy_index; fb_lf = frz_lf; fb_part = 0; }
+        if (fb_part < 2) fb = &frz_fb[((cur_enemy_index >> 6) & 31) * 2 + fb_part];
+      }
+      if (t) {
+        put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t); ok = 1;
+        if (fb) *fb = n;
+      } else if (fb && *fb != n && *fb < 0xFFFE) {
+        /* (por cuadro: la clave grande se está subiendo o no tiene lugar: la última que este enemigo dibujó entera) */
+        uint16 m = *fb;
+        uint8 c = frz_hc[m & 127];
+        if (c < frz_ns && frz_id[c] == m && !frz_pend[c]) {
+          frz_last[c] = frz_lf;
+          put_recs_t(kZebesFrzRecs + kZebesFrz[4 * m + 3], x, y, frz_t0 + (c << 3));
+          ok = 1;
+        }
+      }
     }
   } else {
     map_page(zo->page);
@@ -1577,8 +1670,13 @@ __asm__(
   "    movea.l frz_id,%a0\n"
   "    cmp.w (%a0,%d3.w),%d0\n"
   "    bne 8f\n"
+  "    lea md_boss_zone+" ZFP_S(FRZ_PEND_OFF) ",%a0\n"   /* frz_pend: sin subir todavía (el camino lento) */
+  "    move.w %d3,%d4\n"
+  "    lsr.w #1,%d4\n"
+  "    tst.b (%a0,%d4.w)\n"
+  "    bne 8f\n"
   "    movea.l frz_last,%a0\n"
-  "    move.w md_frame_count,(%a0,%d3.w)\n"
+  "    move.w frz_lf,(%a0,%d3.w)\n"
   "    move.w %d3,%d4\n"                     /* sus registros en la zona del jefe (frz_rec: 80 bytes por lugar) */
   "    lsl.w #3,%d4\n"
   "    move.w %d4,%d2\n"
@@ -1718,8 +1816,8 @@ uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
     uint16 n = (uint16)(r - zo->recs) - FROZEN_REF;
     if (r && n < 0x8000) {
       uint8 c = frz_hc[n & 127];
-      if (c < frz_ns && frz_id[c] == n) {
-        frz_last[c] = md_frame_count;
+      if (c < frz_ns && frz_id[c] == n && !frz_pend[c]) {
+        frz_last[c] = frz_lf;
         uint8 lp = md_cur_page;
         map_page(ZEBES_FRZ_PAGE);
         put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, frz_t0 + (c << 3));   /* (por cuadro: lugares de 8) */

@@ -145,13 +145,13 @@ normal (`out/rom.bin`) en un emulador.
    botones: abajo + A + B + C (solo con una bomba de poder puesta; cómo se hace, en docs/69).
 
 Funcionan, pero no se ven igual que en el SNES:
-4. (Hecho) Mother Brain: el tanque de vidrio, el cerebro magenta y los colores del hiperrayo en la huida (docs/59).
-   Quedan detalles de la bebé: en algunos cuadros de golpe sale con anillos verdes y rosados (el SNES: morada) y en
-   algún cuadro suelto no se dibuja.
+4. (Hecho) Mother Brain: el tanque de vidrio, el cerebro magenta, los colores del hiperrayo en la huida y la bebé
+   (ya no desaparece ni sale con tiles a medio subir: docs/59).
 5. Los cadáveres que se pudren (el Torizo y otros jefes: `CorpseRotting`).
 6. La huida: el cielo del aterrizaje de un solo color (el SNES: nubes moradas); los colores de la alarma de Tourian.
 7. El mapa de la partida: adentro del cuadrado queda negro mientras se abre o se cierra; la cuadrícula algo más oscura.
-8. Kraid: una uña se dispara un cuadro antes que en el SNES. En su sala los colores de los sprites no van: los misiles
+8. Kraid: una uña se dispara un cuadro antes que en el SNES. (Draygon: en algunos cuadros la Genesis dibuja partes de
+   Draygon a la izquierda de la pantalla donde el SNES no las muestra.) En su sala los colores de los sprites no van: los misiles
    de Samus (los disparados y los que quedan al morir los enemigos) se ven rosados con gris, los supermisiles también
    se ven raros, y la plataforma que lanza de la panza se ve rosada.
 9. Rendimiento: algunas salas pesadas pierden cuadros (la peor, 92B3: [docs/44](docs/44_OPTIMIZACION.md)).

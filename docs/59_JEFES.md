@@ -940,4 +940,21 @@ Prueba: `tools/compare/estatuas_in.txt` (sin jefes vencidos) y `estatuas4_in.txt
 - **El hiperrayo**: `ResetProjectileData` (proj.c) con `hyper_beam_flag` crea el objeto de paleta $8D:E1F0, como el
   SNES (en cada puerta y ascensor de la huida: los colores del rayo, palette_buffer 225-232, siguen ciclando).
   Comprobado en la RAM de la Genesis (prueba: `huida` con 7E:0A76 = 0x8000).
-- Quedan: la bebé en algunos cuadros de golpe (anillos verdes y rosados; el SNES morada) y algún cuadro sin ella.
+- **La bebé** (sala por cuadro, md_zebes.c, el depósito `frz_*`): se perdía o salía rota por tres cosas.
+  - No había lugar: pide 13 lugares de 8 tiles seguidos (104 tiles) de 48, y los objetos chicos quedaban repartidos;
+    los grandes ahora se buscan desde el final y los chicos desde el principio, y cada clave pide los lugares que
+    necesita también por sus registros (`FRZ_REC`). El depósito usa un reloj de cuadros de lógica (`frz_lf`) y tres
+    pasadas: guardando lo de los últimos 8 cuadros, lo del anterior, y nada (si el vblank ya tomó el cuadro
+    anterior; la última no pisa los respaldos).
+  - La subida no entraba en el vblank: cada DMA del depósito cuesta 2-4 líneas más la preparación; con la bebé y los
+    objetos chicos nuevos del cuadro se pasaba a la imagen (tiles a medio subir: los "anillos" y los cuadros rotos).
+    Ahora: los tiles de los objetos de 48 tiles o más van seguidos en el depósito de la ROM (`mkzebes.FRZ_CONTIG_MIN`,
+    una copia propia: un DMA; ~50 KB), la subida va al principio del vblank (después de la lista de sprites,
+    `zebes_frz_vblank`), sube lo que entra dejando 12 líneas para lo que sigue (los tiles de Samus) y lo demás queda
+    para el vblank siguiente; un lugar en cola (`frz_pend`) no se dibuja hasta que sus tiles están.
+  - Mientras la clave nueva de una pieza grande se sube (o no tiene lugar), se dibuja la última que esa pieza del
+    enemigo dibujó entera (`frz_fb`: 32 enemigos x 2 piezas).
+  Lado a lado (`mb.sh`, la bebé chupando a Mother Brain): igual al SNES cuadro a cuadro, salvo algún cuadro en que la
+  Genesis muestra un instante más el anterior (el respaldo). Regresión: 0 distintos.
+- Visto de paso (ya pasaba antes): en la pelea con Draygon, en algunos cuadros la Genesis dibuja partes de Draygon a la
+  izquierda de la pantalla donde el SNES no las muestra.

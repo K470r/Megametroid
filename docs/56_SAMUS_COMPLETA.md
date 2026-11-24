@@ -85,7 +85,7 @@ de `tools/rooms/`. Las entradas del bot (`tools/snes_ref/ceres_bot/in_*.txt`) se
 | Bomba de poder (soltarla, explosión contra bloques y enemigos) | hecho | `powerbomb.sh` |
 | Gancho (engancharse, columpio, soltarse, enemigos) | hecho | `grapple.sh` |
 | Rayos X | hecho (docs/61) | |
-| Destello de cristal (movimiento) | falta (las paletas están) | |
+| Destello de cristal (movimiento) | hecho (docs/69) | `tools/compare/cristal.sh` |
 | Hiperrayo | falta (Mother Brain) | |
 
 Errores que se encontraron de paso:

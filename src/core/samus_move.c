@@ -1715,6 +1715,10 @@ static void Samus_MoveHandler_ShinesparkCrashFinish(void) {  // 0x90D40D
   suit_pickup_light_beam_pos = 0;
 }
 
+static void SamusMoveHandler_CrystalFlashStart(void);   /* el destello de cristal (más abajo) */
+static void SamusMoveHandler_CrystalFlashMain(void);
+static void SamusMoveHandler_CrystalFlashFinish(void);
+
 void RunSamusMovementHandler(void) {  // 0x90E94B
   switch (samus_movement_handler) {
   case FUNC16(Samus_MovementHandler_Normal): Samus_MovementHandler_Normal(); break;
@@ -1730,6 +1734,9 @@ void RunSamusMovementHandler(void) {  // 0x90E94B
   case FUNC16(Samus_MoveHandler_ShinesparkCrash): Samus_MoveHandler_ShinesparkCrash(); break;
   case FUNC16(Samus_MoveHandler_ShinesparkCrashEchoCircle): Samus_MoveHandler_ShinesparkCrashEchoCircle(); break;
   case FUNC16(Samus_MoveHandler_ShinesparkCrashFinish): Samus_MoveHandler_ShinesparkCrashFinish(); break;
+  case FUNC16(SamusMoveHandler_CrystalFlashStart): SamusMoveHandler_CrystalFlashStart(); break;   // el destello
+  case FUNC16(SamusMoveHandler_CrystalFlashMain): SamusMoveHandler_CrystalFlashMain(); break;
+  case FUNC16(kSamusMoveHandler_CrystalFlashFinish): SamusMoveHandler_CrystalFlashFinish(); break;
   case FUNC16(Samus_HandleMovement_DrainedCrouching):   // 0x9094CB: agotada por Mother Brain, cae agachada
     Samus_MoveY_WithSpeedCalc();
     if (samus_collision_flag) {
@@ -2811,14 +2818,111 @@ void Samus_UpdateSpeedEchoPos(void) {  // 0x90EEE7
   }
 }
 
-/* $90:D5A2: ¿se puede hacer el destello de cristal al terminar un power bomb? (Samus quieta, poca energía, 10 de
-   cada munición y los botones). El destello en sí todavía no está portado. */
-uint8 Hdmaobj_CrystalFlash(void) {
+/* ------------------------------------------------------------------ el destello de cristal ($90:D5A2-D792)
+   Al terminar la explosión de una bomba de poder (Hdmaobj_CleanUpTryCrystalFlash, hdmaobj.c), con Samus quieta donde
+   la puso, poca energía (menos de 51, sin reserva), 10 o más de cada munición y los botones (L, R, abajo y disparar):
+   Samus sube 2 píxeles por cuadro durante 10 cuadros, se rodea de luz (SpawnCrystalFlashHdmaObjs) y cada 8 cuadros
+   gasta un misil, luego un súper misil y luego una bomba de poder (10 de cada uno) por 50 de energía; después baja. */
+void SpawnCrystalFlashHdmaObjs(void);             /* hdmaobj.c */
+void Samus_RestoreHealth(uint16 a);
+void QueueSfx3_Max15(uint16 v);
+void EnableHdmaObjects(void);
+void SamusFunc_F433(void);
+void Samus_SetAnimationFrameIfPoseChanged(void);
+
+uint8 Hdmaobj_CrystalFlash(void) {  // 0x90D5A2: 0 = empieza el destello
   if (sign16(game_state - 40) && joypad1_lastkeys != (button_config_shoot_x | 0x430))
     return 1;
   if (samus_y_speed || samus_y_subspeed || !sign16(samus_health - 51) || samus_reserve_health
       || sign16(samus_missiles - 10) || sign16(samus_super_missiles - 10) || sign16(samus_power_bombs - 10))
     return 1;
-  nt_unimpl("Hdmaobj_CrystalFlash (destello de cristal)");
-  return 1;
+  samus_pose = samus_pose_x_dir == 4 ? kPose_D4_FaceL_CrystalFlash : kPose_D3_FaceR_CrystalFlash;
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  if (samus_movement_type != 27)
+    return 1;
+  samus_last_different_pose = samus_prev_pose;
+  samus_last_different_pose_x_dir = samus_prev_pose_x_dir;          /* (palabras del SNES: dirección y tipo de */
+  samus_last_different_pose_movement_type = samus_prev_movement_type2;   /*  movimiento juntos) */
+  samus_prev_pose = samus_pose;
+  samus_prev_pose_x_dir = samus_pose_x_dir;
+  samus_prev_movement_type2 = samus_movement_type;
+  samus_movement_handler = FUNC16(SamusMoveHandler_CrystalFlashStart);
+  if (samus_input_handler != FUNC16(Samus_InputHandler_E91D))
+    samus_input_handler = FUNC16(nullsub_152);
+  timer_for_shinesparks_startstop = 9;
+  which_item_to_pickup = 0;
+  substate = 10;
+  suit_pickup_light_beam_pos = 0;
+  suit_pickup_color_math_R = 0;                   /* (la palabra en 7E:0DF0: R y G) */
+  suit_pickup_color_math_G = 0;
+  timer_for_shine_timer = 7;
+  special_samus_palette_frame = 0;
+  samus_shine_timer = 1;
+  suit_pickup_color_math_B = 1;                   /* (la palabra en 7E:0DF2: B y el byte siguiente) */
+  suit_pickup_palette_transition_color = 0;
+  samus_invincibility_timer = 0;
+  samus_knockback_timer = 0;
+  knockback_dir = 0;
+  return 0;
+}
+
+/* la altura donde empezó: la palabra en 7E:0DF0 (suit_pickup_color_math_R y _G) */
+static uint16 CrystalFlashY(void) { return suit_pickup_color_math_R | suit_pickup_color_math_G << 8; }
+
+static void SamusMoveHandler_CrystalFlashStart(void) {  // 0x90D678
+  samus_y_pos -= 2;
+  if ((--timer_for_shinesparks_startstop & 0x8000) != 0) {
+    samus_anim_frame_timer = 3;
+    samus_anim_frame = 6;
+    suit_pickup_color_math_R = (uint8)samus_y_pos;
+    suit_pickup_color_math_G = samus_y_pos >> 8;
+    samus_movement_handler = FUNC16(SamusMoveHandler_CrystalFlashMain);
+    samus_invincibility_timer = 0;
+    samus_knockback_timer = 0;
+    QueueSfx3_Max15(1);
+    power_bomb_flag = 0;
+    power_bomb_explosion_x_pos = samus_x_pos;
+    power_bomb_explosion_y_pos = samus_y_pos;
+    EnableHdmaObjects();
+    SpawnCrystalFlashHdmaObjs();
+  }
+}
+
+static void SamusMoveHandler_CrystalFlashMain(void) {  // 0x90D6CE ($90:D6E3 / D706 / D729)
+  if ((nmi_frame_counter_word & 7) == 0) {
+    if (which_item_to_pickup == 0) --samus_missiles;
+    else if (which_item_to_pickup == 1) --samus_super_missiles;
+    else --samus_power_bombs;
+    Samus_RestoreHealth(0x32);
+    bool v0 = (int16)(substate - 1) < 0;
+    if (!--substate || v0) {
+      if (which_item_to_pickup < 2) {
+        substate = 10;
+        ++which_item_to_pickup;
+      } else {
+        samus_movement_handler = FUNC16(kSamusMoveHandler_CrystalFlashFinish);
+        samus_draw_handler = FUNC16(SamusDrawHandler_Default);
+        samus_anim_frame_timer = 3;
+        samus_anim_frame = 12;
+      }
+    }
+  }
+  samus_invincibility_timer = 0;
+  samus_knockback_timer = 0;
+}
+
+static void SamusMoveHandler_CrystalFlashFinish(void) {  // 0x90D75B
+  if (samus_y_pos != CrystalFlashY())
+    ++samus_y_pos;
+  if (!samus_movement_type) {
+    power_bomb_flag = 0;
+    samus_shine_timer = -1;
+    samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
+    if (samus_input_handler != FUNC16(Samus_InputHandler_E91D)) {
+      samus_input_handler = FUNC16(Samus_InputHandler_E913);
+      samus_invincibility_timer = 0;
+      samus_knockback_timer = 0;
+    }
+  }
 }

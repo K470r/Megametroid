@@ -140,8 +140,9 @@ normal (`out/rom.bin`) en un emulador.
    energía. Y al cargar una partida Samus ya recibe el control después de la fanfarria (`Samus_Func16`).
 2. Jugar el juego entero de principio a fin, con las salidas secretas y los atajos: hasta ahora se probó por partes
    (sala por sala contra el SNES, cada jefe, la huida con saltos de sala).
-3. El destello de cristal (crystal flash): sus paletas están, el movimiento no (`Hdmaobj_CrystalFlash`). No hace falta
-   para terminarlo, pero es parte del juego.
+3. (Hecho) El destello de cristal (crystal flash, [docs/69](docs/69_DESTELLO_CRISTAL.md)): igual al SNES en la lógica;
+   Samus dentro de la burbuja sale con otros colores (el SNES la mezcla). Con 6 botones: abajo + C + Z + Y; con 3
+   botones: abajo + A + B + C (solo con una bomba de poder puesta; cómo se hace, en docs/69).
 
 Funcionan, pero no se ven igual que en el SNES:
 4. Mother Brain: el tanque de vidrio no desaparece al romperse; la cabeza algo más oscura después de la bebé; el

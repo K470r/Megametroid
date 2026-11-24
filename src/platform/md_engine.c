@@ -2137,8 +2137,30 @@ static void md_room_gfx(void) {   /* g_hooks.room_gfx: la sala nueva ya está en
   md_use_room(find_room());
 }
 
+static uint8 samus_src = 192;                 /* de dónde salen los colores de la línea de Samus (192 o 224) */
+static void cram_relink(void) {
+  for (uint16 i = 0; i < 256; i++) cram_rev[i] = 0xFF;
+  for (int16 i = 63; i >= 0; i--) {
+    uint16 o = cram_off[i];
+    cram_next[i] = 0xFF;
+    if (o < 0xFFFE) { cram_next[i] = cram_rev[o >> 1]; cram_rev[o >> 1] = (uint8)i; }
+  }
+}
+static void samus_line_src(uint8 b) {
+  if (b == samus_src) return;
+  samus_src = b;
+  for (uint8 k = 1; k < 16; k++) {
+    uint16 *o = &cram_off[SAMUS_PAL * 16 + k];
+    if (*o < 0xFFFE) *o = (uint16)(b + k) * 2;
+  }
+  cram_relink();
+  lq_pal_dirty = 1;
+  nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
+}
+
 static void md_use_room(const MdRoom *R) {
   g_room = R;
+  samus_src = 192;
   fl_line = 0xFF;
   md_keys = g_room->keys; md_khash = g_room->khash; md_kmask = g_room->khash_mask;
   memset(md_kcache, 0, sizeof md_kcache);
@@ -2946,6 +2968,9 @@ void md_post(void) {
       nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
     }
   }
+  /* destello de cristal (poses D3/D4): Samus y la burbuja usan la paleta 6 del SNES (palette_buffer 224-239, la que
+     va cambiando Samus_HandleCrystalFlashPals); la línea de Samus sale de esos índices mientras dura */
+  samus_line_src(samus_pose == kPose_D3_FaceR_CrystalFlash || samus_pose == kPose_D4_FaceL_CrystalFlash ? 224 : 192);
   /* colores: cada uno sale de un índice de palette_buffer (tabla de la sala), solo si la paleta cambió */
   if (nt_palette_changed) {
     nt_palette_changed = 0;

@@ -133,22 +133,29 @@ void beam_params(uint16 *p);            /* hdmaobj.c */
 static uint8 cache_ok;
 
 /* fila de un tile (8 píxeles de 4 bits): el color del cono en los píxeles a..b; a de 0 a 8, b de -1 a 7 */
-uint32 kRow[9][9] __attribute__((used));
+/* (tablas fijas en la ROM; antes se calculaban al empezar en la RAM, que está justa) */
+const uint32 kRow[9][9] __attribute__((used)) = {   /* kRow[a][b + 1]: el color 14 en los píxeles a..b */
+  { 0x00000000, 0xE0000000, 0xEE000000, 0xEEE00000, 0xEEEE0000, 0xEEEEE000, 0xEEEEEE00, 0xEEEEEEE0, 0xEEEEEEEE },
+  { 0x00000000, 0x00000000, 0x0E000000, 0x0EE00000, 0x0EEE0000, 0x0EEEE000, 0x0EEEEE00, 0x0EEEEEE0, 0x0EEEEEEE },
+  { 0x00000000, 0x00000000, 0x00000000, 0x00E00000, 0x00EE0000, 0x00EEE000, 0x00EEEE00, 0x00EEEEE0, 0x00EEEEEE },
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x000E0000, 0x000EE000, 0x000EEE00, 0x000EEEE0, 0x000EEEEE },
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x0000E000, 0x0000EE00, 0x0000EEE0, 0x0000EEEE },
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000E00, 0x00000EE0, 0x00000EEE },
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x000000E0, 0x000000EE },
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x0000000E },
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },
+};
 int16 cone_lr[16] __attribute__((used));   /* cone_build: izquierda y derecha de las 8 líneas */
-uint8 kEdgeTile[8][8] __attribute__((used));           /* índice desde CONE_EDGE de cada borde (a, d) */
-static uint8 rows_ok;
-static void make_rows(void) {
-  for (int16 a = 0; a <= 8; a++)
-    for (int16 b = -1; b <= 7; b++) {
-      uint32 w = 0;
-      for (int16 x = a; x <= b; x++) w |= 0xEu << (4 * (7 - x));
-      kRow[a][b + 1] = w;
-    }
-  uint16 n = 0;
-  for (uint16 a = 0; a < 8; a++)
-    for (uint16 d = 0; d < 8; d++) { kEdgeTile[a][d] = n; n += (a + d > 7) ? 2 : 1; }
-  rows_ok = 1;
-}
+const uint8 kEdgeTile[8][8] __attribute__((used)) = {   /* índice desde CONE_EDGE de cada borde (a, d) */
+  { 0, 1, 2, 3, 4, 5, 6, 7 },
+  { 8, 9, 10, 11, 12, 13, 14, 15 },
+  { 17, 18, 19, 20, 21, 22, 23, 25 },
+  { 27, 28, 29, 30, 31, 32, 34, 36 },
+  { 38, 39, 40, 41, 42, 44, 46, 48 },
+  { 50, 51, 52, 53, 55, 57, 59, 61 },
+  { 63, 64, 65, 67, 69, 71, 73, 75 },
+  { 77, 78, 80, 82, 84, 86, 88, 90 },
+};
 
 /* Bordes rectos (los del haz lo son: dos rayos desde el ojo). Un borde izquierdo (lleno a su derecha) que en una
    banda de 8 líneas empieza en el píxel a de su columna y baja d píxeles a la derecha (0 <= d <= 7): fila i en el
@@ -817,6 +824,7 @@ static uint8 job_step(uint8 small) {
    también, con los dos que tapan el HUD (eye_room_sprites), como en las salas del ojo. Los colores 14 y 15 de la
    línea 3, que usan los enemigos, son "aclarar" y "oscurecer" en los cuadros con luz. */
 extern uint16 nt_pb_shape;                    /* hdmaobj.c */
+uint8 nt_pb_crystal(void);                    /* hdmaobj.c: la luz es del destello de cristal */
 void md_cone_room(void);
 void zebes_force_prio(uint8 on);              /* md_zebes.c */
 void zebes_plane_b_low(uint8 low);
@@ -870,7 +878,8 @@ static uint8 pb_full_line(int16 g, int16 cy) {   /* la línea g de la Genesis es
   return d < 192 && !power_bomb_explosion_left_hdma[d] && power_bomb_explosion_right_hdma[d] == 255;
 }
 static int8 pb_decide(void) {
-  uint8 on = (power_bomb_explosion_status & 0x8000) && (fx_layer_blending_config_c & 0x8000) &&
+  /* (el destello de cristal no pone la marca de la ventana de la bomba: su mezcla la arma su propio objeto) */
+  uint8 on = (power_bomb_explosion_status & 0x8000) && ((fx_layer_blending_config_c & 0x8000) || nt_pb_crystal()) &&
              power_bomb_explosion_y_pos_rsub_0x1ff && nt_pb_shape;
   pb_tint = 0; pb_light = 0;
   /* celdas con prioridad alta desde que se pone la bomba hasta que termina la explosión */
@@ -894,7 +903,9 @@ static int8 pb_decide(void) {
   uint8 full = pb_full_line(CONE_TOP, cy) && pb_full_line(223, cy);
   /* la luz, cuando todas las celdas ya tienen prioridad alta (si la bomba explotó antes: el tinte) */
   if (!full && pb_cells && !busy && pb_find(nt_pb_shape) >= 0) pb_light = 1;
-  else pb_tint = 1;
+  else if (full || !nt_pb_crystal()) pb_tint = 1;
+  /* (el destello de cristal: su mezcla va solo dentro del círculo, del tamaño de la burbuja; mientras la luz no
+     puede ir, mejor nada que teñir toda la pantalla) */
 #ifdef MD_PB_NOLIGHT                          /* pruebas de velocidad: sin la luz / sin el tinte */
   pb_light = 0;
 #endif
@@ -1139,7 +1150,6 @@ uint16 md_cone_frame(void) {
   return 0;
 #endif
   cone_live = 1; live_frame = md_frame_count;
-  if (!rows_ok) make_rows();
   if (!layout_ok) dyn_layout();
   uint16 nfree = (uint16)(spr + MAX_SPR - sp_ptr);
   if (nfree > CONE_SPR_MAX) nfree = CONE_SPR_MAX;

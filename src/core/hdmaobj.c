@@ -497,6 +497,90 @@ static void HdmaobjPreInstr_PowerBombExplode_ExplosionWhite(uint16 k) {  // 0x88
   }
 }
 
+/* ------------------------------------------------------------------ el destello de cristal ($88:A2A6-A5FF)
+   Dos objetos: $88:A2BD (el círculo: crece como la explosión amarilla de la bomba de poder hasta el radio 0x2000 y
+   después el resplandor se apaga) y $88:A32A (la mezcla de capas). La Genesis lo dibuja como la luz de la bomba
+   (md_cone.c), con las mismas formas (nt_pb_shape: etapa 3, el radio). */
+/* Genesis (md_cone.c): ¿la luz es la del destello? (no pone la marca de la ventana de la bomba; sin RAM nueva: un
+   objeto con sus pre-instrucciones) */
+uint8 nt_pb_crystal(void) {
+  for (int i = 0; i < 6; i++)
+    if (hdma_object_channels_bitmask[i] &&
+        (hdma_object_pre_instructions[i] == FUNC16(HdmaobjPreInstr_CrystalFlash_Stage1_Explosion) ||
+         hdma_object_pre_instructions[i] == FUNC16(HdmaobjPreInstr_CrystalFlash_Stage2_AfterGlow)))
+      return 1;
+  return 0;
+}
+
+void SpawnCrystalFlashHdmaObjs(void) {  // 0x88A2A6
+  power_bomb_explosion_status = FUNC16(LayerBlendingHandler);
+  SpawnHdmaObject(0x88, 0xA2BD);
+  SpawnHdmaObject(0x88, 0xA32A);
+}
+
+static void CrystalFlashSetupPart1(void) {  // 0x88A2E4
+  offscreen_power_bomb_left_hdma = 0xFF;
+  offscreen_power_bomb_right_hdma = 0;
+  power_bomb_pre_explosion_flash_radius = 1024;
+  power_bomb_pre_explosion_radius_speed = kPowerBombPreExplosionRadiusSpeed;
+  QueueSfx1_Max6(1);
+}
+
+static void CrystalFlashSetupPart2(void) {  // 0x88A309
+  power_bomb_explosion_radius = 1024;
+  power_bomb_pre_explosion_radius_speed = kPowerBombExplosionRadiusSpeed;
+}
+
+static void CrystalFlashCleanup(uint16 k) {  // 0x88A317
+  power_bomb_flag = 0;
+  power_bomb_explosion_status = 0;
+  hdma_object_channels_bitmask[k >> 1] = 0;
+  hdma_object_channels_bitmask[(k >> 1) + 1] = 0;
+  power_bomb_pre_explosion_flash_radius = 0;
+  power_bomb_explosion_radius = 0;
+}
+
+static void HdmaobjPreInstr_CrystalFlash_CustomLayerBlend(uint16 k) {  // 0x88A339
+  (void)k;
+  reg_W12SEL = 0;
+  reg_W34SEL = 8;
+  reg_WOBJSEL = 0x80;
+  next_gameplay_CGWSEL = 2;
+  next_gameplay_CGADSUB = 51;
+  reg_TMW = 0;
+  reg_TSW = 4;
+}
+
+static void HdmaobjPreInstr_CrystalFlash_Stage2_AfterGlow(uint16 k) {  // 0x88A35D
+  if (power_bomb_explosion_status & 0x8000) {
+    int v = k >> 1;
+    if ((--hdma_object_timers[v]) & 0x8000) {
+      if ((reg_COLDATA[2] | reg_COLDATA[1] | reg_COLDATA[0]) & 0x1F) {
+        if (reg_COLDATA[0] & 0x1F) reg_COLDATA[0] = ((reg_COLDATA[0] & 0x1F) - 1) | 0x20;
+        if (reg_COLDATA[1] & 0x1F) reg_COLDATA[1] = ((reg_COLDATA[1] & 0x1F) - 1) | 0x40;
+        if (reg_COLDATA[2] & 0x1F) reg_COLDATA[2] = ((reg_COLDATA[2] & 0x1F) - 1) | 0x80;
+        set_lo8(hdma_object_timers, v, kPowerBombAfterglowDelay);
+      } else {
+        hdma_object_instruction_timers[v] = 1;
+        hdma_object_instruction_list_pointers[v] += 2;
+      }
+    }
+  }
+}
+
+static void HdmaobjPreInstr_CrystalFlash_Stage1_Explosion(uint16 k) {  // 0x88A552
+  if (!(power_bomb_explosion_status & 0x8000)) return;
+  PowerBombScreenPos(k, power_bomb_explosion_radius);   /* CalculateCrystalFlashHdmaObjectTablePtrs: lo mismo */
+  nt_pb_shape = 0x3000 | HI8(power_bomb_explosion_radius);
+  PowerBombScaledCircle(HI8(power_bomb_explosion_radius));   /* (las tablas de $88:A493-A551: las de la bomba) */
+  SetColdata(kPowerBombExplosionColors, 3 * (HI8(power_bomb_explosion_radius) >> 3));
+  power_bomb_explosion_radius += power_bomb_pre_explosion_radius_speed;
+  if (power_bomb_explosion_radius < 0x2000)
+    power_bomb_pre_explosion_radius_speed += kPowerBombExplosionRadiusAccel;
+  else
+    NextInstr(k);
+}
+
 /* ------------------------------------------------------------------ lluvia, esporas, niebla (BG3, $88:D981...) */
 static void HdmaobjPreInstr_RainBg3Scroll(uint16 k) {  // 0x88D9A1
   gameplay_BG3SC = 92;
@@ -1302,6 +1386,9 @@ static void CallHdmaobjPreInstr(uint16 f, uint16 k) {
   case FUNC16(HdmaobjPreInstr_SkyLandBG2Xscroll): case FUNC16(HdmaobjPreInstr_SkyLandBG2Xscroll2):
     if (!time_is_frozen_flag) HdmaobjPreInstr_SkyLandBG2XscrollInner();
     break;
+  case FUNC16(HdmaobjPreInstr_CrystalFlash_CustomLayerBlend): HdmaobjPreInstr_CrystalFlash_CustomLayerBlend(k); break;
+  case FUNC16(HdmaobjPreInstr_CrystalFlash_Stage1_Explosion): HdmaobjPreInstr_CrystalFlash_Stage1_Explosion(k); break;
+  case FUNC16(HdmaobjPreInstr_CrystalFlash_Stage2_AfterGlow): HdmaobjPreInstr_CrystalFlash_Stage2_AfterGlow(k); break;
   case FUNC16(HdmaobjPreInstr_E9E6): HdmaobjPreInstr_E9E6(k); break;     /* haz del ojo de la sala de la bola */
   case FUNC16(HdmaobjPreInstr_EA3C): HdmaobjPreInstr_EA3C(k); break;
   case FUNC16(HdmaobjPreInstr_EACB): HdmaobjPreInstr_EACB(k); break;
@@ -1329,6 +1416,9 @@ static void CallHdmaobjFarFunc(uint32 ea, uint16 k) {   /* HdmaobjInstr_CallFarF
   case fnHdmaobj_ExplodeYellow: Hdmaobj_ExplodeYellow(); break;
   case fnHdmaobj_ExplodeWhite: Hdmaobj_ExplodeWhite(); break;
   case fnHdmaobj_CleanUpTryCrystalFlash: Hdmaobj_CleanUpTryCrystalFlash(k); break;
+  case fnCrystalFlashSetupPart1: CrystalFlashSetupPart1(); break;
+  case fnCrystalFlashSetupPart2: CrystalFlashSetupPart2(); break;
+  case fnCrystalFlashCleanup: CrystalFlashCleanup(k); break;
   case fnInitializeSuitPickupHdma: InitializeSuitPickupHdma(); break;
   case fnnullsub_113: break;                     // $88:DF91 (el agua de Draygon)
   case 0x88E726: break;                          // (RTL: Mother Brain levantándose)

@@ -15,6 +15,8 @@
 #include "enemies.h"
 #include "tables.h"
 #include "port_gen.h"
+void CinematicFunction_Intro_Func127(void);
+void CinematicFunction_Intro_Func149(void);
 
 /* capa de dibujo (md_ending.c en la Genesis; vacío en el PC) */
 void EndingGfx(uint16 scene);                 /* los gráficos de una escena (ENDING_GFX_*) */

@@ -116,6 +116,9 @@ def cram_fine_table():
                 better = cost < bcost - 1e-12
                 bcost = np.where(better, cost, bcost)
                 best = np.where(better, (dr + 1) | (dg + 1) << 2 | (db + 1) << 4, best).astype(np.uint8)
+    # (lo que en la Genesis da negro queda negro: el fondo de las rocas de la cueva de la huida, (0, 8, 8) en el SNES,
+    # comparte lugar con el cielo y salía azul marino)
+    best = np.where((nr == 0) & (ng == 0) & (nb == 0), 21, best).astype(np.uint8)
     return bytes(best)
 
 

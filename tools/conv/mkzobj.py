@@ -80,9 +80,14 @@ def init_palettes(rom, st):
                         src = int(g.group(1), 16) if g else defs.get(arr)
                         if src is None:
                             continue
-                        # cuántos: el bucle de antes (for (int i = 48; i >= 0; i -= 2): 25, Draygon_Init); si no, 16
-                        lp = re.findall(r"for \(\w* ?\w+ = (\d+); [^;]*>= 0; \w+ -= 2\)", m.group(0)[:mm.start()])
-                        n = int(lp[-1]) // 2 + 1 if lp else 16
+                        # cuántos: el bucle que la encierra (for (int i = 48; i >= 0; i -= 2): 25, Draygon_Init; o
+                        # do { ... } while ((int16)(v14 - 32) < 0): 16, Kraid_Init); si no, 16. Solo el bucle de justo
+                        # antes: en Kraid_Init se tomaba el de otro (2046: 1024 colores que pisaban las paletas 4-7 de
+                        # los sprites con bytes del código; los misiles y el polvo salían rosados, grises y verdes)
+                        body = m.group(0)
+                        lp = re.findall(r"for \(\w* ?\w+ = (\d+); [^;]*>= 0; \w+ -= 2\)", body[max(0, mm.start() - 120):mm.start()])
+                        dw = re.search(r"\} while \(\(int16\)\(\w+ - (\d+)\) < 0\)", body[mm.end():mm.end() + 160])
+                        n = int(lp[-1]) // 2 + 1 if lp else int(dw.group(1)) // 2 if dw else 16
                         for c in range(n):
                             res[base + c] = rom.w(src + 2 * c)
                 _init_pal_cache[name] = res
@@ -942,7 +947,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             continue
         # (con jefe o ciclos de color, la fusión pesa con la raíz de los píxeles: un color chico y llamativo, como el
         # ojo del Torizo o el brillo de las caras de 9F11, no se pierde contra las superficies grandes)
-        r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss or anim), keep=akeep, solo=solo)
+        r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss or anim or room_line), keep=akeep, solo=solo)
         if os.environ.get("MM_ZOBJ_STATS"):
             c3e = Counter({i: n for i, n in c3.items() if n >= 1})       # sin los proyectiles de Samus (peso 1/64)
             print("  colores de enemigos distintos:", len(merge_colors(c3e, vec, 99)[1]), "de", len(slots), file=sys.stderr)
@@ -950,7 +955,8 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         cost = r3[3] + r1[3]
         if os.environ.get("MM_ZOBJ_REP"):                 # depuración: a qué índice va cada uno de una lista
             for i in (int(x) for x in os.environ["MM_ZOBJ_REP"].split(",")):
-                print("  mask", mask, "índice", i, "-> r3", r3[0].get(i), "r1", r1[0].get(i), "costo %.0f" % cost, file=sys.stderr)
+                print("  mask", mask, "índice", i, "-> r3", r3[0].get(i), "r1", r1[0].get(i), "costo %.0f" % cost,
+                      "color", vec(i), "peso %.1f" % c3.get(i, 0), file=sys.stderr)
         if best is None or cost < best[0]:
             best = (cost, s1, r3, r1)
     _, s1, (rep, alive, merged, _), (rep1, alive1, merged1, _) = best

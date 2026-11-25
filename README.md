@@ -170,7 +170,11 @@ Extras ya acordados:
 17. La música en CD (Mega CD, modo 1): si hay Mega CD y el disco de MegaMetroid, la música sale del CD; si no, la del
     cartucho ([docs/48](docs/48_TAMANO_ROM.md)).
 18. Los instrumentos ajustados a oído (el eco del SNES no existe en la Genesis).
-19. Los botones dibujados como los de la Genesis: en la pausa "L" / "R" (en el mando de 6 botones son C, al mapa, y
+19. Los botones como en la Genesis (decidido): con el mando de 3 y el de 6 botones, en los menús y pantallas fuera del
+    juego (título, ranuras, opciones, mapa de la partida, fin de juego, mensajes) se confirma con START o A y se cancela
+    con B; C no hace nada. Hoy el mapa de la partida y las pantallas del SNES usan la disposición del SNES (inicia B
+    —o C con 3 botones— y cancela A) y muestran las letras del SNES ("Ⓐ START", "Ⓑ CANCEL"): hay que pasarlas a esto
+    y dibujar las letras de la Genesis. Además, los botones dibujados como los de la Genesis: en la pausa "L" / "R" (en el mando de 6 botones son C, al mapa, y
     Z, a SAMUS; con 3 botones, A y B) y los botones que muestran las cajas de mensaje al agarrar un ítem nuevo
     (SELECT, X, Y, L, R del SNES).
 20. Espacio en la ROM: las copias de los bancos del SNES ya van recortadas ([docs/68](docs/68_RECORTE_BANCOS.md)); la

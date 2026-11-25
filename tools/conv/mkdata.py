@@ -456,6 +456,10 @@ arr('uint16', 'kFxTypeTilemapPtrs', words(0x83ABF0, 24), fmt='0x{:X}')
 # el cadáver de Mother Brain ($A9:E08B, MotherBrain_CorpseRottingInitFunc): sus tiles del SNES ($B7:CE00) que se pudren
 # en la RAM (7E:9000); palabras del SNES, como las guarda ERAM
 arr('uint16', 'kMbCorpseTiles', words(0xB7CE00, 0xBA0 // 2), fmt='0x{:X}')
+# el Torizo muerto ($A9:DE18 Torizo_CorpseRottingInitFunc y el montón de arena $A9:D5EA): kDeadTorizo_TileData ($B7:A800)
+arr('uint16', 'kDeadTorizoTiles', words(0xB7A800, 0x1800 // 2), fmt='0x{:X}')
+# los cadáveres de la sala de la bebé ($A9:DEC1...: kDeadMonsters_TileData, $B7:C000)
+arr('uint16', 'kDeadMonsterTiles', words(0xB7C000, 0xD00 // 2), fmt='0x{:X}')
 # efectos de paleta y tiles animados de cada área (8 por área, elegidos por los bits del FX): $83:AC46 / $83:AC56
 arr('uint16', 'kAreaPalFxLists', sum((words(0x830000 | p, 8) for p in words(0x83AC46, 8)), []), fmt='0x{:X}')
 arr('uint16', 'kAreaAnimtilesLists', sum((words(0x830000 | p, 8) for p in words(0x83AC56, 8)), []), fmt='0x{:X}')

@@ -79,9 +79,7 @@ XLATE_BANKS = ENEMY_BANKS | {0xA0, 0x86, 0x8B, 0x8C}   # ($8B, $8C: el final y l
 
 # funciones del decomp que no se traducen (usan la RAM o la VRAM del SNES directamente): quedan vacías y avisan
 # hasta que se escriban a mano para la Genesis
-MANUAL_STUBS = {'EprojInstr_GotoIfFunc1', 'Torizo_CorpseRottingInitFunc', 'Torizo_CorpseRottingMoveFunc', 'Torizo_CorpseRottingCopyFunc',
-                # cadáveres de Tourian: escriben en la cola de VRAM y en la OAM del SNES (falta hacerlos para la Genesis)
-                'DeadTorizo_Func_1', 'DeadTorizo_CopyLineOfSandHeapTileData'}
+MANUAL_STUBS = {'EprojInstr_GotoIfFunc1'}   # (los del Torizo muerto ya están a mano en bosses.c)
 
 # los finales del pudrirse (CallCorpseRottingFinish, bosses.c): código común que sí se traduce
 CORPSE_XLATE = {'MotherBrain_CorpseRottingFinished', 'DeadTorizo_CorpseRottingFinished', 'CorpseRottingRotEntryFinishedHook'}

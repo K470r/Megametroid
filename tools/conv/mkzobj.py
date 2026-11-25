@@ -750,8 +750,51 @@ def zkey(k):
     return (int(k[1], 16), int(k[2], 16), 0x8000)
 
 
+# cadáveres que se pudren (docs/59): el SNES cambia sus tiles en la RAM (bosses.c) y los sube por la cola de VRAM con
+# tablas de (tamaño, origen, destino). Sus claves van pieza por pieza con tiles propios (cada tile de la Genesis es un
+# tile del SNES) y la tabla "corpse" dice, por tile de la Genesis, de qué dirección de la RAM del SNES sale, con qué
+# tabla de subida y con qué colores: md_zebes.c los rehace. Por sala: (claves que se suman a las del registro, tablas,
+# peso de sus píxeles al juntar los colores de la línea de los objetos: el Torizo muerto es lo que más se ve en su sala;
+# con peso 1 sus 15 grises quedaban en 4 lugares; otros spritemaps (banco, spritemap) con el mismo peso)
+CORPSE = {
+    0xDC65: ({("e", "A9", "D6E2", "0200", "0000"), ("e", "A9", "D761", "0000", "0000")},   # el Torizo muerto y su arena
+             (0xA9D549, 0xA9D583), 16, ()),                                               # (DeadTorizo_Func_1)
+    # la sala de la bebé: sidehoppers, zoomers, rippers y skrees muertos (ProcessCorpseRottingVramTransfers con la tabla
+    # de cada uno, dms_var_53: la palabra 1 de sus estructuras $A9:DD68-DDF8). Las paletas, las de sus Init (0200 el
+    # sidehopper que vive, 0E00 los demás: DeadSidehopper_Init_1, DeadZoomer_Init...); con las de 0A00 del registro
+    # también, los objetos de la sala no entraban en la VRAM (esas quedan como siempre)
+    0xDCB1: ({("e", "A9", sm, pal, "0000") for sm, pals in (
+                 ("ED25", ("0200", "0E00")), ("ED4F", ("0200", "0E00")), ("EE86", ("0200",)),
+                 ("ED79", ("0E00",)), ("ED85", ("0E00",)), ("ED91", ("0E00",)), ("ED9D", ("0E00",)),
+                 ("EDA9", ("0E00",)), ("EDB5", ("0E00",)), ("EDCB", ("0E00",)), ("EDE1", ("0E00",))) for pal in pals},
+             tuple(0xA90000 | t for t in (0xE0E0, 0xE10A, 0xE134, 0xE146, 0xE158, 0xE16A, 0xE17C, 0xE18E, 0xE1B0, 0xE1D2)), 8,
+             (("A9", "F9A8"), ("A9", "FA40"), ("A9", "FAD8"))),            # (la bebé pesa como ellos: si no, su rojo se perdía)
+    # Mother Brain: el cerebro muerto (MotherBrain_Phase3_Death_13: la tabla $A9:E1F4, sus tiles en 7E:9000). Su sala va
+    # por cuadro (STREAM_ROOMS): la tabla va por entrada del juego común y tile dentro de ella (stream_entries)
+    # Sus tiles iniciales salen de lo que copia MotherBrain_CorpseRottingInitFunc ($A9:E08B: $B7:CE00 -> 7E:9000; en la
+    # VRAM de la conversión había otra cosa y el cerebro salía como un bloque blanco): (destino, origen, bytes)
+    0xDD58: ({("e", "A9", "AD6D", "0E00", "0000")}, (0xA9E1F4,), 1, (),
+             tuple((0x9000 + d, 0xB7CE00 + s_, n) for d, s_, n in ((0, 192, 0xC0), (0xE0, 704, 0xC0), (0x1C0, 1216, 0xC0),
+                                                                  (0x2A0, 1728, 0xC0), (0x380, 2240, 0xE0), (0x460, 2752, 0xE0)))),
+}
+SNES_OBJ_BASE = 0x6000     # palabra de la VRAM del tile 0 de los sprites en las salas de Zebes (OBSEL)
+
+
+def corpse_ram(rom, tables):
+    """tile del SNES (0-0x1FF) -> (dirección de la RAM del SNES de sus 32 bytes, tabla de subida)"""
+    out = {}
+    for t in tables:
+        a = t
+        while rom.w(a):
+            size, src, dst = rom.w(a), rom.w(a + 4), rom.w(a + 6)
+            for o in range(0, size, 32):
+                out[(dst - SNES_OBJ_BASE + o // 2) // 16] = (src + o, t & 0xFFFF)
+            a += 8
+    return out
+
+
 def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=OBJ_SLOT_LIST, extra_pal=None, base=ZOBJ_BASE,
-                  boss=None, vcopies=(), anim=(), vops=(), key_copies=None, bg_extra=None):
+                  boss=None, vcopies=(), anim=(), vops=(), key_copies=None, bg_extra=None, corpse=None):
     """boss: (banco del jefe, momentos [{índice: color}]) en los estados con un jefe de BOSS_PALETTES: sus piezas de
     algunas paletas del SNES van en la línea BOSS_LINE (15 colores; se elige el reparto que menos junta).
     anim: los pasos de los ciclos de color de los enemigos (hook_moments), momentos sobre el último del jefe"""
@@ -764,6 +807,24 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         vram = bytes(vram)
     if extra_pal:
         pal.update(extra_pal)
+    if corpse and len(corpse) > 4 and corpse[4]:          # (cadáver con su imagen inicial en la RAM: la primera subida)
+        ram = {}
+        for (dst, src, n) in corpse[4]:
+            for o, b in enumerate(rom.bytes(src, n)):
+                ram[dst + o] = b
+        cpatch = []
+        for t in corpse[1]:
+            a = t
+            while rom.w(a):
+                size, src, dst = rom.w(a), rom.w(a + 4), rom.w(a + 6)
+                cpatch.append((2 * dst, bytes(ram.get(src + o, 0) for o in range(size))))
+                a += 8
+        vram = bytearray(vram)
+        for a_, b_ in cpatch:
+            vram[a_:a_ + len(b_)] = b_
+        vram = bytes(vram)
+    else:
+        cpatch = []
     moments = boss[1] if boss else [{}]
     moments = moments + [{**moments[-1], **a} for a in anim]
     akeep = frozenset(i for a in anim for i in a)
@@ -797,10 +858,16 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
                     v2[2 * dst:2 * dst + size] = rom.bytes(src, size)
                 kvcache[cps] = bytes(v2)
             vram_k = kvcache[cps]
+            if cpatch and corpse and k in corpse[0]:      # (el cadáver: su imagen inicial encima de las copias)
+                v2 = bytearray(vram_k)
+                for a_, b_ in cpatch:
+                    v2[a_:a_ + len(b_)] = b_
+                vram_k = bytes(v2)
         key = {"e": ("enemy",), "s": ("enemy", "B4"), "p": ("eproj",), "j": ("proj",), "t": ("trail",),
                "v": ("spr80",)}[k[0]] + k[1:]
         kp = mkmd.key_pieces(rom, key)
-        wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else 1
+        wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else corpse[2] if corpse and (k in corpse[0] or
+                                                                          tuple(k[1:3]) in corpse[3]) else 1
         is_boss = boss is not None and k[0] == "e" and int(k[1], 16) == boss[0]
         wtrail = k[0] == "t" and (int(k[1], 16) & 0x1FF) in WAVE_TRAIL_TILES and (int(k[1], 16) >> 9) & 7 == WAVE_TRAIL_PAL
         out = []
@@ -939,11 +1006,48 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
 
     def touched(pc):
         return any(t_ in aff for t_ in subtiles(pc[2] & 0x1FF, 2 if pc[4] else 1))
+    cmap, cluts = [], []                                  # (cadáveres) tile de la Genesis -> RAM del SNES; colores
+    cram = corpse_ram(rom, corpse[1]) if corpse else {}
+
+    def corpse_single(k, j, pc, mp):
+        """una pieza de un cadáver: tiles propios y su entrada en cmap"""
+        x, y, at, p, big, pxs, ib, wt = pc
+        kk = ("corpse",) + tuple(k) + (j,)
+        if len(corpse) > 4 and corpse[4]:                 # (con imagen inicial: los tiles que no sube su tabla, vacíos:
+            sts_ = subtiles(at & 0x1FF, 2 if big else 1)   #  en el SNES están en cero cuando se dibuja)
+            mp = [m if t_ in cram else m * 0 for t_, m in zip(sts_, mp)]
+        if kk not in bank.index:
+            bank.index[kk] = bank.base + len(bank.tiles)
+            bank.tiles += [genesis_tile_bytes(m) for m in mp]
+        tile = bank.index[kk]
+        rp, sl = (rep1, slot1) if piece_line(pc) == BOSS_LINE else (rep, slot)
+
+        def lslot(i):                                     # (un color que no sale en los tiles de la conversión: el
+            if i in rp:                                   #  lugar del más parecido que sí tiene)
+                return sl[rp[i]]
+            ci = gen(i)
+            j = min(rp, key=lambda q: color_dist(gen(q), ci))
+            return sl[rp[j]]
+        lut = [0] + [lslot(128 + p * 16 + c) for c in range(1, 16)]
+        if lut not in cluts:
+            cluts.append(lut)
+        for i, t_ in enumerate(subtiles(at & 0x1FF, 2 if big else 1)):
+            if t_ in cram:
+                cmap.append((tile + i, cram[t_][0], cram[t_][1], cluts.index(lut), k))
+        prio = 1 if ((at >> 12) & 3) == 3 else 0
+        attr = (prio << 15) | (piece_line(pc) << 13) | (((at >> 15) & 1) << 12) | (((at >> 14) & 1) << 11) | tile
+        dx = x & 0x1FF
+        if dx >= 0x100:
+            dx -= 0x200
+        return (y, 0x0500 if big else 0, attr, dx)
     for k in sorted(pieces):
         recs = []
         maps = [piece_map(pc) for pc in pieces[k]]
         nspr[0] += len(pieces[k])
-        if len(pieces[k]) >= compose_min:
+        if corpse and k in corpse[0]:
+            recs = [corpse_single(k, j, pc, mp) for j, (pc, mp) in enumerate(zip(pieces[k], maps))]
+            nspr[1] += len(recs)
+        elif len(pieces[k]) >= compose_min:
             # las piezas con tiles que cambian las copias van sueltas, primero (encima: en el jefe son los ojos y la
             # boca, sobre el cuerpo); las demás se juntan
             sel = [i for i, pc in enumerate(pieces[k]) if touched(pc)]
@@ -976,7 +1080,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
               f"las demás en la {OBJ_LINE} ({len(alive)} colores, {merged} fusiones)", file=sys.stderr)
     return dict(base=base, tiles=tiles, src=src, keys=sorted(index), recs=[v & 0xFFFF for v in recs_all],
                 merged=merged + merged1, ncolors=len(counts) + sum(len(c) for c in bcounts.values()), nspr=nspr,
-                boss_line=bool(boss), line1_of={i: slot1[r] for i, r in rep1.items()},
+                boss_line=bool(boss), line1_of={i: slot1[r] for i, r in rep1.items()}, corpse=(sorted(cmap, key=lambda e: (e[1], e[0])), cluts, corpse[0]) if cmap else None,
                 patches=[(src, dst, sorted(pt.items())) for (src, size, dst), pt in zip(vops, patches) if pt])
 
 
@@ -1050,6 +1154,8 @@ def stream_entries(d, common, vbase):
     base, tiles = 0, d["tiles"]
     recs = list(d["recs"])
     keys, res_tiles, res_idx = [], [], {}
+    cent = {}                                             # (cadáver) clave -> (entrada del juego común, tile -> índice)
+    czk = {tuple(zkey(k)) for k in d["corpse"][2]} if d.get("corpse") else set()
     for key in d["keys"]:
         off = key[-1]
         if off >= FROZEN_REF:
@@ -1069,14 +1175,20 @@ def stream_entries(d, common, vbase):
             continue
         n = recs[off]
         out, tidx, ent_tiles = [], {}, []
+        dyn = bool(d.get("corpse")) and tuple(key[:-1]) in czk      # (un cadáver: sus bloques sin compartir)
+        rel = {}
         for i in range(n):
             y, sl, attr, x = recs[off + 5 + 4 * i: off + 9 + 4 * i]
             w, h = ((sl >> 10) & 3) + 1, ((sl >> 8) & 3) + 1
             t0 = (attr & 0x7FF) - base
             blk = tuple(tiles[(t0 + j) * 32:(t0 + j + 1) * 32] for j in range(w * h))
+            if dyn:
+                blk = (i,) + blk
             if blk not in tidx:
-                tidx[blk] = len(ent_tiles)
-                ent_tiles += blk
+                tidx[blk] = len(ent_tiles) if not dyn else len(ent_tiles)
+                for j in range(w * h):
+                    rel[t0 + j] = len(ent_tiles) + j
+                ent_tiles += blk[1:] if dyn else blk
             out.append((y, sl, (attr & 0xF800) | tidx[blk], x))
         words = recs[off:off + 5] + [v for r in out for v in r]
         content = (b"".join(ent_tiles), tuple(words))
@@ -1084,7 +1196,17 @@ def stream_entries(d, common, vbase):
             common["index"][content] = len(common["list"])
             common["list"].append((content[0], list(words)))
         keys.append(tuple(key[:-1]) + (FROZEN_REF | common["index"][content],))
+        if dyn:
+            cent[tuple(key[:-1])] = (common["index"][content], rel)
     d = dict(d)
+    if d.get("corpse"):                                   # (por cuadro: (entrada, tile en ella, RAM, tabla, lut))
+        cm, cl, _k = d["corpse"]
+        out_c = []
+        for (t, ram, tab, lut, kk) in cm:
+            for ck_, (nn, rl) in cent.items():
+                if t in rl:
+                    out_c.append((nn, rl[t], ram, tab, lut))
+        d["corpse"] = (sorted(out_c, key=lambda e: (e[2], e[0], e[1])), cl, "stream")
     d["keys"] = sorted(keys)
     d["recs"] = recs
     d["tiles"] = b"".join(res_tiles)
@@ -1111,6 +1233,9 @@ def build(rom_path, log_paths, states, frozen=None):
         if room not in tstates:
             tstates[room] = timer_states(rom, room)
         k = keys.get(room, set()) | pkeys | (TIMER_KEYS if st in tstates[room] else set()) | explode_keys(rom, st) | skeys.get(st, set())
+        cp = CORPSE.get(room)
+        if cp:
+            k = k | cp[0]
         if room in FLASH_DROP:                    # jefes: sin las copias del destello (paleta 0000) de lo que tiene otra
             other = {(x[1], x[2], x[4]) for x in k if x[0] == "e" and x[3] != "0000"}
             k = {x for x in k if not (x[0] == "e" and x[3] == "0000" and (x[1], x[2], x[4]) in other)}
@@ -1145,18 +1270,18 @@ def build(rom_path, log_paths, states, frozen=None):
             kc = dict(kc or {})
             kc.update({tk: TIMER_COPIES for tk in TIMER_KEYS})
         ck = (frozenset(k), ts, eye, tuple(sorted(ipal.items())), low, repr(boss), tuple(vc), frozenset(fb), repr(an), tuple(vo),
-              room if kc else None, room in RAINBOW_ROOMS, repr(sorted(BG_EXTRA.get(room, {}).items())))
+              room if kc else None, room in RAINBOW_ROOMS, repr(sorted(BG_EXTRA.get(room, {}).items())), repr(cp))
         if ck not in cache:                       # (lo mismo: se comparte)
             sl = [x for x in OBJ_SLOT_LIST if x not in CONE_SLOTS] if eye else \
                 [x for x in OBJ_SLOT_LIST if x != RAINBOW_SLOT] if room in RAINBOW_ROOMS else OBJ_SLOT_LIST
             if room in STREAM_ROOMS:              # por cuadro: los tiles no tienen que entrar juntos (base 0)
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room))
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=0, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room), corpse=cp)
             else:
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room))
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room), corpse=cp)
             if cache[ck] is None and low < ZOBJ_BASE:   # más lugar: desde el final de los tiles de la sala
-                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room))
+                cache[ck] = convert_state(rom, k, ts, None, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room), corpse=cp)
             if cache[ck] is None:                 # no entran los tiles: sin juntar piezas (comparten los tiles del SNES)
-                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room))
+                cache[ck] = convert_state(rom, k, ts, None, 1 << 30, slots=sl, extra_pal=ipal, base=low, boss=boss, vcopies=vc, anim=an, vops=vo, key_copies=kc, bg_extra=BG_EXTRA.get(room), corpse=cp)
                 if cache[ck] is None:
                     print(f"  ¡sala {room:04X} (tiles {ts:04X}): sus objetos no entran ni sin juntar piezas!", file=sys.stderr)
             d = cache[ck]

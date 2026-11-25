@@ -760,13 +760,13 @@ CORPSE = {
     0xDC65: ({("e", "A9", "D6E2", "0200", "0000"), ("e", "A9", "D761", "0000", "0000")},   # el Torizo muerto y su arena
              (0xA9D549, 0xA9D583), 16),                                                   # (DeadTorizo_Func_1)
     # la sala de la bebé: sidehoppers, zoomers, rippers y skrees muertos (ProcessCorpseRottingVramTransfers con la tabla
-    # de cada uno, dms_var_53: la palabra 1 de sus estructuras $A9:DD68-DDF8). Las paletas, las que se registran
-    # (0200 el sidehopper que vive, 0A00 / 0E00 los demás)
+    # de cada uno, dms_var_53: la palabra 1 de sus estructuras $A9:DD68-DDF8). Las paletas, las de sus Init (0200 el
+    # sidehopper que vive, 0E00 los demás: DeadSidehopper_Init_1, DeadZoomer_Init...); con las de 0A00 del registro
+    # también, los objetos de la sala no entraban en la VRAM (esas quedan como siempre)
     0xDCB1: ({("e", "A9", sm, pal, "0000") for sm, pals in (
                  ("ED25", ("0200", "0E00")), ("ED4F", ("0200", "0E00")), ("EE86", ("0200",)),
-                 ("ED79", ("0A00", "0E00")), ("ED85", ("0A00", "0E00")), ("ED91", ("0A00", "0E00")),
-                 ("ED9D", ("0A00", "0E00")), ("EDA9", ("0A00", "0E00")), ("EDB5", ("0A00", "0E00")),
-                 ("EDCB", ("0A00", "0E00")), ("EDE1", ("0A00", "0E00"))) for pal in pals},
+                 ("ED79", ("0E00",)), ("ED85", ("0E00",)), ("ED91", ("0E00",)), ("ED9D", ("0E00",)),
+                 ("EDA9", ("0E00",)), ("EDB5", ("0E00",)), ("EDCB", ("0E00",)), ("EDE1", ("0E00",))) for pal in pals},
              tuple(0xA90000 | t for t in (0xE0E0, 0xE10A, 0xE134, 0xE146, 0xE158, 0xE16A, 0xE17C, 0xE18E, 0xE1B0, 0xE1D2)), 1),
 }
 SNES_OBJ_BASE = 0x6000     # palabra de la VRAM del tile 0 de los sprites en las salas de Zebes (OBSEL)

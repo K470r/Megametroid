@@ -58,6 +58,28 @@ class IdxCol(tuple):
         return hash((tuple(self), self.k))
 
 
+def tdist(a, b):
+    """distancia entre dos colores de la Genesis: con efectos de paleta (IdxCol de palfx_traj), el promedio en los
+    PALFX_FRAMES cuadros (un índice negro al cargar que el cielo de la lluvia pone gris casi siempre no se junta con
+    el negro fijo; un destello corto pesa poco)"""
+    ta, tb = getattr(a, "k", None), getattr(b, "k", None)
+    ta = ta if isinstance(ta, tuple) else ()
+    tb = tb if isinstance(tb, tuple) else ()
+    if not ta and not tb:
+        return color_dist(a, b)
+    ca, cb = tuple(a), tuple(b)
+    ev = sorted([(f, 0, g) for f, g in ta] + [(f, 1, g) for f, g in tb]) + [(PALFX_FRAMES, 2, None)]
+    tot, f0 = 0.0, 0
+    for f, w, g in ev:
+        tot += (f - f0) * color_dist(ca, cb)
+        f0 = f
+        if w == 0:
+            ca = g
+        elif w == 1:
+            cb = g
+    return tot / PALFX_FRAMES
+
+
 class LiveCol(tuple):
     """color de la Genesis de una paleta que cambia en vivo (el cuerpo del jefe en el BG2: Phantoon se desvanece y
     se pone rojo): distinto de un color igual de la sala, así no comparten lugar en la CRAM"""
@@ -737,7 +759,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     continue
                 if allc[i] in keep_set or allc[j] in keep_set:   # (KEEP_COLORS: no se juntan)
                     continue
-                dd = color_dist(allc[i], allc[j])
+                dd = tdist(allc[i], allc[j])
                 if cw is not None:
                     dd *= min(cw.get(allc[i], 0), cw.get(allc[j], 0))
                 if best is None or dd < best[0]:

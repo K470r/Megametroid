@@ -1886,9 +1886,10 @@ static uint8 cp_half, cp_nl, cp_nv, cp_vhalf, cp_on;
 static uint8 cp_stream, cp_maxt;
 static uint16 cp_key;                            /* (por cuadro) la entrada del cadáver */
 #define CP_SBUF ((uint8 *)cinematic_text_tilemap + 3648)
-#define CP_SMAXT 4
+#define CP_SMAXT 9                               /* (un solo búfer: 9 x 34 bytes; no se convierte mientras el vblank
+                                                    no tomó el cuadro anterior) */
 static uint8 *cp_buf(uint8 h) {
-  return cp_stream ? CP_SBUF + h * (CP_SMAXT * 34) : (uint8 *)md_boss_zone + h * CP_HALF;
+  return cp_stream ? CP_SBUF : (uint8 *)md_boss_zone + h * CP_HALF;
 }
 static int16 cp_idx(uint16 a) {
   if (a >= 0x2000 && a < 0x3000) return (int16)((a - 0x2000) >> 5);
@@ -1943,6 +1944,8 @@ void md_corpse_upload(uint16 table) {
   uint16 *tl = (uint16 *)(buf + cp_maxt * 32);
   uint16 slot_t = 0;
   if (cp_stream) {                               /* (por cuadro: el lugar de la entrada, si está y ya se subió) */
+    uint8 md_published(void);
+    if (md_published()) return;                  /* (un solo búfer: el vblank todavía lee el del cuadro anterior) */
     uint8 sc = frz_hc[cp_key & 127];
     if (!(sc < frz_ns && frz_id[sc] == cp_key && !frz_pend[sc])) return;   /* (al ponerla se marca todo: frz_get) */
     slot_t = frz_t0 + (sc << 3);

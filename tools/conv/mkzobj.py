@@ -985,10 +985,15 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             bank.index[kk] = bank.base + len(bank.tiles)
             bank.tiles += [genesis_tile_bytes(m) for m in mp]
         tile = bank.index[kk]
-        if piece_line(pc) == BOSS_LINE:
-            lut = [0] + [slot1[rep1[128 + p * 16 + c]] for c in range(1, 16)]
-        else:
-            lut = [0] + [slot[rep[128 + p * 16 + c]] for c in range(1, 16)]
+        rp, sl = (rep1, slot1) if piece_line(pc) == BOSS_LINE else (rep, slot)
+
+        def lslot(i):                                     # (un color que no sale en los tiles de la conversión: el
+            if i in rp:                                   #  lugar del más parecido que sí tiene)
+                return sl[rp[i]]
+            ci = gen(i)
+            j = min(rp, key=lambda q: color_dist(gen(q), ci))
+            return sl[rp[j]]
+        lut = [0] + [lslot(128 + p * 16 + c) for c in range(1, 16)]
         if lut not in cluts:
             cluts.append(lut)
         for i, t_ in enumerate(subtiles(at & 0x1FF, 2 if big else 1)):

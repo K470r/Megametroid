@@ -288,6 +288,43 @@ static void tint_tables(void) {
 static inline uint16 tint_cram(uint16 c) {
   return tint_lr[c & 31] | (uint16)tint_lg[(c >> 5) & 31] << 4 | (uint16)tint_lb[(c >> 10) & 31] << 8;
 }
+/* el cielo de la superficie (zg->skym, mkzebes.cram_fine_table): sus grises oscuros, que en el SNES van de 8 en 8,
+   caen casi todos en el mismo nivel del DAC; kCramFine (página 7) dice cuánto sube o baja cada canal respecto del
+   más cercano para que el brillo se parezca sin cambiar el matiz (grises, azulados, verdosos distintos). Después de
+   convertir la paleta se rehacen esos lugares (con el tinte: la bruma de la lluvia) */
+uint32 md_fine_mask;
+extern const uint8 kCramFine[32768];
+void map_page_ext(uint8 p);
+static uint16 fine_c[32] = { 0xFFFF }, fine_v[32];   /* por lugar: el último color (con el tinte) y su resultado */
+static void fine_fix(void) {
+  extern uint8 md_cur_page;
+  uint32 m = md_fine_mask;
+  if (!m || !md_zebes) return;
+  uint8 lp = md_cur_page, mapped = 0;
+  const uint8 *pbb = (const uint8 *)palette_buffer;
+  for (uint16 s = 0; m; s++, m >>= 1) {
+    if (!(m & 1)) continue;
+    uint16 o = cram_off[s];
+    if (o >= 0xFFFE) continue;
+    uint16 c = *(const uint16 *)(pbb + o) & 0x7FFF;
+    if (tint_on) {
+      int16 r = (int16)(c & 31) + tint_r, g = (int16)((c >> 5) & 31) + tint_g, b = (int16)((c >> 10) & 31) + tint_b;
+      r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
+      c = (uint16)(r | g << 5 | b << 10);
+    }
+    uint16 v;
+    if (c == fine_c[s]) v = fine_v[s];          /* (lo de siempre: sin la tabla ni cambiar de página) */
+    else {
+      if (!mapped) { map_page_ext(7); mapped = 1; }
+      uint8 d = kCramFine[c];
+      v = kCram555[c];
+      v = (uint16)(v + (((int16)(d & 3) - 1) << 1) + (((int16)((d >> 2) & 3) - 1) << 5) + (((int16)((d >> 4) & 3) - 1) << 9));
+      fine_c[s] = c; fine_v[s] = v;
+    }
+    if (v != cram[s]) { cram[s] = v; cram_dirty = 1; }
+  }
+  if (mapped) map_page_ext(lp);
+}
 uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7FFF]; }   /* md_zebes.c */
 
 /* líquido de la capa 3 (lava, ácido: docs/59). En el SNES el BG3 va solo en la pantalla principal y la sala en la
@@ -2949,6 +2986,15 @@ void md_post(void) {
         }
         r += (int16)((sr + 32768) >> 16); g += (int16)((sg + 32768) >> 16); b += (int16)((sb + 32768) >> 16);
       }
+      if (fx_type == 0x0A) {                                    /* lluvia: su BG3 sumado (como el líquido, lq_prepare:
+                                                                   92 % el color 3 de la línea 6, 5 % el 2, 3 % el 1),
+                                                                   en la sala de aterrizaje G+1 B+2 de 5 bits (medido
+                                                                   en el SNES), lo que separa las franjas del cielo */
+        const uint16 *pl = palette_buffer + 24;
+        r += (int16)((29 * (pl[3] & 31) + 2 * (pl[2] & 31) + (pl[1] & 31)) >> 5);
+        g += (int16)((29 * ((pl[3] >> 5) & 31) + 2 * ((pl[2] >> 5) & 31) + ((pl[1] >> 5) & 31)) >> 5);
+        b += (int16)((29 * ((pl[3] >> 10) & 31) + 2 * ((pl[2] >> 10) & 31) + ((pl[1] >> 10) & 31)) >> 5);
+      }
       /* bomba de poder cubriendo toda el área de juego (md_cone.c, docs/58): solo su color fijo, sumado (en el SNES
          su matemática de color reemplaza la de la sala: HandleLayerBlendingPowerBomb, $88:81FE) */
       int16 pr = 0, pg = 0, pbl = 0;
@@ -2981,6 +3027,8 @@ void md_post(void) {
     } else lq_pal_dirty = 1;
     const uint8 *pb = (const uint8 *)palette_buffer;
     const uint8 *lut = (const uint8 *)kCram555;
+    /* (los lugares del cielo los pone fine_fix: escritos aquí y después allí, la CRAM se subía en cada cambio) */
+    uint32 fine_on = md_zebes ? md_fine_mask : 0;
     if (nt_palette_hi - nt_palette_lo < 32) {
       /* pocos índices (ciclo de color de la puerta, paleta de Samus): solo los colores que salen de ellos */
       for (uint16 i = nt_palette_lo; i <= nt_palette_hi; i++) {
@@ -2989,7 +3037,7 @@ void md_post(void) {
         do {
           uint16 v = *(const uint16 *)(lut + (uint16)(*(const uint16 *)(pb + i * 2) << 1));
           if (tint_on && slot < 48) v = tint_cram(palette_buffer[i]);
-          if (v != cram[slot]) { cram[slot] = v; cram_dirty = 1; }
+          if (v != cram[slot] && !(slot < 32 && (fine_on >> slot) & 1)) { cram[slot] = v; cram_dirty = 1; }
           slot = cram_next[slot];
         } while (slot != 0xFF);
       }
@@ -3001,10 +3049,11 @@ void md_post(void) {
         if (o == 0xFFFE) { c++; continue; }
         uint16 v = o == 0xFFFF ? 0 : *(const uint16 *)(lut + (uint16)(*(const uint16 *)(pb + o) << 1));
         if (tint_on && c < cram + 48 && o != 0xFFFF) v = tint_cram(*(const uint16 *)(pb + o));
-        if (v != *c) { *c = v; cram_dirty = 1; }
+        if (v != *c && !(i > 32 && (fine_on >> (64 - i)) & 1)) { *c = v; cram_dirty = 1; }
         c++;
       }
     }
+    fine_fix();
     if (palette_buffer[0] != hz_last_c) hz_bd_dirty = 1;   /* el degradado sale solo del color de fondo */
     rl_pal_dirty = 1;
   }
@@ -3012,8 +3061,8 @@ void md_post(void) {
   if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6 || fx_type == 0x26 || (uint8)fx_layer_blending_config_c == 0x2C))
     lq_prepare();
   else lq_on = 0;
-  /* (la bruma de la lluvia, FX 0x0A, no: suma G+1 B+2 de 5 bits, en la Genesis casi nada, y en la sala de aterrizaje
-     la paleta cambia casi cada cuadro: rehacer las paletas atrasaba el juego) */
+  /* (la bruma de la lluvia, FX 0x0A, no va por aquí: en la sala de aterrizaje la paleta cambia casi cada cuadro y
+     rehacer las tablas del líquido atrasaba el juego; va en el tinte, arriba: suma G+1 B+2 de 5 bits) */
   if (rain_slot && !rain_fixed) {               /* el color de las motas de la lluvia (rain_post) */
     uint16 c = kCram555[palette_buffer[25] & 0x7FFF];
     zobj_col[rain_slot - 1] = c;

@@ -267,7 +267,20 @@ static void load_screen(void)
 /* ------------------------------------------------------------------ ranuras en la SRAM */
 static const u16 kSlotOffs[3] = { 0x10, 0x66C, 0xCC8 };   /* kOffsetToSaveSlot ($81:812B) */
 static u8 slot_used(u16 i) { u16 a, b, c, d; return SramSlotInfo(i, &a, &b, &c, &d); }
-static u8 any_used(void) { return slot_used(0) || slot_used(1) || slot_used(2); }
+/* las ranuras con partida (bit por ranura): se miran al dibujar la pantalla (draw_fsel, también después de copiar o
+   borrar), no en cada cuadro. Validar una ranura suma sus 0x65C bytes de la SRAM y cada lectura le quita el bus al Z80
+   (md_sram.c): las tres en cada cuadro dejaban al XGM2 casi sin correr y la música del menú sonaba lenta (MiSTer) */
+static u8 g_used = 0xFF;
+static u8 used_mask(void)
+{
+    if (g_used == 0xFF)
+    {
+        g_used = 0;
+        for (u16 i = 0; i < 3; i++) if (slot_used(i)) g_used |= 1 << i;
+    }
+    return g_used;
+}
+static u8 any_used(void) { return used_mask() != 0; }
 
 /* FileSelectMenu_13_FileCopyDoIt ($81:9A2C): los 0x65C bytes de la ranura y sus cuatro sumas */
 static void sram_copy_slot(u16 src, u16 dst)
@@ -334,6 +347,7 @@ static void draw_slot_data(u16 i, u16 x, u16 y)
 
 static void draw_fsel(void)
 {
+    g_used = 0xFF;                               /* (la SRAM pudo cambiar: copiar, borrar, guardar) */
     clear_rows(0, 28);
     draw_box_title(mstr(S_FSEL_TITLE));
     for (u16 i = 0; i < 3; i++)
@@ -541,7 +555,7 @@ static void wait_any(u16 *prev)
 static void copy_or_clear(u8 copy)
 {
     u16 prev = 0xFFFF, used = 0;
-    for (u16 i = 0; i < 3; i++) if (slot_used(i)) used |= 1 << i;
+    used = used_mask();
     clear_rows(0, 4);
     draw_box_title(mstr(copy ? S_COPY_TITLE : S_CLEAR_TITLE));
     prompt(mstr(copy ? S_COPY_WHICH : S_CLEAR_WHICH), 0);

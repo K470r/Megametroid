@@ -453,6 +453,7 @@ const MdRoom *zebes_use(void) {
   }
   map_page(lp);
   zsrc[0] = 0;                               /* color de fondo: palette_buffer[0] */
+  { extern uint32 md_fine_mask; md_fine_mask = zg->skym; }   /* el cielo de la superficie: kCramFine (md_engine.c) */
   zroom.src = zsrc;
   /* lista del fundido (NT_FADE_LIST, AdvancePaletteFadeForAllPalettes): la de la sala base (Samus, HUD, rayo) más
      los colores de esta sala y de sus objetos (el despertar del Bomb Torizo es un fundido de sus paletas) */

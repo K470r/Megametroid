@@ -40,6 +40,110 @@ from convert_rooms import snes_to_genesis, gen_to_cram, gen_to_rgb, color_dist, 
 from plmscan import PlmScan  # noqa: E402
 
 
+class IdxCol(tuple):
+    """color de la Genesis de un índice del SNES que cambian los efectos de paleta (palfx_traj): solo comparte lugar con
+    otro del mismo color que cambie igual (k: la trayectoria)"""
+    def __new__(cls, g, k):
+        o = tuple.__new__(cls, g)
+        o.k = k
+        return o
+
+    def __eq__(self, o):
+        return type(o) is IdxCol and o.k == self.k and tuple.__eq__(self, o)
+
+    def __ne__(self, o):
+        return not self.__eq__(o)
+
+    def __hash__(self):
+        return hash((tuple(self), self.k))
+
+
+FINE_WPAR, FINE_WPERP = 0.3, 1.0
+FINE_NEUTRAL, FINE_WC, FINE_KEEP = 0.04, 0.3, 0.5
+
+
+def cram_fine_table():
+    """kCramFine (md_engine.c, fine_fix): para el cielo de la superficie, por cada color BGR555 del SNES, cuánto
+    sube o baja cada canal (un nivel del DAC) respecto del más cercano (kCram555). Se elige el color de la Genesis con
+    el brillo más parecido (OKLab L) sin salirse del matiz: el croma puede crecer o achicarse en su dirección (peso
+    FINE_WPAR) pero no torcerse (FINE_WPERP). Los grises del cielo con lluvia, que en el SNES van de 8 en 8, caen casi
+    todos en el mismo gris de la Genesis (un nivel cada ~30): así salen grises, azulados y verdosos distintos.
+    Byte: (dr + 1) | (dg + 1) << 2 | (db + 1) << 4"""
+    from convert_rooms import _oklab, DAC_LEVELS as DL
+    lab = np.array([_oklab((DL[i], DL[j], DL[k])) for i in range(8) for j in range(8) for k in range(8)]).reshape(8, 8, 8, 3)
+    c = np.arange(32768)
+    r5, g5, b5 = c & 31, (c >> 5) & 31, (c >> 10) & 31
+    to8 = lambda v: (v << 3) | (v >> 2)
+    dl = np.array(DL)
+    near = lambda v: np.abs(dl[None, :] - to8(v)[:, None]).argmin(1)
+    nr, ng, nb = near(r5), near(g5), near(b5)
+    # OKLab de los colores del SNES
+    def lin(x):
+        x = x / 255.0
+        return np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
+    R, G, B = lin(to8(r5)), lin(to8(g5)), lin(to8(b5))
+    l_ = np.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B)
+    m_ = np.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B)
+    s_ = np.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B)
+    oL = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_
+    oa = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_
+    ob = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+    ca = np.hypot(oa, ob)
+    ok = ca > 0.004
+    ua = np.where(ok, oa / np.where(ok, ca, 1), 0)
+    ub = np.where(ok, ob / np.where(ok, ca, 1), 0)
+    # (casi neutros, croma < FINE_NEUTRAL: solo grises y sus vecinos de un nivel: azulado (b+1) y marrón/oliva (r+1 g+1),
+    # por brillo y croma (peso FINE_WC); con la regla del matiz, en un gris la dirección del croma es casi ruido y salían
+    # verdes azulados donde el SNES es gris. Probados: los verdes ponían verdes las montañas del fondo y el lila,
+    # rosada la franja de arriba)
+    neutral = ca < FINE_NEUTRAL
+    best, bcost = np.zeros(32768, np.uint8), np.full(32768, np.inf)
+    for dr in (-1, 0, 1):
+        for dg in (-1, 0, 1):
+            for db in (-1, 0, 1):
+                tr, tg, tb = nr + dr, ng + dg, nb + db
+                valid = (tr >= 0) & (tr < 8) & (tg >= 0) & (tg < 8) & (tb >= 0) & (tb < 8)
+                e = lab[np.clip(tr, 0, 7), np.clip(tg, 0, 7), np.clip(tb, 0, 7)]
+                da, db_ = e[:, 1] - oa, e[:, 2] - ob
+                par = da * ua + db_ * ub
+                cost = (e[:, 0] - oL) ** 2 + FINE_WPAR * par ** 2 + FINE_WPERP * (da ** 2 + db_ ** 2 - par ** 2)
+                fam = (tr == tb) & (tg == tb) | (tr == tg) & (tb == tr + 1) | (tr == tg) & (tb == tr - 1)
+                cost_n = (e[:, 0] - oL) ** 2 + FINE_WC * (da ** 2 + db_ ** 2)
+                cost = np.where(neutral, np.where(fam, cost_n, np.inf), cost)
+                if (dr, dg, db) == (0, 0, 0):         # (el más cercano gana si la mejora no es clara)
+                    cost = cost * FINE_KEEP
+                cost = np.where(valid, cost, np.inf)
+                better = cost < bcost - 1e-12
+                bcost = np.where(better, cost, bcost)
+                best = np.where(better, (dr + 1) | (dg + 1) << 2 | (db + 1) << 4, best).astype(np.uint8)
+    # (lo que en la Genesis da negro queda negro: el fondo de las rocas de la cueva de la huida, (0, 8, 8) en el SNES,
+    # comparte lugar con el cielo y salía azul marino)
+    best = np.where((nr == 0) & (ng == 0) & (nb == 0), 21, best).astype(np.uint8)
+    return bytes(best)
+
+
+def tdist(a, b):
+    """distancia entre dos colores de la Genesis: con efectos de paleta (IdxCol de palfx_traj), el promedio en los
+    PALFX_FRAMES cuadros (un índice negro al cargar que el cielo de la lluvia pone gris casi siempre no se junta con
+    el negro fijo; un destello corto pesa poco)"""
+    ta, tb = getattr(a, "k", None), getattr(b, "k", None)
+    ta = ta if isinstance(ta, tuple) else ()
+    tb = tb if isinstance(tb, tuple) else ()
+    if not ta and not tb:
+        return color_dist(a, b)
+    ca, cb = tuple(a), tuple(b)
+    ev = sorted([(f, 0, g) for f, g in ta] + [(f, 1, g) for f, g in tb]) + [(PALFX_FRAMES, 2, None)]
+    tot, f0 = 0.0, 0
+    for f, w, g in ev:
+        tot += (f - f0) * color_dist(ca, cb)
+        f0 = f
+        if w == 0:
+            ca = g
+        elif w == 1:
+            cb = g
+    return tot / PALFX_FRAMES
+
+
 class LiveCol(tuple):
     """color de la Genesis de una paleta que cambia en vivo (el cuerpo del jefe en el BG2: Phantoon se desvanece y
     se pone rojo): distinto de un color igual de la sala, así no comparten lugar en la CRAM"""
@@ -81,6 +185,98 @@ def r(addr, n):
 
 def w16(addr):
     return struct.unpack('<H', r(addr, 2))[0]
+
+
+PALFX_FRAMES = 1200
+
+
+def palfx_traj(area, fx_ptr):
+    """los índices del SNES que cambian los objetos de efectos de paleta de un estado (la alarma de Tourian en la
+    huida, el cielo del aterrizaje, el calor...): {índice: ((cuadro, color), ...)}. Como en el SNES: los bits
+    palette_fx_bitset de las entradas de efectos del estado ($83, FxDef: byte 13; LoadFXHeader $89:AB82) eligen
+    objetos de la lista del área (kAreaPalFxListPointers $83:AC46); cada uno corre su lista de instrucciones de $8D
+    (PalFx_ProcessOne $8D:C54A) y escribe colores seguidos desde su índice. Los preinstrucciones (que dependen del
+    juego) no se siguen: alcanza con saber qué índices cambian y con qué colores"""
+    bits = 0
+    if fx_ptr and fx_ptr != 0xFFFF:
+        q = 0x830000 | fx_ptr
+        for _ in range(16):
+            door = w16(q)
+            if door == 0xFFFF:
+                break
+            bits |= r(q + 13, 1)[0]
+            if door == 0:
+                break
+            q += 16
+    if not bits:
+        return {}
+    lst = 0x830000 | w16(0x83AC46 + 2 * area)
+    out = {}
+    for b_ in range(8):
+        if not bits >> b_ & 1:
+            continue
+        pid = w16(lst + 2 * b_)
+        j = w16(0x8D0000 | pid + 2)               # (PalFxDef: func, instrs)
+        timer, ci, ctr = 1, 0, 0
+        for f in range(PALFX_FRAMES):
+            timer = (timer - 1) & 0xFFFF
+            if timer:
+                continue
+            dead = False
+            for _ in range(64):                   # instrucciones antes del cuadro
+                v = w16(0x8D0000 | j)
+                if not v & 0x8000:
+                    break
+                a = j + 2
+                if v == 0xC5CF or v == 0xC595:    # Delete / Wait (sin colores): se termina
+                    dead = True
+                    break
+                elif v == 0xC5D4:                 # SetPreInstr
+                    j = a + 2
+                elif v == 0xC5DD:                 # ClearPreInstr
+                    j = a
+                elif v == 0xC61E:                 # Goto
+                    j = w16(0x8D0000 | a)
+                elif v == 0xC639:                 # DecTimerGoto
+                    ctr = (ctr - 1) & 0xFF
+                    j = a + 2 if ctr == 0 else w16(0x8D0000 | a)
+                elif v == 0xC648:                 # SetTimer (byte)
+                    ctr = r(0x8D0000 | a, 1)[0]
+                    j = a + 1
+                elif v == 0xC655:                 # SetColorIndex
+                    ci = w16(0x8D0000 | a)
+                    j = a + 2
+                elif v in (0xC65E, 0xC66A, 0xC673, 0xC67C, 0xF1C6):   # música, sonidos, índice del calor
+                    j = a + 1
+                else:
+                    dead = True
+                    break
+            else:
+                dead = True
+            if dead:
+                break
+            timer = v
+            c = ci
+            while True:                           # los colores del cuadro (con saltos de índice), hasta Wait
+                x = w16(0x8D0000 | j + 2)
+                if not x & 0x8000:
+                    out.setdefault(c >> 1 & 0xFF, []).append((f, x & 0x7FFF))
+                    c += 2
+                    j += 2
+                    continue
+                step = {0xC599: 4, 0xC5A2: 6, 0xC5AB: 8, 0xC5B4: 16, 0xC5BD: 18, 0xC5C6: 30}.get(x)
+                if step:
+                    c += step
+                    j += 2
+                    continue
+                if x == 0xC595:                   # Wait: el siguiente cuadro sigue después
+                    j += 4
+                else:                             # Delete u otra: se termina
+                    timer = 0
+                break
+            if timer == 0:
+                break
+    return {k: tuple(v) for k, v in out.items()}
 
 
 def decompress(ea):
@@ -442,7 +638,7 @@ def put_items(table, vram, items):
 
 def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None, vis=None,
             pref_lines=None, keep_cols=None, pref_idx=None, boss_pals=frozenset(),
-            own=frozenset()):
+            own=frozenset(), fx_traj=None, sky=False):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
     para la sala (sin dar: MAX_PALS; 1 en las salas de jefes que usan la línea 1, mkzobj.BOSS_LINE); usage: veces que
@@ -475,11 +671,26 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     if bg2 and nbg2 is not None and not own:
         live = {(e >> 10) & 7 for e in bg2[nbg2:] if e & 0x3FF} - {(e >> 10) & 7 for mt in blocks for e in ent[mt]}
 
+    fxk = {}
+    for i_, tr_ in (fx_traj or {}).items():           # (la trayectoria en colores de la Genesis, sin repetidos)
+        q_ = []
+        for f_, x_ in tr_:
+            g_ = snes_to_genesis(x_, COLOR_MODE)
+            if not q_ or q_[-1][1] != g_:
+                q_.append((f_, g_))
+        fxk[i_] = tuple(q_)
+
     def gc(p, c):
         k = (p, c)
         if k not in gcol:
             g = snes_to_genesis(pal[p * 16 + c], COLOR_MODE)
-            gcol[k] = LiveCol(g) if p in live else g
+            i_ = p * 16 + c
+            # (fx_traj, palfx_traj: los índices que cambian los efectos de paleta del estado van con su trayectoria:
+            # comparten lugar solo con otro de igual color que cambie igual; en la huida de Tourian la alarma pone
+            # rojos los de la paleta 3 y no los azules de la 0 que al cargar eran del mismo color)
+            # (solo si en la Genesis cambia: un efecto que no sale del nivel del DAC del color de la carga no separa)
+            gcol[k] = IdxCol(g, fxk[i_]) if i_ in fxk and any(g_ != g for _, g_ in fxk[i_]) \
+                else LiveCol(g) if p in live else g
         return gcol[k]
     combos = {}
     extra = list(bg2 or [])
@@ -520,6 +731,14 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     if c:
                         g = gc(p, int(c))
                         cw[g] = cw.get(g, 0) + u * int((a == c).sum())
+        if bg2 and sky:                                   # el cielo de la superficie (se ve siempre: cada celda una vez;
+            for e in bg2:                                 # sus franjas no se juntan antes que lo que casi no se ve)
+                t, p = e & 0x3FF, (e >> 10) & 7
+                a = px(t)
+                for c in np.unique(a):
+                    if c:
+                        g = gc(p, int(c))
+                        cw[g] = cw.get(g, 0) + int((a == c).sum())
         if bg2 and nbg2 is not None:                      # y los del cuerpo del jefe (cada tile, como un bloque visto)
             for e in bg2[nbg2:]:
                 t, p = e & 0x3FF, (e >> 10) & 7
@@ -535,6 +754,10 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     side = {}
     if live:                                      # (los del cuerpo no se juntan con los de la sala)
         side = {c: 1 if isinstance(c, LiveCol) else 2 for cs in combos.values() for c in cs}
+    if not side and fxk:                          # (los que cambian con los efectos de paleta, IdxCol, se juntan
+        # primero entre ellos: juntado con uno fijo, el lugar sigue al que cambia; en la huida del aterrizaje el negro
+        # de las rocas de la cueva salía morado, con el cielo)
+        side = {c: 1 if isinstance(c, IdxCol) else 2 for cs in combos.values() for c in cs}
     keep_set = {c for c in set().union(*combos.values()) if gen_to_rgb(c) in keep_cols} if keep_cols else set()
     if vis is not None:                           # (VIS_ROOMS: las estatuas, líneas 6-7, no se juntan con la sala)
         st_ = set().union(*[cs for (t, p), cs in combos.items() if p >= 6] or [set()])
@@ -613,7 +836,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     continue
                 if allc[i] in keep_set or allc[j] in keep_set:   # (KEEP_COLORS: no se juntan)
                     continue
-                dd = color_dist(allc[i], allc[j])
+                dd = tdist(allc[i], allc[j])
                 if cw is not None:
                     dd *= min(cw.get(allc[i], 0), cw.get(allc[j], 0))
                 if best is None or dd < best[0]:
@@ -785,6 +1008,13 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             # orden: arriba-izq, abajo-izq, arriba-der, abajo-der (columnas)
             cells += [cell(grid[0][0]), cell(grid[1][0]), cell(grid[0][1]), cell(grid[1][1])]
     bg2c = [cell(e) for e in bg2[:nbg2]] if bg2 else None
+    bg2m = 0                                      # (lugares de la CRAM que usan las celdas del BG2: el cielo, fine_fix)
+    for e in (bg2[:nbg2] if bg2 else []):
+        g_ = gtile.get((e & 0x3FF, (e >> 10) & 7))
+        if g_ and g_[2] is not None:
+            for c in np.unique(px(e & 0x3FF)):
+                if c and g_[2][int(c)]:
+                    bg2m |= 1 << (g_[1] * 16 + int(g_[2][int(c)]))
     n_before_extra = len(tile_list)               # (nbg2: lo que sigue son los tiles que solo usa el cuerpo del jefe)
     if bg2 and nbg2 is not None:
         bg2c += [cell(e) for e in bg2[nbg2:]]
@@ -804,7 +1034,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     # tiles propios (own: la pared de Kraid, que su código sube y borra): (tile de la Genesis, sus bytes)
     owns = sorted({gtile[k][0][0] for k in gtile if k[0] in own})
     return {"own": [(gi, tile_list[gi]) for gi in owns], "n_before_extra": n_before_extra, "anims": anims, "bg2": bg2c, "tiles": b"".join(tile_list), "ntiles": len(tile_list), "src": src, "npal": len(palettes),
-            "ids": blocks, "cells": cells, "level": level, "merges": len(merges), "boss_raw": braw, "boss_count": bcount}
+            "ids": blocks, "cells": cells, "bg2m": bg2m, "level": level, "merges": len(merges), "boss_raw": braw, "boss_count": bcount}
 
 
 def kraid_mouth_split(res, cells_b, words, mouth_f):
@@ -1107,7 +1337,8 @@ def main():
             bg_ptr_ = struct.unpack_from('<H', b, 22)[0]
             # (el fondo va en la clave: la sala de Draygon tiene el mismo nivel en la pelea, con el fondo copiado de
             # 7E:2000, y vencido, con una pared)
-            key = (lvl, gs, plm_ptr, ra, eye, boss, bg_ptr_ if (l2x & 1) else None)
+            fxt = palfx_traj(area, struct.unpack_from('<H', b, 6)[0])
+            key = (lvl, gs, plm_ptr, ra, eye, boss, bg_ptr_ if (l2x & 1) else None, tuple(sorted(fxt.items())))
             if key not in gfx_keys:
                 d = decompress(lvl)
                 size = d[0] | d[1] << 8
@@ -1220,11 +1451,11 @@ def main():
                     if not bb:
                         wall_over = wall_pal
                 res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items, own=own,
-                              max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
+                              max_pals=1 if boss else None, usage=usage if (boss or bb or sky_tab) else None, sky=bool(sky_tab),
                               pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
                               nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None,
                               pref_lines=PREF_LINES.get(ra), keep_cols=KEEP_COLORS.get(ra),
-                              pref_idx=PREF_INDEX.get(ra),
+                              pref_idx=PREF_INDEX.get(ra), fx_traj=fxt,
                               boss_pals={p_: mkzobj.BOSS_LINE for p_ in BOSS_BG_LINE.get(ra, {})} if boss else {})
                 res["boss"] = None
                 res["boss_split"] = res["ntiles"]
@@ -1297,6 +1528,7 @@ def main():
                 res["eye"] = 1 if eye else 0
                 res["l2"] = list(l2) if l2 else None
                 res["sky"] = 1 if sky_tab else 0
+                res["skym"] = res["bg2m"] if sky_tab else 0
                 gfx_keys[key] = len(entries)
                 res["key"] = key
                 entries.append(res)
@@ -1352,7 +1584,9 @@ def main():
          '   trozo 0x8000, tiles sin comprimir: (0x8000, n) y n veces (tile desde la base, cuántos, índice en kZebesPool) */',
          'typedef struct { uint8 page, npal; uint16 ntiles, nmeta, nops; const uint16 *ops; const uint16 *src;',
          '                 const uint16 *ids; const uint16 *cells; const uint16 *l2; const uint16 *bg2; uint8 sky, eye, bg2h;',
-         '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; } ZebesGfx;',
+         '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; uint32 skym; } ZebesGfx;',
+         '/* skym: lugares de la CRAM (bit = línea * 16 + color) del cielo de la superficie: van con kCramFine (md_engine.c) */',
+         'extern const uint8 kCramFine[32768];   /* por color BGR555: ajuste de cada canal (cram_fine_table, mkzebes.py) */',
          '/* anim: tiles animados, nanim x (origen en $87, VRAM del SNES, desplazamiento en anim_data, cantidad) ordenados;',
          '   anim_data: por tile (tile de la sala, 16 palabras del tile de la Genesis) */',
          '/* src: npal * 16 índices de palette_buffer; l2: capa 2 propia de la sala (bloques, como el nivel) o NULL;',
@@ -1506,7 +1740,8 @@ def main():
     for e in entries + obj_list:                   # comprobación: los tramos rehacen los tiles de siempre
         rr = e["runs"]
         assert b"".join(pool[j + k] for j, n in zip(rr[0::2], rr[1::2]) for k in range(n)) == bytes(e["tiles"])
-    assert len(pool) <= 0xFFFF, "zebes: el depósito de tiles pasa de 65535"
+    # (los índices de este depósito no llegan a la ROM: lo que se emite son los trozos comprimidos y el depósito de los
+    # congelados, sin comprimir, que se comprueba más abajo)
     if os.environ.get("MM_DUMP_POOL"):              # (depuración: el depósito y los tramos, para medir la compresión)
         import pickle
         pickle.dump({"pool": pool, "rooms": [(e.get("key"), e["runs"]) for e in entries], "objs": [d["runs"] for d in obj_list],
@@ -1620,6 +1855,7 @@ def main():
           f"(propios {sum(len(v) for v in own.values())} tiles, compartidos {len(shared)}); sin comprimir {len(hot_l)} tiles",
           file=sys.stderr)
     pool = [pool[t] for t in hot_l]
+    assert len(pool) <= 0xFFFF, "zebes: el depósito sin comprimir pasa de 65535 tiles"
     nchunks = (len(pool) + POOL_CHUNK - 1) // POOL_CHUNK
     print(f"zebes: tiles {sum(len(e['tiles']) for e in entries + obj_list) // 32} -> depósito sin comprimir {len(pool)} "
           f"({nchunks} trozos), operaciones {sum(len(e['ops']) for e in entries + obj_list) * 2 // 1024} KB", file=sys.stderr)
@@ -1804,13 +2040,15 @@ def main():
                 f'{{ {", ".join(map(str, cnt))} }}, kZW{i}_mcells }}')
     C.append(f'const ZebesWall kZebesWall[{max(1, len(walls))}] = {{' +
              (', '.join(wall_c(i, ow) for i, ow in walls) or '{ 0xFFFF, 0, 0, 0 }') + '};')
+    fine = cram_fine_table()
+    C.append('NT_BANK(7) const uint8 kCramFine[32768] = {' + ','.join(str(x) for x in fine) + '};')
     H.append(f'extern const ZebesGfx kZebesGfx[{len(entries)}];')
     C.append(f'const ZebesGfx kZebesGfx[{len(entries)}] = {{')
     for i, e in enumerate(entries):
         C.append(f'  {{ {pages[i]}, {e["npal"]}, {e["ntiles"]}, {len(e["ids"])}, {len(e["ops"])}, kZG{i}_ops, kZG{i}_src, '
                  f'kZG{i}_ids, kZG{i}_cells, {"kZG%d_l2" % i if e["l2"] else "0"}, '
                  f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {1 if e["bg2"] and len(e["bg2"]) == 4096 else 0}, {len(e["anims"])}, '
-                 f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"} }},  /* sala {e["key"][3]:04X} */')
+                 f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"}, 0x{e.get("skym", 0):X}u }},  /* sala {e["key"][3]:04X} */')
     C.append('};')
     sts = sorted((k[1], v, obj_of[id(objs[k[1]])] if k[1] in objs else 0xFFFF) for k, v in gfx_keys.items() if k[0] == "st")
     H.append(f'extern const ZebesState kZebesStates[{len(sts)}];  /* ordenados por estado (búsqueda binaria) */')

@@ -40,11 +40,20 @@ void nt_block_changed(uint16 i);
 
 /* lo común: dentro de la sala y sin cambiar (una comparación, un bit y la ROM) */
 static inline uint8 lvl_is_mod(uint16 i) { return (lvl_mod[i >> 3] >> (i & 7)) & 1; }
+/* fuera de la sala, el búfer del SNES (7F:0002) tiene lo que sigue en los datos descomprimidos de la sala: los bytes
+   del BTS de a dos (una palabra por cada dos bloques: lvl_blocks / 2 palabras) y, después, lo que la carga deja
+   (0x8000, sólido). (Las salas con capa 2 propia la tienen después del BTS: no se copia, queda sólido.) Una uña de
+   Kraid fuera de la sala (fila 42 de 32) rebotaba contra lo sólido donde el SNES lee aire (el BTS en 0) */
+static inline uint16 level_oob(uint16 i) {
+  uint16 r = (uint16)(i - lvl_blocks);
+  if (r < (lvl_blocks >> 1)) return (uint16)(bts_rom[2 * r] | bts_rom[2 * r + 1] << 8);
+  return 0x8000;
+}
 static inline uint16 level_get(uint16 i) {
   if (i < lvl_fast) return lvl_rom[i];          /* lo común: la sala sin cambios */
   if (i < lvl_blocks) return lvl_is_mod(i) ? lvl_find(i)->lvl : lvl_rom[i];
   if (i >= ROOM_MAX_BLOCKS) return 0x8000;
-  return lvl_is_mod(i) ? lvl_find(i)->lvl : 0x8000;
+  return lvl_is_mod(i) ? lvl_find(i)->lvl : level_oob(i);
 }
 static inline uint8 bts_get(uint16 i) {
   if (i < lvl_fast) return bts_rom[i];
@@ -53,7 +62,7 @@ static inline uint8 bts_get(uint16 i) {
   return lvl_is_mod(i) ? lvl_find(i)->bts : 0;
 }
 /* bloque i para las colisiones: fuera de la sala (Samus por encima del techo: la fila se calcula con 8 bits) el
-   SNES lee el resto de su búfer, que la carga de sala deja en 0x8000 (sólido) */
+   SNES lee el resto de su búfer (level_oob) */
 static inline uint16 level_block(uint16 i) { return level_get(i); }
 
 /* puertas de la sala actual: la entrada i de la lista de puertas (door_list_pointer) */

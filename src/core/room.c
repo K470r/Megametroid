@@ -64,7 +64,7 @@ static LvlMod *lvl_mod_entry(uint16 i) {
     if (!lvl_ov[s].used) {
       LvlMod *m = &lvl_ov[s];
       m->idx = i;
-      m->lvl = i < lvl_blocks ? lvl_rom[i] : 0x8000;
+      m->lvl = i < lvl_blocks ? lvl_rom[i] : level_oob(i);
       m->bts = i < lvl_blocks ? bts_rom[i] : 0;
       m->used = 1;
       lvl_mod[i >> 3] |= 1 << (i & 7);
@@ -77,7 +77,7 @@ static LvlMod *lvl_mod_entry(uint16 i) {
 
 void level_set(uint16 i, uint16 v) {
   if (i >= ROOM_MAX_BLOCKS) return;
-  if (!(lvl_mod[i >> 3] & (1 << (i & 7))) && v == (i < lvl_blocks ? lvl_rom[i] : 0x8000)) return;
+  if (!(lvl_mod[i >> 3] & (1 << (i & 7))) && v == (i < lvl_blocks ? lvl_rom[i] : level_oob(i))) return;
   LvlMod *m = lvl_mod_entry(i);
   if (m) m->lvl = v;
   lvl_ver++;

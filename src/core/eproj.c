@@ -10,6 +10,9 @@
 #include "nmath.h"
 #include "room.h"
 #include "plm.h"
+/* (en la Genesis, en ensamblador más abajo: con su prototipo, el que llama mira solo el byte devuelto) */
+uint8 EprojBlockCollisition_Horiz(uint16 k);
+uint8 EprojBlockCollisition_Vertical(uint16 k);
 uint8 port_CallEprojInit(uint32 ea, uint16 j);
 uint8 port_CallEprojPreInstr(uint32 ea, uint16 k);
 typedef void (*PortFnK)(uint16);

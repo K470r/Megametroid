@@ -763,6 +763,15 @@ faltan (README punto 9). La puerta de la izquierda sale de otro color que en el 
   azul oscuro del cuerpo del misil) van en uno, y una roca tiene un toque amarillo.
 - **La uña** (enemigo 7, "un cuadro antes"): con `KraidsFingernail_Fire` a mano ya coincide: `host/check` contra el
   SNES en 3000 cuadros de pelea (con las uñas moviéndose), sin diferencias.
+- **La uña quieta fuera de la sala** (Kraid grande: las uñas salen en la fila 42 de una sala de 32): dos causas.
+  En las dos máquinas, fuera del nivel el búfer del SNES tiene el BTS de a dos y después 0x8000 (`level_oob`,
+  room.h); antes se leía todo como sólido y la uña rebotaba donde el SNES lee aire. Solo en la Genesis, además:
+  `bosses.c` llamaba a `Enemy_MoveDown` y `Enemy_MoveRight_IgnoreSlopes` sin prototipo (declaración implícita:
+  `int`). La función devuelve un `uint8` (`clr.b d0`) y el que llama miraba los 32 bits (`tst.l d0`): con basura
+  arriba en d0, "chocaba" contra el aire y se quedaba quieta (dependía de lo que dejaba d0 el código de antes: con
+  cualquier cambio en `Enemy_MoveDown` dejaba de pasar). Ahora `bosses.c`, `eproj.c` (el ensamblador de
+  `EprojBlockCollisition_*` vuelve con el `uint8` de la función en C) y `md_zebes.c` tienen sus prototipos, y la
+  compilación no da ninguna declaración implícita.
 - Prueba: `tools/compare/kraid.sh` (`ARMA=1` misiles, `ARMA=2` supermisiles; Samus en la sala: la puerta la deja en
   x = -41). En la prueba Samus parpadea distinto en la Genesis y en el SNES (la invencibilidad de la prueba).
 

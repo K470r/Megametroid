@@ -942,6 +942,13 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                 up = {k_: v_ for k_, v_ in u.items() if (k_ >> 4) in pref_lines and gc(k_ >> 4, k_ & 15) == g}
                 if up:
                     u = up
+            elif not gm:
+                # (un lugar que junta colores: de los índices con el color del lugar, el que lo muestra en vivo; si no,
+                # el más usado por tiles podía ser otro color: en la sala de Draygon la puerta rosada salía del gris
+                # azulado de la línea 0, verde azulada)
+                ux = {k_: v_ for k_, v_ in u.items() if gc(k_ >> 4, k_ & 15) == g}
+                if ux:
+                    u = ux
             row[slot(bi, i)] = max(u.items(), key=lambda kv: (kv[1], -kv[0]))[0]
         src.append(row)
         if os.environ.get("MM_COLDBG") and (own or os.environ.get("MM_ONLY")):

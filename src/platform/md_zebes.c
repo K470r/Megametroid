@@ -906,6 +906,7 @@ void nt_vram_queue_flush(const uint8 *q, uint16 n) {
     }
   }
 }
+uint16 nt_bank_w(uint8 bank, uint16 a);           /* enemy_main.c */
 static inline uint16 kq_word(uint32 a) {          /* palabra del origen: la RAM del SNES (7E:2000-2FFF) o la ROM */
   uint8 bank = a >> 16;
   uint16 ad = (uint16)a;

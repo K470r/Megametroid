@@ -3,6 +3,16 @@
  * Todo con NT_BOSS: va en la página del SSF2 de los jefes, con los niveles de sus salas (port.py, BOSS_PAGE). */
 #include "port_gen.h"
 
+/* de port_gen.c (sin prototipo, el C los da por int: en el 68000 la función deja la basura de d0 arriba del uint8 y el
+   que llama mira los 32 bits; la uña de Kraid "chocaba" contra el aire y se quedaba quieta) */
+uint16 CallMotherBrainInstr(uint32 ea, uint16 k);
+uint16 CallBabyMetroidInstr(uint32 ea, uint16 k);
+uint16 Kraid_ProcessKraidInstr(void);
+uint8 AdvancePaletteFade_BgPalette6(void);
+void Kraid_Palette_Handling(void);
+uint8 Enemy_MoveRight_IgnoreSlopes(uint16 k, int32 amt);
+uint8 Enemy_MoveDown(uint16 k, int32 amount32);
+
 /* estado de una lista de instrucciones de Mother Brain en la RAM del SNES (7E:781C: { ip, timer }) */
 NT_BOSS uint16 HandleMotherBrainInstructionList(uint16 a) {  // 0xA9D192
   if (!(ERAM(a) & 0x8000))

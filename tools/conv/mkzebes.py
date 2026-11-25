@@ -1556,7 +1556,7 @@ def main():
         want = {bgpal * 16 + c for c in range(1, 16)}
         line = max(range(len(rows)), key=lambda L: sum(1 for i in rows[L] if i in want))
         if not any(i in want for i in rows[line]):
-            continue
+            continue                                  # (los estados sin el cuerpo: abajo, el de otro estado)
         refc = {bgpal * 16 + c: snes_to_genesis(w16(ref + 2 * c), COLOR_MODE) for c in range(16)}
         lut = [0] * 16
         for c in range(1, 16):
@@ -1568,6 +1568,13 @@ def main():
             lut[c] = sl[0]
         mkzobj.ROOM_SPR_LINE[st] = (bank, spal, line, lut)
         print(f"  {st:04X}: piezas de {bank:02X} (paleta {spal}) en la línea {line}: {lut}", file=sys.stderr)
+    # (los estados de la sala sin el cuerpo, como Kraid vencido: las claves son por sala y ahí las piezas no se dibujan;
+    # con el mismo reparto que el estado con el cuerpo sus tiles son los mismos y se comparten en el depósito)
+    for st, ra, ts in obj_states:
+        if ra in ROOM_SPR_PAL and st not in mkzobj.ROOM_SPR_LINE:
+            other = [mkzobj.ROOM_SPR_LINE[o] for o, r_, _ in obj_states if r_ == ra and o in mkzobj.ROOM_SPR_LINE]
+            if other:
+                mkzobj.ROOM_SPR_LINE[st] = other[0]
     objs = mkzobj.build(sys.argv[1], logs, [(st, ra, ts, st_tiles.get(st, 432)) for st, ra, ts in obj_states], frozen)
     for ei, res in enumerate(entries):            # (BOSS_BG_LINE: los tiles del cuerpo a los lugares de la línea del jefe)
         if not res.get("boss_raw"):

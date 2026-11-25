@@ -100,6 +100,98 @@ def w16(addr):
     return struct.unpack('<H', r(addr, 2))[0]
 
 
+PALFX_FRAMES = 1200
+
+
+def palfx_traj(area, fx_ptr):
+    """los índices del SNES que cambian los objetos de efectos de paleta de un estado (la alarma de Tourian en la
+    huida, el cielo del aterrizaje, el calor...): {índice: ((cuadro, color), ...)}. Como en el SNES: los bits
+    palette_fx_bitset de las entradas de efectos del estado ($83, FxDef: byte 13; LoadFXHeader $89:AB82) eligen
+    objetos de la lista del área (kAreaPalFxListPointers $83:AC46); cada uno corre su lista de instrucciones de $8D
+    (PalFx_ProcessOne $8D:C54A) y escribe colores seguidos desde su índice. Los preinstrucciones (que dependen del
+    juego) no se siguen: alcanza con saber qué índices cambian y con qué colores"""
+    bits = 0
+    if fx_ptr and fx_ptr != 0xFFFF:
+        q = 0x830000 | fx_ptr
+        for _ in range(16):
+            door = w16(q)
+            if door == 0xFFFF:
+                break
+            bits |= r(q + 13, 1)[0]
+            if door == 0:
+                break
+            q += 16
+    if not bits:
+        return {}
+    lst = 0x830000 | w16(0x83AC46 + 2 * area)
+    out = {}
+    for b_ in range(8):
+        if not bits >> b_ & 1:
+            continue
+        pid = w16(lst + 2 * b_)
+        j = w16(0x8D0000 | pid + 2)               # (PalFxDef: func, instrs)
+        timer, ci, ctr = 1, 0, 0
+        for f in range(PALFX_FRAMES):
+            timer = (timer - 1) & 0xFFFF
+            if timer:
+                continue
+            dead = False
+            for _ in range(64):                   # instrucciones antes del cuadro
+                v = w16(0x8D0000 | j)
+                if not v & 0x8000:
+                    break
+                a = j + 2
+                if v == 0xC5CF or v == 0xC595:    # Delete / Wait (sin colores): se termina
+                    dead = True
+                    break
+                elif v == 0xC5D4:                 # SetPreInstr
+                    j = a + 2
+                elif v == 0xC5DD:                 # ClearPreInstr
+                    j = a
+                elif v == 0xC61E:                 # Goto
+                    j = w16(0x8D0000 | a)
+                elif v == 0xC639:                 # DecTimerGoto
+                    ctr = (ctr - 1) & 0xFF
+                    j = a + 2 if ctr == 0 else w16(0x8D0000 | a)
+                elif v == 0xC648:                 # SetTimer (byte)
+                    ctr = r(0x8D0000 | a, 1)[0]
+                    j = a + 1
+                elif v == 0xC655:                 # SetColorIndex
+                    ci = w16(0x8D0000 | a)
+                    j = a + 2
+                elif v in (0xC65E, 0xC66A, 0xC673, 0xC67C, 0xF1C6):   # música, sonidos, índice del calor
+                    j = a + 1
+                else:
+                    dead = True
+                    break
+            else:
+                dead = True
+            if dead:
+                break
+            timer = v
+            c = ci
+            while True:                           # los colores del cuadro (con saltos de índice), hasta Wait
+                x = w16(0x8D0000 | j + 2)
+                if not x & 0x8000:
+                    out.setdefault(c >> 1 & 0xFF, []).append((f, x & 0x7FFF))
+                    c += 2
+                    j += 2
+                    continue
+                step = {0xC599: 4, 0xC5A2: 6, 0xC5AB: 8, 0xC5B4: 16, 0xC5BD: 18, 0xC5C6: 30}.get(x)
+                if step:
+                    c += step
+                    j += 2
+                    continue
+                if x == 0xC595:                   # Wait: el siguiente cuadro sigue después
+                    j += 4
+                else:                             # Delete u otra: se termina
+                    timer = 0
+                break
+            if timer == 0:
+                break
+    return {k: tuple(v) for k, v in out.items()}
+
+
 def decompress(ea):
     o = HDR + ((ea >> 16) & 0x7F) * 0x8000 + (ea & 0x7FFF)
     data, p, rv = rom, o, bytearray()
@@ -459,7 +551,7 @@ def put_items(table, vram, items):
 
 def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None, vis=None,
             pref_lines=None, keep_cols=None, pref_idx=None, boss_pals=frozenset(),
-            own=frozenset(), split_idx=frozenset()):
+            own=frozenset(), split_idx=frozenset(), fx_traj=None):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
     para la sala (sin dar: MAX_PALS; 1 en las salas de jefes que usan la línea 1, mkzobj.BOSS_LINE); usage: veces que
@@ -492,11 +584,25 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     if bg2 and nbg2 is not None and not own:
         live = {(e >> 10) & 7 for e in bg2[nbg2:] if e & 0x3FF} - {(e >> 10) & 7 for mt in blocks for e in ent[mt]}
 
+    fxk = {}
+    for i_, tr_ in (fx_traj or {}).items():           # (la trayectoria en colores de la Genesis, sin repetidos)
+        q_ = []
+        for f_, x_ in tr_:
+            g_ = snes_to_genesis(x_, COLOR_MODE)
+            if not q_ or q_[-1][1] != g_:
+                q_.append((f_, g_))
+        fxk[i_] = tuple(q_)
+
     def gc(p, c):
         k = (p, c)
         if k not in gcol:
             g = snes_to_genesis(pal[p * 16 + c], COLOR_MODE)
-            gcol[k] = IdxCol(g, p * 16 + c) if p * 16 + c in split_idx else LiveCol(g) if p in live else g
+            i_ = p * 16 + c
+            # (fx_traj, palfx_traj: los índices que cambian los efectos de paleta del estado van con su trayectoria:
+            # comparten lugar solo con otro de igual color que cambie igual; en la huida de Tourian la alarma pone
+            # rojos los de la paleta 3 y no los azules de la 0 que al cargar eran del mismo color)
+            gcol[k] = IdxCol(g, i_) if i_ in split_idx else IdxCol(g, fxk[i_]) if i_ in fxk \
+                else LiveCol(g) if p in live else g
         return gcol[k]
     combos = {}
     extra = list(bg2 or [])
@@ -1129,7 +1235,8 @@ def main():
             bg_ptr_ = struct.unpack_from('<H', b, 22)[0]
             # (el fondo va en la clave: la sala de Draygon tiene el mismo nivel en la pelea, con el fondo copiado de
             # 7E:2000, y vencido, con una pared)
-            key = (lvl, gs, plm_ptr, ra, eye, boss, bg_ptr_ if (l2x & 1) else None)
+            fxt = palfx_traj(area, struct.unpack_from('<H', b, 6)[0])
+            key = (lvl, gs, plm_ptr, ra, eye, boss, bg_ptr_ if (l2x & 1) else None, tuple(sorted(fxt.items())))
             if key not in gfx_keys:
                 d = decompress(lvl)
                 size = d[0] | d[1] << 8
@@ -1246,7 +1353,7 @@ def main():
                               pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
                               nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None,
                               pref_lines=PREF_LINES.get(ra), keep_cols=KEEP_COLORS.get(ra),
-                              pref_idx=PREF_INDEX.get(ra), split_idx=SPLIT_INDEX.get(ra, frozenset()),
+                              pref_idx=PREF_INDEX.get(ra), split_idx=SPLIT_INDEX.get(ra, frozenset()), fx_traj=fxt,
                               boss_pals={p_: mkzobj.BOSS_LINE for p_ in BOSS_BG_LINE.get(ra, {})} if boss else {})
                 res["boss"] = None
                 res["boss_split"] = res["ntiles"]

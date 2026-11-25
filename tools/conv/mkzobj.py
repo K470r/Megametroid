@@ -1013,6 +1013,9 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         """una pieza de un cadáver: tiles propios y su entrada en cmap"""
         x, y, at, p, big, pxs, ib, wt = pc
         kk = ("corpse",) + tuple(k) + (j,)
+        if len(corpse) > 4 and corpse[4]:                 # (con imagen inicial: los tiles que no sube su tabla, vacíos:
+            sts_ = subtiles(at & 0x1FF, 2 if big else 1)   #  en el SNES están en cero cuando se dibuja)
+            mp = [m if t_ in cram else m * 0 for t_, m in zip(sts_, mp)]
         if kk not in bank.index:
             bank.index[kk] = bank.base + len(bank.tiles)
             bank.tiles += [genesis_tile_bytes(m) for m in mp]

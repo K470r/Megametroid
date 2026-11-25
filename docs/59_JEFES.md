@@ -772,6 +772,10 @@ faltan (README punto 9). La puerta de la izquierda sale de otro color que en el 
   cualquier cambio en `Enemy_MoveDown` dejaba de pasar). Ahora `bosses.c`, `eproj.c` (el ensamblador de
   `EprojBlockCollisition_*` vuelve con el `uint8` de la función en C) y `md_zebes.c` tienen sus prototipos, y la
   compilación no da ninguna declaración implícita.
+  Validación: las 194 salas en el PC contra el SNES (50 lotes de `lote.sh`): 49 sin diferencias, el otro con lo de
+  siempre (Samus sin energía en Tourian); Kraid grande en la Genesis igual al SNES; Ridley de Norfair (4200 cuadros
+  de `ridley_in.txt`): igual en el PC, y en la Genesis enemigos y proyectiles iguales cada 20 cuadros; regresión con
+  la llegada aprobada de nuevo (la puerta de Draygon: mismos colores a la vista), 0 distintos.
 - Prueba: `tools/compare/kraid.sh` (`ARMA=1` misiles, `ARMA=2` supermisiles; Samus en la sala: la puerta la deja en
   x = -41). En la prueba Samus parpadea distinto en la Genesis y en el SNES (la invencibilidad de la prueba).
 

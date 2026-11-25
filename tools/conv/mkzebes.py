@@ -92,9 +92,10 @@ def cram_fine_table():
     ok = ca > 0.004
     ua = np.where(ok, oa / np.where(ok, ca, 1), 0)
     ub = np.where(ok, ob / np.where(ok, ca, 1), 0)
-    # (casi neutros, croma < FINE_NEUTRAL: solo grises y sus vecinos de un nivel: azulado (b+1), marrón/oliva (r+1 g+1),
-    # verde (g+1) y verde azulado (g+1 b+1), por brillo y croma (peso FINE_WC); con la regla del matiz, en un gris la
-    # dirección del croma es casi ruido y salían verdes azulados donde el SNES es gris)
+    # (casi neutros, croma < FINE_NEUTRAL: solo grises y sus vecinos de un nivel: azulado (b+1) y marrón/oliva (r+1 g+1),
+    # por brillo y croma (peso FINE_WC); con la regla del matiz, en un gris la dirección del croma es casi ruido y salían
+    # verdes azulados donde el SNES es gris. Probados: los verdes ponían verdes las montañas del fondo y el lila,
+    # rosada la franja de arriba)
     neutral = ca < FINE_NEUTRAL
     best, bcost = np.zeros(32768, np.uint8), np.full(32768, np.inf)
     for dr in (-1, 0, 1):
@@ -106,8 +107,7 @@ def cram_fine_table():
                 da, db_ = e[:, 1] - oa, e[:, 2] - ob
                 par = da * ua + db_ * ub
                 cost = (e[:, 0] - oL) ** 2 + FINE_WPAR * par ** 2 + FINE_WPERP * (da ** 2 + db_ ** 2 - par ** 2)
-                fam = (tr == tb) & (tg == tb) | (tr == tg) & (tb == tr + 1) | (tr == tg) & (tb == tr - 1) | \
-                    (tr == tb) & (tg == tr + 1) | (tg == tb) & (tg == tr + 1)
+                fam = (tr == tb) & (tg == tb) | (tr == tg) & (tb == tr + 1) | (tr == tg) & (tb == tr - 1)
                 cost_n = (e[:, 0] - oL) ** 2 + FINE_WC * (da ** 2 + db_ ** 2)
                 cost = np.where(neutral, np.where(fam, cost_n, np.inf), cost)
                 if (dr, dg, db) == (0, 0, 0):         # (el más cercano gana si la mejora no es clara)
@@ -751,6 +751,10 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     side = {}
     if live:                                      # (los del cuerpo no se juntan con los de la sala)
         side = {c: 1 if isinstance(c, LiveCol) else 2 for cs in combos.values() for c in cs}
+    if not side and fxk:                          # (los que cambian con los efectos de paleta, IdxCol, se juntan
+        # primero entre ellos: juntado con uno fijo, el lugar sigue al que cambia; en la huida del aterrizaje el negro
+        # de las rocas de la cueva salía morado, con el cielo)
+        side = {c: 1 if isinstance(c, IdxCol) else 2 for cs in combos.values() for c in cs}
     keep_set = {c for c in set().union(*combos.values()) if gen_to_rgb(c) in keep_cols} if keep_cols else set()
     if vis is not None:                           # (VIS_ROOMS: las estatuas, líneas 6-7, no se juntan con la sala)
         st_ = set().union(*[cs for (t, p), cs in combos.items() if p >= 6] or [set()])

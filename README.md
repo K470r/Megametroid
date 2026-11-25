@@ -149,7 +149,7 @@ Funcionan, pero no se ven igual que en el SNES:
    (ya no desaparece ni sale con tiles a medio subir: docs/59).
 5. (Hecho) Los cadáveres que se pudren (docs/59): el Torizo muerto, los de la sala de la bebé y el cerebro de Mother
    Brain se deshacen como en el SNES. Queda: el sidehopper que la bebé chupa sale verdoso (el SNES: gris).
-6. La huida: el cielo del aterrizaje de un solo color (el SNES: nubes moradas); los colores de la alarma de Tourian.
+6. (Hecho) La huida: el cielo del aterrizaje de un solo color (el SNES: nubes moradas); los colores de la alarma de Tourian.
 7. El mapa de la partida: adentro del cuadrado queda negro mientras se abre o se cierra; la cuadrícula algo más oscura.
 8. Kraid: una uña se dispara un cuadro antes que en el SNES. (Draygon: en algunos cuadros la Genesis dibuja partes de
    Draygon a la izquierda de la pantalla donde el SNES no las muestra.) En su sala los colores de los sprites no van: los misiles

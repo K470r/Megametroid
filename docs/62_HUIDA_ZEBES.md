@@ -28,11 +28,30 @@ aterrizaje (91F8). En Crateria la huida es otro estado de sala (evento 0x0E: 91F
 En el PC (`host/check` con la grabación del SNES) el despegue da igual al SNES cuadro a cuadro (3 cuadros distintos,
 al final, al pasar al 39).
 
+## Los colores que cambian (2026-11-25)
+
+El cielo del aterrizaje en la huida salía de un solo color (el SNES: franjas y nubes moradas) y en Tourian la alarma
+ponía azules partes que en el SNES son rojas. La causa era la misma: `mkzebes` junta en un lugar de la paleta de la
+Genesis los índices del SNES que al cargar dan el mismo color, y el motor copia a ese lugar el color de uno solo de
+ellos; pero los efectos de paleta del estado (palfx) cambian unos y no otros. En Tourian la alarma pone rojos los
+índices 56-59 (paleta 3) y no los 5-7 (paleta 0), del mismo azul al cargar; en el aterrizaje la huida cambia 65-71 y
+81-91 (el cielo).
+
+`mkzebes.palfx_traj` hace lo del SNES con los datos de la ROM: los bits `palette_fx_bitset` de los efectos del estado
+(`FxDef`, byte 13 de cada entrada de `$83`; `LoadFXHeader` $89:AB82) eligen objetos de la lista del área
+(`kAreaPalFxListPointers` $83:AC46), y de cada uno se sigue su lista de instrucciones de `$8D` como
+`PalFx_ProcessOne` ($8D:C54A): el temporizador, los colores seguidos desde su índice, los saltos de índice
+(`ColorPlus`), `Goto`, `DecTimerGoto`, `SetColorIndex`... (1200 cuadros; las preinstrucciones no se siguen: alcanza con
+saber qué índices cambian y a qué colores). Cada índice que cambia va con su trayectoria en colores de la Genesis
+(`IdxCol`): comparte lugar solo con otro del mismo color que cambie igual. La trayectoria va en la clave del estado
+(los estados con efectos distintos no comparten la conversión: 91F8 tiene ahora 9261, 9247 y 922D, el de la lluvia).
+
+Con 2 líneas (`MM_MAX_PALS=2`, como en `make`) las salas de la huida juntan algunos colores más (91F8 9261: 3
+fusiones, Tourian: 3 a 6), sin que se note. Prueba: `huida.sh` con `SALA=91F8` y `SALA=DE4D`.
+
 ## Lo que falta
 
 - **El estado 39** (el final y los créditos, $8B:D443): `nt_unimpl` (docs/46, siguiente bloque).
 - **Se acaba el tiempo** en la huida de Zebes (`GameState_36` con el evento 0x0E): `nt_unimpl`.
-- **El cielo del aterrizaje en la huida** sale de un solo color (el SNES: nubes moradas); en las salas de Tourian los
-  colores de la alarma son parecidos pero no iguales.
 - Las pruebas con salto no sirven para puertas que se entran desde abajo (Climb → Parlor): sin el impulso hacia arriba,
   Samus cae también en el SNES. Para probar el camino entero hace falta una grabación de la huida jugada.

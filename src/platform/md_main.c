@@ -274,7 +274,9 @@ static void reset_game_vars(void) {
 #define PG_INTRO 2
 #define PG_LOAD 3
 #define PG_OPTIONS 4                            /* B en el planeta del mapa de la partida: a las opciones (estado 2) */
-static u16 g_slot;                              /* selected_save_slot (las variables del juego vuelven a empezar) */
+/* la ranura elegida: g_menu_slot (menu.c). No en una variable de aquí: el .bss de md_main.o está entre
+   _game_bss_start y _game_bss_end, que reset_game_vars pone a cero al empezar cada partida, y la partida se guardaba
+   siempre en la ranura A */
 static u16 play_game(u16 mode) {
   u16 intro = mode == PG_INTRO;
   SYS_disableInts();
@@ -285,8 +287,8 @@ static u16 play_game(u16 mode) {
   gamehi_take();
   six = JOY_getJoypadType(JOY_1) == JOY_TYPE_PAD6;
   md_init(intro);
-  { extern uint16_t selected_save_slot; selected_save_slot = g_slot; }
-  { extern void StartLoadedGame(uint16_t slot); if (mode == PG_LOAD) StartLoadedGame(g_slot); }
+  { extern uint16_t selected_save_slot; selected_save_slot = g_menu_slot; }
+  { extern void StartLoadedGame(uint16_t slot); if (mode == PG_LOAD) StartLoadedGame(g_menu_slot); }
 #ifdef MD_TEST_INPUT
   { extern uint8_t nt_viewer, nt_viewer_place, nt_viewer_enemies; nt_viewer = 1; nt_viewer_place = 1; nt_viewer_enemies = 1; }   /* ROM de prueba: el visor de salas (src/viewer.c) */
 #endif
@@ -383,13 +385,11 @@ int main(bool hard) {
   u16 mode = PG_CERES;
 #endif
 #if !defined(MD_TEST_INPUT) && !defined(MD_NO_TITLE)
-  g_slot = g_menu_slot;
   if (g_menu_slot_used) mode = PG_LOAD;
 #endif
   for (;;) {
     while ((mode = play_game(mode)) != PG_TITLE && mode != PG_OPTIONS) {}   /* fin de la intro o YES: Ceres */
     front_screens(mode == PG_OPTIONS);            /* NO: al título; B en el planeta: a las opciones */
-    g_slot = g_menu_slot;
     mode = g_menu_slot_used ? PG_LOAD : PG_INTRO;
   }
   return 0;

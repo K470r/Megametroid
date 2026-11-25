@@ -2949,6 +2949,15 @@ void md_post(void) {
         }
         r += (int16)((sr + 32768) >> 16); g += (int16)((sg + 32768) >> 16); b += (int16)((sb + 32768) >> 16);
       }
+      if (fx_type == 0x0A) {                                    /* lluvia: su BG3 sumado (como el líquido, lq_prepare:
+                                                                   92 % el color 3 de la línea 6, 5 % el 2, 3 % el 1),
+                                                                   redondeado: en la sala de aterrizaje G+1 B+2 de 5
+                                                                   bits, lo que separa las franjas grises del cielo */
+        const uint16 *pl = palette_buffer + 24;
+        r += (int16)((29 * (pl[3] & 31) + 2 * (pl[2] & 31) + (pl[1] & 31) + 16) >> 5);
+        g += (int16)((29 * ((pl[3] >> 5) & 31) + 2 * ((pl[2] >> 5) & 31) + ((pl[1] >> 5) & 31) + 16) >> 5);
+        b += (int16)((29 * ((pl[3] >> 10) & 31) + 2 * ((pl[2] >> 10) & 31) + ((pl[1] >> 10) & 31) + 16) >> 5);
+      }
       /* bomba de poder cubriendo toda el área de juego (md_cone.c, docs/58): solo su color fijo, sumado (en el SNES
          su matemática de color reemplaza la de la sala: HandleLayerBlendingPowerBomb, $88:81FE) */
       int16 pr = 0, pg = 0, pbl = 0;
@@ -3012,8 +3021,8 @@ void md_post(void) {
   if (md_zebes && (fx_type == 2 || fx_type == 4 || fx_type == 6 || fx_type == 0x26 || (uint8)fx_layer_blending_config_c == 0x2C))
     lq_prepare();
   else lq_on = 0;
-  /* (la bruma de la lluvia, FX 0x0A, no: suma G+1 B+2 de 5 bits, en la Genesis casi nada, y en la sala de aterrizaje
-     la paleta cambia casi cada cuadro: rehacer las paletas atrasaba el juego) */
+  /* (la bruma de la lluvia, FX 0x0A, no va por aquí: en la sala de aterrizaje la paleta cambia casi cada cuadro y
+     rehacer las tablas del líquido atrasaba el juego; va en el tinte, arriba: suma G+1 B+2 de 5 bits) */
   if (rain_slot && !rain_fixed) {               /* el color de las motas de la lluvia (rain_post) */
     uint16 c = kCram555[palette_buffer[25] & 0x7FFF];
     zobj_col[rain_slot - 1] = c;

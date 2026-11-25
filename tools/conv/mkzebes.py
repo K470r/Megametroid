@@ -1653,6 +1653,7 @@ def main():
     for e in entries + obj_list:                   # comprobación: los tramos rehacen los tiles de siempre
         rr = e["runs"]
         assert b"".join(pool[j + k] for j, n in zip(rr[0::2], rr[1::2]) for k in range(n)) == bytes(e["tiles"])
+    print(f"depósito de tiles: {len(pool)} (hasta 65535)", file=sys.stderr)
     assert len(pool) <= 0xFFFF, "zebes: el depósito de tiles pasa de 65535"
     if os.environ.get("MM_DUMP_POOL"):              # (depuración: el depósito y los tramos, para medir la compresión)
         import pickle

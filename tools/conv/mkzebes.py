@@ -1714,8 +1714,8 @@ def main():
     for e in entries + obj_list:                   # comprobación: los tramos rehacen los tiles de siempre
         rr = e["runs"]
         assert b"".join(pool[j + k] for j, n in zip(rr[0::2], rr[1::2]) for k in range(n)) == bytes(e["tiles"])
-    print(f"depósito de tiles: {len(pool)} (hasta 65535)", file=sys.stderr)
-    assert len(pool) <= 0xFFFF, "zebes: el depósito de tiles pasa de 65535"
+    # (los índices de este depósito no llegan a la ROM: lo que se emite son los trozos comprimidos y el depósito de los
+    # congelados, sin comprimir, que se comprueba más abajo)
     if os.environ.get("MM_DUMP_POOL"):              # (depuración: el depósito y los tramos, para medir la compresión)
         import pickle
         pickle.dump({"pool": pool, "rooms": [(e.get("key"), e["runs"]) for e in entries], "objs": [d["runs"] for d in obj_list],
@@ -1829,6 +1829,7 @@ def main():
           f"(propios {sum(len(v) for v in own.values())} tiles, compartidos {len(shared)}); sin comprimir {len(hot_l)} tiles",
           file=sys.stderr)
     pool = [pool[t] for t in hot_l]
+    assert len(pool) <= 0xFFFF, "zebes: el depósito sin comprimir pasa de 65535 tiles"
     nchunks = (len(pool) + POOL_CHUNK - 1) // POOL_CHUNK
     print(f"zebes: tiles {sum(len(e['tiles']) for e in entries + obj_list) // 32} -> depósito sin comprimir {len(pool)} "
           f"({nchunks} trozos), operaciones {sum(len(e['ops']) for e in entries + obj_list) * 2 // 1024} KB", file=sys.stderr)

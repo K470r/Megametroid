@@ -753,13 +753,22 @@ def zkey(k):
 # cadáveres que se pudren (docs/59): el SNES cambia sus tiles en la RAM (bosses.c) y los sube por la cola de VRAM con
 # tablas de (tamaño, origen, destino). Sus claves van pieza por pieza con tiles propios (cada tile de la Genesis es un
 # tile del SNES) y la tabla "corpse" dice, por tile de la Genesis, de qué dirección de la RAM del SNES sale, con qué
-# tabla de subida y con qué colores: md_corpse.c los rehace. Por sala: (claves que se suman a las del registro, tablas)
+# tabla de subida y con qué colores: md_zebes.c los rehace. Por sala: (claves que se suman a las del registro, tablas,
+# peso de sus píxeles al juntar los colores de la línea de los objetos: el Torizo muerto es lo que más se ve en su sala;
+# con peso 1 sus 15 grises quedaban en 4 lugares)
 CORPSE = {
     0xDC65: ({("e", "A9", "D6E2", "0200", "0000"), ("e", "A9", "D761", "0000", "0000")},   # el Torizo muerto y su arena
-             (0xA9D549, 0xA9D583)),                                                       # (DeadTorizo_Func_1)
+             (0xA9D549, 0xA9D583), 16),                                                   # (DeadTorizo_Func_1)
+    # la sala de la bebé: sidehoppers, zoomers, rippers y skrees muertos (ProcessCorpseRottingVramTransfers con la tabla
+    # de cada uno, dms_var_53: la palabra 1 de sus estructuras $A9:DD68-DDF8). Las paletas, las que se registran
+    # (0200 el sidehopper que vive, 0A00 / 0E00 los demás)
+    0xDCB1: ({("e", "A9", sm, pal, "0000") for sm, pals in (
+                 ("ED25", ("0200", "0E00")), ("ED4F", ("0200", "0E00")), ("EE86", ("0200",)),
+                 ("ED79", ("0A00", "0E00")), ("ED85", ("0A00", "0E00")), ("ED91", ("0A00", "0E00")),
+                 ("ED9D", ("0A00", "0E00")), ("EDA9", ("0A00", "0E00")), ("EDB5", ("0A00", "0E00")),
+                 ("EDCB", ("0A00", "0E00")), ("EDE1", ("0A00", "0E00"))) for pal in pals},
+             tuple(0xA90000 | t for t in (0xE0E0, 0xE10A, 0xE134, 0xE146, 0xE158, 0xE16A, 0xE17C, 0xE18E, 0xE1B0, 0xE1D2)), 1),
 }
-CORPSE_WEIGHT = 16         # los píxeles del cadáver pesan más al juntar los colores de la línea de los objetos: es lo
-                           # que más se ve en su sala (con peso 1 sus 15 grises quedaban en 4 lugares)
 SNES_OBJ_BASE = 0x6000     # palabra de la VRAM del tile 0 de los sprites en las salas de Zebes (OBSEL)
 
 
@@ -826,7 +835,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         key = {"e": ("enemy",), "s": ("enemy", "B4"), "p": ("eproj",), "j": ("proj",), "t": ("trail",),
                "v": ("spr80",)}[k[0]] + k[1:]
         kp = mkmd.key_pieces(rom, key)
-        wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else CORPSE_WEIGHT if corpse and k in corpse[0] else 1
+        wgt = SAMUS_PROJ_WEIGHT if k[0] in "jt" else corpse[2] if corpse and k in corpse[0] else 1
         is_boss = boss is not None and k[0] == "e" and int(k[1], 16) == boss[0]
         wtrail = k[0] == "t" and (int(k[1], 16) & 0x1FF) in WAVE_TRAIL_TILES and (int(k[1], 16) >> 9) & 7 == WAVE_TRAIL_PAL
         out = []

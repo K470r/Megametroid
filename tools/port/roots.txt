@@ -343,6 +343,7 @@ DeadTorizo_*
 DeadZoomer_*
 DeadRipper_*
 DeadSkree_*
+sub_A9ECD0                   # instrucción de la lista del sidehopper que vive ($A9:ECCC)
 Phantoon_*
 Phantoon2_*
 Draygon_*

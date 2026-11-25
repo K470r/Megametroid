@@ -85,7 +85,7 @@ static int elem_skip(const char *n, unsigned i) {
   if (!strncmp(n, "scrolling_sky_bg2", 17))
     return (room_main_code_ptr == 0xC116 || room_main_code_ptr == 0xC11B || room_main_code_ptr == 0xC120) ? 0 : 1;
   if (!strcmp(n, "tilemap_stuff")) {
-    if (room_ptr == 0xDC65) return game_state != 8 ? 2 : 0;   /* (el Torizo muerto: sus tiles que se pudren) */
+    if (room_ptr == 0xDC65 || room_ptr == 0xDCB1) return game_state != 8 ? 2 : 0;   /* (los cadáveres: sus tiles que se pudren) */
     return room_ptr != 0xE0B5 || i >= 128 ? 1 : game_state != 8 ? 2 : 0;
   }
   return 0;

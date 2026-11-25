@@ -140,7 +140,7 @@ void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r2
 void DisableMinimapAndMarkBossRoomAsExplored(void);
 void DecomposePaletteDataForFading(void);
 NT_BOSS void DeadTorizo_Func_1(void);
-NT_BOSS void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
+void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
 NT_BOSS uint16 Crocomire_Func_67(void);
 void CreditsObject_Func1(uint16 j);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
@@ -2795,6 +2795,7 @@ NT_BOSS void DeadSidehopper_Shot(void);
 NT_BOSS void DeadSidehopper_DD31(void);
 NT_BOSS void DeadSidehopper_DD34(uint16 a);
 NT_BOSS void DeadSidehopper_Touch(void);
+NT_BOSS uint16 sub_A9ECD0(uint16 k, uint16 jp);
 NT_BOSS uint8 Shitroid_Func_1(uint16 k, uint16 j);
 uint8 Shitroid_Func_2(uint16 k, Rect16U rect);
 NT_BOSS void Shitroid_Init(void);
@@ -32616,6 +32617,14 @@ NT_BOSS void DeadSidehopper_Touch(void) {  // 0xA9DD44
   else
     DeadSidehopper_DD31();
 }
+NT_BOSS uint16 sub_A9ECD0(uint16 k, uint16 jp) {  // 0xA9ECD0
+  uint16 v2 = 0xD910 /* DeadMonsters_Func_1 */;
+  EnemyData *E = gEnemyData(k); uint16 E_k = (k);
+  if (ERAM(0x7810 + E_k))
+    v2 = 0xDA08 /* DeadMonsters_Func_5 */;
+  E->ai_var_A = v2;
+  return jp;
+}
 NT_BOSS uint8 Shitroid_Func_1(uint16 k, uint16 j) {  // 0xA9EED1
   EnemyData *E = gEnemyData(j); uint16 E_k = (j);
   EnemyData *G = gEnemyData(k); uint16 G_k = (k);
@@ -37651,6 +37660,7 @@ uint16 port_CallEnemyInstr(uint32 ea, uint16 k, uint16 jp, uint8 *ok) {  /* ok =
   case 0xA99B05: return MotherBrain_Instr_IncrBeamAttackPhase(k, jp);
   case 0xA9CFB4: return Shitroid_Instr_1(k, jp);
   case 0xA9CFCA: return Shitroid_Instr_2(k, jp);
+  case 0xA9ECD0: return sub_A9ECD0(k, jp);
   case 0xA9F920: return Shitroid_Instr_3(k, jp);
   case 0xA9F936: return Shitroid_Instr_4(k, jp);
   case 0xA9F990: return Shitroid_Instr_6(k, jp);

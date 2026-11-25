@@ -1260,6 +1260,10 @@ BOSS_CODE_PLMS = {0xDD58: (0xB673, 0xB677, 0xB67B, 0xB67F, 0xB683, 0xB687, 0xB68
 KRAID_WALL_ROOMS = {0xA59F}                        # sala: byte de la VRAM del tile 0 de su BG2
 # Kraid (convert, own): líneas del SNES que van en la línea de la Genesis del cuerpo (la 7) y no en la de la sala: la
 # puerta (1) entra con el cuerpo y deja lugar a los azules de los bloques
+# piezas de un jefe con una paleta de sprites igual a la de su cuerpo en el fondo (mkzobj.ROOM_SPR_LINE): {sala:
+# (banco, paleta de sprites, paleta del BG, colores de referencia en la ROM)}. Kraid: sprites 7 = BG 7
+# (kKraid_BgPalette7 $A7:B3D3, el paso de la vida entera: + 256)
+ROOM_SPR_PAL = {0xA59F: (0xA7, 7, 7, 0xA7B3D3 + 256)}
 KRAID_BODY_LINES = {int(x) for x in os.environ.get("MM_KRAID_BODY_LINES", "7,1").split(",")}
 KRAID_MOUTH = (0xA797C8, 0xA79AC8, 0xA79DC8, 0xA7A0C8)   # 352 palabras cada uno (filas de arriba del mapa)
 
@@ -1543,6 +1547,27 @@ def main():
         sys.exit(0)
     st_tiles = {k[1]: entries[v]["ntiles"] for k, v in gfx_keys.items() if k[0] == "st"}
     frozen = {"index": {}, "list": []}       # juego común de los enemigos congelados (mkzobj.frozen_entry, docs/58)
+    # (mkzobj.ROOM_SPR_LINE) piezas de un jefe con la paleta de su cuerpo en el fondo: la línea de la sala que la tiene
+    for st, ra, ts in obj_states:
+        if ra not in ROOM_SPR_PAL or ("st", st) not in gfx_keys:
+            continue
+        bank, spal, bgpal, ref = ROOM_SPR_PAL[ra]
+        rows = entries[gfx_keys[("st", st)]]["src"]
+        want = {bgpal * 16 + c for c in range(1, 16)}
+        line = max(range(len(rows)), key=lambda L: sum(1 for i in rows[L] if i in want))
+        if not any(i in want for i in rows[line]):
+            continue
+        refc = {bgpal * 16 + c: snes_to_genesis(w16(ref + 2 * c), COLOR_MODE) for c in range(16)}
+        lut = [0] * 16
+        for c in range(1, 16):
+            i = bgpal * 16 + c
+            sl = [s_ for s_ in range(1, 16) if rows[line][s_] == i]
+            if not sl:                                # (juntado con otro: el lugar del color más parecido de la línea)
+                cand = [s_ for s_ in range(1, 16) if rows[line][s_] in refc]
+                sl = [min(cand, key=lambda s_: color_dist(refc[rows[line][s_]], refc[i]))] if cand else [1]
+            lut[c] = sl[0]
+        mkzobj.ROOM_SPR_LINE[st] = (bank, spal, line, lut)
+        print(f"  {st:04X}: piezas de {bank:02X} (paleta {spal}) en la línea {line}: {lut}", file=sys.stderr)
     objs = mkzobj.build(sys.argv[1], logs, [(st, ra, ts, st_tiles.get(st, 432)) for st, ra, ts in obj_states], frozen)
     for ei, res in enumerate(entries):            # (BOSS_BG_LINE: los tiles del cuerpo a los lugares de la línea del jefe)
         if not res.get("boss_raw"):

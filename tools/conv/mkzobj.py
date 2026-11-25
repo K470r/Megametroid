@@ -767,7 +767,7 @@ CORPSE = {
                  ("ED25", ("0200", "0E00")), ("ED4F", ("0200", "0E00")), ("EE86", ("0200",)),
                  ("ED79", ("0E00",)), ("ED85", ("0E00",)), ("ED91", ("0E00",)), ("ED9D", ("0E00",)),
                  ("EDA9", ("0E00",)), ("EDB5", ("0E00",)), ("EDCB", ("0E00",)), ("EDE1", ("0E00",))) for pal in pals},
-             tuple(0xA90000 | t for t in (0xE0E0, 0xE10A, 0xE134, 0xE146, 0xE158, 0xE16A, 0xE17C, 0xE18E, 0xE1B0, 0xE1D2)), 1),
+             tuple(0xA90000 | t for t in (0xE0E0, 0xE10A, 0xE134, 0xE146, 0xE158, 0xE16A, 0xE17C, 0xE18E, 0xE1B0, 0xE1D2)), 8),
 }
 SNES_OBJ_BASE = 0x6000     # palabra de la VRAM del tile 0 de los sprites en las salas de Zebes (OBSEL)
 

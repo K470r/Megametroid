@@ -4,3 +4,7 @@
 A66A spal 12 8DDB6B
 A66A spal 13 9A81A0
 A66A spal 14 90C401
+# DCB1 (la sala de la bebé): Shitroid_Init ($A9:F8C6, $A9:F8E6 y kDeadSidehopper_Palette_0 $A9:F8A6 en la paleta destino)
+DCB1 spal 9 A9F8C6
+DCB1 spal 10 A9F8E6
+DCB1 spal 15 A9F8A6

@@ -150,7 +150,7 @@ Funcionan, pero no se ven igual que en el SNES:
 5. (Hecho) Los cadáveres que se pudren (docs/59): el Torizo muerto, los de la sala de la bebé y el cerebro de Mother
    Brain se deshacen como en el SNES. Queda: el sidehopper que la bebé chupa sale verdoso (el SNES: gris).
 6. (Hecho) La huida: el cielo del aterrizaje de un solo color (el SNES: nubes moradas); los colores de la alarma de Tourian.
-7. El mapa de la partida: adentro del cuadrado queda negro mientras se abre o se cierra; la cuadrícula algo más oscura.
+7. (Hecho) El mapa de la partida: adentro del cuadrado la cuadrícula del mapa (el SNES también muestra el marco); la cuadrícula con el color del SNES; el cuadrado se abre a la velocidad del SNES (docs/67).
 8. Kraid: una uña se dispara un cuadro antes que en el SNES. (Draygon: en algunos cuadros la Genesis dibuja partes de
    Draygon a la izquierda de la pantalla donde el SNES no las muestra.) En su sala los colores de los sprites no van: los misiles
    de Samus (los disparados y los que quedan al morir los enemigos) se ven rosados con gris, los supermisiles también
@@ -170,7 +170,11 @@ Extras ya acordados:
 17. La música en CD (Mega CD, modo 1): si hay Mega CD y el disco de MegaMetroid, la música sale del CD; si no, la del
     cartucho ([docs/48](docs/48_TAMANO_ROM.md)).
 18. Los instrumentos ajustados a oído (el eco del SNES no existe en la Genesis).
-19. Los botones dibujados como los de la Genesis: en la pausa "L" / "R" (en el mando de 6 botones son C, al mapa, y
+19. Los botones como en la Genesis (decidido): con el mando de 3 y el de 6 botones, en los menús y pantallas fuera del
+    juego (título, ranuras, opciones, mapa de la partida, fin de juego, mensajes) se confirma con START o A y se cancela
+    con B; C no hace nada. Hoy el mapa de la partida y las pantallas del SNES usan la disposición del SNES (inicia B
+    —o C con 3 botones— y cancela A) y muestran las letras del SNES ("Ⓐ START", "Ⓑ CANCEL"): hay que pasarlas a esto
+    y dibujar las letras de la Genesis. Además, los botones dibujados como los de la Genesis: en la pausa "L" / "R" (en el mando de 6 botones son C, al mapa, y
     Z, a SAMUS; con 3 botones, A y B) y los botones que muestran las cajas de mensaje al agarrar un ítem nuevo
     (SELECT, X, Y, L, R del SNES).
 20. Espacio en la ROM: las copias de los bancos del SNES ya van recortadas ([docs/68](docs/68_RECORTE_BANCOS.md)); la

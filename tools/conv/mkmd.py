@@ -493,6 +493,10 @@ def main():
 
     # ---------- 1) BGR555 -> CRAM
     lut = [gen_to_cram(bgr_to_gen(c)) for c in range(32768)]
+    # la cuadrícula de los mapas (pausa y mapa de la partida: (8, 0, 17), 0x4408): con el nivel del DAC más cercano el
+    # rojo va al 1 y en la Genesis (Genesis Plus GX, el MiSTer) sale (32, 0, 139) contra el (65, 0, 139) del SNES: la
+    # cuadrícula se veía más oscura. Con el rojo en 2, igual
+    lut[0x4408] = gen_to_cram((2, 0, 4))
     binfile("kCram555", struct.pack(">32768H", *lut))
     Hh.append("extern const uint16 kCram555[32768];   /* color BGR555 del SNES -> CRAM (nivel del DAC más cercano) */")
 

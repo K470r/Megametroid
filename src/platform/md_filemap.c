@@ -85,6 +85,9 @@ FM_CODE static void FileMapGfx_(uint16 what) {
     pz_fsel = 1;
     PauseGfx(PAUSE_GFX_ENTER);
     PauseGfx(PAUSE_GFX_MAP);
+    /* los colores fijos (kPzFselCol) ya en el primer cuadro: md_pause_frame los pone cuando cambia la paleta, y hasta
+       entonces el pie del mapa salía un cuadro con los colores de la pausa (amarillo) */
+    nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
     break;
   }
   fm_key[0] = 0xFFFF;
@@ -97,6 +100,21 @@ NT_LATE void FileMapGfx(uint16 what) {         /* (filemap.c ya corre con la pá
 }
 
 /* --------------------------------------------------------------- el cuadro */
+/* la cuadrícula del mapa del área (el fondo del BG2 que el SNES muestra adentro del cuadrado mientras se abre o se
+   cierra, pasos 7-8 y 20-21): un punto cada 8 píxeles en las filas 0, 2 y 4 y uno cada 2 en la 6 (como la captura del
+   SNES), con el color 1 de la línea 3 (el de la cuadrícula de la pausa, 0x4408 del SNES; esa línea es la de los nombres,
+   que usan los colores 11-14) */
+#define FM_GRID_TILE (FM_SPR_BASE - 1)
+_Static_assert(FM_TILE_BASE + FM_TILE_MAX <= FM_GRID_TILE, "FM_GRID_TILE: pisa los tiles del planeta");
+FM_CODE static void fm_grid_tile(void) {
+  vdp_set_vram_write(FM_GRID_TILE * 32);
+  for (uint16 y = 0; y < 8; y++) {
+    uint32 row = y == 6 ? 0x10101010u : (y & 1) || y == 7 ? 0 : 0x10000000u;
+    VDP_DATA = (uint16)(row >> 16); VDP_DATA = (uint16)row;
+  }
+}
+#define FM_GRID_CELL (0x6000 | FM_GRID_TILE)    /* (línea 3) */
+
 FM_CODE static void fm_load_vram(void) {       /* (vblank libre, sin interrupciones) */
   room_pending = 0;                            /* (la sala del estado inicial que md_init dejó para el vblank: no) */
   vdp_reg(0x12, 0x00);                         /* sin la ventana del HUD */
@@ -106,28 +124,58 @@ FM_CODE static void fm_load_vram(void) {       /* (vblank libre, sin interrupcio
   vdp_fill_vram(MD_VRAM_PLANE_A, 0, 0x1000);
   vdp_fill_vram(MD_VRAM_PLANE_B, 0, 0x1000);
   pz_dma(kFmSprTiles, FM_SPR_BASE * 32, FM_SPR_TILES * 2 * 16);
+  fm_grid_tile();
 }
 
+static int8 fm_ia[28], fm_ib[28];               /* por fila: las columnas adentro del cuadrado que están dibujadas */
 FM_CODE static void fm_plane_a(void) {         /* el planeta por celdas, con la ventana */
   uint16 mi = menu_index & 0xFF;
   uint8 planet = fm_img >= 0 && ((mi >= 3 && mi <= 8) || mi >= 17);
   FmRect r = fm_rect();
-  uint16 key[6] = { planet ? (uint16)(fm_img + 1) : 0, (uint16)r.top << 8 | (uint8)r.bot,
-                    (uint16)r.left << 8 | (uint8)r.right, reg_TM | reg_TMW << 8, reg_W12SEL, mi };
-  if (!planet) key[1] = key[2] = key[3] = key[4] = key[5] = 0;
-  uint8 same = 1;
-  for (uint16 i = 0; i < 6; i++) if (key[i] != fm_key[i]) same = 0;
-  if (same) return;
+  uint8 bg1 = planet && (reg_TM & 1);
+  uint8 masked = !(reg_TMW & 1) || !(reg_W12SEL & 2) ? 0 : 1;   /* la ventana corta al BG1 */
+  uint8 inv = reg_W12SEL & 1;                  /* 1: se ve adentro; 0: se ve afuera */
+  uint8 grid = (reg_TM & 2) != 0;              /* el BG2 (el mapa del área) adentro del cuadrado */
+  /* la clave sin el cuadrado: si es la misma, solo cambian las celdas que entraron o salieron (por fila); redibujar
+     las 896 en cada cuadro dejaba el motor a 30 cuadros por segundo y el cuadrado se abría a un tercio de la
+     velocidad del SNES */
+  uint16 key[6] = { planet ? (uint16)(fm_img + 1) : 0, 0, 0, reg_TM | reg_TMW << 8, reg_W12SEL, mi };
+  if (!planet) key[3] = key[4] = key[5] = 0;
+  uint8 full = 0;
+  for (uint16 i = 0; i < 6; i++) if (key[i] != fm_key[i]) full = 1;
   for (uint16 i = 0; i < 6; i++) fm_key[i] = key[i];
   const uint16 *mp = planet ? kFmPlanet[fm_img].map : 0;
+  int16 ca = (r.left + 3) >> 3, cb = (r.right - 4) >> 3;   /* x = cx * 8 + 4 en [left, right] */
+  if (ca < 0) ca = 0;
+  if (cb > 31) cb = 31;
+  /* el valor de una celda: adentro o afuera del cuadrado */
+  #define FM_CELL(cx, in) ((bg1 && (!masked || ((in) ? inv : !inv))) ? row[cx] : ((in) && grid && !inv) ? FM_GRID_CELL : 0)
   for (uint16 cy = 0; cy < 28; cy++) {
-    vdp_set_vram_write(MD_VRAM_PLANE_A + cy * 128);
-    for (uint16 cx = 0; cx < 32; cx++) {
-      uint16 c = 0;
-      if (planet && fm_shown(&r, reg_W12SEL, 1, cx * 8 + 4, cy * 8 + 4)) c = mp[cy * 32 + cx];
-      VDP_DATA = c;
+    const uint16 *row = mp ? mp + cy * 32 : 0;
+    int16 y = (int16)(cy * 8 + 4);
+    int8 na = 1, nb = 0;                        /* (vacío) */
+    if (masked && y >= r.top && y < r.bot && ca <= cb) { na = (int8)ca; nb = (int8)cb; }
+    if (full) {
+      vdp_set_vram_write(MD_VRAM_PLANE_A + cy * 128);
+      for (int16 cx = 0; cx < 32; cx++) { uint8 in = cx >= na && cx <= nb; VDP_DATA = FM_CELL(cx, in); }
+    } else {
+      int8 pa = fm_ia[cy], pb = fm_ib[cy];
+      if (pa != na || pb != nb) {               /* las celdas que cambian: la diferencia de los dos tramos */
+        int16 lo = pa <= pb ? (na <= nb ? (pa < na ? pa : na) : pa) : na;
+        int16 hi = pa <= pb ? (na <= nb ? (pb > nb ? pb : nb) : pb) : nb;
+        int16 ilo = pa > na ? pa : na, ihi = pb < nb ? pb : nb;   /* (lo que está en los dos: igual) */
+        if (pa > pb || na > nb || ilo > ihi) { ilo = 1; ihi = 0; }
+        for (int16 part = 0; part < 2; part++) {
+          int16 s0 = part ? (ilo <= ihi ? ihi + 1 : 99) : lo, s1 = part ? hi : (ilo <= ihi ? ilo - 1 : hi);
+          if (s0 > s1 || s0 > 31 || s1 < 0) continue;
+          vdp_set_vram_write(MD_VRAM_PLANE_A + cy * 128 + s0 * 2);
+          for (int16 cx = s0; cx <= s1; cx++) { uint8 in = cx >= na && cx <= nb; VDP_DATA = FM_CELL(cx, in); }
+        }
+      }
     }
+    fm_ia[cy] = na; fm_ib[cy] = nb;
   }
+  #undef FM_CELL
 }
 
 FM_CODE static uint8 md_filemap_frame(void) {  /* md_post en el estado 5; 0: ya no (md_post sigue como siempre) */
@@ -145,7 +193,12 @@ FM_CODE static uint8 md_filemap_frame(void) {  /* md_post en el estado 5; 0: ya 
   uint16 sr;
   __asm__ volatile("move.w %%sr,%0\n\tmove.w #0x2700,%%sr" : "=d"(sr) : : "memory");
   md_vdp_busy = 1;
-  if (fm_load) { fm_load = 0; fm_load_vram(); for (uint16 i = 0; i < 16; i++) cram[48 + i] = kFmSprPal[i]; cram_dirty = 1; }
+  if (fm_load) {
+    fm_load = 0; fm_load_vram();
+    for (uint16 i = 0; i < 16; i++) cram[48 + i] = kFmSprPal[i];
+    cram[49] = kCram555[0x4408];               /* la cuadrícula (fm_grid_tile) */
+    cram_dirty = 1;
+  }
   if (fm_want != fm_img && fm_want >= 0) {
     const FmImage *im = &kFmPlanet[fm_want];
     pz_dma(im->tiles, FM_TILE_BASE * 32, im->ntiles * 16);

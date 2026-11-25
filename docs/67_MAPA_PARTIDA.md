@@ -19,8 +19,18 @@ es 0xF (no 0x1F como en la pausa: `pause_map_blank`). El código va en la págin
   y una línea de corrimiento del SNES). `md_filemap.c` la dibuja en el plano A por celdas, decidiendo con los mismos
   registros del SNES (TM, TMW, W12SEL y la ventana del cuadrado) si cada celda se ve.
 - **Los nombres** ("PLANET ZEBES" y las áreas): sprites desde los spritemaps del menú, encendido y apagado.
-- **El cuadrado**: con celdas de 8x8. Lo que el SNES muestra adentro en los pasos 7-8 y 20-21 (el marco del mapa)
-  queda negro: sus colores son los de la pausa y no caben en la CRAM junto con los del planeta.
+- **El cuadrado**: con celdas de 8x8. Adentro, en los pasos 7-8 y 20-21, el SNES muestra el BG2 (el mapa del área):
+  la Genesis pone la cuadrícula (un tile, `FM_GRID_TILE`: un punto cada 8 píxeles en las filas 0, 2 y 4 y uno cada 2
+  en la 6, como la captura del SNES) con el color 1 de la línea 3 (0x4408 del SNES; esa línea es la de los nombres,
+  que usan los colores 11-14). El marco blanco, el nombre del área y el pie no: aparecen con el mapa del área.
+- **El planeta por filas** (`fm_plane_a`): si solo se movió el cuadrado, en cada fila se reescriben solo las celdas
+  que entraron o salieron. Redibujar las 896 celdas en cada cuadro dejaba el motor a 30 cuadros por segundo y el
+  cuadrado se abría a un tercio de la velocidad del SNES; ahora a 60, casi como el SNES (~46 cuadros contra ~40).
+- **La cuadrícula del mapa** (0x4408 del SNES, (8, 0, 17)): con el nivel del DAC más cercano el rojo iba al 1 y salía
+  (32, 0, 139) contra el (65, 0, 139) del SNES, más oscura; `kCram555` (mkmd.py) la pone con el rojo en 2 (también la
+  cuadrícula del mapa de la pausa).
+- Al pasar al mapa del área quedan unos 10 cuadros negros: la pausa arma el mapa de a filas con la pantalla oscura
+  (el SNES ya lo tiene armado en el BG2).
 - **El mapa del área**: la pausa (`md_pause.c` con `pz_fsel`): el marco $B6:E000 con el pie de $81:B14B, sin el HUD,
   el nombre del área y los íconos. Los colores fijos salen de la paleta de la pausa (`kPzFselCol`, mkpause.py: la
   línea que usa el SNES es igual en las dos) y los animados de `palette_buffer`. El recuadro de la estación (spritemap

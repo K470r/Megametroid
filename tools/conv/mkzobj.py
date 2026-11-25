@@ -771,7 +771,11 @@ CORPSE = {
              (("A9", "F9A8"), ("A9", "FA40"), ("A9", "FAD8"))),            # (la bebé pesa como ellos: si no, su rojo se perdía)
     # Mother Brain: el cerebro muerto (MotherBrain_Phase3_Death_13: la tabla $A9:E1F4, sus tiles en 7E:9000). Su sala va
     # por cuadro (STREAM_ROOMS): la tabla va por entrada del juego común y tile dentro de ella (stream_entries)
-    0xDD58: ({("e", "A9", "AD6D", "0E00", "0000")}, (0xA9E1F4,), 1, ()),
+    # Sus tiles iniciales salen de lo que copia MotherBrain_CorpseRottingInitFunc ($A9:E08B: $B7:CE00 -> 7E:9000; en la
+    # VRAM de la conversión había otra cosa y el cerebro salía como un bloque blanco): (destino, origen, bytes)
+    0xDD58: ({("e", "A9", "AD6D", "0E00", "0000")}, (0xA9E1F4,), 1, (),
+             tuple((0x9000 + d, 0xB7CE00 + s_, n) for d, s_, n in ((0, 192, 0xC0), (0xE0, 704, 0xC0), (0x1C0, 1216, 0xC0),
+                                                                  (0x2A0, 1728, 0xC0), (0x380, 2240, 0xE0), (0x460, 2752, 0xE0)))),
 }
 SNES_OBJ_BASE = 0x6000     # palabra de la VRAM del tile 0 de los sprites en las salas de Zebes (OBSEL)
 
@@ -803,6 +807,24 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
         vram = bytes(vram)
     if extra_pal:
         pal.update(extra_pal)
+    if corpse and len(corpse) > 4 and corpse[4]:          # (cadáver con su imagen inicial en la RAM: la primera subida)
+        ram = {}
+        for (dst, src, n) in corpse[4]:
+            for o, b in enumerate(rom.bytes(src, n)):
+                ram[dst + o] = b
+        cpatch = []
+        for t in corpse[1]:
+            a = t
+            while rom.w(a):
+                size, src, dst = rom.w(a), rom.w(a + 4), rom.w(a + 6)
+                cpatch.append((2 * dst, bytes(ram.get(src + o, 0) for o in range(size))))
+                a += 8
+        vram = bytearray(vram)
+        for a_, b_ in cpatch:
+            vram[a_:a_ + len(b_)] = b_
+        vram = bytes(vram)
+    else:
+        cpatch = []
     moments = boss[1] if boss else [{}]
     moments = moments + [{**moments[-1], **a} for a in anim]
     akeep = frozenset(i for a in anim for i in a)
@@ -836,6 +858,11 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
                     v2[2 * dst:2 * dst + size] = rom.bytes(src, size)
                 kvcache[cps] = bytes(v2)
             vram_k = kvcache[cps]
+            if cpatch and corpse and k in corpse[0]:      # (el cadáver: su imagen inicial encima de las copias)
+                v2 = bytearray(vram_k)
+                for a_, b_ in cpatch:
+                    v2[a_:a_ + len(b_)] = b_
+                vram_k = bytes(v2)
         key = {"e": ("enemy",), "s": ("enemy", "B4"), "p": ("eproj",), "j": ("proj",), "t": ("trail",),
                "v": ("spr80",)}[k[0]] + k[1:]
         kp = mkmd.key_pieces(rom, key)

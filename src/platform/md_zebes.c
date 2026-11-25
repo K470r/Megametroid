@@ -410,6 +410,7 @@ const MdRoom *zebes_use(void) {
   if (f < 0) { md_zebes = 0; return 0; }
   zg = &kZebesGfx[kZebesStates[f].gfx];
   zo = kZebesStates[f].obj != 0xFFFF ? &kZebesObj[kZebesStates[f].obj] : 0;
+  { void cp_room_(void); cp_room_(); }
   zbb = 0; bb_n = 0; bb_ever = 0; bt_pending = 0; bb_redo = 0; bb_rows = 0; bb_hide = 0;
   for (uint16 i = 0; i < NT_ZEBES_NBOSSBG2; i++)
     if (kZebesBossBg2[i].gfx == kZebesStates[f].gfx) zbb = &kZebesBossBg2[i];
@@ -1156,6 +1157,7 @@ void zebes_take(void) {
   for (uint16 k = 0; k < frz_nq_l && frz_nq < frz_ns; k++) frz_q[frz_nq++] = frz_q_l[k];   /* congelados */
   frz_nq_l = 0;
   frz_lf++;
+  { void cp_take_(void); cp_take_(); }
 }
 static void anim_vblank(void) {
   uint8 lp = md_cur_page;
@@ -1829,6 +1831,129 @@ uint8 zebes_obj_draw(uint16 sm, uint16 pal, uint16 tiles, int16 x, int16 y) {
   return zebes_obj_draw_slow(sm, pal, tiles, x, y);
 }
 #endif
+
+
+/* ---------------------------------------------------------------- cadáveres que se pudren (mkzobj.CORPSE, docs/59)
+   El SNES cambia los tiles del cadáver en la RAM (bosses.c, como el decomp) y en cada cuadro sube una de sus tablas
+   (DeadTorizo_Func_1). Aquí: md_corpse_dirty anota los tiles de la RAM que cambiaron; md_corpse_upload (la tabla que
+   sube el SNES en este cuadro) convierte los suyos (4bpp planar del SNES -> 4bpp de la Genesis, con los lugares de
+   la línea: zo->corpse) a un búfer de la zona del jefe (libre en estas salas: no son por cuadro), y el vblank los
+   sube. Lo que no entra en un cuadro queda marcado para la próxima vez que se sube su tabla. */
+#define CP_MAXT 48                               /* tiles por cuadro (por mitad del búfer) */
+#define CP_HALF (CP_MAXT * 32 + CP_MAXT * 2)     /* bytes de una mitad: tiles y sus lugares en la VRAM */
+#define CP_LUT_OFF (2 * CP_HALF)                 /* tablas de pares de colores: 256 bytes por lut */
+#define CP_NLUT ((MD_BOSS_BYTES - CP_LUT_OFF) / 256)
+static const uint32 kCpSpread[256] = {
+  0x00000000,0x00000001,0x00000010,0x00000011,0x00000100,0x00000101,0x00000110,0x00000111,
+  0x00001000,0x00001001,0x00001010,0x00001011,0x00001100,0x00001101,0x00001110,0x00001111,
+  0x00010000,0x00010001,0x00010010,0x00010011,0x00010100,0x00010101,0x00010110,0x00010111,
+  0x00011000,0x00011001,0x00011010,0x00011011,0x00011100,0x00011101,0x00011110,0x00011111,
+  0x00100000,0x00100001,0x00100010,0x00100011,0x00100100,0x00100101,0x00100110,0x00100111,
+  0x00101000,0x00101001,0x00101010,0x00101011,0x00101100,0x00101101,0x00101110,0x00101111,
+  0x00110000,0x00110001,0x00110010,0x00110011,0x00110100,0x00110101,0x00110110,0x00110111,
+  0x00111000,0x00111001,0x00111010,0x00111011,0x00111100,0x00111101,0x00111110,0x00111111,
+  0x01000000,0x01000001,0x01000010,0x01000011,0x01000100,0x01000101,0x01000110,0x01000111,
+  0x01001000,0x01001001,0x01001010,0x01001011,0x01001100,0x01001101,0x01001110,0x01001111,
+  0x01010000,0x01010001,0x01010010,0x01010011,0x01010100,0x01010101,0x01010110,0x01010111,
+  0x01011000,0x01011001,0x01011010,0x01011011,0x01011100,0x01011101,0x01011110,0x01011111,
+  0x01100000,0x01100001,0x01100010,0x01100011,0x01100100,0x01100101,0x01100110,0x01100111,
+  0x01101000,0x01101001,0x01101010,0x01101011,0x01101100,0x01101101,0x01101110,0x01101111,
+  0x01110000,0x01110001,0x01110010,0x01110011,0x01110100,0x01110101,0x01110110,0x01110111,
+  0x01111000,0x01111001,0x01111010,0x01111011,0x01111100,0x01111101,0x01111110,0x01111111,
+  0x10000000,0x10000001,0x10000010,0x10000011,0x10000100,0x10000101,0x10000110,0x10000111,
+  0x10001000,0x10001001,0x10001010,0x10001011,0x10001100,0x10001101,0x10001110,0x10001111,
+  0x10010000,0x10010001,0x10010010,0x10010011,0x10010100,0x10010101,0x10010110,0x10010111,
+  0x10011000,0x10011001,0x10011010,0x10011011,0x10011100,0x10011101,0x10011110,0x10011111,
+  0x10100000,0x10100001,0x10100010,0x10100011,0x10100100,0x10100101,0x10100110,0x10100111,
+  0x10101000,0x10101001,0x10101010,0x10101011,0x10101100,0x10101101,0x10101110,0x10101111,
+  0x10110000,0x10110001,0x10110010,0x10110011,0x10110100,0x10110101,0x10110110,0x10110111,
+  0x10111000,0x10111001,0x10111010,0x10111011,0x10111100,0x10111101,0x10111110,0x10111111,
+  0x11000000,0x11000001,0x11000010,0x11000011,0x11000100,0x11000101,0x11000110,0x11000111,
+  0x11001000,0x11001001,0x11001010,0x11001011,0x11001100,0x11001101,0x11001110,0x11001111,
+  0x11010000,0x11010001,0x11010010,0x11010011,0x11010100,0x11010101,0x11010110,0x11010111,
+  0x11011000,0x11011001,0x11011010,0x11011011,0x11011100,0x11011101,0x11011110,0x11011111,
+  0x11100000,0x11100001,0x11100010,0x11100011,0x11100100,0x11100101,0x11100110,0x11100111,
+  0x11101000,0x11101001,0x11101010,0x11101011,0x11101100,0x11101101,0x11101110,0x11101111,
+  0x11110000,0x11110001,0x11110010,0x11110011,0x11110100,0x11110101,0x11110110,0x11110111,
+  0x11111000,0x11111001,0x11111010,0x11111011,0x11111100,0x11111101,0x11111110,0x11111111,
+};
+static uint8 cp_dirty[24];                       /* 7E:2000-2FFF: tiles 0-127; 7E:9000-97FF: 128-191 */
+static uint8 cp_half, cp_nl, cp_nv, cp_vhalf, cp_on;
+static int16 cp_idx(uint16 a) {
+  if (a >= 0x2000 && a < 0x3000) return (int16)((a - 0x2000) >> 5);
+  if (a >= 0x9000 && a < 0x9800) return (int16)(128 + ((a - 0x9000) >> 5));
+  return -1;
+}
+void cp_room_(void);
+static void cp_room(void) {                      /* (al cambiar de sala: los colores en pares) */
+  cp_on = 0; cp_nl = cp_nv = 0;
+  memset(cp_dirty, 0, sizeof cp_dirty);
+  if (!zo || !zo->corpse) return;
+  const uint16 *c = zo->corpse;
+  uint16 nl = c[1] < CP_NLUT ? c[1] : CP_NLUT;
+  for (uint16 l = 0; l < nl; l++) {
+    const uint16 *lut = c + 2 + 16 * l;
+    uint8 *d = (uint8 *)md_boss_zone + CP_LUT_OFF + 256 * l;
+    for (uint16 b = 0; b < 256; b++) d[b] = (uint8)(lut[b >> 4] << 4 | lut[b & 15]);
+  }
+  cp_on = 1;
+}
+void md_corpse_dirty(uint16 a, uint16 bytes) {
+  if (!cp_on || !bytes) return;
+  int16 i0 = cp_idx(a), i1 = cp_idx((uint16)(a + bytes - 1));
+  if (i0 < 0 || i1 < i0) return;
+  for (int16 i = i0; i <= i1; i++) cp_dirty[i >> 3] |= (uint8)(1 << (i & 7));
+}
+static void cp_conv(uint8 *d, const uint16 *w, const uint8 *pl) {   /* un tile: w = sus 16 palabras del SNES */
+  for (uint16 r = 0; r < 8; r++) {
+    uint16 a = w[r], b = w[8 + r];
+    uint32 v = kCpSpread[a & 0xFF] | kCpSpread[a >> 8] << 1 | kCpSpread[b & 0xFF] << 2 | kCpSpread[b >> 8] << 3;
+    d[0] = pl[v >> 24]; d[1] = pl[(uint8)(v >> 16)]; d[2] = pl[(uint8)(v >> 8)]; d[3] = pl[(uint8)v];
+    d += 4;
+  }
+}
+void md_corpse_upload(uint16 table) {
+  if (!cp_on) return;
+  const uint16 *c = zo->corpse;
+  uint16 n = c[0];
+  const uint16 *e = c + 2 + 16 * c[1];
+  uint8 *buf = (uint8 *)md_boss_zone + cp_half * CP_HALF;
+  uint16 *tl = (uint16 *)(buf + CP_MAXT * 32);
+  int16 cur = -1;
+  for (uint16 k = 0; k < n; k++, e += 4) {
+    if (e[2] != table) continue;
+    int16 i = cp_idx(e[1]);
+    if (i < 0) continue;
+    if (i != cur) {                              /* (las entradas del mismo tile del SNES van seguidas: mkzobj) */
+      if (!(cp_dirty[i >> 3] & (1 << (i & 7)))) { cur = -2; continue; }
+      if (cp_nl + 4 > CP_MAXT) break;           /* (el resto, la próxima vez que se suba esta tabla) */
+      cp_dirty[i >> 3] &= (uint8)~(1 << (i & 7));
+      cur = i;
+    } else if (cur == -2) continue;
+    const uint16 *w = e[1] < 0x3000 ? &tilemap_stuff[(e[1] - 0x2000) >> 1] : ERAM_ARR(e[1]);
+    uint16 l = e[3] < CP_NLUT ? e[3] : 0;
+    cp_conv(buf + 32 * cp_nl, w, (const uint8 *)md_boss_zone + CP_LUT_OFF + 256 * l);
+    tl[cp_nl++] = e[0];
+  }
+}
+void cp_room_(void) { cp_room(); }
+void cp_take_(void);
+static void cp_take(void) {                      /* (zebes_take) lo del cuadro pasa al vblank */
+  cp_nv = cp_nl; cp_vhalf = cp_half; cp_half ^= 1; cp_nl = 0;
+}
+void cp_take_(void) { cp_take(); }
+void zebes_corpse_vblank(void) {                 /* (md_vblank) */
+  if (!cp_nv) return;
+  const uint8 *buf = (const uint8 *)md_boss_zone + cp_vhalf * CP_HALF;
+  const uint16 *tl = (const uint16 *)(buf + CP_MAXT * 32);
+  for (uint16 i = 0; i < cp_nv; ) {
+    uint16 j = i + 1;
+    while (j < cp_nv && tl[j] == tl[i] + (j - i)) j++;
+    vdp_dma_vram(buf + 32 * i, tl[i] * 32, (j - i) * 16);
+    i = j;
+  }
+  cp_nv = 0;
+}
 
 void map_page_ext(uint8 p) { map_page(p); }
 /* bancos del SNES que se leen poco (nmath.h, mkdata.py COLD_BANKS): en la página NT_COLD_PAGE; se pone un momento y

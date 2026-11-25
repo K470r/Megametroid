@@ -159,3 +159,7 @@ void nt_sram_write(uint16_t off, const uint8_t *src, uint16_t n) {
 void FileSelectMapFrame(void);
 void FileSelectMapPaged(void) { FileSelectMapFrame(); }
 void FileMapGfx(uint16_t what) { (void)what; }
+
+/* el pudrirse de los cadáveres (bosses.c): en la Genesis rehace los tiles de sus sprites (md_corpse.c); aquí nada */
+void md_corpse_dirty(uint16_t snes_addr, uint16_t bytes) { (void)snes_addr; (void)bytes; }
+void md_corpse_upload(uint16_t table) { (void)table; }

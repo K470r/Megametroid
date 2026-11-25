@@ -1360,7 +1360,7 @@ def main():
          '   de 32 celdas (la fila R, píxel R * 8 de la sala) */',
          'typedef struct { uint16 state; uint16 gfx; uint16 obj; } ZebesState;   /* obj: 0xFFFF sin objetos */',
          'typedef struct { uint8 page; uint16 ntiles, nkeys, nops; const uint16 *ops; const uint16 *src; const uint16 *keys;',
-         '                 const uint16 *recs; uint16 base; uint8 stream; const uint16 *vcp; } ZebesObj;   /* base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala); stream: objetos por cuadro desde base (mkzobj.STREAM_ROOMS); vcp: copias de tiles (EnemyInstr_CopyToVram, mkzobj.vram_copy_ops) o NULL: [n, por copia: origen bajo, banco, destino, ntiles, por tile: tile y sus 16 palabras] */',
+         '                 const uint16 *recs; uint16 base; uint8 stream; const uint16 *vcp; const uint16 *corpse; } ZebesObj;   /* corpse: cadáveres que se pudren (mkzobj.CORPSE, md_corpse.c) o NULL: [n, nluts, nluts x 16 colores (lugar de la línea por color del SNES), n x (tile de la Genesis, dirección de la RAM del SNES, tabla de subida, lut)]; base: primer tile en la VRAM (ZOBJ_BASE o justo después de la sala); stream: objetos por cuadro desde base (mkzobj.STREAM_ROOMS); vcp: copias de tiles (EnemyInstr_CopyToVram, mkzobj.vram_copy_ops) o NULL: [n, por copia: origen bajo, banco, destino, ntiles, por tile: tile y sus 16 palabras] */',
          '/* objetos: tiles desde ZOBJ_BASE; src: 30 índices de palette_buffer, colores 1-15 de la línea 3 debajo del HUD (9-13 el rayo)',
          '   y 1-15 de la línea 1 (solo con un jefe de colores propios, la sala en una línea: mkzobj.BOSS_LINE), 0xFFFF sin uso;',
          '   keys: (spritemap, paleta, tiles, desplazamiento en recs) ordenadas; recs: como los de md_data */',
@@ -1760,10 +1760,14 @@ def main():
         if vcp_words(d):
             C.append(f'NT_BANK({page}) static const uint16 kZO{i}_vcp[{len(vcp_words(d))}] = {{' +
                      ','.join('0x%X' % v for v in vcp_words(d)) + '};')
+        if d.get("corpse"):
+            cm, cl = d["corpse"]
+            cw = [len(cm), len(cl)] + [v for lut in cl for v in lut] + [v for e in cm for v in e]
+            C.append(f'static const uint16 kZO{i}_corpse[{len(cw)}] = {{' + ','.join('0x%X' % v for v in cw) + '};')
     H.append(f'extern const ZebesObj kZebesObj[{max(1, len(obj_list))}];')
     C.append(f'const ZebesObj kZebesObj[{max(1, len(obj_list))}] = {{')
     for i, d in enumerate(obj_list):
-        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["ops"])}, kZO{i}_ops, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]}, {d.get("stream", 0)}, {f"kZO{i}_vcp" if vcp_words(d) else "0"} }},')
+        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["ops"])}, kZO{i}_ops, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]}, {d.get("stream", 0)}, {f"kZO{i}_vcp" if vcp_words(d) else "0"}, {f"kZO{i}_corpse" if d.get("corpse") else "0"} }},')
     if not obj_list:
         C.append('  { 0 },')
     C.append('};')

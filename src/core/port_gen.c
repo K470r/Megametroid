@@ -139,6 +139,8 @@ void DrawSpritemapOffScreen(uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22
 void DrawSpritemap(uint8 db, uint16 j, uint16 x_r20, uint16 y_r18, uint16 chr_r22);
 void DisableMinimapAndMarkBossRoomAsExplored(void);
 void DecomposePaletteDataForFading(void);
+NT_BOSS void DeadTorizo_Func_1(void);
+NT_BOSS void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
 NT_BOSS uint16 Crocomire_Func_67(void);
 void CreditsObject_Func1(uint16 j);
 uint16 CreateSpriteAtPos(uint16 x, uint16 y, uint16 ilist, uint16 pal);
@@ -3207,22 +3209,12 @@ static Func_V *const off_A48C14[45];
 static Func_V *const off_A6CB21[9];
 static Func_V *const off_A9B887[4];
 static Func_CalcHdma *const off_ADE024[4];
-void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
-void DeadTorizo_Func_1(void);
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
 uint16 PrepareBitAccess(uint16 a);
-void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k);
-void Torizo_CorpseRottingInitFunc(void);
-void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
 void WriteReg(uint16 reg, uint8 value);
 
-void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a) { nt_unimpl("DeadTorizo_CopyLineOfSandHeapTileData"); }
-void DeadTorizo_Func_1(void) { nt_unimpl("DeadTorizo_Func_1"); }
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
 uint16 PrepareBitAccess(uint16 a) { nt_unimpl("PrepareBitAccess"); return 0; }
-void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_CorpseRottingCopyFunc"); }
-void Torizo_CorpseRottingInitFunc(void) { nt_unimpl("Torizo_CorpseRottingInitFunc"); }
-void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k) { nt_unimpl("Torizo_CorpseRottingMoveFunc"); }
 void WriteReg(uint16 reg, uint8 value) { nt_unimpl("WriteReg"); }
 
 static Func_Y_V *const funcs_A2A79[3] = { Etecoon_Func_13, Etecoon_Func_14, Etecoon_Func_15 };

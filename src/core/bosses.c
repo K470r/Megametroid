@@ -320,9 +320,65 @@ NT_BOSS static void mb_corpse_rows(uint16 j, uint16 k, uint8 move) {
 NT_BOSS void MotherBrain_CorpseRottingMoveFunc(uint16 j, uint16 k) { mb_corpse_rows(j, k, 1); }  // 0xA9EA40
 NT_BOSS void MotherBrain_CorpseRottingCopyFunc(uint16 j, uint16 k) { mb_corpse_rows(j, k, 0); }  // 0xA9EB0B
 
+/* el Torizo muerto y los cadáveres de la sala de la bebé: corpse.c (en la ROM común: no entran en la página 25) */
+void md_corpse_dirty(uint16 snes_addr, uint16 bytes);
+void Torizo_CorpseRottingInitFunc(void);
+void Torizo_CorpseRottingMoveFunc(uint16 j, uint16 k);
+void Torizo_CorpseRottingCopyFunc(uint16 j, uint16 k);
+void Sidehopper_CorpseRottingMoveFunc_0(uint16 j, uint16 k);
+void Sidehopper_CorpseRottingCopyFunc_0(uint16 j, uint16 k);
+void Sidehopper_CorpseRottingMoveFunc_2(uint16 j, uint16 k);
+void Sidehopper_CorpseRottingCopyFunc_2(uint16 j, uint16 k);
+void Zoomer_CorpseRottingMoveFunc_0(uint16 j, uint16 k);
+void Zoomer_CorpseRottingCopyFunc_0(uint16 j, uint16 k);
+void Zoomer_CorpseRottingMoveFunc_2(uint16 j, uint16 k);
+void Zoomer_CorpseRottingCopyFunc_2(uint16 j, uint16 k);
+void Zoomer_CorpseRottingMoveFunc_4(uint16 j, uint16 k);
+void Zoomer_CorpseRottingCopyFunc_4(uint16 j, uint16 k);
+void Ripper_CorpseRottingMoveFunc_0(uint16 j, uint16 k);
+void Ripper_CorpseRottingCopyFunc_0(uint16 j, uint16 k);
+void Ripper_CorpseRottingMoveFunc_2(uint16 j, uint16 k);
+void Ripper_CorpseRottingCopyFunc_2(uint16 j, uint16 k);
+void Skree_CorpseRottingMoveFunc_0(uint16 j, uint16 k);
+void Skree_CorpseRottingCopyFunc_0(uint16 j, uint16 k);
+void Skree_CorpseRottingMoveFunc_2(uint16 j, uint16 k);
+void Skree_CorpseRottingCopyFunc_2(uint16 j, uint16 k);
+void Skree_CorpseRottingMoveFunc_4(uint16 j, uint16 k);
+void Skree_CorpseRottingCopyFunc_4(uint16 j, uint16 k);
+void Sidehopper_CorpseRottingInitFunc_0(void);
+void Sidehopper_CorpseRottingInitFunc_2(void);
+void Zoomer_CorpseRottingInitFunc_0(void);
+void Zoomer_CorpseRottingInitFunc_2(void);
+void Zoomer_CorpseRottingInitFunc_4(void);
+void Ripper_CorpseRottingInitFunc_0(void);
+void Ripper_CorpseRottingInitFunc_2(void);
+void Skree_CorpseRottingInitFunc_0(void);
+void Skree_CorpseRottingInitFunc_2(void);
+void Skree_CorpseRottingInitFunc_4(void);
+void DeadTorizo_CopyLineOfSandHeapTileData(uint16 a);
+/* DeadTorizo_Func_1 ($A9:D4CF): el SNES sube por la cola de VRAM la mitad de sus tiles en cada cuadro (las tablas
+   $A9:D583 y $A9:D549, alternadas); la Genesis sube los que cambiaron (md_corpse.c) */
+void md_corpse_upload(uint16 table);
+NT_BOSS void DeadTorizo_Func_1(void) {  // 0xA9D4CF
+  uint16 v1 = ++ERAM(0x7800);                 /* dto_var_00 (Enemy_DeadTorizo) */
+  md_corpse_upload(v1 & 1 ? 0xD583 : 0xD549);
+  ERAM(0x8004) = 0;                            /* Get_DeadEnemy(0)->dey_var_22 */
+}
+
 NT_BOSS static void CallCorpseRottingInit(uint16 f) {
   switch (f) {
   case 0xE08B: MotherBrain_CorpseRottingInitFunc(); return;
+  case 0xDE18: Torizo_CorpseRottingInitFunc(); return;
+  case 0xDEC1: Sidehopper_CorpseRottingInitFunc_0(); return;
+  case 0xDF08: Sidehopper_CorpseRottingInitFunc_2(); return;
+  case 0xDF4F: Zoomer_CorpseRottingInitFunc_0(); return;
+  case 0xDF6C: Zoomer_CorpseRottingInitFunc_2(); return;
+  case 0xDF89: Zoomer_CorpseRottingInitFunc_4(); return;
+  case 0xDFA6: Ripper_CorpseRottingInitFunc_0(); return;
+  case 0xDFC3: Ripper_CorpseRottingInitFunc_2(); return;
+  case 0xDFE0: Skree_CorpseRottingInitFunc_0(); return;
+  case 0xE019: Skree_CorpseRottingInitFunc_2(); return;
+  case 0xE052: Skree_CorpseRottingInitFunc_4(); return;
   default: nt_unimpl_v("CallCorpseRottingInit", f); return;
   }
 }
@@ -330,6 +386,28 @@ NT_BOSS static void CallCorpseRottingMove(uint16 f, uint16 j, uint16 k) {
   switch (f) {
   case 0xEA40: MotherBrain_CorpseRottingMoveFunc(j, k); return;
   case 0xEB0B: MotherBrain_CorpseRottingCopyFunc(j, k); return;
+  case 0xE272: Torizo_CorpseRottingMoveFunc(j, k); return;
+  case 0xE38B: Torizo_CorpseRottingCopyFunc(j, k); return;
+  case 0xE468: Sidehopper_CorpseRottingMoveFunc_0(j, k); return;
+  case 0xE4F5: Sidehopper_CorpseRottingCopyFunc_0(j, k); return;
+  case 0xE564: Sidehopper_CorpseRottingMoveFunc_2(j, k); return;
+  case 0xE5F6: Sidehopper_CorpseRottingCopyFunc_2(j, k); return;
+  case 0xE66A: Zoomer_CorpseRottingMoveFunc_0(j, k); return;
+  case 0xE6B9: Zoomer_CorpseRottingCopyFunc_0(j, k); return;
+  case 0xE6F6: Zoomer_CorpseRottingMoveFunc_2(j, k); return;
+  case 0xE745: Zoomer_CorpseRottingCopyFunc_2(j, k); return;
+  case 0xE782: Zoomer_CorpseRottingMoveFunc_4(j, k); return;
+  case 0xE7D1: Zoomer_CorpseRottingCopyFunc_4(j, k); return;
+  case 0xE80E: Ripper_CorpseRottingMoveFunc_0(j, k); return;
+  case 0xE85D: Ripper_CorpseRottingCopyFunc_0(j, k); return;
+  case 0xE89A: Ripper_CorpseRottingMoveFunc_2(j, k); return;
+  case 0xE8E9: Ripper_CorpseRottingCopyFunc_2(j, k); return;
+  case 0xE926: Skree_CorpseRottingMoveFunc_0(j, k); return;
+  case 0xE95B: Skree_CorpseRottingCopyFunc_0(j, k); return;
+  case 0xE984: Skree_CorpseRottingMoveFunc_2(j, k); return;
+  case 0xE9B9: Skree_CorpseRottingCopyFunc_2(j, k); return;
+  case 0xE9E2: Skree_CorpseRottingMoveFunc_4(j, k); return;
+  case 0xEA17: Skree_CorpseRottingCopyFunc_4(j, k); return;
   default: nt_unimpl_v("CallCorpseRottingMove", f); return;
   }
 }
@@ -406,10 +484,9 @@ NT_BOSS uint8 ProcessCorpseRotting(uint16 k) {  // 0xA9DB12
   }
 }
 
-/* ProcessCorpseRottingVramTransfers ($A9:DCB9): sube los tiles podridos por la cola de VRAM del SNES; en la Genesis
-   (todavía) nada: solo el aviso de que ya se subieron */
+/* ProcessCorpseRottingVramTransfers ($A9:DCB9): sube los tiles podridos por la cola de VRAM del SNES (la tabla k) */
 NT_BOSS void ProcessCorpseRottingVramTransfers(uint16 k) {
-  (void)k;
+  md_corpse_upload(k);   /* (md_zebes.c: la Genesis sube los tiles cambiados de esa tabla) */
   ERAM(0x8004) = 0;      /* Get_DeadEnemy(0)->dey_var_22 */
 }
 

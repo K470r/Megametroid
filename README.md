@@ -153,11 +153,11 @@ Funcionan, pero no se ven igual que en el SNES:
    Probado en el MiSTer (2026-11-25): el cielo de la llegada mucho mejor. Queda para más adelante: las montañas del fondo
    del aterrizaje, que todavía no se parecen tanto a las del SNES.
 7. (Hecho) El mapa de la partida: adentro del cuadrado la cuadrícula del mapa (el SNES también muestra el marco); la cuadrícula con el color del SNES; el cuadrado se abre a la velocidad del SNES (docs/67).
-8. Kraid: una uña se dispara un cuadro antes que en el SNES. (Draygon: en algunos cuadros la Genesis dibuja partes de
-   Draygon a la izquierda de la pantalla donde el SNES no las muestra.) En su sala los colores de los sprites no van: los misiles
-   de Samus (los disparados y los que quedan al morir los enemigos) se ven rosados con gris, los supermisiles también
-   se ven raros, y la plataforma que lanza de la panza se ve rosada.
-9. Rendimiento: algunas salas pesadas pierden cuadros (la peor, 92B3: [docs/44](docs/44_OPTIMIZACION.md)); la bajada de la nave en la llegada, ~16 cuadros más con el cielo nuevo (docs/62).
+8. (Hecho) Kraid: la uña ya coincide con el SNES; los misiles, el polvo, las explosiones y las rocas con sus colores (la
+   paleta de inicio de Kraid pisaba las de los sprites); sus piezas con la línea de su cuerpo. Draygon: el cuerpo ya no se
+   ve donde el SNES lo esconde (el HDMA del agua, por línea). Quedan detalles de color (docs/59): en la sala de Kraid
+   los grises de los objetos en un solo gris (el cuerpo del misil, más claro), y en la de Draygon la puerta de otro color.
+9. Rendimiento: algunas salas pesadas pierden cuadros (la peor, 92B3: [docs/44](docs/44_OPTIMIZACION.md)); la bajada de la nave en la llegada, ~16 cuadros más con el cielo nuevo (docs/62). En las peleas con objetos por cuadro (Draygon, Kraid), cuando el motor va atrasado algunos objetos (las crías de Draygon) faltan en un cuadro (docs/59).
 10. La niebla sin la forma de las nubes y la neblina con un color medio en vez del degradado.
 
 Traducción al español ([docs/66](docs/66_TRADUCCION.md); el menú, las opciones y copiar/borrar partidas ya están):

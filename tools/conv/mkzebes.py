@@ -40,6 +40,23 @@ from convert_rooms import snes_to_genesis, gen_to_cram, gen_to_rgb, color_dist, 
 from plmscan import PlmScan  # noqa: E402
 
 
+class IdxCol(tuple):
+    """color de la Genesis de un índice del SNES que va en su propio lugar aunque otro dé el mismo color (SPLIT_INDEX)"""
+    def __new__(cls, g, k):
+        o = tuple.__new__(cls, g)
+        o.k = k
+        return o
+
+    def __eq__(self, o):
+        return type(o) is IdxCol and o.k == self.k and tuple.__eq__(self, o)
+
+    def __ne__(self, o):
+        return not self.__eq__(o)
+
+    def __hash__(self):
+        return hash((tuple(self), self.k))
+
+
 class LiveCol(tuple):
     """color de la Genesis de una paleta que cambia en vivo (el cuerpo del jefe en el BG2: Phantoon se desvanece y
     se pone rojo): distinto de un color igual de la sala, así no comparten lugar en la CRAM"""
@@ -442,7 +459,7 @@ def put_items(table, vram, items):
 
 def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None, vis=None,
             pref_lines=None, keep_cols=None, pref_idx=None, boss_pals=frozenset(),
-            own=frozenset()):
+            own=frozenset(), split_idx=frozenset()):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
     para la sala (sin dar: MAX_PALS; 1 en las salas de jefes que usan la línea 1, mkzobj.BOSS_LINE); usage: veces que
@@ -479,7 +496,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
         k = (p, c)
         if k not in gcol:
             g = snes_to_genesis(pal[p * 16 + c], COLOR_MODE)
-            gcol[k] = LiveCol(g) if p in live else g
+            gcol[k] = IdxCol(g, p * 16 + c) if p * 16 + c in split_idx else LiveCol(g) if p in live else g
         return gcol[k]
     combos = {}
     extra = list(bg2 or [])
@@ -1008,6 +1025,11 @@ KEEP_COLORS = {0xDD58: {(0, 52, 144), (52, 116, 255), (144, 172, 255)}}
 # índices del SNES que lee el lugar que los junta: Mother Brain, el fondo azulado (la línea 3: (32,40,48) sale gris
 # neutro en la Genesis, (24,32,32), el 58, verde azulado oscuro: así el fondo tira a azul como en el SNES)
 PREF_INDEX = {0xDD58: (58,)}
+# índices del SNES que van cada uno en su lugar aunque en la Genesis den el mismo color: el cielo del aterrizaje
+# (91F8, RoomMainAsm_ScrollingSky): sus franjas son tiles lisos de los colores 4 y 6 de la paleta 5 (y el 5 en sus
+# bordes); en la Genesis 4 y 6 daban el mismo color, compartían lugar y el cielo salía liso (en la huida los efectos de
+# paleta los separan más: morado claro y oscuro)
+SPLIT_INDEX = {0x91F8: frozenset({84, 85, 86})}
 # colores del cuerpo de un jefe en el BG2 para juntar los de la sala (en vez del registro zbg2.log, que guarda el más
 # brillante de cada índice en toda la pelea: en Mother Brain salían oliva y morado de los destellos del rayo y del gris
 # del final). Mother Brain: MotherBrain_WriteDefaultPalette ($A9:BCCE) pone kMotherBrainsBrain_Palette ($A9:9474) en
@@ -1224,7 +1246,7 @@ def main():
                               pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
                               nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None,
                               pref_lines=PREF_LINES.get(ra), keep_cols=KEEP_COLORS.get(ra),
-                              pref_idx=PREF_INDEX.get(ra),
+                              pref_idx=PREF_INDEX.get(ra), split_idx=SPLIT_INDEX.get(ra, frozenset()),
                               boss_pals={p_: mkzobj.BOSS_LINE for p_ in BOSS_BG_LINE.get(ra, {})} if boss else {})
                 res["boss"] = None
                 res["boss_split"] = res["ntiles"]

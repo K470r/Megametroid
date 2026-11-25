@@ -958,3 +958,34 @@ Prueba: `tools/compare/estatuas_in.txt` (sin jefes vencidos) y `estatuas4_in.txt
   Genesis muestra un instante más el anterior (el respaldo). Regresión: 0 distintos.
 - Visto de paso (ya pasaba antes): en la pelea con Draygon, en algunos cuadros la Genesis dibuja partes de Draygon a la
   izquierda de la pantalla donde el SNES no las muestra.
+
+## Los cadáveres que se pudren (2026-11-25)
+
+Tres salas: el Torizo muerto (DC65), los sidehoppers, zoomers, rippers y skrees muertos de la sala de la bebé (DCB1) y
+el cerebro de Mother Brain al morir (DD58).
+
+**La lógica (el decomp, sm_a9.c)**: `corpse.c` tiene las funciones que preparan y mueven los píxeles en la RAM del SNES
+(`*_CorpseRottingInitFunc`, `…MoveFunc`, `…CopyFunc`, el montón de arena del Torizo), generadas desde el decomp; van en
+la ROM común con `-Os` (desenrolladas no entraban en la página de los jefes). bosses.c: `DeadTorizo_Func_1` y
+`ProcessCorpseRottingVramTransfers` dicen qué tabla sube el SNES en el cuadro; las funciones marcan qué tramo de la RAM
+cambiaron (`md_corpse_dirty`). Los datos: `kDeadTorizoTiles` ($B7:A800) y `kDeadMonsterTiles` ($B7:C000), mkdata.py.
+`host/check` compara `tilemap_stuff` en DC65 y DCB1: 0 diferencias con los cadáveres pudriéndose (y `sub_A9ECD0`, la
+instrucción del sidehopper que vive, ahora traducida: roots.txt).
+
+**La Genesis**: los sprites son de la Genesis (mkzobj.py), pero estos tiles cambian. `mkzobj.CORPSE` (por sala: claves,
+tablas de subida, peso de colores, claves con el mismo peso, imagen inicial): sus claves van pieza por pieza con tiles
+propios, y la tabla `ZebesObj.corpse` dice, por tile de la Genesis, de qué dirección de la RAM del SNES sale, con qué
+tabla y con qué colores. md_zebes.c (`md_corpse_upload`): cuando el SNES sube una tabla, la Genesis convierte los tiles
+marcados (4bpp planar del SNES -> Genesis, con los lugares de la línea) y el vblank los sube (`zebes_corpse_vblank`,
+después de la lista de sprites). Salas normales: búfer en la zona del jefe (48 tiles por cuadro, doble). Sala por
+cuadro (Mother Brain): la tabla va por entrada del juego común y tile en ella; búfer de 9 tiles en la RAM libre de la
+sala (`cinematic_text_tilemap` + 3648), colores de a uno; cuando la entrada toma un lugar se marca todo.
+- Colores: el Torizo (peso 16) y los de la bebé (peso 8, la bebé también) en la línea de los objetos; las paletas que
+  pone `Shitroid_Init` en la paleta destino van en `zpal.log` (sin ellas los cadáveres salían de un color).
+- El cerebro de Mother Brain: sus tiles iniciales salen de lo que copia su InitFunc ($B7:CE00 -> 7E:9000) y los que no
+  sube su tabla quedan vacíos (en el SNES están en cero): antes salía un bloque blanco.
+- `zdraw.log`: la bebé con su paleta 0400 y las nubes de polvo en DCB1 (faltaban: no se dibujaban); sin la 0200.
+
+Lado a lado: el Torizo se pudre igual cuadro a cuadro; en la sala de la bebé los cadáveres y la bebé se ven con sus
+colores y se pudren; Mother Brain igual salvo los últimos cuadros (un poco más de restos: 9 tiles por cuadro).
+Queda: el sidehopper que la bebé chupa sale verdoso (el SNES gris: sus colores se juntan con otros).

@@ -436,7 +436,7 @@ const MdRoom *zebes_use(void) {
   /* fondo de biblioteca (64x32 celdas en el plano B, como el BG2 del SNES): b_mode 1, el plano B se mueve con los
      registros del SNES (BG2HOFS = bg2_x_scroll + layer2_x_pos, door.c); p. ej. 9804, la sala del Bomb Torizo, con
      bg2_x_scroll = 256 */
-  zroom.b_mode = !zg->l2 && !zg->sky && zg->bg2 ? 1 : 0;
+  zroom.b_mode = !zg->l2 && !zg->sky && (zg->bg2 || zg->bg2z) ? 1 : 0;
   zroom.patch = 0; zroom.npatch = 0; zroom.wall = 0; zroom.door_sm = 0; zroom.flash_line = 0;
   memcpy(zsrc, base->src, 64);
   uint8 lp = md_cur_page;
@@ -667,6 +667,32 @@ void zebes_load_vram(uint16 ax, uint16 ay, uint16 bx, uint16 by) {
   } else if (zg->sky) {
     wx[1] = 0; wy[1] = ((int16)ay >> 3) - 1; drawn[1] = 1;
     draw_sky();
+  } else if (zg->bg2z) {
+    /* (comprimido: trozos de 16 filas en md_scratch, que después vuelve a ser meta_idx) */
+    const uint8 *d = zg->bg2z;
+    const uint16 *c = (const uint16 *)md_scratch;
+    for (uint16 q = 0; q < (zg->bg2h ? 4 : 2); q++) {
+      map_page(zg->page);
+      uint16 len = (uint16)(d[0] << 8 | d[1]);
+      if (md_snd_frames) md_snd_protect(0);
+      mz_unpack(d + 2, (uint8 *)md_scratch, 2048);
+      if (md_snd_frames) md_snd_protect(1);
+      d += 2 + len;
+      for (uint16 h = 0; h < (zg->bg2h ? 1 : 2); h++) {   /* (Kraid: 64x64; las demás, 64x32 dos veces) */
+        vdp_set_vram_write(MD_VRAM_PLANE_B + (h * 32 + q * 16) * 128);
+        for (uint16 i = 0; i < 64 * 16; i++) VDP_DATA = tile_fix_b(c[i]);
+      }
+    }
+    meta_build();
+    map_page(lp);
+    if (zbb && bb_ever) {                     /* (vuelta de la pausa) el cuerpo del jefe, desde tilemap_stuff */
+      uint16 n = enemy_bg2_tilemap_size >> 1;
+      if (n > BB_MAX) n = BB_MAX;
+      bb_convert(n, 0xFFFFFFFF);
+      if (zbb->cache) bc_vblank(BC_N);
+      bb_n = n & ~31; bb_rows = 0xFFFFFFFF;
+      bb_vblank();
+    }
   } else if (zg->bg2) {
     map_page(zg->page);
     for (uint16 h = 0; h < 2; h++) {
@@ -1192,6 +1218,15 @@ void zebes_vblank(void) {
     uint8 lp = md_cur_page;
     map_page(zg->page);
     for (uint16 k = 0; k < 8 && bgr_row < 64; k++, bgr_row++) {
+      if (zg->bg2z) {                            /* (comprimido) la fila del plano B, con la prioridad del mapa */
+        uint16 row[64], p = zg->bg2p == 1 ? 0x8000 : 0;
+        uint32 a = MD_VRAM_PLANE_B + (uint16)bgr_row * 128;
+        VDP_CTRL32 = (a & 0x3FFF) << 16 | a >> 14;   /* (lectura de la VRAM) */
+        for (uint16 i = 0; i < 64; i++) row[i] = (uint16)(((VDP_DATA & 0x7FFF) | p) & zpmask_b);
+        vdp_set_vram_write((uint16)a);
+        for (uint16 i = 0; i < 64; i++) VDP_DATA = row[i];
+        continue;
+      }
       const uint16 *c = zg->bg2 + (zg->bg2h ? (uint16)bgr_row * 64 : (uint16)(bgr_row & 31) * 64);
       vdp_set_vram_write(MD_VRAM_PLANE_B + (uint16)bgr_row * 128);
       for (uint16 i = 0; i < 64; i++) VDP_DATA = tile_fix_b(c[i]);
@@ -1380,9 +1415,9 @@ void zebes_plane_b_low(uint8 low) {
   uint16 m = low ? 0x7FFF : 0xFFFF;
   if (m == zpmask_b) return;
   zpmask_b = m;
-  if (!drawn[1] && !zg->bg2) return;
+  if (!drawn[1] && !zg->bg2 && !zg->bg2z) return;
   if (zg->l2 || zg->sky) full_redraw |= 2;
-  else if (zg->bg2 && !zbb) bgr_row = 0;
+  else if ((zg->bg2 || zg->bg2z) && !zbb) bgr_row = 0;
 }
 
 /* ---------------------------------------------------------------- enemigos congelados (docs/58) */
@@ -1397,16 +1432,23 @@ void zebes_plane_b_low(uint8 low) {
    nueva) */
 #define FRZ_PEND_OFF 3840
 #define FRZ_FB_OFF (FRZ_PEND_OFF + FRZ_NMAX)
-#define FRZ_FB_N 64                              /* respaldos: 32 enemigos x 2 piezas grandes */
-_Static_assert(FRZ_NMAX * 40 * 2 <= FRZ_PEND_OFF && FRZ_FB_OFF + 2 * FRZ_FB_N <= MD_BOSS_BYTES, "frz_rec: no entra en la zona del jefe");
+#define FRZ_FB_N 64                              /* respaldos: 32 enemigos x 2 piezas */
+#define FRZ_EPFB_N 18                            /* y uno por proyectil enemigo (después de los de los enemigos) */
+_Static_assert(FRZ_NMAX * 40 * 2 <= FRZ_PEND_OFF && FRZ_FB_OFF + 2 * (FRZ_FB_N + FRZ_EPFB_N) <= MD_BOSS_BYTES, "frz_rec: no entra en la zona del jefe");
 #define frz_rec md_boss_zone
 #define frz_pend ((uint8 *)md_boss_zone + FRZ_PEND_OFF)   /* 1: el lugar está en una cola (sus tiles por subir) */
 #define frz_fb ((uint16 *)((uint8 *)md_boss_zone + FRZ_FB_OFF))
 #define FRZ_VB_KEEP 12                           /* líneas del vblank que frz_vblank deja para lo que sigue */
-#define FRZ_FB_MIN 48                            /* tiles desde los que una clave tiene respaldo (frz_fb) */
-static uint8 frz_is_fb(uint16 id) {              /* (la última pasada no pisa los respaldos: la bebé no desaparece) */
+#ifndef FRZ_FB_MIN
+#define FRZ_FB_MIN 1                             /* tiles desde los que una clave tiene respaldo (frz_fb): todas (con 48,
+                                                    solo las grandes, en la pelea con Draygon faltaban las crías) */
+#endif
+#define FRZ_FB_KEEP 48                           /* tiles desde los que un respaldo no se pisa (las claves grandes) */
+static uint8 frz_is_fb(uint16 id) {              /* (la última pasada no pisa los respaldos grandes: la bebé no
+                                                    desaparece; los chicos se usan solo si siguen puestos) */
+  if (id >= 0xFFFE || kZebesFrz[4 * id + 2] < FRZ_FB_KEEP) return 0;   /* (con la página ZEBES_FRZ_PAGE puesta) */
   const uint16 *f = frz_fb;
-  for (uint16 i = 0; i < FRZ_FB_N; i++) if (f[i] == id) return 1;
+  for (uint16 i = 0; i < FRZ_FB_N + FRZ_EPFB_N; i++) if (f[i] == id) return 1;
   return 0;
 }
 static void frz_reset(void) {
@@ -1415,7 +1457,7 @@ static void frz_reset(void) {
   frz_nq_l = 0;
   if (frz_stream) {
     memset(frz_pend, 0, FRZ_NMAX);
-    memset(frz_fb, 0xFF, 2 * FRZ_FB_N);
+    memset(frz_fb, 0xFF, 2 * (FRZ_FB_N + FRZ_EPFB_N));
   }
 }
 void zebes_frz_reset(void) { frz_reset(); }   /* md_engine.c: la caja de mensaje usó las filas del Window */
@@ -1575,17 +1617,38 @@ int16 zebes_ep_frozen(const uint16 *r) {   /* (-2: congelado en una sala sin dep
   if (!frz_stream) return -2;
   return (int16)((uint16)(r - zo->recs) - FROZEN_REF);
 }
+uint16 ep_cur_idx;                                /* el proyectil que se dibuja (md_engine.c: índice x 2) */
 static __attribute__((noinline)) void zebes_ep_draw_slow(uint16 n, int16 x, int16 y) {
   uint8 lp = md_cur_page;
   map_page(ZEBES_FRZ_PAGE);
   uint16 t = frz_get(n);
-  if (t) put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t);
+#ifdef MD_NO_EPFB
+  uint16 *fb = 0;
+#else
+  uint16 *fb = frz_stream && ep_cur_idx < 2 * FRZ_EPFB_N ? &frz_fb[FRZ_FB_N + (ep_cur_idx >> 1)] : 0;
+#endif
+  if (t) {
+    put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, t);
+    if (fb) *fb = n;
+  } else {
+    /* (sus tiles se están subiendo: la última clave que este proyectil dibujó, si sigue puesta) */
+    uint16 m = fb ? *fb : 0xFFFF;
+    uint8 c = m < 0xFFFE ? frz_hc[m & 127] : 0xFF;
+    if (m < 0xFFFE && m != n && c < frz_ns && frz_id[c] == m && !frz_pend[c]) {
+      frz_last[c] = frz_lf;
+      put_recs_t(kZebesFrzRecs + kZebesFrz[4 * m + 3], x, y, frz_t0 + (c << 3));
+    }
+#ifdef MD_FRZ_MISS
+    else (*(volatile uint16 *)0xFFF562)++;        /* (prueba: dibujos de proyectiles que faltan) */
+#endif
+  }
   map_page(lp);
 }
 void zebes_ep_draw(uint16 n, int16 x, int16 y) {   /* (lo común, corto: el lugar ya puesto) */
   uint8 c = frz_hc[n & 127];
   if (c < frz_ns && frz_id[c] == n && !frz_pend[c]) {
     frz_last[c] = frz_lf;
+    if (ep_cur_idx < 2 * FRZ_EPFB_N) frz_fb[FRZ_FB_N + (ep_cur_idx >> 1)] = n;
     uint8 lp = md_cur_page;
     map_page(ZEBES_FRZ_PAGE);
     put_recs_t(kZebesFrzRecs + kZebesFrz[4 * n + 3], x, y, frz_t0 + (c << 3));   /* (por cuadro: lugares de 8) */
@@ -1637,6 +1700,9 @@ static __attribute__((noinline, noclone, used)) uint8 zebes_obj_draw_slow(uint16
           ok = 1;
         }
       }
+#ifdef MD_FRZ_MISS
+      if (frz_stream && !ok) (*(volatile uint16 *)0xFFF560)++;   /* (prueba: dibujos de enemigos que faltan) */
+#endif
     }
   } else {
     map_page(zo->page);

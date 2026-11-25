@@ -388,12 +388,10 @@ void zebes_obj_colors_add(int16 ar, int16 ag, int16 ab, uint16 *out);
 /* tablas por canal (5 bits -> el canal de la Genesis, como tint_tables): cada color, tres lecturas */
 #define lq_tab ((uint8 *)cinematic_text_tilemap + 3648)       /* 2 x 96: el cuerpo y la superficie */
 void zebes_obj_colors_tab(const uint8 *t, uint16 *out);
-static void lq_tables(int16 ar, int16 ag, int16 ab, uint8 *t) {
-  for (int16 v = 0; v < 32; v++) {
-    int16 r = v + ar, g = v + ag, b = v + ab;
-    r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
-    t[v] = (uint8)kCram555[r]; t[32 + v] = (uint8)(kCram555[g << 5] >> 4); t[64 + v] = (uint8)(kCram555[b << 10] >> 8);
-  }
+static inline int16 lq_clip(int16 a) { return a < -128 ? -128 : a > 96 ? 96 : a; }
+static void lq_tables(int16 ar, int16 ag, int16 ab, uint8 *t) {   /* (kLqExt: cada canal ya recortado, mkmd.py) */
+  const uint8 *r = kLqExt + 128 + lq_clip(ar), *g = kLqExt + 384 + lq_clip(ag), *b = kLqExt + 640 + lq_clip(ab);
+  for (uint16 v = 0; v < 32; v++) { t[v] = r[v]; t[32 + v] = g[v]; t[64 + v] = b[v]; }
 }
 static void lq_palette(const uint8 *t, uint16 *out) {   /* las 64: con el color sumado (tabla t) */
   const uint8 *pbb = (const uint8 *)palette_buffer;
@@ -1348,6 +1346,8 @@ uint32 ep_lookup(uint16 v2, uint16 sm, uint16 g, int16 x, int16 y) {
   /* clave por cuadro (Kraid: las rocas): ep_cache la recuerda con el bit 31 (número de la entrada); se dibuja aquí,
      desde la página del depósito, con el lugar sumado (md_zebes.c, zebes_ep_draw), sin copiar sus registros */
   extern void zebes_ep_draw(uint16 n, int16 x, int16 y);
+  extern uint16 ep_cur_idx;
+  ep_cur_idx = v2;
   if (ep_zebes && ((uint32)c->rec & 0x80000000u) && c->sm == sm && c->g == g) {
     zebes_ep_draw((uint16)(uint32)c->rec, x, y);
     return (uint32)kNoRecs;
@@ -1653,6 +1653,7 @@ __asm__(
   "    moveq #0,%d1\n"
   "    move.w %d7,%d1\n"
   "    move.l %d1,-(%sp)\n"
+  "    move.w %d5,ep_cur_idx\n"                /* (el proyectil: su respaldo, md_zebes.c) */
   "    jsr zebes_ep_draw\n"
   "    lea 12(%sp),%sp\n"
   "    bra 9b\n"

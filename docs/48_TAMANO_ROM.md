@@ -149,6 +149,19 @@ el primer cuadro después de cargar es siempre negro (dentro del negro de la tra
 Validación: regresión 0 distintos (intro, Ceres, Zebes: la imagen es la misma) y la VRAM de la sala igual antes y
 después de la pausa.
 
+## Hecho: fondos de biblioteca comprimidos (2026-11-25, punto 9)
+
+Los mapas del BG2 de las salas (fondos de biblioteca, 64x32 celdas o 64x64 en Kraid) se suben enteros a la VRAM al
+cargar la sala: ahora van comprimidos (`mkzebes.py`: trozos MZ de 16 filas, 2 KB, en `ZebesGfx.bg2z`, cada uno con su
+largo antes) y `zebes_load_vram` los descomprime en `md_scratch` (después rehace `meta_idx`: `meta_build`). Los cielos
+de la superficie (`sky`) se leen por fila al jugar: quedan sin comprimir. Con los rayos X el plano B se reescribe con
+otra prioridad: antes se leía el mapa de la ROM; ahora se lee la fila del plano B de la VRAM y se le pone la prioridad
+del mapa (`bg2p`: todas sus celdas tienen la misma, salvo Kraid, que no pasa por ahí).
+Resultado: 167 mapas, 672 KB -> 56 KB (MZ; zlib daba 47). La página 21 queda vacía y sobran 122 KB en las usadas.
+Comprobación: el plano B después de entrar a las 255 salas del visor es igual con la ROM anterior en 247; en las otras
+8 (agua, lava, Crocomire) la diferencia es del momento de la captura (las dos ROM llegan a otro cuadro del juego):
+las capturas a la vista son iguales. Regresión: 0 distintos.
+
 ## Lo que sigue (en este orden)
 
 | Paso | Ganancia medida | Costo / riesgo |
@@ -156,8 +169,11 @@ después de la pausa.
 | Recortar las copias de bancos (`kBankXXB`, 782 KB) a lo que se lee | sin medir | todas las lecturas pasan por `A6W`/`BW_86`...: medir en `host/` con las grabaciones |
 | `make size`: parte fija libre y llenado de cada página | — | que falle antes de pasarse |
 
-No se puede comprimir lo que se lee al jugar (celdas, `l2`, claves, level data: ~5 MB): no hay RAM donde
-descomprimirlo (el SNES tiene 128 KB; la Genesis 64 KB, casi llenos).
+No se puede comprimir lo que se lee al jugar (celdas, `l2`, claves, registros de sprites, level data: ~5 MB): no hay
+RAM donde descomprimirlo (el SNES tiene 128 KB; la Genesis 64 KB, casi llenos: en 2026-11-25 quedan ~2,7 KB para la
+pila). Inventario de 2026-11-25 (KB en la ROM): registros de sprites de los objetos 1361, tiles comprimidos 1038, level
+data 906 + BTS 453, celdas 791, capa 2 propia 355, claves 356, depósito sin comprimir 227, operaciones de carga 253.
+De lo que solo se lee al cargar la sala quedan las operaciones (`kZG*_ops`, `kZO*_ops`: 253 KB): candidatas.
 
 ## Mega CD (decidido por Edwin)
 

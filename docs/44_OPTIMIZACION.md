@@ -53,3 +53,23 @@ GCC (13, m68k) junta dos lecturas de byte como `p[1] | p[2] << 8` en una lectura
 `Samus_AnimDelayFunc_9/12`, tabla de bytes $91:B010). `-mstrict-align` no lo evita; se compila con
 `-fdisable-tree-bswap` (`Makefile`). Costo medido: 58 → 61 cuadros perdidos en las 9 salas más pesadas.
 Para buscar casos: en el desensamblado, `move.w/move.l (aN)` seguido de `ror.w #8`.
+
+## Las 255 salas (2026-11-25, punto 9)
+
+`tools/perf/salas/todas.sh` (rutas del proyecto; antes `run.sh` con las de otra máquina): compila la ROM de prueba con
+`zebes_shoot`, entra a cada sala del visor y cuenta los cuadros perdidos en 300 cuadros disparando quieta y 300
+caminando a la izquierda (si cruza una puerta, la transición no cuenta). `perfil.sh índice` da el perfil por función;
+`linea.sh índice`, los perdidos cada 20 cuadros. El visor abría la pausa después de cambiar de sala (el START ya usado
+llegaba al soltarlo): arreglado (`viewer.c`).
+
+Línea base: **8256 cuadros perdidos** (3599 con Samus quieta) en las 255 salas; 184 pierden alguno; mediana 17 de 600.
+Las peores: DC65 (el Torizo muerto que se pudre: `md_corpse_upload` 37 %) 393, Crocomire A98D 293 (`DrawEnemyQueue`
+27 %), Mother Brain DD58 230, las de lava de Norfair (~180). En las pesadas la sobrecarga es pareja (15-35 % del
+cuadro, también quieta) y el perfil de las 40 peores está repartido: lo que más pesa es `EnemyMain` 5,7 %, `md_post`
+4,5 %, el líquido (`lq_prepare` + `md_hint_lq`) 6 %, `HdmaObjectHandler` 3,4 %, `game_frame` 3,3 %, `md_vblank` 3,3 %.
+Por archivo: md_engine 26 %, enemy_main 10 %, md_zebes 9 %, port_gen 7,5 %, samus_move 6 %; la espera ociosa ~1 %.
+
+Hecho en esta tanda: `lq_tables` copia los canales de tablas ya recortadas (`kLqExt`, mkmd.py) en vez de recortar y
+leer `kCram555` (la lava cambia de color casi en cada cuadro): unos 10 cuadros menos por sala de lava. Total 8199.
+Ideas medidas para seguir: `sfx_play` busca el efecto en una lista lineal (~900 ciclos por cuadro); el HUD compara su
+mapa entero cada cuadro; `md_hint_lq` escribe 64 colores a mitad de la imagen (el 68000 espera a la VDP).

@@ -741,9 +741,13 @@ veía el cuerpo a la izquierda (o en el medio) donde el SNES no lo muestra. `dra
 64x32 (x 256-511), vacía (el cuerpo está fijo en las columnas de la izquierda y se mueve con el scroll). Prueba:
 `tools/compare/draygon.sh` (con `SNES_HASTA=29600 GEN_N=6000` llega a la pelea).
 
-Queda (no es de este punto): en la pelea el motor va atrasado y las crías y otros objetos por cuadro (salas
-`STREAM_ROOMS`) no se dibujan en el cuadro en que sus tiles todavía no se subieron (`frz_pend`): en algunos cuadros
-faltan (README punto 9). La puerta de la izquierda sale de otro color que en el SNES (verde azulada contra cobriza).
+En la pelea el motor va atrasado y los objetos por cuadro (salas `STREAM_ROOMS`) no se dibujan en el cuadro en que
+sus tiles todavía no se subieron (`frz_pend`). Desde 2026-11-25 (punto 9) cada enemigo (2 piezas) y cada proyectil
+enemigo recuerdan la última clave que dibujaron entera (`frz_fb`; antes solo las piezas de 48 tiles o más) y la dibujan
+mientras se sube la nueva, si sigue en la VRAM; solo las grandes se protegen de que otra las pise (`frz_is_fb`: con
+todas protegidas, en la pelea con Mother Brain se subían más tiles y el motor iba un 1,5 % más lento). Dibujos que
+faltan en toda la pelea (`MD_FRZ_MISS`): Draygon 2730 -> 1189, Kraid grande 1523 -> 560, Mother Brain 3298 -> 1595, con
+el motor a la misma velocidad. Lo que queda es lo que se dibuja por primera vez. La puerta de la izquierda sale de otro color que en el SNES (verde azulada contra cobriza).
 
 ## Kraid: colores de los sprites y la uña (2026-11-25)
 

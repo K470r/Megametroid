@@ -1623,7 +1623,9 @@ def main():
          '   trozo 0x8000, tiles sin comprimir: (0x8000, n) y n veces (tile desde la base, cuántos, índice en kZebesPool) */',
          'typedef struct { uint8 page, npal; uint16 ntiles, nmeta, nops; const uint16 *ops; const uint16 *src;',
          '                 const uint16 *ids; const uint16 *cells; const uint16 *l2; const uint16 *bg2; uint8 sky, eye, bg2h;',
-         '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; uint32 skym; } ZebesGfx;',
+         '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; uint32 skym; const uint8 *bg2z; uint8 bg2p; } ZebesGfx;',
+         '/* bg2z: el fondo de biblioteca comprimido (en vez de bg2, salvo los cielos): trozos MZ de 16 filas de 64 celdas, cada',
+         '   uno con su largo antes (2 bytes); bg2p: la prioridad de sus celdas (0 o 1: todas iguales; 2: mezcla, Kraid) */',
          '/* skym: lugares de la CRAM (bit = línea * 16 + color) del cielo de la superficie: van con kCramFine (md_engine.c) */',
          'extern const uint8 kCramFine[32768];   /* por color BGR555: ajuste de cada canal (cram_fine_table, mkzebes.py) */',
          '/* anim: tiles animados, nanim x (origen en $87, VRAM del SNES, desplazamiento en anim_data, cantidad) ordenados;',
@@ -1898,10 +1900,29 @@ def main():
     nchunks = (len(pool) + POOL_CHUNK - 1) // POOL_CHUNK
     print(f"zebes: tiles {sum(len(e['tiles']) for e in entries + obj_list) // 32} -> depósito sin comprimir {len(pool)} "
           f"({nchunks} trozos), operaciones {sum(len(e['ops']) for e in entries + obj_list) * 2 // 1024} KB", file=sys.stderr)
+    # mapas del fondo de biblioteca (BG2) comprimidos (docs/48): se suben enteros a la VRAM al cargar la sala (trozos MZ
+    # de 16 filas, 2 KB, en md_scratch); los rayos X releen el plano B, con la prioridad de todo el mapa (bg2p). Los
+    # cielos se leen al jugar (por fila): quedan sin comprimir
+    zb = [(i, e) for i, e in enumerate(entries) if e["bg2"] and not e["sky"]]
+    zb_raw = [struct.pack('>1024H', *e["bg2"][q * 1024:(q + 1) * 1024]) for _, e in zb for q in range(len(e["bg2"]) // 1024)]
+    zb_mz = mz.pack_many(zb_raw)
+    k = 0
+    for i, e in zb:
+        nq = len(e["bg2"]) // 1024
+        assert len(e["bg2"]) % 1024 == 0
+        e["bg2z"] = b"".join(struct.pack('>H', len(c)) + c for c in zb_mz[k:k + nq])
+        k += nq
+        hi = sum(1 for x in e["bg2"] if x & 0x8000)
+        e["bg2p"] = 1 if hi == len(e["bg2"]) else 0 if hi == 0 else 2   # (2: mezcla, solo Kraid: sin rayos X en el BG2)
+        e["bg2h"] = 1 if len(e["bg2"]) == 4096 else 0
+    print(f"zebes: fondos de biblioteca {len(zb)}: {sum(len(c) for c in zb_raw) // 1024} KB -> "
+          f"{sum(len(e['bg2z']) for _, e in zb) // 1024} KB", file=sys.stderr)
+    for _, e in zb:
+        e["bg2"] = None
     # los más grandes primero (primer hueco decreciente): las páginas quedan más llenas
     g_need = [2 * len(e["ops"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
               sum(8 + 34 * len(v) for v in e["anims"].values()) +
-              2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) for e in entries]
+              2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) + len(e.get("bg2z") or b"") for e in entries]
     def vcp_words(d):
         if not d.get("patches"):
             return []
@@ -1997,6 +2018,9 @@ def main():
         if e["bg2"]:
             C.append(f'NT_BANK({page}) static const uint16 kZG{i}_bg2[{len(e["bg2"])}] = {{' +
                      ','.join('0x%X' % x for x in e["bg2"]) + '};')
+        if e.get("bg2z"):
+            C.append(f'NT_BANK({page}) static const uint8 kZG{i}_bg2z[{len(e["bg2z"])}] = {{' +
+                     ','.join(str(x) for x in e["bg2z"]) + '};')
     # cuerpos de los jefes en el BG2 (docs/59): tablas en la página de los jefes (la ventana 7 la muestra en sus salas)
     bosses = [(i, e["boss"]) for i, e in enumerate(entries) if e.get("boss")]
     for i, (slot_of, tab, ht, cache) in bosses:
@@ -2086,8 +2110,9 @@ def main():
     for i, e in enumerate(entries):
         C.append(f'  {{ {pages[i]}, {e["npal"]}, {e["ntiles"]}, {len(e["ids"])}, {len(e["ops"])}, kZG{i}_ops, kZG{i}_src, '
                  f'kZG{i}_ids, kZG{i}_cells, {"kZG%d_l2" % i if e["l2"] else "0"}, '
-                 f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {1 if e["bg2"] and len(e["bg2"]) == 4096 else 0}, {len(e["anims"])}, '
-                 f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"}, 0x{e.get("skym", 0):X}u }},  /* sala {e["key"][3]:04X} */')
+                 f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {e.get("bg2h", 1 if e["bg2"] and len(e["bg2"]) == 4096 else 0)}, {len(e["anims"])}, '
+                 f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"}, 0x{e.get("skym", 0):X}u, '
+                 f'{"kZG%d_bg2z" % i if e.get("bg2z") else "0"}, {e.get("bg2p", 0)} }},  /* sala {e["key"][3]:04X} */')
     C.append('};')
     sts = sorted((k[1], v, obj_of[id(objs[k[1]])] if k[1] in objs else 0xFFFF) for k, v in gfx_keys.items() if k[0] == "st")
     H.append(f'extern const ZebesState kZebesStates[{len(sts)}];  /* ordenados por estado (búsqueda binaria) */')

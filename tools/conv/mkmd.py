@@ -499,6 +499,15 @@ def main():
     lut[0x4408] = gen_to_cram((2, 0, 4))
     binfile("kCram555", struct.pack(">32768H", *lut))
     Hh.append("extern const uint16 kCram555[32768];   /* color BGR555 del SNES -> CRAM (nivel del DAC más cercano) */")
+    # cada canal recortado (líquido, md_engine.c lq_tables): kLqExt[canal][v + 128] = el canal de la CRAM de v
+    # recortado a 0..31, ya en su lugar de 4 bits (r: kCram555[r] & 0xFF, g: kCram555[g << 5] >> 4, b: kCram555[b << 10] >> 8)
+    lqx = []
+    for ch in range(3):
+        for i in range(256):
+            v = min(31, max(0, i - 128))
+            lqx.append((lut[v] & 0xFF) if ch == 0 else ((lut[v << 5] >> 4) & 0xFF) if ch == 1 else ((lut[v << 10] >> 8) & 0xFF))
+    carray("uint8", "kLqExt", lqx, 32, "%d")
+    Hh.append("extern const uint8 kLqExt[768];   /* por canal (r, g, b) x 256: el canal de la CRAM de v - 128 recortado a 0..31 */")
 
     # haze de Ceres (color math del SNES: azul sumado por banda de líneas): azul de 5 bits + nivel -> azul de la Genesis
     from convert_rooms import quant_channel

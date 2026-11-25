@@ -58,6 +58,56 @@ class IdxCol(tuple):
         return hash((tuple(self), self.k))
 
 
+FINE_WPAR, FINE_WPERP = 0.3, 1.0
+
+
+def cram_fine_table():
+    """kCramFine (md_engine.c, fine_fix): para el cielo de la superficie, por cada color BGR555 del SNES, cuánto
+    sube o baja cada canal (un nivel del DAC) respecto del más cercano (kCram555). Se elige el color de la Genesis con
+    el brillo más parecido (OKLab L) sin salirse del matiz: el croma puede crecer o achicarse en su dirección (peso
+    FINE_WPAR) pero no torcerse (FINE_WPERP). Los grises del cielo con lluvia, que en el SNES van de 8 en 8, caen casi
+    todos en el mismo gris de la Genesis (un nivel cada ~30): así salen grises, azulados y verdosos distintos.
+    Byte: (dr + 1) | (dg + 1) << 2 | (db + 1) << 4"""
+    from convert_rooms import _oklab, DAC_LEVELS as DL
+    lab = np.array([_oklab((DL[i], DL[j], DL[k])) for i in range(8) for j in range(8) for k in range(8)]).reshape(8, 8, 8, 3)
+    c = np.arange(32768)
+    r5, g5, b5 = c & 31, (c >> 5) & 31, (c >> 10) & 31
+    to8 = lambda v: (v << 3) | (v >> 2)
+    dl = np.array(DL)
+    near = lambda v: np.abs(dl[None, :] - to8(v)[:, None]).argmin(1)
+    nr, ng, nb = near(r5), near(g5), near(b5)
+    # OKLab de los colores del SNES
+    def lin(x):
+        x = x / 255.0
+        return np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
+    R, G, B = lin(to8(r5)), lin(to8(g5)), lin(to8(b5))
+    l_ = np.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B)
+    m_ = np.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B)
+    s_ = np.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B)
+    oL = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_
+    oa = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_
+    ob = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+    ca = np.hypot(oa, ob)
+    ok = ca > 0.004
+    ua = np.where(ok, oa / np.where(ok, ca, 1), 0)
+    ub = np.where(ok, ob / np.where(ok, ca, 1), 0)
+    best, bcost = np.zeros(32768, np.uint8), np.full(32768, np.inf)
+    for dr in (-1, 0, 1):
+        for dg in (-1, 0, 1):
+            for db in (-1, 0, 1):
+                tr, tg, tb = nr + dr, ng + dg, nb + db
+                valid = (tr >= 0) & (tr < 8) & (tg >= 0) & (tg < 8) & (tb >= 0) & (tb < 8)
+                e = lab[np.clip(tr, 0, 7), np.clip(tg, 0, 7), np.clip(tb, 0, 7)]
+                da, db_ = e[:, 1] - oa, e[:, 2] - ob
+                par = da * ua + db_ * ub
+                cost = (e[:, 0] - oL) ** 2 + FINE_WPAR * par ** 2 + FINE_WPERP * (da ** 2 + db_ ** 2 - par ** 2)
+                cost = np.where(valid, cost, np.inf)
+                better = cost < bcost - 1e-12
+                bcost = np.where(better, cost, bcost)
+                best = np.where(better, (dr + 1) | (dg + 1) << 2 | (db + 1) << 4, best).astype(np.uint8)
+    return bytes(best)
+
+
 def tdist(a, b):
     """distancia entre dos colores de la Genesis: con efectos de paleta (IdxCol de palfx_traj), el promedio en los
     PALFX_FRAMES cuadros (un índice negro al cargar que el cielo de la lluvia pone gris casi siempre no se junta con
@@ -624,7 +674,8 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             # (fx_traj, palfx_traj: los índices que cambian los efectos de paleta del estado van con su trayectoria:
             # comparten lugar solo con otro de igual color que cambie igual; en la huida de Tourian la alarma pone
             # rojos los de la paleta 3 y no los azules de la 0 que al cargar eran del mismo color)
-            gcol[k] = IdxCol(g, fxk[i_]) if i_ in fxk \
+            # (solo si en la Genesis cambia: un efecto que no sale del nivel del DAC del color de la carga no separa)
+            gcol[k] = IdxCol(g, fxk[i_]) if i_ in fxk and any(g_ != g for _, g_ in fxk[i_]) \
                 else LiveCol(g) if p in live else g
         return gcol[k]
     combos = {}
@@ -931,6 +982,13 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
             # orden: arriba-izq, abajo-izq, arriba-der, abajo-der (columnas)
             cells += [cell(grid[0][0]), cell(grid[1][0]), cell(grid[0][1]), cell(grid[1][1])]
     bg2c = [cell(e) for e in bg2[:nbg2]] if bg2 else None
+    bg2m = 0                                      # (lugares de la CRAM que usan las celdas del BG2: el cielo, fine_fix)
+    for e in (bg2[:nbg2] if bg2 else []):
+        g_ = gtile.get((e & 0x3FF, (e >> 10) & 7))
+        if g_ and g_[2] is not None:
+            for c in np.unique(px(e & 0x3FF)):
+                if c and g_[2][int(c)]:
+                    bg2m |= 1 << (g_[1] * 16 + int(g_[2][int(c)]))
     n_before_extra = len(tile_list)               # (nbg2: lo que sigue son los tiles que solo usa el cuerpo del jefe)
     if bg2 and nbg2 is not None:
         bg2c += [cell(e) for e in bg2[nbg2:]]
@@ -950,7 +1008,7 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
     # tiles propios (own: la pared de Kraid, que su código sube y borra): (tile de la Genesis, sus bytes)
     owns = sorted({gtile[k][0][0] for k in gtile if k[0] in own})
     return {"own": [(gi, tile_list[gi]) for gi in owns], "n_before_extra": n_before_extra, "anims": anims, "bg2": bg2c, "tiles": b"".join(tile_list), "ntiles": len(tile_list), "src": src, "npal": len(palettes),
-            "ids": blocks, "cells": cells, "level": level, "merges": len(merges), "boss_raw": braw, "boss_count": bcount}
+            "ids": blocks, "cells": cells, "bg2m": bg2m, "level": level, "merges": len(merges), "boss_raw": braw, "boss_count": bcount}
 
 
 def kraid_mouth_split(res, cells_b, words, mouth_f):
@@ -1444,6 +1502,7 @@ def main():
                 res["eye"] = 1 if eye else 0
                 res["l2"] = list(l2) if l2 else None
                 res["sky"] = 1 if sky_tab else 0
+                res["skym"] = res["bg2m"] if sky_tab else 0
                 gfx_keys[key] = len(entries)
                 res["key"] = key
                 entries.append(res)
@@ -1499,7 +1558,9 @@ def main():
          '   trozo 0x8000, tiles sin comprimir: (0x8000, n) y n veces (tile desde la base, cuántos, índice en kZebesPool) */',
          'typedef struct { uint8 page, npal; uint16 ntiles, nmeta, nops; const uint16 *ops; const uint16 *src;',
          '                 const uint16 *ids; const uint16 *cells; const uint16 *l2; const uint16 *bg2; uint8 sky, eye, bg2h;',
-         '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; } ZebesGfx;',
+         '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; uint32 skym; } ZebesGfx;',
+         '/* skym: lugares de la CRAM (bit = línea * 16 + color) del cielo de la superficie: van con kCramFine (md_engine.c) */',
+         'extern const uint8 kCramFine[32768];   /* por color BGR555: ajuste de cada canal (cram_fine_table, mkzebes.py) */',
          '/* anim: tiles animados, nanim x (origen en $87, VRAM del SNES, desplazamiento en anim_data, cantidad) ordenados;',
          '   anim_data: por tile (tile de la sala, 16 palabras del tile de la Genesis) */',
          '/* src: npal * 16 índices de palette_buffer; l2: capa 2 propia de la sala (bloques, como el nivel) o NULL;',
@@ -1952,13 +2013,15 @@ def main():
                 f'{{ {", ".join(map(str, cnt))} }}, kZW{i}_mcells }}')
     C.append(f'const ZebesWall kZebesWall[{max(1, len(walls))}] = {{' +
              (', '.join(wall_c(i, ow) for i, ow in walls) or '{ 0xFFFF, 0, 0, 0 }') + '};')
+    fine = cram_fine_table()
+    C.append('NT_BANK(7) const uint8 kCramFine[32768] = {' + ','.join(str(x) for x in fine) + '};')
     H.append(f'extern const ZebesGfx kZebesGfx[{len(entries)}];')
     C.append(f'const ZebesGfx kZebesGfx[{len(entries)}] = {{')
     for i, e in enumerate(entries):
         C.append(f'  {{ {pages[i]}, {e["npal"]}, {e["ntiles"]}, {len(e["ids"])}, {len(e["ops"])}, kZG{i}_ops, kZG{i}_src, '
                  f'kZG{i}_ids, kZG{i}_cells, {"kZG%d_l2" % i if e["l2"] else "0"}, '
                  f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {1 if e["bg2"] and len(e["bg2"]) == 4096 else 0}, {len(e["anims"])}, '
-                 f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"} }},  /* sala {e["key"][3]:04X} */')
+                 f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"}, 0x{e.get("skym", 0):X}u }},  /* sala {e["key"][3]:04X} */')
     C.append('};')
     sts = sorted((k[1], v, obj_of[id(objs[k[1]])] if k[1] in objs else 0xFFFF) for k, v in gfx_keys.items() if k[0] == "st")
     H.append(f'extern const ZebesState kZebesStates[{len(sts)}];  /* ordenados por estado (búsqueda binaria) */')

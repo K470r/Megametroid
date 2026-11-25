@@ -288,6 +288,37 @@ static void tint_tables(void) {
 static inline uint16 tint_cram(uint16 c) {
   return tint_lr[c & 31] | (uint16)tint_lg[(c >> 5) & 31] << 4 | (uint16)tint_lb[(c >> 10) & 31] << 8;
 }
+/* el cielo de la superficie (zg->skym, mkzebes.cram_fine_table): sus grises oscuros, que en el SNES van de 8 en 8,
+   caen casi todos en el mismo nivel del DAC; kCramFine (página 7) dice cuánto sube o baja cada canal respecto del
+   más cercano para que el brillo se parezca sin cambiar el matiz (grises, azulados, verdosos distintos). Después de
+   convertir la paleta se rehacen esos lugares (con el tinte: la bruma de la lluvia) */
+uint32 md_fine_mask;
+extern const uint8 kCramFine[32768];
+void map_page_ext(uint8 p);
+static void fine_fix(void) {
+  extern uint8 md_cur_page;
+  uint32 m = md_fine_mask;
+  if (!m || !md_zebes) return;
+  uint8 lp = md_cur_page;
+  map_page_ext(7);
+  const uint8 *pbb = (const uint8 *)palette_buffer;
+  for (uint16 s = 0; m; s++, m >>= 1) {
+    if (!(m & 1)) continue;
+    uint16 o = cram_off[s];
+    if (o >= 0xFFFE) continue;
+    uint16 c = *(const uint16 *)(pbb + o) & 0x7FFF;
+    if (tint_on) {
+      int16 r = (int16)(c & 31) + tint_r, g = (int16)((c >> 5) & 31) + tint_g, b = (int16)((c >> 10) & 31) + tint_b;
+      r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
+      c = (uint16)(r | g << 5 | b << 10);
+    }
+    uint8 d = kCramFine[c];
+    uint16 v = kCram555[c];
+    v = (uint16)(v + (((int16)(d & 3) - 1) << 1) + (((int16)((d >> 2) & 3) - 1) << 5) + (((int16)((d >> 4) & 3) - 1) << 9));
+    if (v != cram[s]) { cram[s] = v; cram_dirty = 1; }
+  }
+  map_page_ext(lp);
+}
 uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7FFF]; }   /* md_zebes.c */
 
 /* líquido de la capa 3 (lava, ácido: docs/59). En el SNES el BG3 va solo en la pantalla principal y la sala en la
@@ -3014,6 +3045,7 @@ void md_post(void) {
         c++;
       }
     }
+    fine_fix();
     if (palette_buffer[0] != hz_last_c) hz_bd_dirty = 1;   /* el degradado sale solo del color de fondo */
     rl_pal_dirty = 1;
   }

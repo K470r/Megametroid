@@ -293,12 +293,14 @@ NT_BOSS void SetGoldenTorizoPalette(uint16 a) {  // 0x848000
 #include "tables.h"
 #define DMS(n, k) ERAM(0x8800 + 2 * ((n) - 0x40) + (k))
 
+void md_corpse_dirty(uint16 snes_addr, uint16 bytes);   /* (md_zebes.c: un tramo de la RAM del SNES cambió) */
 NT_BOSS void MotherBrain_CorpseRottingInitFunc(void) {  // 0xA9E08B
   static const uint16 kSrc[6] = { 192, 704, 1216, 1728, 2240, 2752 }, kDst[6] = { 0, 0xE0, 0x1C0, 0x2A0, 0x380, 0x460 },
                       kLen[6] = { 0xC0, 0xC0, 0xC0, 0xC0, 0xE0, 0xE0 };
   for (int i = 0; i < 6; i++)
     for (uint16 o = 0; o < kLen[i]; o += 2)
       ERAM(0x9000 + kDst[i] + o) = kMbCorpseTiles[(kSrc[i] + o) >> 1];
+  md_corpse_dirty(0x9000, 0x540);
 }
 
 /* (los dos de Mother Brain: mueven de a palabras en 7E:9000; j = destino, k = origen, desplazamientos pares) */
@@ -307,6 +309,8 @@ NT_BOSS static void mbc_mv(uint16 dst, uint16 src, uint8 copy, uint8 clear) {
   if (clear) ERAM(src) = 0;
 }
 NT_BOSS static void mb_corpse_rows(uint16 j, uint16 k, uint8 move) {
+  md_corpse_dirty(0x9002 + j, 0xD2);              /* (la Genesis: lo que cambia, md_zebes.c) */
+  if (move) md_corpse_dirty(0x9000 + k, 0xD2);
   uint16 a = DMS(0x41, 0);
   uint8 live = sign16(a - 46);
   if (a >= 0x10) { mbc_mv(0x9002 + j, 0x9000 + k, live, move); mbc_mv(0x9012 + j, 0x9010 + k, live, move); }

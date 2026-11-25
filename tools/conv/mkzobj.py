@@ -769,6 +769,9 @@ CORPSE = {
                  ("EDA9", ("0E00",)), ("EDB5", ("0E00",)), ("EDCB", ("0E00",)), ("EDE1", ("0E00",))) for pal in pals},
              tuple(0xA90000 | t for t in (0xE0E0, 0xE10A, 0xE134, 0xE146, 0xE158, 0xE16A, 0xE17C, 0xE18E, 0xE1B0, 0xE1D2)), 8,
              (("A9", "F9A8"), ("A9", "FA40"), ("A9", "FAD8"))),            # (la bebé pesa como ellos: si no, su rojo se perdía)
+    # Mother Brain: el cerebro muerto (MotherBrain_Phase3_Death_13: la tabla $A9:E1F4, sus tiles en 7E:9000). Su sala va
+    # por cuadro (STREAM_ROOMS): la tabla va por entrada del juego común y tile dentro de ella (stream_entries)
+    0xDD58: ({("e", "A9", "AD6D", "0E00", "0000")}, (0xA9E1F4,), 1, ()),
 }
 SNES_OBJ_BASE = 0x6000     # palabra de la VRAM del tile 0 de los sprites en las salas de Zebes (OBSEL)
 
@@ -1000,7 +1003,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             cluts.append(lut)
         for i, t_ in enumerate(subtiles(at & 0x1FF, 2 if big else 1)):
             if t_ in cram:
-                cmap.append((tile + i, cram[t_][0], cram[t_][1], cluts.index(lut)))
+                cmap.append((tile + i, cram[t_][0], cram[t_][1], cluts.index(lut), k))
         prio = 1 if ((at >> 12) & 3) == 3 else 0
         attr = (prio << 15) | (piece_line(pc) << 13) | (((at >> 15) & 1) << 12) | (((at >> 14) & 1) << 11) | tile
         dx = x & 0x1FF
@@ -1047,7 +1050,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
               f"las demás en la {OBJ_LINE} ({len(alive)} colores, {merged} fusiones)", file=sys.stderr)
     return dict(base=base, tiles=tiles, src=src, keys=sorted(index), recs=[v & 0xFFFF for v in recs_all],
                 merged=merged + merged1, ncolors=len(counts) + sum(len(c) for c in bcounts.values()), nspr=nspr,
-                boss_line=bool(boss), line1_of={i: slot1[r] for i, r in rep1.items()}, corpse=(sorted(cmap, key=lambda e: (e[1], e[0])), cluts) if cmap else None,
+                boss_line=bool(boss), line1_of={i: slot1[r] for i, r in rep1.items()}, corpse=(sorted(cmap, key=lambda e: (e[1], e[0])), cluts, corpse[0]) if cmap else None,
                 patches=[(src, dst, sorted(pt.items())) for (src, size, dst), pt in zip(vops, patches) if pt])
 
 
@@ -1121,6 +1124,8 @@ def stream_entries(d, common, vbase):
     base, tiles = 0, d["tiles"]
     recs = list(d["recs"])
     keys, res_tiles, res_idx = [], [], {}
+    cent = {}                                             # (cadáver) clave -> (entrada del juego común, tile -> índice)
+    czk = {tuple(zkey(k)) for k in d["corpse"][2]} if d.get("corpse") else set()
     for key in d["keys"]:
         off = key[-1]
         if off >= FROZEN_REF:
@@ -1140,14 +1145,20 @@ def stream_entries(d, common, vbase):
             continue
         n = recs[off]
         out, tidx, ent_tiles = [], {}, []
+        dyn = bool(d.get("corpse")) and tuple(key[:-1]) in czk      # (un cadáver: sus bloques sin compartir)
+        rel = {}
         for i in range(n):
             y, sl, attr, x = recs[off + 5 + 4 * i: off + 9 + 4 * i]
             w, h = ((sl >> 10) & 3) + 1, ((sl >> 8) & 3) + 1
             t0 = (attr & 0x7FF) - base
             blk = tuple(tiles[(t0 + j) * 32:(t0 + j + 1) * 32] for j in range(w * h))
+            if dyn:
+                blk = (i,) + blk
             if blk not in tidx:
-                tidx[blk] = len(ent_tiles)
-                ent_tiles += blk
+                tidx[blk] = len(ent_tiles) if not dyn else len(ent_tiles)
+                for j in range(w * h):
+                    rel[t0 + j] = len(ent_tiles) + j
+                ent_tiles += blk[1:] if dyn else blk
             out.append((y, sl, (attr & 0xF800) | tidx[blk], x))
         words = recs[off:off + 5] + [v for r in out for v in r]
         content = (b"".join(ent_tiles), tuple(words))
@@ -1155,7 +1166,17 @@ def stream_entries(d, common, vbase):
             common["index"][content] = len(common["list"])
             common["list"].append((content[0], list(words)))
         keys.append(tuple(key[:-1]) + (FROZEN_REF | common["index"][content],))
+        if dyn:
+            cent[tuple(key[:-1])] = (common["index"][content], rel)
     d = dict(d)
+    if d.get("corpse"):                                   # (por cuadro: (entrada, tile en ella, RAM, tabla, lut))
+        cm, cl, _k = d["corpse"]
+        out_c = []
+        for (t, ram, tab, lut, kk) in cm:
+            for ck_, (nn, rl) in cent.items():
+                if t in rl:
+                    out_c.append((nn, rl[t], ram, tab, lut))
+        d["corpse"] = (sorted(out_c, key=lambda e: (e[2], e[0], e[1])), cl, "stream")
     d["keys"] = sorted(keys)
     d["recs"] = recs
     d["tiles"] = b"".join(res_tiles)

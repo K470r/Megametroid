@@ -1511,6 +1511,7 @@ static uint16 frz_get(uint16 n) {
       /* (por cuadro: no se dibuja hasta que el vblank suba sus tiles, frz_vblank; si el lugar ya estaba en una cola,
          se sube con la clave que tenga entonces) */
       if (!frz_pend[i]) { frz_pend[i] = 1; if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i; }
+      { void cp_all_dirty_(uint16 n); cp_all_dirty_(n); }
       return 0;
     }
     if (frz_nq_l < frz_ns) frz_q_l[frz_nq_l++] = (uint8)i;
@@ -1879,6 +1880,16 @@ static const uint32 kCpSpread[256] = {
 };
 static uint8 cp_dirty[24];                       /* 7E:2000-2FFF: tiles 0-127; 7E:9000-97FF: 128-191 */
 static uint8 cp_half, cp_nl, cp_nv, cp_vhalf, cp_on;
+/* salas por cuadro (Mother Brain): la zona del jefe es del depósito; el búfer va en la RAM libre de la sala
+   (cinematic_text_tilemap + 3648..3919: después de lq_next, antes de lq_steps), 4 tiles por cuadro, y los colores
+   se cambian de a uno (sin tablas de pares). Las entradas dicen (entrada del juego común, tile en ella) */
+static uint8 cp_stream, cp_maxt;
+static uint16 cp_key;                            /* (por cuadro) la entrada del cadáver */
+#define CP_SBUF ((uint8 *)cinematic_text_tilemap + 3648)
+#define CP_SMAXT 4
+static uint8 *cp_buf(uint8 h) {
+  return cp_stream ? CP_SBUF + h * (CP_SMAXT * 34) : (uint8 *)md_boss_zone + h * CP_HALF;
+}
 static int16 cp_idx(uint16 a) {
   if (a >= 0x2000 && a < 0x3000) return (int16)((a - 0x2000) >> 5);
   if (a >= 0x9000 && a < 0x9800) return (int16)(128 + ((a - 0x9000) >> 5));
@@ -1886,10 +1897,13 @@ static int16 cp_idx(uint16 a) {
 }
 void cp_room_(void);
 static void cp_room(void) {                      /* (al cambiar de sala: los colores en pares) */
-  cp_on = 0; cp_nl = cp_nv = 0;
+  cp_on = 0; cp_nl = cp_nv = 0; cp_stream = 0; cp_maxt = CP_MAXT;
   memset(cp_dirty, 0, sizeof cp_dirty);
   if (!zo || !zo->corpse) return;
   const uint16 *c = zo->corpse;
+  cp_stream = (c[0] & 0x8000) != 0;
+  cp_maxt = cp_stream ? CP_SMAXT : CP_MAXT;
+  if (cp_stream) { cp_key = c[2 + 16 * c[1]]; cp_on = 1; return; }
   uint16 nl = c[1] < CP_NLUT ? c[1] : CP_NLUT;
   for (uint16 l = 0; l < nl; l++) {
     const uint16 *lut = c + 2 + 16 * l;
@@ -1912,29 +1926,53 @@ static void cp_conv(uint8 *d, const uint16 *w, const uint8 *pl) {   /* un tile: 
     d += 4;
   }
 }
+static void cp_conv_n(uint8 *d, const uint16 *w, const uint16 *lut) {   /* (por cuadro) colores de a uno */
+  for (uint16 r = 0; r < 8; r++) {
+    uint16 a = w[r], b = w[8 + r];
+    uint32 v = kCpSpread[a & 0xFF] | kCpSpread[a >> 8] << 1 | kCpSpread[b & 0xFF] << 2 | kCpSpread[b >> 8] << 3;
+    for (uint16 k = 0; k < 4; k++, v <<= 8)
+      *d++ = (uint8)(lut[(v >> 28) & 15] << 4 | lut[(v >> 24) & 15]);
+  }
+}
 void md_corpse_upload(uint16 table) {
   if (!cp_on) return;
   const uint16 *c = zo->corpse;
-  uint16 n = c[0];
+  uint16 n = c[0] & 0x7FFF, es = cp_stream ? 5 : 4;
   const uint16 *e = c + 2 + 16 * c[1];
-  uint8 *buf = (uint8 *)md_boss_zone + cp_half * CP_HALF;
-  uint16 *tl = (uint16 *)(buf + CP_MAXT * 32);
+  uint8 *buf = cp_buf(cp_half);
+  uint16 *tl = (uint16 *)(buf + cp_maxt * 32);
+  uint16 slot_t = 0;
+  if (cp_stream) {                               /* (por cuadro: el lugar de la entrada, si está y ya se subió) */
+    uint8 sc = frz_hc[cp_key & 127];
+    if (!(sc < frz_ns && frz_id[sc] == cp_key && !frz_pend[sc])) return;   /* (al ponerla se marca todo: frz_get) */
+    slot_t = frz_t0 + (sc << 3);
+  }
   int16 cur = -1;
-  for (uint16 k = 0; k < n; k++, e += 4) {
-    if (e[2] != table) continue;
-    int16 i = cp_idx(e[1]);
+  for (uint16 k = 0; k < n; k++, e += es) {
+    uint16 ram = e[es - 3], tab = e[es - 2], l = e[es - 1];
+    if (tab != table) continue;
+    int16 i = cp_idx(ram);
     if (i < 0) continue;
     if (i != cur) {                              /* (las entradas del mismo tile del SNES van seguidas: mkzobj) */
       if (!(cp_dirty[i >> 3] & (1 << (i & 7)))) { cur = -2; continue; }
-      if (cp_nl + 4 > CP_MAXT) break;           /* (el resto, la próxima vez que se suba esta tabla) */
+      if (cp_nl + (cp_stream ? 1 : 4) > cp_maxt) break;   /* (el resto, la próxima vez que se suba esta tabla) */
       cp_dirty[i >> 3] &= (uint8)~(1 << (i & 7));
       cur = i;
     } else if (cur == -2) continue;
-    const uint16 *w = e[1] < 0x3000 ? &tilemap_stuff[(e[1] - 0x2000) >> 1] : ERAM_ARR(e[1]);
-    uint16 l = e[3] < CP_NLUT ? e[3] : 0;
-    cp_conv(buf + 32 * cp_nl, w, (const uint8 *)md_boss_zone + CP_LUT_OFF + 256 * l);
-    tl[cp_nl++] = e[0];
+    if (cp_nl >= cp_maxt) break;
+    const uint16 *w = ram < 0x3000 ? &tilemap_stuff[(ram - 0x2000) >> 1] : ERAM_ARR(ram);
+    if (cp_stream) {
+      cp_conv_n(buf + 32 * cp_nl, w, c + 2 + 16 * (l < c[1] ? l : 0));
+      tl[cp_nl++] = slot_t + e[1];
+    } else {
+      if (l >= CP_NLUT) l = 0;
+      cp_conv(buf + 32 * cp_nl, w, (const uint8 *)md_boss_zone + CP_LUT_OFF + 256 * l);
+      tl[cp_nl++] = e[0];
+    }
   }
+}
+void cp_all_dirty_(uint16 n) {                    /* (frz_get: la entrada del cadáver tomó un lugar: todo de nuevo) */
+  if (cp_on && cp_stream && n == cp_key) memset(cp_dirty, 0xFF, sizeof cp_dirty);
 }
 void cp_room_(void) { cp_room(); }
 void cp_take_(void);
@@ -1944,8 +1982,8 @@ static void cp_take(void) {                      /* (zebes_take) lo del cuadro p
 void cp_take_(void) { cp_take(); }
 void zebes_corpse_vblank(void) {                 /* (md_vblank) */
   if (!cp_nv) return;
-  const uint8 *buf = (const uint8 *)md_boss_zone + cp_vhalf * CP_HALF;
-  const uint16 *tl = (const uint16 *)(buf + CP_MAXT * 32);
+  const uint8 *buf = cp_buf(cp_vhalf);
+  const uint16 *tl = (const uint16 *)(buf + cp_maxt * 32);
   for (uint16 i = 0; i < cp_nv; ) {
     uint16 j = i + 1;
     while (j < cp_nv && tl[j] == tl[i] + (j - i)) j++;

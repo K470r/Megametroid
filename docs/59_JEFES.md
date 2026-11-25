@@ -731,6 +731,41 @@ Samus varias veces).
   `mkzobj.init_palettes` tomaba siempre 16: ahora lee la cuenta del bucle. Salen verdosas (sus grises se juntan con los
   verdes de Draygon: 52 colores en 15 lugares); a Edwin le gustaron así.
 
+### Draygon: el cuerpo donde el SNES no lo muestra (2026-11-25)
+
+El agua de Draygon (`sub_88DF34`: un objeto de HDMA con `HdmaobjPreInstr_DF94`, $88:DF94) escribe TM por línea: según
+dónde esté Draygon respecto de la cámara elige una tabla ($88:E007, E00C, E013 o E01A) que apaga el BG2 (su cuerpo) en
+parte de la pantalla, o en toda si está afuera (E01A). La Genesis dibujaba siempre el plano B y en algunos cuadros se
+veía el cuerpo a la izquierda (o en el medio) donde el SNES no lo muestra. `draygon_bg2` (md_engine.c, junto a
+`phantoon_wave`) arma el scroll por línea: en las líneas sin BG2 el plano B muestra la mitad derecha de su mapa de
+64x32 (x 256-511), vacía (el cuerpo está fijo en las columnas de la izquierda y se mueve con el scroll). Prueba:
+`tools/compare/draygon.sh` (con `SNES_HASTA=29600 GEN_N=6000` llega a la pelea).
+
+Queda (no es de este punto): en la pelea el motor va atrasado y las crías y otros objetos por cuadro (salas
+`STREAM_ROOMS`) no se dibujan en el cuadro en que sus tiles todavía no se subieron (`frz_pend`): en algunos cuadros
+faltan (README punto 9). La puerta de la izquierda sale de otro color que en el SNES (verde azulada contra cobriza).
+
+## Kraid: colores de los sprites y la uña (2026-11-25)
+
+- **La paleta de inicio de Kraid**: `mkzobj.init_palettes` lee del decomp las paletas que pone el `Init` de cada
+  enemigo y tomaba la cuenta de colores del último `for` de la función, aunque fuera de otra parte: en `Kraid_Init`
+  (un `do ... while ((int16)(v14 - 32) < 0)` de 16 colores) tomaba un bucle de 2046 y copiaba 1024 palabras desde
+  176: de la 192 en adelante, bytes del código de la ROM, que pisaban las paletas 4-7 de los sprites. Los misiles, el
+  polvo y las explosiones salían rosados, grises y verdes, y las rocas blancas. Ahora solo el bucle de justo antes
+  (120 caracteres) o el `while` de justo después; si no, 16. Solo cambian los dos estados de la sala de Kraid.
+- **Las piezas de Kraid con la línea de su cuerpo** (`mkzobj.ROOM_SPR_LINE`, `mkzebes.ROOM_SPR_PAL`): la paleta 7 de
+  sus sprites (240-255) es siempre igual a la 7 del BG (112-127; `Kraid_HealthBasedPaletteHandling` escribe las dos, y
+  el destello también): sus piezas (banco $A7, paleta 7: brazo, pies, uñas) van con la línea de la sala que tiene el
+  cuerpo, con el lugar de cada color, y no ocupan la línea de los objetos (41 -> 35 colores). Los estados sin el
+  cuerpo (Kraid vencido) usan el mismo reparto (las claves son por sala: sus tiles se comparten en el depósito).
+- **La fusión de los objetos de esa sala** pesa la raíz de los píxeles y la saturación (`merge_colors(chroma=...)`): el
+  gris del polvo ya no se junta con un verde. Quedan 35 colores en 10 lugares: los grises (claro, medio, oscuro y el
+  azul oscuro del cuerpo del misil) van en uno, y una roca tiene un toque amarillo.
+- **La uña** (enemigo 7, "un cuadro antes"): con `KraidsFingernail_Fire` a mano ya coincide: `host/check` contra el
+  SNES en 3000 cuadros de pelea (con las uñas moviéndose), sin diferencias.
+- Prueba: `tools/compare/kraid.sh` (`ARMA=1` misiles, `ARMA=2` supermisiles; Samus en la sala: la puerta la deja en
+  x = -41). En la prueba Samus parpadea distinto en la Genesis y en el SNES (la invencibilidad de la prueba).
+
 ## Botwoon (2026-11-12)
 
 Lado a lado (`PAT=tools/compare/botwoon_in.txt DOOR=A774 X=200 Y=150`, mismas variables que el Golden Torizo) y la

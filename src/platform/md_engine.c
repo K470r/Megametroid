@@ -2771,6 +2771,34 @@ static uint8 phantoon_wave(uint16 *h, uint16 ax) {
   return 1;
 }
 
+/* el agua de Draygon (sub_88DF34: HDMA con HdmaobjPreInstr_DF94 $88:DF94): según dónde esté Draygon respecto de la
+   cámara elige una tabla que escribe TM por línea y esconde el BG2 (su cuerpo) en parte de la pantalla, o en toda si
+   está afuera ($88:E01A). La Genesis dibujaba siempre el plano B y se veía el cuerpo donde el SNES no lo muestra. Aquí,
+   en las líneas sin BG2 el plano B muestra la mitad derecha de su mapa de 64x32 (x 256-511), vacía: el cuerpo está fijo
+   en las columnas de la izquierda y se mueve con el scroll. (Correrlo 256 desde el scroll no sirve: si el cuerpo ya
+   estaba fuera de la vista, lo traía a la pantalla) */
+static uint8 dg_on;
+static uint8 draygon_bg2(uint16 *h, uint16 ax, uint16 bx) {
+  if (!md_zebes || cine_stage || room_ptr != 0xDA60) return 0;
+  uint16 k = 0;
+  while (k < 6 && !((hdma_object_channels_bitmask[k] & 0xFF) && hdma_object_pre_instructions[k] == 0xDF94)) k++;
+  if (k == 6) return 0;
+  int16 a0, a1;                                  /* líneas del SNES con el BG2 (TM & 2) en cada tabla ($88:E007-E01A) */
+  switch (hdma_object_table_pointers[k]) {
+  case 0xE007: a0 = 32; a1 = 224; break;
+  case 0xE00C: a0 = 128; a1 = 224; break;
+  case 0xE013: a0 = 32; a1 = 96; break;
+  case 0xE01A: a0 = 0; a1 = 0; break;
+  default: return 0;
+  }
+  uint16 a = (uint16)-ax, b = (uint16)-bx, bh = (uint16)-256;
+  for (int16 g = 0; g < 224; g++) {
+    int16 l = g < 2 ? 0 : g - 2;                 /* (la imagen de la Genesis va 2 líneas más abajo, como phantoon_wave) */
+    *h++ = a; *h++ = (l >= a0 && l < a1) ? b : bh;
+  }
+  return 1;
+}
+
 /* primera parte del cuadro: la lógica del motor (puede correr antes de que el vblank tome el cuadro anterior) */
 uint8 zebes_eye_room(void);
 uint8 md_spr_reserved;
@@ -3157,10 +3185,10 @@ void md_post(void) {
     zebes_frame(scroll_ax - nt_shake_bg1x, scroll_ay - nt_shake_bg1y,
                 g_room->b_mode == 1 ? scroll_bx : scroll_bx - nt_shake_bg2x,
                 g_room->b_mode == 1 ? scroll_by : scroll_by - nt_shake_bg2y);
-    pw_on = 0;
+    pw_on = 0; dg_on = 0;
     if (zebes_sky_on()) zebes_sky_lines(rot_h, scroll_ax, scroll_ay);
-    else pw_on = phantoon_wave(rot_h, scroll_ax);
-  } else pw_on = 0;
+    else if (!(pw_on = phantoon_wave(rot_h, scroll_ax))) pw_on = dg_on = draygon_bg2(rot_h, scroll_ax, scroll_bx);
+  } else pw_on = dg_on = 0;
   /* modo 7 girado (pozo en la huida) */
   if (g_room->wall) ring_follow();
   rot_on = g_room->wall && reg_M7B != 0;
@@ -3413,7 +3441,7 @@ void md_vblank(uint16_t late) {
     vdp_dma_vram(rot_h, MD_VRAM_HSCROLL, 224 * 2);
     vdp_set_vsram_write(0);
     VDP_DATA = scroll_ay;
-    VDP_DATA = scroll_ay;
+    VDP_DATA = dg_on ? scroll_by : scroll_ay;   /* (Draygon: el plano B con su scroll; el cielo y Phantoon, el de A) */
   } else if (rot_on) {
     vdp_dma_vram(rot_h, MD_VRAM_HSCROLL, 224 * 2);
     vdp_set_vsram_write(0);

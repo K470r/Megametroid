@@ -2982,12 +2982,12 @@ void md_post(void) {
       }
       if (fx_type == 0x0A) {                                    /* lluvia: su BG3 sumado (como el líquido, lq_prepare:
                                                                    92 % el color 3 de la línea 6, 5 % el 2, 3 % el 1),
-                                                                   redondeado: en la sala de aterrizaje G+1 B+2 de 5
-                                                                   bits, lo que separa las franjas grises del cielo */
+                                                                   en la sala de aterrizaje G+1 B+2 de 5 bits (medido
+                                                                   en el SNES), lo que separa las franjas del cielo */
         const uint16 *pl = palette_buffer + 24;
-        r += (int16)((29 * (pl[3] & 31) + 2 * (pl[2] & 31) + (pl[1] & 31) + 16) >> 5);
-        g += (int16)((29 * ((pl[3] >> 5) & 31) + 2 * ((pl[2] >> 5) & 31) + ((pl[1] >> 5) & 31) + 16) >> 5);
-        b += (int16)((29 * ((pl[3] >> 10) & 31) + 2 * ((pl[2] >> 10) & 31) + ((pl[1] >> 10) & 31) + 16) >> 5);
+        r += (int16)((29 * (pl[3] & 31) + 2 * (pl[2] & 31) + (pl[1] & 31)) >> 5);
+        g += (int16)((29 * ((pl[3] >> 5) & 31) + 2 * ((pl[2] >> 5) & 31) + ((pl[1] >> 5) & 31)) >> 5);
+        b += (int16)((29 * ((pl[3] >> 10) & 31) + 2 * ((pl[2] >> 10) & 31) + ((pl[1] >> 10) & 31)) >> 5);
       }
       /* bomba de poder cubriendo toda el área de juego (md_cone.c, docs/58): solo su color fijo, sumado (en el SNES
          su matemática de color reemplaza la de la sala: HandleLayerBlendingPowerBomb, $88:81FE) */

@@ -59,6 +59,7 @@ class IdxCol(tuple):
 
 
 FINE_WPAR, FINE_WPERP = 0.3, 1.0
+FINE_NEUTRAL, FINE_WC, FINE_KEEP = 0.04, 0.3, 0.5
 
 
 def cram_fine_table():
@@ -91,6 +92,10 @@ def cram_fine_table():
     ok = ca > 0.004
     ua = np.where(ok, oa / np.where(ok, ca, 1), 0)
     ub = np.where(ok, ob / np.where(ok, ca, 1), 0)
+    # (casi neutros, croma < FINE_NEUTRAL: solo grises y sus vecinos de un nivel: azulado (b+1), marrón/oliva (r+1 g+1),
+    # verde (g+1) y verde azulado (g+1 b+1), por brillo y croma (peso FINE_WC); con la regla del matiz, en un gris la
+    # dirección del croma es casi ruido y salían verdes azulados donde el SNES es gris)
+    neutral = ca < FINE_NEUTRAL
     best, bcost = np.zeros(32768, np.uint8), np.full(32768, np.inf)
     for dr in (-1, 0, 1):
         for dg in (-1, 0, 1):
@@ -101,6 +106,12 @@ def cram_fine_table():
                 da, db_ = e[:, 1] - oa, e[:, 2] - ob
                 par = da * ua + db_ * ub
                 cost = (e[:, 0] - oL) ** 2 + FINE_WPAR * par ** 2 + FINE_WPERP * (da ** 2 + db_ ** 2 - par ** 2)
+                fam = (tr == tb) & (tg == tb) | (tr == tg) & (tb == tr + 1) | (tr == tg) & (tb == tr - 1) | \
+                    (tr == tb) & (tg == tr + 1) | (tg == tb) & (tg == tr + 1)
+                cost_n = (e[:, 0] - oL) ** 2 + FINE_WC * (da ** 2 + db_ ** 2)
+                cost = np.where(neutral, np.where(fam, cost_n, np.inf), cost)
+                if (dr, dg, db) == (0, 0, 0):         # (el más cercano gana si la mejora no es clara)
+                    cost = cost * FINE_KEEP
                 cost = np.where(valid, cost, np.inf)
                 better = cost < bcost - 1e-12
                 bcost = np.where(better, cost, bcost)
@@ -624,7 +635,7 @@ def put_items(table, vram, items):
 
 def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=None, usage=None, pal_over=None, nbg2=None, vis=None,
             pref_lines=None, keep_cols=None, pref_idx=None, boss_pals=frozenset(),
-            own=frozenset(), fx_traj=None):
+            own=frozenset(), fx_traj=None, sky=False):
     """bg2: las 64x32 palabras del tilemap del BG2 del SNES (fondo de biblioteca) o None; vram: la VRAM con los
     tiles que haya cargado ese fondo; items: los objetos de la sala (room_items); max_pals: líneas de la Genesis
     para la sala (sin dar: MAX_PALS; 1 en las salas de jefes que usan la línea 1, mkzobj.BOSS_LINE); usage: veces que
@@ -717,6 +728,14 @@ def convert(gs, blocks, bg2=None, vram=None, anim=None, items=None, max_pals=Non
                     if c:
                         g = gc(p, int(c))
                         cw[g] = cw.get(g, 0) + u * int((a == c).sum())
+        if bg2 and sky:                                   # el cielo de la superficie (se ve siempre: cada celda una vez;
+            for e in bg2:                                 # sus franjas no se juntan antes que lo que casi no se ve)
+                t, p = e & 0x3FF, (e >> 10) & 7
+                a = px(t)
+                for c in np.unique(a):
+                    if c:
+                        g = gc(p, int(c))
+                        cw[g] = cw.get(g, 0) + int((a == c).sum())
         if bg2 and nbg2 is not None:                      # y los del cuerpo del jefe (cada tile, como un bloque visto)
             for e in bg2[nbg2:]:
                 t, p = e & 0x3FF, (e >> 10) & 7
@@ -1425,7 +1444,7 @@ def main():
                     if not bb:
                         wall_over = wall_pal
                 res = convert(gs, blocks, (list(bg2 or []) + bb[0]) if bb else bg2, vram, anim, items, own=own,
-                              max_pals=1 if boss else None, usage=usage if (boss or bb) else None,
+                              max_pals=1 if boss else None, usage=usage if (boss or bb or sky_tab) else None, sky=bool(sky_tab),
                               pal_over=bb[1] if bb else (wall_over if ra in KRAID_WALL_ROOMS else None),
                               nbg2=nbg2 if bb else None, vis=usage if ra in VIS_ROOMS else None,
                               pref_lines=PREF_LINES.get(ra), keep_cols=KEEP_COLORS.get(ra),

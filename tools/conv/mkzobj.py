@@ -461,7 +461,13 @@ def boss_moments(rom, boss, area):
     return moments
 
 
-def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset(), solo=frozenset()):
+def sat(g):
+    """saturación de un color de la Genesis (niveles 0-7): el canal más alto menos el más bajo, en niveles del DAC"""
+    c = [mkmd.DAC_LEVELS[v] if hasattr(mkmd, 'DAC_LEVELS') else v * 36 for v in g]
+    return max(c) - min(c)
+
+
+def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset(), solo=frozenset(), chroma=False):
     """agrupa los índices de counts (índice -> píxeles) en a lo sumo cap colores: los de igual color (en todos los
     momentos, vec) se comparten; si sobran, se juntan los dos más parecidos (pesando por píxeles). Al juntar, queda
     el de keep si hay uno (los colores que cicla un enemigo: así el lugar sigue cambiando como en el SNES). Devuelve
@@ -486,6 +492,9 @@ def merge_colors(counts, vec, cap, sqrt_w=False, keep=frozenset(), solo=frozense
             va = vec(al[a_])
             for b_ in range(a_ + 1, len(al)):
                 d = sum(color_dist(x, y) for x, y in zip(va, vec(al[b_])))
+                if chroma:                                # (la saturación: un gris no va con un verde si hay otro gris;
+                    # el polvo de la sala de Kraid salía verde oscuro)
+                    d += 2 * sum(abs(sat(x) - sat(y)) for x, y in zip(va, vec(al[b_])))
                 w = d * (min(alive[al[a_]], alive[al[b_]]) ** 0.5 if sqrt_w else min(alive[al[a_]], alive[al[b_]]))
                 if al[a_] in solo or al[b_] in solo:     # (BOSS_SOLO: al final)
                     w = w * 1e6 + 1e6
@@ -947,7 +956,8 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
             continue
         # (con jefe o ciclos de color, la fusión pesa con la raíz de los píxeles: un color chico y llamativo, como el
         # ojo del Torizo o el brillo de las caras de 9F11, no se pierde contra las superficies grandes)
-        r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss or anim or room_line), keep=akeep, solo=solo)
+        r3 = merge_colors(c3, vec, len(slots), sqrt_w=bool(boss or anim or room_line), keep=akeep, solo=solo,
+                          chroma=bool(room_line))
         if os.environ.get("MM_ZOBJ_STATS"):
             c3e = Counter({i: n for i, n in c3.items() if n >= 1})       # sin los proyectiles de Samus (peso 1/64)
             print("  colores de enemigos distintos:", len(merge_colors(c3e, vec, 99)[1]), "de", len(slots), file=sys.stderr)

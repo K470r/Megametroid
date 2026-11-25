@@ -46,8 +46,35 @@ saber qué índices cambian y a qué colores). Cada índice que cambia va con su
 (`IdxCol`): comparte lugar solo con otro del mismo color que cambie igual. La trayectoria va en la clave del estado
 (los estados con efectos distintos no comparten la conversión: 91F8 tiene ahora 9261, 9247 y 922D, el de la lluvia).
 
-Con 2 líneas (`MM_MAX_PALS=2`, como en `make`) las salas de la huida juntan algunos colores más (91F8 9261: 3
-fusiones, Tourian: 3 a 6), sin que se note. Prueba: `huida.sh` con `SALA=91F8` y `SALA=DE4D`.
+Solo separa un índice si en la Genesis cambia de verdad (un efecto que no sale del nivel del DAC del color de la
+carga no separa: si no, se agregaban tiles sin nada que ganar). Al juntar colores (con 2 líneas, `MM_MAX_PALS=2` como
+en `make`), la distancia entre dos colores es el promedio en el tiempo (`tdist`: un índice negro al cargar que la
+lluvia pone gris no se junta con el negro fijo) y los que cambian se juntan primero entre ellos (`side`: juntado con
+uno fijo, el lugar sigue al que cambia; el negro de las rocas de la cueva de la huida salía morado).
+
+## El cielo de la superficie (2026-11-25)
+
+En la llegada con lluvia (91F8, estados 9213 y 922D) y en la huida, el cielo (`RoomMainAsm_ScrollingSky`, las filas de
+`$8A`) son franjas lisas de grises o morados muy cercanos: en el SNES van de 8 en 8 y en la Genesis, con un nivel del
+DAC cada ~30 en lo oscuro, caían casi todos en el mismo color y el cielo salía liso. Tres cosas:
+
+- **La bruma de la lluvia** (fx 0x0A): en el SNES el BG3 de la lluvia se suma a todo (G+1 B+2 de 5 bits en el
+  aterrizaje), justo lo que separa las franjas. Estaba apagada (rehacer las tablas del líquido cada cuadro atrasaba
+  el juego); ahora va en el tinte (`tint_on`, md_engine.c, como la niebla), que se rehace solo cuando cambia.
+- **Los colores del cielo pesan al juntar**: en las salas con cielo `convert` cuenta los píxeles del nivel y del cielo
+  (`usage`, `sky`), así las franjas no se juntan antes que colores que casi no se ven.
+- **`kCramFine`** (página 7, `mkzebes.cram_fine_table`): para los lugares que usan los tiles del cielo
+  (`ZebesGfx.skym`), cuánto sube o baja cada canal respecto del más cercano. Los casi neutros eligen entre gris,
+  gris azulado y marrón/oliva por brillo (probados: con verdes las montañas del fondo salían verdes; con lila, rosada
+  la franja de arriba); los demás, el brillo más parecido sin torcer el matiz (los morados de la huida). Lo que da
+  negro queda negro. `fine_fix` (md_engine.c) rehace esos lugares después de convertir la paleta (con el tinte),
+  recordando el último color de cada uno (la tabla solo se lee cuando cambia).
+
+Costo: en la bajada de la nave (el fundido de la llegada, la paleta cambia cada cuadro) el motor tarda unos 16 cuadros
+más en ~220; con Samus en la sala, igual que antes.
+
+Prueba: `huida.sh` con `SALA=91F8` y `SALA=DE4D`; la llegada, con la ROM de la regresión (escena zebes, cuadros del
+motor 10083-11017) contra hlref con la entrada del bot (`in_z2.txt`, cuadro del SNES = 10757 + cuadro del motor).
 
 ## Lo que falta
 

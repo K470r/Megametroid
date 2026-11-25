@@ -295,12 +295,12 @@ static inline uint16 tint_cram(uint16 c) {
 uint32 md_fine_mask;
 extern const uint8 kCramFine[32768];
 void map_page_ext(uint8 p);
+static uint16 fine_c[32] = { 0xFFFF }, fine_v[32];   /* por lugar: el último color (con el tinte) y su resultado */
 static void fine_fix(void) {
   extern uint8 md_cur_page;
   uint32 m = md_fine_mask;
   if (!m || !md_zebes) return;
-  uint8 lp = md_cur_page;
-  map_page_ext(7);
+  uint8 lp = md_cur_page, mapped = 0;
   const uint8 *pbb = (const uint8 *)palette_buffer;
   for (uint16 s = 0; m; s++, m >>= 1) {
     if (!(m & 1)) continue;
@@ -312,12 +312,18 @@ static void fine_fix(void) {
       r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
       c = (uint16)(r | g << 5 | b << 10);
     }
-    uint8 d = kCramFine[c];
-    uint16 v = kCram555[c];
-    v = (uint16)(v + (((int16)(d & 3) - 1) << 1) + (((int16)((d >> 2) & 3) - 1) << 5) + (((int16)((d >> 4) & 3) - 1) << 9));
+    uint16 v;
+    if (c == fine_c[s]) v = fine_v[s];          /* (lo de siempre: sin la tabla ni cambiar de página) */
+    else {
+      if (!mapped) { map_page_ext(7); mapped = 1; }
+      uint8 d = kCramFine[c];
+      v = kCram555[c];
+      v = (uint16)(v + (((int16)(d & 3) - 1) << 1) + (((int16)((d >> 2) & 3) - 1) << 5) + (((int16)((d >> 4) & 3) - 1) << 9));
+      fine_c[s] = c; fine_v[s] = v;
+    }
     if (v != cram[s]) { cram[s] = v; cram_dirty = 1; }
   }
-  map_page_ext(lp);
+  if (mapped) map_page_ext(lp);
 }
 uint16 md_tint_cram(uint16 c) { return tint_on ? tint_cram(c) : kCram555[c & 0x7FFF]; }   /* md_zebes.c */
 
@@ -3021,6 +3027,8 @@ void md_post(void) {
     } else lq_pal_dirty = 1;
     const uint8 *pb = (const uint8 *)palette_buffer;
     const uint8 *lut = (const uint8 *)kCram555;
+    /* (los lugares del cielo los pone fine_fix: escritos aquí y después allí, la CRAM se subía en cada cambio) */
+    uint32 fine_on = md_zebes ? md_fine_mask : 0;
     if (nt_palette_hi - nt_palette_lo < 32) {
       /* pocos índices (ciclo de color de la puerta, paleta de Samus): solo los colores que salen de ellos */
       for (uint16 i = nt_palette_lo; i <= nt_palette_hi; i++) {
@@ -3029,7 +3037,7 @@ void md_post(void) {
         do {
           uint16 v = *(const uint16 *)(lut + (uint16)(*(const uint16 *)(pb + i * 2) << 1));
           if (tint_on && slot < 48) v = tint_cram(palette_buffer[i]);
-          if (v != cram[slot]) { cram[slot] = v; cram_dirty = 1; }
+          if (v != cram[slot] && !(slot < 32 && (fine_on >> slot) & 1)) { cram[slot] = v; cram_dirty = 1; }
           slot = cram_next[slot];
         } while (slot != 0xFF);
       }
@@ -3041,7 +3049,7 @@ void md_post(void) {
         if (o == 0xFFFE) { c++; continue; }
         uint16 v = o == 0xFFFF ? 0 : *(const uint16 *)(lut + (uint16)(*(const uint16 *)(pb + o) << 1));
         if (tint_on && c < cram + 48 && o != 0xFFFF) v = tint_cram(*(const uint16 *)(pb + o));
-        if (v != *c) { *c = v; cram_dirty = 1; }
+        if (v != *c && !(i > 32 && (fine_on >> (64 - i)) & 1)) { *c = v; cram_dirty = 1; }
         c++;
       }
     }

@@ -26,7 +26,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 BOSS_PAGE = 21                                               # (port.py)
-BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(312 * 1024)))
+BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(294 * 1024)))   # (la 21 tenía 24 KB sin usar con 312)
 FRZ_CONTIG_MIN = 48        # objetos por cuadro con tantos tiles o más: sus tiles seguidos en el depósito (una copia propia)
 POOL_CHUNK = 512           # tiles por trozo del depósito común (16 KB: llenan mejor los huecos de las páginas)
 PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "1536"))   # bytes libres al final de cada página: la cuenta
@@ -497,8 +497,18 @@ def plm_blocks(h):
     if h not in _plm_cache:
         bl = scan.blocks_of_plm(h) if (w16(0x840000 | h) & 0xFFFF) in DOOR_SETUPS else \
             set().union(*[scan.blocks_of_draw(d) for d in scan.draws_of_list(w16(0x840000 | h + 2), set())])
+        if h in GATE_SHOOTBLOCKS:
+            # los pestillos de las barreras (PlmSetup_C836/C73A $84:C6E0/C73A): la lista sale del argumento de la sala
+            # (kDowardGatePlmListPtrs $84:C70A, la de arriba $84:C764: el color y el lado), no de la cabecera
+            for i in range(8):
+                for d in scan.draws_of_list(w16(0x840000 | GATE_SHOOTBLOCKS[h] + 2 * i), set()):
+                    bl |= set(scan.blocks_of_draw(d))
         _plm_cache[h] = bl | scan.blocks_of_setup(h)
     return _plm_cache[h]
+
+
+GATE_SHOOTBLOCKS = {0xC836: 0xC70A, 0xC73A: 0xC764}
+DOOR_USE = int(os.environ.get("MM_DOOR_USE", "32"))   # veces que cuenta un bloque de tapa o pestillo al juntar colores
 
 
 # funciones de inicio de PLM conocidas (el decomp): una "cabecera" cuyo inicio no es una de estas no es un PLM
@@ -1374,10 +1384,14 @@ def main():
                     for k in range(5):
                         a = 0x8A0000 | w16(sky_tab + 2 * k)
                         bg2 += [w16(a + 2 * i) for i in range(1024)]
+                door_bl = set()                   # (tapas de puertas y pestillos: pesan al juntar colores, abajo)
                 if plm_ptr:
                     q = 0x8F0000 | plm_ptr
                     while w16(q):
-                        blocks |= {x & 0x3FF for x in plm_blocks(w16(q))}
+                        bl_ = {x & 0x3FF for x in plm_blocks(w16(q))}
+                        blocks |= bl_
+                        if (w16(0x840000 | w16(q)) in DOOR_SETUPS) or w16(q) in GATE_SHOOTBLOCKS:
+                            door_bl |= bl_
                         q += 6
                 for h in BOSS_CODE_PLMS.get(ra, ()):   # PLMs que pone el código del jefe (no están en la lista de la sala)
                     blocks |= {x & 0x3FF for x in plm_blocks(h)}
@@ -1392,6 +1406,11 @@ def main():
                 usage = {}
                 for w_ in list(l1) + list(l2 or []):
                     usage[w_ & 0x3FF] = usage.get(w_ & 0x3FF, 0) + 1
+                # las tapas de las puertas y los pestillos los dibuja un PLM (no están en el nivel): sin esto pesaban
+                # casi 0 y sus colores se juntaban con los del fondo (en el océano la puerta verde del Wrecked Ship
+                # salía gris, la rosada gris azulada; en el aterrizaje igual)
+                for b_ in door_bl:
+                    usage[b_] = max(usage.get(b_, 0), DOOR_USE)
                 full64 = ra in BOSS_BG2_64 and ra in BOSS_BG2_ROOMS and (l2x & 1) and bg_loads_4000(bg_ptr)
                 bb = BOSS_BG2.get(ra) if (l2x & 1) and (bg_copies_2000(bg_ptr) or full64 or ra in BOSS_BG2_OVER) else None
                 bb_orig = None

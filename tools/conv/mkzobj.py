@@ -263,6 +263,60 @@ def explode_keys(rom, st):
     return out
 
 
+# barreras que se abren al disparar a su pestillo (PlmSetup_C82A/C832 $84:C6BE/C6CB: SpawnEprojWithRoomGfx E659/E675;
+# los pestillos C836/C73A la crean al abrirse: E64B/E667): un proyectil con los tiles de la sala (gráficos 0) que el
+# registro de dibujo del SNES no siempre vio. Sus spritemaps ($8D) salen de las listas de las 4 cabeceras ($86:E64B-E675)
+GATE_PLMS = (0xC826, 0xC82A, 0xC82E, 0xC832, 0xC836, 0xC73A)
+GATE_EPROJS = (0xE64B, 0xE659, 0xE667, 0xE675)
+
+
+def gate_keys(rom, st):
+    """las claves de las barreras si la lista de PLMs del estado st tiene una"""
+    q = rom.w(0x8F0000 | (st + 20))
+    if q < 0x8000:
+        return set()
+    q |= 0x8F0000
+    while rom.w(q) and rom.w(q) not in GATE_PLMS:
+        q += 6
+    if not rom.w(q):
+        return set()
+    out = set()
+    for h in GATE_EPROJS:
+        p = 0x860000 | rom.w(0x860000 | (h + 4))
+        for _ in range(64):
+            f = rom.w(p)
+            if f == 0x8154:                               # (borrar)
+                break
+            if f >= 0x8000:                               # instrucción: E533 (velocidad) y 8161 (preinstrucción) con un
+                p += 4 if f in (0xE533, 0x8161) else 2    # argumento; 8159 (dormir) y 816A sin
+                continue
+            out.add(("p", "%04X" % rom.w(p + 2), "0000"))
+            p += 4
+    return out
+
+
+# puertas con ojo (PlmSetup_EyeDoorEye/EyeDoor $84:DA8C/DAB9: Kraid, Phantoon, Draygon, Ridley): sus proyectiles con los
+# tiles de la sala ($84:D77A EyeDoorProjectile $86:B743, $84:D790 EyeDoorSweat $86:B751, $84:D7B6 EyeDoorSmoke $86:E517):
+# el registro del SNES vio el disparo pero no el sudor ni el humo (salen al darle al ojo). Spritemaps de sus listas
+EYE_SETUPS = (0xDA8C, 0xDAB9)
+EYE_SMS = (0x900B, 0x9021, 0x9037, 0x904D,                      # $86:B5D9 (disparo)
+           0x9063, 0x906A, 0x9071, 0x9078,                      # $86:B615 (sudor)
+           0xB023, 0xB02A, 0xB040, 0xB056, 0xB06C, 0xB082,      # $86:E138 (humo)
+           0xB098, 0xB0AE, 0xB0C4, 0xB0DA, 0xB0F0)
+
+
+def eye_keys(rom, st):
+    q = rom.w(0x8F0000 | (st + 20))
+    if q < 0x8000:
+        return set()
+    q |= 0x8F0000
+    while rom.w(q):
+        if rom.w(0x840000 | rom.w(q)) in EYE_SETUPS:
+            return {("p", "%04X" % sm, "0000") for sm in EYE_SMS}
+        q += 6
+    return set()
+
+
 def timer_states(rom, room):
     q, out = 0x8F0000 | (room + 11), set()
     while True:
@@ -1264,7 +1318,7 @@ def build(rom_path, log_paths, states, frozen=None):
     for st, room, ts, room_tiles in states:
         if room not in tstates:
             tstates[room] = timer_states(rom, room)
-        k = keys.get(room, set()) | pkeys | (TIMER_KEYS if st in tstates[room] else set()) | explode_keys(rom, st) | skeys.get(st, set())
+        k = keys.get(room, set()) | pkeys | (TIMER_KEYS if st in tstates[room] else set()) | explode_keys(rom, st) | gate_keys(rom, st) | eye_keys(rom, st) | skeys.get(st, set())
         cp = CORPSE.get(room)
         if cp:
             k = k | cp[0]

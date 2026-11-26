@@ -186,6 +186,25 @@ Comprobación: planos A y B de las 255 salas iguales a la ROM anterior (los tile
 HUD, por el momento de la captura); el cadáver del Torizo igual a los 700 y 3000 cuadros; regresión 0 distintos;
 lotes de salas en el PC contra el SNES (Crateria, Brinstar, Norfair, Maridia) 0 diferencias.
 
+## Hecho: 12,5 MB (2026-11-26, punto 9, tercera tanda)
+
+- **Celdas sin variantes**: cada bloque guardaba sus 4 variantes (sin volteo, horizontal, vertical, las dos); las otras
+  tres son siempre la misma con las columnas o las filas cambiadas y los bits de volteo de la Genesis (comprobado en los
+  23 150 bloques). Se guarda solo la base y `md_zebes.c` (`cell_of`) calcula la celda: 791 KB -> ~198 KB.
+- **Arreglos iguales una vez por página**: al final de mkzebes, cualquier arreglo `NT_BANK` igual a otro de la misma
+  página (los estados de una sala con las mismas celdas, las claves de juegos de un mismo depósito...) se emite una vez
+  y las referencias van al primero (~575). Los gráficos con las mismas celdas van juntos en una página.
+- **El reparto en las páginas** cuenta el tamaño exacto de lo que se emite (cada arreglo, sin repetir lo que la página
+  ya tiene) y, después, intenta vaciar la página propia de Zebes menos llena moviendo sus piezas a los huecos de las
+  demás. La última página de niveles y las anteriores (solo niveles) también prestan sus huecos. Margen por página
+  1,5 KB; reserva de la página de los jefes 312 KB (usa ~305).
+- **El sonido en 5 páginas** (`mksnd.py`: si el reparto voraz da N, prueba órdenes al azar para N-1).
+- **La página de los jefes pasa de la 25 a la 21** (`port.py`, `mkdata.py`, `mkzebes.py`, `port_gen.h`): con las páginas
+  14-17 para el sonido, lo último que se usa es la 24. **La ROM queda en 12,5 MB** (desde 16 MB).
+
+Lo fijo de cada página: 7 Ceres; 8-9 niveles; 22 el título; 23 el menú; 21 los jefes. Para bajar otra página habría que
+liberar ~500 KB más de Zebes (el nivel, 906 KB, es lo único grande que queda sin tocar: ver arriba por qué).
+
 ## Lo que sigue (en este orden)
 
 | Paso | Ganancia medida | Costo / riesgo |

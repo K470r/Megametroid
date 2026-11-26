@@ -25,11 +25,11 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-BOSS_PAGE = 25                                               # (port.py)
-BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(320 * 1024)))
+BOSS_PAGE = 21                                               # (port.py)
+BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(312 * 1024)))
 FRZ_CONTIG_MIN = 48        # objetos por cuadro con tantos tiles o más: sus tiles seguidos en el depósito (una copia propia)
 POOL_CHUNK = 512           # tiles por trozo del depósito común (16 KB: llenan mejor los huecos de las páginas)
-PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "4096"))   # bytes libres al final de cada página: la cuenta
+PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "1536"))   # bytes libres al final de cada página: la cuenta
 # no incluye las alineaciones; medido en rom.map (docs/58), lo real queda hasta ~1 KB por encima de la cuenta. El
 # enlace falla si una página pasa de 512 KB (md_ssf2.ld)
 CINE_BLOBS = ("kM7Tiles", "kM7Maps", "kGetawayTiles", "kGetawayMaps",   # cinemáticas de Ceres en páginas (docs/48)
@@ -1724,6 +1724,13 @@ def main():
             for m in re.finditer(r'section\("\.bank(\d+)"\)\)\)\s+(?:static\s+)?const\s+(\w+)\s+\w+\[(\d+)\]', pb.read_text()):
                 pg_ = int(m.group(1))
                 fill[pg_] = fill.get(pg_, 0) + tsz.get(m.group(2).replace('_t', ''), 8) * int(m.group(3)) + 2
+        # (y las de antes, también solo de niveles: lo que miden en tables.c; sus huecos sirven para lo chico)
+        tc_ = (HERE.parent.parent / "res" / "gen" / "engine" / "tables.c").read_text()
+        for pg_ in range(8, lp):
+            u_ = sum(tsz.get(m.group(1), 2) * int(m.group(2)) + 2
+                     for m in re.finditer(r'NT_BANK\(%d\) const (\w+) \w+\[(\d+)\]' % pg_, tc_))
+            if u_ and pg_ not in fill:
+                fill[pg_] = u_ + 2048 + busy_used.get(pg_, 0)
     for pg, u in pause_pages.items():
         fill[pg] = fill.get(pg, 0) + u + 4096
     # el título va al final de la página 22 (md_ssf2.ld, .rodata_title): lo que miden sus archivos si ya se generaron
@@ -1742,15 +1749,24 @@ def main():
                                          + (2816 if e.get("mouth_cells") else 0)
                                          for e in entries if e.get("boss"))   # (y los cuerpos, y la boca de Kraid)
 
-    def place(need):
+    page_arrs = {}                                # (arreglos ya puestos en cada página: los iguales van una vez, abajo)
+
+    def need_on(pg, need, arrs):
+        have = page_arrs.get(pg, set())
+        return need - sum(arr_bytes(a) for a in arrs if a in have)
+
+    def place(need, arrs=()):
         for pg in sorted(fill):
-            if fill[pg] + need <= 0x80000 - PAGE_MARGIN:   # margen: la cuenta no incluye alineaciones
-                fill[pg] += need
+            n_ = need_on(pg, need, arrs)
+            if fill[pg] + n_ <= 0x80000 - PAGE_MARGIN:   # margen: la cuenta no incluye alineaciones
+                fill[pg] += n_
+                page_arrs.setdefault(pg, set()).update(arrs)
                 return pg
         pg = page0
         while pg in fill:
             pg = next_page(pg)
         fill[pg] = need
+        page_arrs.setdefault(pg, set()).update(arrs)
         return pg
     # tiles en un depósito común (docs/48): cada tile distinto una sola vez, en trozos de POOL_CHUNK tiles repartidos
     # en las páginas; cada sala y cada juego de objetos guarda sus tramos (índice en el depósito, cantidad) y la
@@ -1997,19 +2013,18 @@ def main():
           f"({len(rgroups)} depósitos compartidos)", file=sys.stderr)
     o_need = [2 * len(d["ops"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(vcp_words(d)) for d in obj_list]
     # (cada grupo, una sola pieza: su depósito y sus juegos en la misma página)
-    def o_arrays(d):
-        return [("ops", tuple(d["ops"])), ("src", tuple(d["src"])), ("keys", tuple(v for k in d["keys"] for v in k)),
-                ("vcp", tuple(vcp_words(d)))]
+    def o_arrays(d):                              # (exactos: lo que se emite, abajo)
+        a = [("H", tuple(d["ops"])), ("H", tuple(d["src"])), ("H", tuple(v for k in d["keys"] for v in k))]
+        if vcp_words(d):
+            a.append(("H", tuple(vcp_words(d))))
+        return a
+
+    def arr_bytes(a):
+        return (2 * len(a[1]) if a[0] == "H" else (len(a[1]) + 1) & ~1) + 2   # (+2: alineación)
     o_need_g = []
     for g in rgroups:                             # (lo repetido entre los juegos del grupo va una vez: ver abajo)
-        seen_, n_ = set(), 2 * len(g["pool"])
-        for oi in g["sets"]:
-            n_ += o_need[oi]
-            for a_ in o_arrays(obj_list[oi]):
-                if a_[1] and a_ in seen_:
-                    n_ -= 2 * len(a_[1])
-                seen_.add(a_)
-        o_need_g.append(n_)
+        u_ = {("H", tuple(g["pool"]))} | {a_ for oi in g["sets"] for a_ in o_arrays(obj_list[oi])}
+        o_need_g.append(sum(arr_bytes(a_) for a_ in u_))
     p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
     f_need = [2 * (len(frz_idx) + len(frz_runs) + len(frz_recs)) + 6 * len(segs) + 64]
     # cinemáticas de Ceres (mkm7.py, mkgetaway.py: corren antes): se usan una vez por partida, van en páginas y no en
@@ -2031,47 +2046,61 @@ def main():
             clusters.append([])
         clusters[cl_of[k_]].append(i)
 
-    def g_arrays(e):
-        return [("ops", tuple(e["ops"])), ("src", tuple(x for row in e["src"] for x in row)), ("ids", tuple(e["ids"])),
-                ("cells", tuple(e["cells"]))]
-    cl_need = []
-    for mem in clusters:
-        seen_, n_ = set(), 0
-        for i in mem:
-            n_ += g_need[i]
-            for a_ in g_arrays(entries[i]):
-                if a_ in seen_:
-                    n_ -= 2 * len(a_[1])
-                seen_.add(a_)
-        cl_need.append(n_)
+    def g_arrays(e):                              # (exactos: lo que se emite, abajo)
+        a = [("H", tuple(e["ops"])), ("H", tuple(x for row in e["src"] for x in row)), ("H", tuple(e["ids"])),
+             ("H", tuple(e["cells"]))]
+        if e["l2"]:
+            a.append(("H", tuple(e["l2"])))
+        if e.get("l2i"):
+            a.append(("B", tuple(e["l2i"])))
+        if e["anims"]:
+            idx, data = [], []
+            for key in sorted(e["anims"]):
+                lst = e["anims"][key]
+                idx += [key[0], key[1], len(data), len(lst)]
+                for gi, tb in lst:
+                    data.append(gi)
+                    data += list(struct.unpack('>16H', tb))
+            a += [("H", tuple(idx)), ("H", tuple(data))]
+        if e["bg2"]:
+            a.append(("H", tuple(e["bg2"])))
+        if e.get("bg2z"):
+            a.append(("B", tuple(e["bg2z"])))
+        return a
+    cl_need = [sum(arr_bytes(a_) for a_ in {a_ for i in mem for a_ in g_arrays(entries[i])}) for mem in clusters]
     cl_pages = [0] * len(clusters)
     placed = []
+    cl_arrs = [set(a_ for i in mem for a_ in g_arrays(entries[i])) for mem in clusters]
+    rg_arrs = [set(a_ for oi in g["sets"] for a_ in o_arrays(obj_list[oi]) if a_[1]) for g in rgroups]
     for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(cl_need)] + [(n, 1, i) for i, n in enumerate(o_need_g)] +
                               [(n, 2, i) for i, n in enumerate(p_need)] + [(n, 3, i) for i, n in enumerate(c_need)] +
                               [(f_need[0], 4, 0)] + [(n, 5, i) for i, n in enumerate(s_need)], reverse=True):
-        (cl_pages, rg_pages, pool_pages, cine_pages, frz_pages, seg_pages)[kind][i] = place(n_)
-        placed.append([kind, i, n_])
+        a_ = cl_arrs[i] if kind == 0 else rg_arrs[i] if kind == 1 else ()
+        (cl_pages, rg_pages, pool_pages, cine_pages, frz_pages, seg_pages)[kind][i] = place(n_, a_)
+        placed.append([kind, i, n_, a_])
     # (una página menos si se puede: las piezas de la página de Zebes menos llena a los huecos de las demás, la más
     # justa primero; si entran todas, queda vacía y el sonido la usa: la ROM termina antes, docs/48)
     arrs_ = (cl_pages, rg_pages, pool_pages, cine_pages, frz_pages, seg_pages)
-    fixed_pg = set(busy_used) | {page0 - 1, 22, BOSS_PAGE} | set(pause_pages)
+    fixed_pg = set(busy_used) | set(range(7, page0)) | {22, BOSS_PAGE} | set(pause_pages)
     while True:
         own = {}
-        for kind, i, n_ in placed:
-            own.setdefault(arrs_[kind][i], []).append((kind, i, n_))
+        for kind, i, n_, a_ in placed:
+            own.setdefault(arrs_[kind][i], []).append((kind, i, n_, a_))
         cand = sorted((sum(x[2] for x in v), pg) for pg, v in own.items() if pg not in fixed_pg)
         if not cand:
             break
         _, pv = cand[0]
         trial, moves = dict(fill), []
         del trial[pv]
-        for kind, i, n_ in sorted(own[pv], key=lambda x: -x[2]):
-            fits = [(0x80000 - PAGE_MARGIN - trial[pg] - n_, pg) for pg in trial if trial[pg] + n_ <= 0x80000 - PAGE_MARGIN]
+        for kind, i, n_, a_ in sorted(own[pv], key=lambda x: -x[2]):
+            fits = [(0x80000 - PAGE_MARGIN - trial[pg] - need_on(pg, n_, a_), pg) for pg in trial
+                    if trial[pg] + need_on(pg, n_, a_) <= 0x80000 - PAGE_MARGIN]
             if not fits:
                 moves = None
                 break
             _, pg = min(fits)
-            trial[pg] += n_
+            trial[pg] += need_on(pg, n_, a_)
+            page_arrs.setdefault(pg, set()).update(a_)
             moves.append((kind, i, pg))
         if moves is None:
             print(f"zebes: la página {pv} ({sum(x[2] for x in own[pv]) // 1024} KB en {len(own[pv])} piezas) no se puede "

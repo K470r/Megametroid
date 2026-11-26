@@ -750,9 +750,14 @@ def main():
                             col[l_][k] = bb & 31
             lines += n
             a += 1 + nb
-    hz0 = next(l_ for l_ in range(224) if any(col[l_]))
+    # las franjas donde la Genesis cambia de verdad: sumado al negro, cada canal sube un nivel del DAC desde cierto
+    # COLDATA (kLqExt; 4 de 31). La primera franja empieza donde algún canal sube y la segunda donde cambia otra vez
+    # (en el SNES el azul sube antes: línea 132, el resto en la 162). Antes eran dos mitades (72 y 147) con su
+    # promedio: la de arriba no se veía y la de abajo salía como una capa gris neutra a media altura del Torizo
+    lvl = lambda c: tuple(lqx[k * 256 + 128 + c[k]] for k in range(3))
     hz_end = max(l_ for l_ in range(224) if any(col[l_])) + 1
-    hz1 = (hz0 + hz_end) // 2
+    hz0 = next(l_ for l_ in range(224) if any(lvl(col[l_])))
+    hz1 = next((l_ for l_ in range(hz0, hz_end) if lvl(col[l_]) != lvl(col[hz0])), (hz0 + hz_end) // 2)
     for nm, (l0, l1) in (("1", (hz0, hz1)), ("2", (hz1, hz_end))):
         for k, ch in enumerate("RGB"):
             Hh.append("#define MD_TORIZO_HAZE%s_%s %d" % (nm, ch, round(sum(col[l_][k] for l_ in range(l0, l1)) / (l1 - l0))))

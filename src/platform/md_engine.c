@@ -429,7 +429,10 @@ static uint8 lq_bits[32], lq_any;                /* índices de palette_buffer q
 /* los colores del líquido que salen de los índices marcados (tablas t: el cuerpo, u: la superficie) */
 static void lq_partial(const uint8 *t, const uint8 *u, uint16 *col, uint16 *cols) {
   const uint8 *pbb = (const uint8 *)palette_buffer;
-  for (uint16 b = 0; b < 16; b++) {               /* (índices 0-127: la sala; los de los sprites van abajo) */
+  /* (todos los índices: los de los sprites del SNES, 128-255, también salen en lugares de las líneas 0-2 de la Genesis:
+     la línea del jefe. Con solo 0-127, el Bomb Torizo bajo la neblina se quedaba con los colores de estatua y sin el
+     blanco de Torizo_Hurt al recibir un disparo) */
+  for (uint16 b = 0; b < 32; b++) {
     uint8 m = lq_bits[b];
     if (!m) continue;
     for (uint16 i = b * 8; m; i++, m >>= 1) {

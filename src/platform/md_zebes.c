@@ -257,13 +257,16 @@ static inline uint16 block2_at(int16 bx, int16 by) {   /* con la página de grá
   return zg->l2i ? zg->l2[((uint16)zg->l2i[i >> 4] << 4) + (i & 15)] : zg->l2[i];   /* (filas sin repetir: mkzebes) */
 }
 static inline uint16 plane_of(uint8 L) { return L ? MD_VRAM_PLANE_B : MD_VRAM_PLANE_A; }
-/* las 4 celdas de un bloque (arriba-izq, abajo-izq, arriba-der, abajo-der), con la página de gráficos puesta */
-static inline const uint16 *cells_of(uint16 w) {
-  static const uint16 kEmpty[4] = { 0, 0, 0, 0 };
-  if (w == 0xFFFF) return kEmpty;
+/* la celda k de un bloque (0 arriba-izq, 1 abajo-izq, 2 arriba-der, 3 abajo-der), con la página de gráficos puesta.
+   zg->cells tiene solo la variante sin volteo de cada bloque (mkzebes.py): con el volteo horizontal del SNES (bit 10)
+   se cambian las columnas y se voltea cada celda (bit 11 de la Genesis); con el vertical (bit 11), las filas (bit 12) */
+static inline uint16 cell_of(uint16 w, uint16 k) {
+  if (w == 0xFFFF) return 0;
   uint16 m = meta_idx[w & 0x3FF];
-  if (!m) return kEmpty;
-  return zg->cells + (uint16)((m - 1) * 16 + ((w >> 8) & 0xC));
+  if (!m) return 0;
+  uint16 f = (w >> 10) & 3;
+  uint16 c = zg->cells[(uint16)((m - 1) * 4 + (k ^ ((f & 1) << 1) ^ (f >> 1)))];
+  return c ^ (uint16)((f & 1) << 11) ^ (uint16)((f & 2) << 11);
 }
 /* zprio: prioridad alta en todas las celdas del plano A mientras la luz de la bomba de poder usa el modo sombra/luz
    (md_cone.c, docs/58: si no, el VDP oscurece lo que no tiene prioridad alta). El plano B no hace falta: con el A en
@@ -291,8 +294,8 @@ static void build_column(uint8 L, int16 cx, int16 cy0, uint16 *buf) {
   if (L) for (uint16 i = 0; i < nb; i++) blk[i] = block2_at(bx, by0 + i);
   uint16 q = (cx & 1) << 1;
   for (int16 cy = cy0; cy < cy0 + ZH; cy++) {
-    const uint16 *c = cells_of(blk[(cy >> 1) - by0]);
-    buf[cy - cy0] = L ? tile_fix_b(c[q + (cy & 1)]) : tile_fix(c[q + (cy & 1)]);
+    uint16 c = cell_of(blk[(cy >> 1) - by0], q + (cy & 1));
+    buf[cy - cy0] = L ? tile_fix_b(c) : tile_fix(c);
   }
   map_page(lp);
 }
@@ -306,8 +309,8 @@ static void build_row(uint8 L, int16 cy, int16 cx0, uint16 *buf) {
   if (L) for (uint16 i = 0; i < nb; i++) blk[i] = block2_at(bx0 + i, by);
   uint16 q = cy & 1;
   for (int16 cx = cx0; cx < cx0 + ZW; cx++) {
-    const uint16 *c = cells_of(blk[(cx >> 1) - bx0]);
-    buf[cx - cx0] = L ? tile_fix_b(c[((cx & 1) << 1) + q]) : tile_fix(c[((cx & 1) << 1) + q]);
+    uint16 c = cell_of(blk[(cx >> 1) - bx0], ((cx & 1) << 1) + q);
+    buf[cx - cx0] = L ? tile_fix_b(c) : tile_fix(c);
   }
   map_page(lp);
 }
@@ -803,8 +806,7 @@ static uint8 block_word(uint16 i, uint16 w) {
   if (w == 0xFFFF) w = block_at(bx, by);
   uint8 lp = md_cur_page;
   map_page(zg->page);
-  const uint16 *c = cells_of(w);
-  for (uint16 k = 0; k < 4; k++) qblk_c[nblk][k] = tile_fix(c[k]);
+  for (uint16 k = 0; k < 4; k++) qblk_c[nblk][k] = tile_fix(cell_of(w, k));
   map_page(lp);
   qblk_addr[nblk] = MD_VRAM_PLANE_A + (uint16)(((cy & 63) * 64 + (cx & 63)) * 2);
   nblk++;

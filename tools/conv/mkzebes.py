@@ -1939,6 +1939,18 @@ def main():
             assert all(e["l2"][16 * ix[q // 16] + (q & 15)] == w[q] for q in range(len(w)))
         l2_b += 2 * len(e["l2"]) + len(e.get("l2i") or b"")
     print(f"zebes: capa 2 propia {l2_a // 1024} KB -> {l2_b // 1024} KB (filas de 16 bloques sin repetir)", file=sys.stderr)
+    # celdas (docs/48): de cada bloque solo la variante sin volteo; las otras tres son la misma con las columnas o las
+    # filas cambiadas y los bits de volteo de la Genesis (md_zebes.c, cell_of): un cuarto del espacio
+    for e in entries:
+        c_ = e["cells"]
+        base_ = []
+        for b_ in range(0, len(c_), 16):
+            q = c_[b_:b_ + 4]
+            h_ = [q[2] ^ 0x800, q[3] ^ 0x800, q[0] ^ 0x800, q[1] ^ 0x800]
+            v_ = lambda r: [r[1] ^ 0x1000, r[0] ^ 0x1000, r[3] ^ 0x1000, r[2] ^ 0x1000]
+            assert c_[b_:b_ + 16] == q + h_ + v_(q) + v_(h_), "zebes: una variante de bloque no es un volteo"
+            base_ += q
+        e["cells"] = base_
     # los más grandes primero (primer hueco decreciente): las páginas quedan más llenas
     g_need = [2 * len(e["ops"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
               sum(8 + 34 * len(v) for v in e["anims"].values()) +
@@ -1985,7 +1997,19 @@ def main():
           f"({len(rgroups)} depósitos compartidos)", file=sys.stderr)
     o_need = [2 * len(d["ops"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(vcp_words(d)) for d in obj_list]
     # (cada grupo, una sola pieza: su depósito y sus juegos en la misma página)
-    o_need_g = [2 * len(g["pool"]) + sum(o_need[oi] for oi in g["sets"]) for g in rgroups]
+    def o_arrays(d):
+        return [("ops", tuple(d["ops"])), ("src", tuple(d["src"])), ("keys", tuple(v for k in d["keys"] for v in k)),
+                ("vcp", tuple(vcp_words(d)))]
+    o_need_g = []
+    for g in rgroups:                             # (lo repetido entre los juegos del grupo va una vez: ver abajo)
+        seen_, n_ = set(), 2 * len(g["pool"])
+        for oi in g["sets"]:
+            n_ += o_need[oi]
+            for a_ in o_arrays(obj_list[oi]):
+                if a_[1] and a_ in seen_:
+                    n_ -= 2 * len(a_[1])
+                seen_.add(a_)
+        o_need_g.append(n_)
     p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
     f_need = [2 * (len(frz_idx) + len(frz_runs) + len(frz_recs)) + 6 * len(segs) + 64]
     # cinemáticas de Ceres (mkm7.py, mkgetaway.py: corren antes): se usan una vez por partida, van en páginas y no en
@@ -1998,10 +2022,69 @@ def main():
     pages, obj_pages, pool_pages, cine_pages, frz_pages = [0] * len(entries), [0] * len(obj_list), [0] * nchunks, [0] * len(cine), [0]
     seg_pages = [0] * len(segs)
     rg_pages = [0] * len(rgroups)
-    for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(g_need)] + [(n, 1, i) for i, n in enumerate(o_need_g)] +
+    # (los gráficos de sala con las mismas celdas, en la misma página: lo repetido se guarda una vez, ver abajo)
+    cl_of, clusters = {}, []
+    for i, e in enumerate(entries):
+        k_ = tuple(e["cells"])
+        if k_ not in cl_of:
+            cl_of[k_] = len(clusters)
+            clusters.append([])
+        clusters[cl_of[k_]].append(i)
+
+    def g_arrays(e):
+        return [("ops", tuple(e["ops"])), ("src", tuple(x for row in e["src"] for x in row)), ("ids", tuple(e["ids"])),
+                ("cells", tuple(e["cells"]))]
+    cl_need = []
+    for mem in clusters:
+        seen_, n_ = set(), 0
+        for i in mem:
+            n_ += g_need[i]
+            for a_ in g_arrays(entries[i]):
+                if a_ in seen_:
+                    n_ -= 2 * len(a_[1])
+                seen_.add(a_)
+        cl_need.append(n_)
+    cl_pages = [0] * len(clusters)
+    placed = []
+    for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(cl_need)] + [(n, 1, i) for i, n in enumerate(o_need_g)] +
                               [(n, 2, i) for i, n in enumerate(p_need)] + [(n, 3, i) for i, n in enumerate(c_need)] +
                               [(f_need[0], 4, 0)] + [(n, 5, i) for i, n in enumerate(s_need)], reverse=True):
-        (pages, rg_pages, pool_pages, cine_pages, frz_pages, seg_pages)[kind][i] = place(n_)
+        (cl_pages, rg_pages, pool_pages, cine_pages, frz_pages, seg_pages)[kind][i] = place(n_)
+        placed.append([kind, i, n_])
+    # (una página menos si se puede: las piezas de la página de Zebes menos llena a los huecos de las demás, la más
+    # justa primero; si entran todas, queda vacía y el sonido la usa: la ROM termina antes, docs/48)
+    arrs_ = (cl_pages, rg_pages, pool_pages, cine_pages, frz_pages, seg_pages)
+    fixed_pg = set(busy_used) | {page0 - 1, 22, BOSS_PAGE} | set(pause_pages)
+    while True:
+        own = {}
+        for kind, i, n_ in placed:
+            own.setdefault(arrs_[kind][i], []).append((kind, i, n_))
+        cand = sorted((sum(x[2] for x in v), pg) for pg, v in own.items() if pg not in fixed_pg)
+        if not cand:
+            break
+        _, pv = cand[0]
+        trial, moves = dict(fill), []
+        del trial[pv]
+        for kind, i, n_ in sorted(own[pv], key=lambda x: -x[2]):
+            fits = [(0x80000 - PAGE_MARGIN - trial[pg] - n_, pg) for pg in trial if trial[pg] + n_ <= 0x80000 - PAGE_MARGIN]
+            if not fits:
+                moves = None
+                break
+            _, pg = min(fits)
+            trial[pg] += n_
+            moves.append((kind, i, pg))
+        if moves is None:
+            print(f"zebes: la página {pv} ({sum(x[2] for x in own[pv]) // 1024} KB en {len(own[pv])} piezas) no se puede "
+                  f"vaciar: {kind}/{i} de {n_ // 1024} KB no entra; huecos "
+                  f"{sorted(((0x80000 - PAGE_MARGIN - v) // 1024 for v in trial.values()), reverse=True)[:8]}", file=sys.stderr)
+            break
+        for kind, i, pg in moves:
+            arrs_[kind][i] = pg
+        fill = trial
+        print(f"zebes: página {pv} vaciada (sus piezas a los huecos de las demás)", file=sys.stderr)
+    for ci, mem in enumerate(clusters):
+        for i in mem:
+            pages[i] = cl_pages[ci]
     for gi, g in enumerate(rgroups):
         for oi in g["sets"]:
             obj_pages[oi] = rg_pages[gi]
@@ -2180,6 +2263,26 @@ def main():
     C.append(f'const ZebesState kZebesStates[{len(sts)}] = {{ ' + ', '.join('{0x%X, %d, 0x%X}' % s for s in sts) + ' };')
     H.append('#endif')
     (out / "zebes.h").write_text('\n'.join(H) + '\n')
+    # arreglos iguales en la misma página (celdas de los estados de una sala, claves de los juegos de un depósito...):
+    # uno solo; las referencias van al primero
+    seen_arr, alias, C2 = {}, {}, []
+    arr_re = re.compile(r'^NT_BANK\((\d+)\) static const (\w+) (kZ[GOR]\w+)\[(\d+)\] (?:__attribute__\(\(aligned\(2\)\)\) )?= \{(.*)\};$')
+    saved = 0
+    for line in C:
+        m_ = arr_re.match(line)
+        if m_:
+            key_ = (m_.group(1), m_.group(2), m_.group(5))
+            if key_ in seen_arr:
+                alias[m_.group(3)] = seen_arr[key_]
+                saved += len(line)
+                continue
+            seen_arr[key_] = m_.group(3)
+        C2.append(line)
+    if alias:
+        sym_re = re.compile(r'\bkZ[GOR]\w+\b')
+        C2 = [sym_re.sub(lambda m: alias.get(m.group(0), m.group(0)), l) if not arr_re.match(l) else l for l in C2]
+    print(f"zebes: {len(alias)} arreglos repetidos en la misma página, guardados una vez", file=sys.stderr)
+    C = C2
     (out / "zebes.c").write_text('\n'.join(C) + '\n')
     if os.environ.get("MM_PAGES"):
         print("zebes: páginas " + " ".join(f"{pg}:{v // 1024}" for pg, v in sorted(fill.items())), file=sys.stderr)

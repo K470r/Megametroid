@@ -73,3 +73,15 @@ Hecho en esta tanda: `lq_tables` copia los canales de tablas ya recortadas (`kLq
 leer `kCram555` (la lava cambia de color casi en cada cuadro): unos 10 cuadros menos por sala de lava. Total 8199.
 Ideas medidas para seguir: `sfx_play` busca el efecto en una lista lineal (~900 ciclos por cuadro); el HUD compara su
 mapa entero cada cuadro; `md_hint_lq` escribe 64 colores a mitad de la imagen (el 68000 espera a la VDP).
+
+Segunda tanda (2026-11-26): **8029** (quieta 3524).
+- El cadáver que se pudre (DC65: 393 -> 246): la conversión de los tiles en ensamblador (`cp_conv_asm`, igual byte a
+  byte que el C: `MD_CP_CHECK`), una suma de cada tile del SNES al convertirlo (3 de cada 4 tiles marcados no cambiaban:
+  el pudrirse marca columnas enteras), las entradas ordenadas por tabla (búsqueda binaria) y `md_corpse_dirty` por bytes.
+- Crocomire (A98D: 293 -> 214): `ProcessExtendedTilemap` con la copia del banco una vez (lectura de palabra y vuelta de
+  bytes) y la suma por fila del cuerpo en el BG2 (`nt_enemy_bg2_transfer`) con Fletcher sobre palabras largas.
+- Los índices de la paleta que cambiaron también por bits (`nt_pal_bits`, `nt_pal_dirty`): Mother Brain cambia colores
+  lejos entre sí y el rango entero obligaba a rehacer toda la CRAM y el líquido en cada cuadro.
+- `sfx_play`: los últimos 4 efectos buscados (la lista tiene ~60 por página).
+- Ojo al medir: el visor necesita START mantenido 10 cuadros (con 3, en las salas que van atrasadas no llegaba a verlo
+  antes de la derecha y no cambiaba de sala).

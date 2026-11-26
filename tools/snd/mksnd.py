@@ -671,6 +671,10 @@ def pcm_track(a, gain):
 # ---------------------------------------------------------------- páginas (docs/55)
 PAGES = [6, 26, 27, 28, 29, 30, 31]                   # páginas de sonido del SSF2 (md_ssf2.ld: .snd6, .snd26...; la 24 y
                                                        # la 25 son de Zebes: los enemigos de todas las áreas)
+# antes que la 26: las que Zebes deja vacías (mkzebes.py corre antes y las anota): la ROM termina antes (docs/48)
+_pf = Path(__file__).resolve().parents[2] / "res" / "gen" / "md" / "pages_free.txt"
+if _pf.exists():
+    PAGES = [6] + sorted(int(x) for x in _pf.read_text().split() if 8 <= int(x) <= 24) + PAGES[1:]
 PAGE_SIZE = 0x80000
 ANY_SET = 0xFF                                        # en las tablas: el efecto suena igual con cualquier conjunto
 

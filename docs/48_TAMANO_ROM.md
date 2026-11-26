@@ -162,6 +162,30 @@ Comprobación: el plano B después de entrar a las 255 salas del visor es igual 
 8 (agua, lava, Crocomire) la diferencia es del momento de la captura (las dos ROM llegan a otro cuadro del juego):
 las capturas a la vista son iguales. Regresión: 0 distintos.
 
+## Hecho: datos sin repetir y el sonido en las páginas libres (2026-11-26, punto 9)
+
+Lo que se lee al jugar no se puede comprimir (no hay RAM), pero sí guardar sin repeticiones, con un acceso directo:
+- **BTS de los niveles** (`mkdata.py`, `room.h` `bts_at`): cada fila de 16 bloques una sola vez y un byte por fila de la
+  sala (`LevelDataN.bts_idx`). 453 KB -> 109 KB. El nivel en sí (906 KB) no: se lee cientos de veces por cuadro en las
+  colisiones y la indirección costaría rendimiento.
+- **Capa 2 propia** (`mkzebes.py`, `ZebesGfx.l2i`, `block2_at`): igual, por sala. 355 KB -> 105 KB.
+- **Registros de sprites de los objetos**: muchos juegos repiten los mismos (el mismo enemigo con los mismos tiles). Los
+  juegos se reparten en depósitos comunes (`kZR`, hasta 0x7F00 palabras: la clave guarda el desplazamiento con 15 bits),
+  cada juego en el que más registros comparte; cada depósito va en una página con sus juegos. 1361 KB -> 758 KB (12
+  depósitos). Sale también lo que no usaba nadie (los registros de las salas por cuadro, Kraid, Draygon...).
+- **Salas especiales** (C001 Ceres explota, C002 Zebes, C0FF fin de juego): sus tiles y planos salían de la parte fija;
+  ahora los reparte mkzebes en las páginas como los bloques de las cinemáticas (`CINE_BLOBS`, `md_cine.h`) y
+  `md_engine.c` pone la página por sala al cargarlas (por sala: bloques de páginas distintas tienen la misma dirección).
+- **El sonido en las páginas que Zebes deja vacías**: mkzebes anota cuáles (`res/gen/md/pages_free.txt`) y `mksnd.py`
+  las usa antes que la 26 (`md_ssf2.ld` tiene páginas de sonido de la 8 a la 31; una página con las dos cosas da
+  superposición). Con las tres libres (16, 17, 21) el sonido termina en la 27: **la ROM pasa de 16 MB a 14,4 MB**.
+- `mkpbomb.py` usa la última página de los niveles solo si entra (si no, la siguiente, que cuenta mkzebes); el margen
+  por página de mkzebes es 4 KB (los arreglos nuevos de bytes suman alineaciones que la cuenta no ve).
+
+Comprobación: planos A y B de las 255 salas iguales a la ROM anterior (los tiles distintos son solo los de Samus y el
+HUD, por el momento de la captura); el cadáver del Torizo igual a los 700 y 3000 cuadros; regresión 0 distintos;
+lotes de salas en el PC contra el SNES (Crateria, Brinstar, Norfair, Maridia) 0 diferencias.
+
 ## Lo que sigue (en este orden)
 
 | Paso | Ganancia medida | Costo / riesgo |

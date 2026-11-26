@@ -159,12 +159,13 @@ Funcionan, pero no se ven igual que en el SNES:
     sprites); sus piezas con la línea de su cuerpo; la plataforma de la panza, verde como en el SNES. Draygon: el cuerpo
     ya no se ve donde el SNES lo esconde (el HDMA del agua, por línea) y la puerta tiene su color. Queda un detalle de
     color (docs/59): en la sala de Kraid los grises de los objetos en un solo gris (el cuerpo del misil, más claro).
-9. Rendimiento ([docs/44](docs/44_OPTIMIZACION.md)): medido en las 255 salas (`tools/perf/salas/todas.sh`), 8199 cuadros
-   perdidos de 153 000 (184 salas pierden alguno; las peores: el Torizo muerto que se pudre, Crocomire, Mother Brain y
-   las de lava, 170-390 de 600). La sobrecarga es pareja y repartida en muchas funciones: va por tandas. La bajada de la
-   nave en la llegada, ~16 cuadros más con el cielo nuevo (docs/62). Los objetos por cuadro (Draygon, Kraid, Mother
-   Brain) que faltaban en los cuadros atrasados ahora dibujan su cuadro anterior mientras se sube el nuevo: faltan la
-   mitad o menos (docs/59). Espacio: los fondos de biblioteca del BG2 van comprimidos (672 KB -> 56 KB, docs/48).
+9. Rendimiento ([docs/44](docs/44_OPTIMIZACION.md)): medido en las 255 salas (`tools/perf/salas/todas.sh`): 8256 ->
+   8029 cuadros perdidos de 153 000 (el Torizo que se pudre 393 -> 246, Crocomire 293 -> 214). La sobrecarga es pareja y
+   repartida en muchas funciones: va por tandas. La bajada de la nave en la llegada, ~16 cuadros más con el cielo nuevo
+   (docs/62). Los objetos por cuadro (Draygon, Kraid, Mother Brain) que faltaban en los cuadros atrasados dibujan su
+   cuadro anterior mientras se sube el nuevo: faltan la mitad o menos (docs/59). Espacio ([docs/48](docs/48_TAMANO_ROM.md)):
+   fondos del BG2 comprimidos, BTS, capa 2 y registros de sprites sin repetir, y el sonido en las páginas que quedan
+   libres: **la ROM pasa de 16 MB a 14,4 MB**.
 10. La niebla sin la forma de las nubes y la neblina con un color medio en vez del degradado.
 
 Traducción al español ([docs/66](docs/66_TRADUCCION.md); el menú, las opciones y copiar/borrar partidas ya están):

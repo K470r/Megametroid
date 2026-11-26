@@ -2187,6 +2187,8 @@ def main():
     empty = [pg for pg in range(page0, last_pg + 1) if pg not in fill]
     print(f"zebes: {len(entries)} gráficos de sala, páginas {page0}-{max(fill)}, libre {sum(0x80000 - v for v in fill.values()) // 1024} KB"
           f" en las usadas y {len(empty)} páginas vacías {empty}", file=sys.stderr)
+    # (las vacías: mksnd.py pone ahí el sonido antes que en la 26: la ROM termina antes, docs/48)
+    (HERE.parent.parent / "res" / "gen" / "md" / "pages_free.txt").write_text(" ".join(map(str, empty)) + "\n")
 
 
 if __name__ == "__main__":

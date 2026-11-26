@@ -114,13 +114,13 @@ static int16 ring_q[64];
 static uint16 ring_n;
 /* la página de los tiles o planos de una sala de kMdRooms: las de Ceres en la 7; las de las cinemáticas y el fin de
    juego donde las puso mkzebes.py (md_cine.h) */
-static uint8 room_blob_page(const void *p) {
-  if (p == kRoomTiles_C001) return CINE_PAGE_kRoomTiles_C001;
-  if (p == kRoomPlaneA_C001) return CINE_PAGE_kRoomPlaneA_C001;
-  if (p == kRoomTiles_C002) return CINE_PAGE_kRoomTiles_C002;
-  if (p == kRoomPlaneA_C002) return CINE_PAGE_kRoomPlaneA_C002;
-  if (p == kRoomTiles_C0FF) return CINE_PAGE_kRoomTiles_C0FF;
-  if (p == kRoomPlaneA_C0FF) return CINE_PAGE_kRoomPlaneA_C0FF;
+static uint8 room_blob_page(const MdRoom *R, uint8 plane) {   /* (por sala: en páginas distintas pueden tener la
+                                                                 misma dirección de la ventana) */
+  switch (R->room) {
+    case 0xC001: return plane ? CINE_PAGE_kRoomPlaneA_C001 : CINE_PAGE_kRoomTiles_C001;
+    case 0xC002: return plane ? CINE_PAGE_kRoomPlaneA_C002 : CINE_PAGE_kRoomTiles_C002;
+    case 0xC0FF: return plane ? CINE_PAGE_kRoomPlaneA_C0FF : CINE_PAGE_kRoomTiles_C0FF;
+  }
   return 7;
 }
 static void ring_row_write(int16 R) {          /* con el VDP libre (vblank o pantalla apagada) */
@@ -3293,9 +3293,9 @@ static void load_room_vram(void) {
      la página de un nivel de Zebes) */
   extern uint8 md_cur_page;
   uint8 lp7 = md_cur_page;
-  map_page_ext(room_blob_page(R->tiles));
+  map_page_ext(room_blob_page(R, 0));
   vdp_dma_vram(R->tiles, (cine_stage ? CINE_BG_BASE : BG_BASE) * 32, R->tiles_total * 16);
-  map_page_ext(room_blob_page(R->planeA));
+  map_page_ext(room_blob_page(R, 1));
   if (R->wall) {                                /* pozo de modo 7: pared a la derecha, el pozo alrededor de la cámara */
     for (uint16 r = 0; r < 64; r++) {
       vdp_set_vram_write(MD_VRAM_PLANE_A + r * 128 + 64);

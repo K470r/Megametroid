@@ -87,7 +87,7 @@ FM_CODE static void FileMapGfx_(uint16 what) {
     PauseGfx(PAUSE_GFX_MAP);
     /* los colores fijos (kPzFselCol) ya en el primer cuadro: md_pause_frame los pone cuando cambia la paleta, y hasta
        entonces el pie del mapa salía un cuadro con los colores de la pausa (amarillo) */
-    nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
+    nt_pal_all();
     break;
   }
   fm_key[0] = 0xFFFF;

@@ -29,10 +29,12 @@ BOSS_PAGE = 25                                               # (port.py)
 BOSS_RESERVE = int(os.environ.get("MM_BOSS_RESERVE", str(320 * 1024)))
 FRZ_CONTIG_MIN = 48        # objetos por cuadro con tantos tiles o más: sus tiles seguidos en el depósito (una copia propia)
 POOL_CHUNK = 512           # tiles por trozo del depósito común (16 KB: llenan mejor los huecos de las páginas)
-PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "1024"))   # bytes libres al final de cada página: la cuenta
+PAGE_MARGIN = int(os.environ.get("MM_PAGE_MARGIN", "4096"))   # bytes libres al final de cada página: la cuenta
 # no incluye las alineaciones; medido en rom.map (docs/58), lo real queda hasta ~1 KB por encima de la cuenta. El
 # enlace falla si una página pasa de 512 KB (md_ssf2.ld)
-CINE_BLOBS = ("kM7Tiles", "kM7Maps", "kGetawayTiles", "kGetawayMaps")   # cinemáticas de Ceres en páginas (docs/48)
+CINE_BLOBS = ("kM7Tiles", "kM7Maps", "kGetawayTiles", "kGetawayMaps",   # cinemáticas de Ceres en páginas (docs/48)
+              "kRoomTiles_C001", "kRoomPlaneA_C001", "kRoomTiles_C002", "kRoomPlaneA_C002",   # y las salas de las
+              "kRoomTiles_C0FF", "kRoomPlaneA_C0FF")                     # cinemáticas y del fin de juego (mkmd.py)
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent / "tools" / "genesis_convert"))
 from convert_rooms import snes_to_genesis, gen_to_cram, gen_to_rgb, color_dist, genesis_tile_bytes, snes_tile, \
@@ -1623,7 +1625,8 @@ def main():
          '   trozo 0x8000, tiles sin comprimir: (0x8000, n) y n veces (tile desde la base, cuántos, índice en kZebesPool) */',
          'typedef struct { uint8 page, npal; uint16 ntiles, nmeta, nops; const uint16 *ops; const uint16 *src;',
          '                 const uint16 *ids; const uint16 *cells; const uint16 *l2; const uint16 *bg2; uint8 sky, eye, bg2h;',
-         '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; uint32 skym; const uint8 *bg2z; uint8 bg2p; } ZebesGfx;',
+         '                 uint16 nanim; const uint16 *anim; const uint16 *anim_data; uint32 skym; const uint8 *bg2z; uint8 bg2p; const uint8 *l2i; } ZebesGfx;',
+         '/* l2i: con la capa 2 propia, un byte por fila de 16 bloques de la sala: su fila en l2 (filas sin repetir); 0: l2 entera */',
          '/* bg2z: el fondo de biblioteca comprimido (en vez de bg2, salvo los cielos): trozos MZ de 16 filas de 64 celdas, cada',
          '   uno con su largo antes (2 bytes); bg2p: la prioridad de sus celdas (0 o 1: todas iguales; 2: mezcla, Kraid) */',
          '/* skym: lugares de la CRAM (bit = línea * 16 + color) del cielo de la superficie: van con kCramFine (md_engine.c) */',
@@ -1716,11 +1719,11 @@ def main():
         lp = page0 - 1
         u = int(m_.group(1))
         pb = HERE.parent.parent / "res" / "gen" / "md" / "md_pbomb_data.c"
-        if pb.exists():
-            for m in re.finditer(r'section\("\.bank(\d+)"\)\)\)\s+(?:static\s+)?const\s+(\w+)\s+\w+\[(\d+)\]', pb.read_text()):
-                if int(m.group(1)) == lp:
-                    u += tsz.get(m.group(2).replace('_t', ''), 8) * int(m.group(3)) + 2
         fill[lp] = u + 4096 + (busy_used.get(lp, 0) if lp in busy_used else 0)
+        if pb.exists():                           # (en la última página de los niveles o, si no entra, en la siguiente)
+            for m in re.finditer(r'section\("\.bank(\d+)"\)\)\)\s+(?:static\s+)?const\s+(\w+)\s+\w+\[(\d+)\]', pb.read_text()):
+                pg_ = int(m.group(1))
+                fill[pg_] = fill.get(pg_, 0) + tsz.get(m.group(2).replace('_t', ''), 8) * int(m.group(3)) + 2
     for pg, u in pause_pages.items():
         fill[pg] = fill.get(pg, 0) + u + 4096
     # el título va al final de la página 22 (md_ssf2.ld, .rodata_title): lo que miden sus archivos si ya se generaron
@@ -1919,10 +1922,27 @@ def main():
           f"{sum(len(e['bg2z']) for _, e in zb) // 1024} KB", file=sys.stderr)
     for _, e in zb:
         e["bg2"] = None
+    # capa 2 propia (docs/48): por sala, cada fila de 16 bloques una sola vez (l2) y un byte por fila de la sala (l2i)
+    l2_a = l2_b = 0
+    for e in entries:
+        if not e["l2"]:
+            continue
+        w = e["l2"]
+        assert len(w) % 16 == 0
+        rows, ix = {}, []
+        for q in range(0, len(w), 16):
+            ix.append(rows.setdefault(tuple(w[q:q + 16]), len(rows)))
+        l2_a += 2 * len(w)
+        if len(rows) <= 256:
+            e["l2"] = [x for r in sorted(rows, key=rows.get) for x in r]
+            e["l2i"] = bytes(ix)
+            assert all(e["l2"][16 * ix[q // 16] + (q & 15)] == w[q] for q in range(len(w)))
+        l2_b += 2 * len(e["l2"]) + len(e.get("l2i") or b"")
+    print(f"zebes: capa 2 propia {l2_a // 1024} KB -> {l2_b // 1024} KB (filas de 16 bloques sin repetir)", file=sys.stderr)
     # los más grandes primero (primer hueco decreciente): las páginas quedan más llenas
     g_need = [2 * len(e["ops"]) + 32 * e["npal"] + 2 * len(e["ids"]) + 2 * len(e["cells"]) + 64 +
               sum(8 + 34 * len(v) for v in e["anims"].values()) +
-              2 * len(e["l2"] or []) + 2 * len(e["bg2"] or []) + len(e.get("bg2z") or b"") for e in entries]
+              2 * len(e["l2"] or []) + len(e.get("l2i") or b"") + 2 * len(e["bg2"] or []) + len(e.get("bg2z") or b"") for e in entries]
     def vcp_words(d):
         if not d.get("patches"):
             return []
@@ -1932,8 +1952,40 @@ def main():
             for t, b in tl:
                 w += [t] + [b[j] << 8 | b[j + 1] for j in range(0, 32, 2)]
         return w
-    o_need = [2 * len(d["ops"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(d["recs"]) + 2 * len(vcp_words(d))
-              for d in obj_list]
+    # registros de los objetos (docs/48): muchos juegos repiten los mismos (el mismo enemigo con los mismos tiles). Los
+    # juegos, en orden, se juntan en grupos con un depósito común (kZR, hasta REC_POOL_MAX palabras: la clave guarda
+    # el desplazamiento con 15 bits, 0x8000 es FROZEN_REF) donde cada registro va una vez; el grupo va en una página
+    # con sus juegos (zo->recs apunta al depósito). Los registros sin clave (salas por cuadro) no se guardan
+    REC_POOL_MAX = 0x7F00
+    rgroups, gcur = [], None
+    rec_a = sum(len(d["recs"]) for d in obj_list)
+    for oi, d in enumerate(obj_list):
+        r_ = d["recs"]
+        offs = sorted({k[3] for k in d["keys"] if k[3] < 0x8000})
+        blocks = {o: tuple(r_[o:o + 5 + 4 * r_[o]]) for o in offs}
+        # (el depósito que más registros ya tiene de este juego y donde entra; si ninguno, uno nuevo)
+        ub = set(blocks.values())
+        gcur, best = None, None
+        for g in rgroups:
+            nw = sum(len(b) for b in ub if b not in g["idx"])
+            if len(g["pool"]) + nw <= REC_POOL_MAX and (best is None or nw < best):
+                gcur, best = g, nw
+        if gcur is None:
+            gcur = {"pool": [], "idx": {}, "sets": []}
+            rgroups.append(gcur)
+        for o, b in blocks.items():
+            if b not in gcur["idx"]:
+                gcur["idx"][b] = len(gcur["pool"])
+                gcur["pool"] += list(b)
+        d["keys"] = [tuple(k[:3]) + ((gcur["idx"][blocks[k[3]]],) if k[3] < 0x8000 else (k[3],)) for k in d["keys"]]
+        d["rgroup"] = rgroups.index(gcur)
+        gcur["sets"].append(oi)
+    assert all(len(g["pool"]) < 0x8000 for g in rgroups)
+    print(f"zebes: registros de los objetos {2 * rec_a // 1024} KB -> {sum(2 * len(g['pool']) for g in rgroups) // 1024} KB "
+          f"({len(rgroups)} depósitos compartidos)", file=sys.stderr)
+    o_need = [2 * len(d["ops"]) + 2 * len(d["src"]) + 8 * len(d["keys"]) + 2 * len(vcp_words(d)) for d in obj_list]
+    # (cada grupo, una sola pieza: su depósito y sus juegos en la misma página)
+    o_need_g = [2 * len(g["pool"]) + sum(o_need[oi] for oi in g["sets"]) for g in rgroups]
     p_need = [32 * len(pool[c * POOL_CHUNK:(c + 1) * POOL_CHUNK]) for c in range(nchunks)]
     f_need = [2 * (len(frz_idx) + len(frz_runs) + len(frz_recs)) + 6 * len(segs) + 64]
     # cinemáticas de Ceres (mkm7.py, mkgetaway.py: corren antes): se usan una vez por partida, van en páginas y no en
@@ -1945,10 +1997,14 @@ def main():
     s_need = [len(c_) + 2 for c_ in seg_mz]
     pages, obj_pages, pool_pages, cine_pages, frz_pages = [0] * len(entries), [0] * len(obj_list), [0] * nchunks, [0] * len(cine), [0]
     seg_pages = [0] * len(segs)
-    for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(g_need)] + [(n, 1, i) for i, n in enumerate(o_need)] +
+    rg_pages = [0] * len(rgroups)
+    for n_, kind, i in sorted([(n, 0, i) for i, n in enumerate(g_need)] + [(n, 1, i) for i, n in enumerate(o_need_g)] +
                               [(n, 2, i) for i, n in enumerate(p_need)] + [(n, 3, i) for i, n in enumerate(c_need)] +
                               [(f_need[0], 4, 0)] + [(n, 5, i) for i, n in enumerate(s_need)], reverse=True):
-        (pages, obj_pages, pool_pages, cine_pages, frz_pages, seg_pages)[kind][i] = place(n_)
+        (pages, rg_pages, pool_pages, cine_pages, frz_pages, seg_pages)[kind][i] = place(n_)
+    for gi, g in enumerate(rgroups):
+        for oi in g["sets"]:
+            obj_pages[oi] = rg_pages[gi]
     frz_page = frz_pages[0]
     cs = ["/* Generado por tools/conv/mkzebes.py: bloques de las cinemáticas de Ceres en páginas del SSF2 (md_cine.h) */"]
     ch = ["/* Generado por tools/conv/mkzebes.py: página del SSF2 de cada bloque de las cinemáticas */",
@@ -2005,6 +2061,9 @@ def main():
         if e["l2"]:
             C.append(f'NT_BANK({page}) static const uint16 kZG{i}_l2[{len(e["l2"])}] = {{' +
                      ','.join('0x%X' % x for x in e["l2"]) + '};')
+        if e.get("l2i"):
+            C.append(f'NT_BANK({page}) static const uint8 kZG{i}_l2i[{len(e["l2i"])}] = {{' +
+                     ','.join(str(x) for x in e["l2i"]) + '};')
         if e["anims"]:
             idx, data = [], []
             for key in sorted(e["anims"]):
@@ -2054,8 +2113,10 @@ def main():
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_src[30] = {{' + ','.join(str(x) for x in d["src"]) + '};')
         C.append(f'NT_BANK({page}) static const uint16 kZO{i}_keys[{4 * len(d["keys"])}] = {{' +
                  ','.join('0x%X' % v for k in d["keys"] for v in k) + '};')
-        C.append(f'NT_BANK({page}) static const uint16 kZO{i}_recs[{len(d["recs"])}] = {{' +
-                 ','.join('0x%X' % v for v in d["recs"]) + '};')
+        if rgroups[d["rgroup"]]["sets"][0] == i:   # (el depósito, con el primer juego del grupo)
+            g = rgroups[d["rgroup"]]
+            C.append(f'NT_BANK({page}) static const uint16 kZR{d["rgroup"]}[{max(1, len(g["pool"]))}] = {{' +
+                     (','.join('0x%X' % v for v in g["pool"]) or '0') + '};')
         if vcp_words(d):
             C.append(f'NT_BANK({page}) static const uint16 kZO{i}_vcp[{len(vcp_words(d))}] = {{' +
                      ','.join('0x%X' % v for v in vcp_words(d)) + '};')
@@ -2069,7 +2130,7 @@ def main():
     H.append(f'extern const ZebesObj kZebesObj[{max(1, len(obj_list))}];')
     C.append(f'const ZebesObj kZebesObj[{max(1, len(obj_list))}] = {{')
     for i, d in enumerate(obj_list):
-        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["ops"])}, kZO{i}_ops, kZO{i}_src, kZO{i}_keys, kZO{i}_recs, {d["base"]}, {d.get("stream", 0)}, {f"kZO{i}_vcp" if vcp_words(d) else "0"}, {f"kZO{i}_corpse" if d.get("corpse") else "0"} }},')
+        C.append(f'  {{ {obj_pages[i]}, {len(d["tiles"]) // 32}, {len(d["keys"])}, {len(d["ops"])}, kZO{i}_ops, kZO{i}_src, kZO{i}_keys, kZR{d["rgroup"]}, {d["base"]}, {d.get("stream", 0)}, {f"kZO{i}_vcp" if vcp_words(d) else "0"}, {f"kZO{i}_corpse" if d.get("corpse") else "0"} }},')
     if not obj_list:
         C.append('  { 0 },')
     C.append('};')
@@ -2112,7 +2173,7 @@ def main():
                  f'kZG{i}_ids, kZG{i}_cells, {"kZG%d_l2" % i if e["l2"] else "0"}, '
                  f'{"kZG%d_bg2" % i if e["bg2"] else "0"}, {e["sky"]}, {e["eye"]}, {e.get("bg2h", 1 if e["bg2"] and len(e["bg2"]) == 4096 else 0)}, {len(e["anims"])}, '
                  f'{"kZG%d_anim" % i if e["anims"] else "0"}, {"kZG%d_animd" % i if e["anims"] else "0"}, 0x{e.get("skym", 0):X}u, '
-                 f'{"kZG%d_bg2z" % i if e.get("bg2z") else "0"}, {e.get("bg2p", 0)} }},  /* sala {e["key"][3]:04X} */')
+                 f'{"kZG%d_bg2z" % i if e.get("bg2z") else "0"}, {e.get("bg2p", 0)}, {"kZG%d_l2i" % i if e.get("l2i") else "0"} }},  /* sala {e["key"][3]:04X} */')
     C.append('};')
     sts = sorted((k[1], v, obj_of[id(objs[k[1]])] if k[1] in objs else 0xFFFF) for k, v in gfx_keys.items() if k[0] == "st")
     H.append(f'extern const ZebesState kZebesStates[{len(sts)}];  /* ordenados por estado (búsqueda binaria) */')

@@ -1747,6 +1747,10 @@ def write_out(out_dir, C, Hh, bins):
         # las salas de Ceres (tiles y planos) van en la página 7: se leen con la ventana 7 en 7, la página del nivel de
         # Ceres (nt_map_level_page(0)). Así lo común queda debajo de 0x300000 (docs/48, docs/55)
         m = re.match(r"kRoom(?:Tiles|PlaneA|PlaneB)_([0-9A-F]{4})$", sym)
+        # (las de las cinemáticas y el fin de juego, C001/C002/C0FF, las reparte mkzebes.py en las páginas, como los
+        # bloques de las cinemáticas: CINE_BLOBS, md_cine.s; md_engine.c pone su página al cargarlas)
+        if m and int(m.group(1), 16) in (0xC001, 0xC002, 0xC0FF):
+            continue
         sec = ".rodata_page7,\"a\"" if m and 0xDF45 <= int(m.group(1), 16) <= 0xE0B5 else ".rodata"
         s += [f"    .section {sec}", "    .align 2", f"    .global {sym}", f"{sym}:", f'    .incbin "bins/{f}"']
     (out_dir / "md_bins.s").write_text("\n".join(s) + "\n")

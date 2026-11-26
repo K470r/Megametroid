@@ -1112,7 +1112,7 @@ def convert_state(rom, keys, tilesets_ptr, beam_slots, compose_min=None, slots=O
               f"las demás en la {OBJ_LINE} ({len(alive)} colores, {merged} fusiones)", file=sys.stderr)
     return dict(base=base, tiles=tiles, src=src, keys=sorted(index), recs=[v & 0xFFFF for v in recs_all],
                 merged=merged + merged1, ncolors=len(counts) + sum(len(c) for c in bcounts.values()), nspr=nspr,
-                boss_line=bool(boss), line1_of={i: slot1[r] for i, r in rep1.items()}, corpse=(sorted(cmap, key=lambda e: (e[1], e[0])), cluts, corpse[0]) if cmap else None,
+                boss_line=bool(boss), line1_of={i: slot1[r] for i, r in rep1.items()}, corpse=(sorted(cmap, key=lambda e: (e[2], e[1], e[0])), cluts, corpse[0]) if cmap else None,
                 patches=[(src, dst, sorted(pt.items())) for (src, size, dst), pt in zip(vops, patches) if pt])
 
 

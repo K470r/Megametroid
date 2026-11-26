@@ -116,15 +116,32 @@ void CallEnemyAi(uint8 bank, uint16 f) {
    en tilemap_stuff (7E:2000, el BG2 de los jefes grandes: Phantoon, Draygon, Crocomire); la NMI lo sube a la VRAM
    (QueueEnemyBG2TilemapTransfers; en la Genesis, la plataforma) */
 void ProcessExtendedTilemap(uint8 db, uint16 r22) {  // 0xA096CA
+  /* (la copia del banco una vez: Crocomire copia ~1000 palabras por cuadro; las que van a tilemap_stuff, con lectura de
+     palabra y vuelta de bytes cuando la dirección es par, sin mirar el banco en cada una) */
+  const uint8 *b = BankBase(db);
+  if (!b) return;
   uint16 p = r22 + 2;
   for (;;) {
-    uint16 dst = BankW(db, p);
+    uint16 dst = BANKB_W(b, p);
     if (dst == 0xFFFF)
       break;
-    uint16 n = BankW(db, p + 2);
+    uint16 n = BANKB_W(b, p + 2);
     p += 4;
+    uint16 o = (uint16)(dst - 0x2000);
+    if (o < 0x1000 && (uint16)(o + 2 * n) <= 0x1000 && !(o & 1) && (uint16)(p - 0x8000) + 2 * (uint32)n <= 0x8000) {
+      uint16 *t = &tilemap_stuff[o >> 1];
+      const uint8 *s = b + (uint16)(p - 0x8000);
+      if (!((uint32)s & 1)) {
+        const uint16 *w = (const uint16 *)s;
+        for (uint16 i = 0; i < n; i++) { uint16 v = w[i]; t[i] = (uint16)(v << 8 | v >> 8); }
+      } else {
+        for (uint16 i = 0; i < n; i++) { uint8 lo = s[2 * i], hi = s[2 * i + 1]; __asm__("" : "+d"(hi)); t[i] = (uint16)(lo | hi << 8); }
+      }
+      p += 2 * n;
+      continue;
+    }
     for (uint16 i = 0; i < n; i++, p += 2, dst += 2) {
-      uint16 w = BankW(db, p);
+      uint16 w = BANKB_W(b, p);
       if ((uint16)(dst - 0x2000) < 0x1000)
         tilemap_stuff[(dst - 0x2000) >> 1] = w;
       else

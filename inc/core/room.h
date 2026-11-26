@@ -17,7 +17,11 @@ extern uint16 lvl_index;               /* nivel de la sala (kLevels); 0xFFFF = n
 extern uint8 lvl_mod[ROOM_MAX_BLOCKS / 8];
 extern LvlMod lvl_ov[LVL_OV_N];
 extern const uint16 *lvl_rom;          /* del nivel actual (lvl_attach) */
-extern const uint8 *bts_rom;
+extern const uint8 *bts_rom;           /* (filas de 16 sin repetir si bts_idx; si no, el BTS entero) */
+extern const uint8 *bts_idx;           /* un byte por fila de 16 bloques: su fila en bts_rom (mkdata.py), o 0 */
+static inline uint8 bts_at(uint16 i) {  /* el BTS del nivel en la ROM */
+  return bts_idx ? bts_rom[((uint16)bts_idx[i >> 4] << 4) + (i & 15)] : bts_rom[i];
+}
 extern uint16 lvl_blocks;
 extern uint16 lvl_fast;                /* lvl_blocks si no hay bloques cambiados (todo sale de la ROM); si no, 0 */
 
@@ -46,7 +50,7 @@ static inline uint8 lvl_is_mod(uint16 i) { return (lvl_mod[i >> 3] >> (i & 7)) &
    Kraid fuera de la sala (fila 42 de 32) rebotaba contra lo sólido donde el SNES lee aire (el BTS en 0) */
 static inline uint16 level_oob(uint16 i) {
   uint16 r = (uint16)(i - lvl_blocks);
-  if (r < (lvl_blocks >> 1)) return (uint16)(bts_rom[2 * r] | bts_rom[2 * r + 1] << 8);
+  if (r < (lvl_blocks >> 1)) return (uint16)(bts_at(2 * r) | bts_at(2 * r + 1) << 8);
   return 0x8000;
 }
 static inline uint16 level_get(uint16 i) {
@@ -56,8 +60,8 @@ static inline uint16 level_get(uint16 i) {
   return lvl_is_mod(i) ? lvl_find(i)->lvl : level_oob(i);
 }
 static inline uint8 bts_get(uint16 i) {
-  if (i < lvl_fast) return bts_rom[i];
-  if (i < lvl_blocks) return lvl_is_mod(i) ? lvl_find(i)->bts : bts_rom[i];
+  if (i < lvl_fast) return bts_at(i);
+  if (i < lvl_blocks) return lvl_is_mod(i) ? lvl_find(i)->bts : bts_at(i);
   if (i >= ROOM_MAX_BLOCKS) return 0;
   return lvl_is_mod(i) ? lvl_find(i)->bts : 0;
 }

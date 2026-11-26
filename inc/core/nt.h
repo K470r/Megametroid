@@ -56,11 +56,17 @@ enum {
    el NMI copiaba la paleta entera en cada cuadro; aquí solo cuando hace falta. */
 extern uint8 nt_palette_changed;
 extern uint8 nt_palette_lo, nt_palette_hi;      /* índices de palette_buffer que cambiaron desde el último aviso */
+extern uint8 nt_pal_bits[32];                   /* los mismos, uno por uno (un bit por índice: la Genesis rehace solo esos
+                                                   colores aunque estén lejos, md_engine.c) */
+void nt_pal_mark(uint8 lo, uint8 hi);           /* (game.c) los bits de lo..hi */
 static inline void nt_pal_dirty(uint8 lo, uint8 hi) {
   if (!nt_palette_changed) { nt_palette_lo = lo; nt_palette_hi = hi; }
   else { if (lo < nt_palette_lo) nt_palette_lo = lo; if (hi > nt_palette_hi) nt_palette_hi = hi; }
   nt_palette_changed = 1;
+  if (lo == hi) nt_pal_bits[lo >> 3] |= (uint8)(1 << (lo & 7));
+  else nt_pal_mark(lo, hi);
 }
+static inline void nt_pal_all(void) { nt_pal_dirty(0, 255); }   /* toda la paleta */
 /* Genesis (NT_FADE_LIST): índices de palette_buffer que el fundido calcula cuadro a cuadro (los que se ven) */
 extern const uint8 *nt_fade_list;
 /* temblor de la sala en este cuadro (HandleRoomShaking): lo que el SNES suma a BG1/BG2 HOFS/VOFS (la Genesis lo

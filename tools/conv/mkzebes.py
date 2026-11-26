@@ -1273,7 +1273,10 @@ BOSS_BG_LINE = {0xDD58: {4: 1}}
 # Mother Brain dibuja en la falsa muerte el fondo de tubos en el BG1 por filas ($84:B67B-B6A7: el BG2 queda para su
 # cuerpo), borra los tubos y el techo ($84:B677, B6B3-B6C7, B763/B767) y sella la pared (B673, MotherBrain_SealWall)
 BOSS_CODE_PLMS = {0xDD58: (0xB673, 0xB677, 0xB67B, 0xB67F, 0xB683, 0xB687, 0xB68B, 0xB68F, 0xB693, 0xB697, 0xB69B, 0xB69F,
-                           0xB6A3, 0xB6A7, 0xB6B3, 0xB6B7, 0xB6BB, 0xB6BF, 0xB6C3, 0xB6C7, 0xB763, 0xB767)}
+                           0xB6A3, 0xB6A7, 0xB6B3, 0xB6B7, 0xB6BB, 0xB6BF, 0xB6C3, 0xB6C7, 0xB763, 0xB767),
+                  # Phantoon: al terminar de soltar las bolas de fuego ($A7:D4EB) redibuja la puerta de la izquierda
+                  # con los bloques 1C0/1C1/1E0/1E1 ($84:B781, dibujo $84:93EF): sin ellos la puerta desaparecía
+                  0xCD13: (0xB781,)}
 # la pared de la cueva de Kraid: los tiles 1008-1023 del BG1 los sube su código (kKraidsRoomBg $A7:A716, al hacerse
 # grande; ceros al morir): en la Genesis son tiles propios que el motor llena o borra (kZebesWall, md_zebes.c)
 KRAID_WALL_ROOMS = {0xA59F}                        # sala: byte de la VRAM del tile 0 de su BG2

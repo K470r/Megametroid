@@ -530,10 +530,25 @@ static void lq_prepare(void) {
   if (tint_on) { ar += tint_r; ag += tint_g; ab += tint_b; }
   { extern uint8 nt_msgbox_active; if (nt_msgbox_active) lq_pal_dirty = 1; }   /* (la caja de mensaje usa la misma RAM) */
   uint8 again = lq_pal_dirty || ar != lq_last[0] || ag != lq_last[1] || ab != lq_last[2];
+  if (again && !lq_pal_dirty) {
+    /* solo cambió el color del líquido (la lava lo cambia casi en cada cuadro con el ciclo de calor): con 8 niveles por
+       canal, las tablas nuevas casi siempre son las mismas; si lo son, los colores ya están (solo los índices marcados) */
+    uint8 nt[192] __attribute__((aligned(4)));
+    lq_tables(ar, ag, ab, nt);
+    lq_tables(ar + (ar >> 1), ag + (ag >> 1), ab + (ab >> 1), nt + 96);
+    lq_last[0] = ar; lq_last[1] = ag; lq_last[2] = ab;
+    const uint32 *a_ = (const uint32 *)nt, *b_ = (const uint32 *)lq_tab;
+    uint16 q = 0;
+    while (q < 48 && a_[q] == b_[q]) q++;
+    if (q == 48) again = 0;
+    else memcpy(lq_tab, nt, 192);
+  }
   if (again) {                                  /* solo si cambió la paleta o el color del líquido */
-    lq_pal_dirty = 0; lq_last[0] = ar; lq_last[1] = ag; lq_last[2] = ab;
-    lq_tables(ar, ag, ab, lq_tab);
-    lq_tables(ar + (ar >> 1), ag + (ag >> 1), ab + (ab >> 1), lq_tab + 96);   /* superficie: ~1,5 veces (SNES) */
+    if (lq_pal_dirty) {
+      lq_pal_dirty = 0; lq_last[0] = ar; lq_last[1] = ag; lq_last[2] = ab;
+      lq_tables(ar, ag, ab, lq_tab);
+      lq_tables(ar + (ar >> 1), ag + (ag >> 1), ab + (ab >> 1), lq_tab + 96);   /* superficie: ~1,5 veces (SNES) */
+    }
     lq_palette(lq_tab, lq_col);
     lq_palette(lq_tab + 96, lq_cols);
   } else if (lq_any)                           /* solo los colores que salen de los índices que cambiaron */
@@ -3073,10 +3088,15 @@ void md_post(void) {
       few = nb <= 6;
     }
     if (!md_zebes) ;                            /* (el líquido es solo de Zebes) */
-    else if (few) {                             /* pocos índices: el líquido rehace solo sus colores (lq_prepare) */
-      for (uint16 b = nt_palette_lo >> 3; b <= (uint16)(nt_palette_hi >> 3); b++) lq_bits[b] |= nt_pal_bits[b];
-      lq_any = 1;
-    } else lq_pal_dirty = 1;
+    else {
+      /* el líquido rehace solo los colores que salen de los índices marcados (lq_partial), salvo que haya cambiado casi
+         toda la paleta: el ciclo de calor de Norfair cambia colores repartidos en muchos grupos de 8 y con el límite de
+         "few" (6 grupos) rehacía las 2 x 63 cada vez */
+      uint16 ng = 0;
+      for (uint16 b = nt_palette_lo >> 3; b <= (uint16)(nt_palette_hi >> 3); b++)
+        if (nt_pal_bits[b]) { lq_bits[b] |= nt_pal_bits[b]; ng++; }
+      if (ng > 20) lq_pal_dirty = 1; else lq_any = 1;
+    }
     const uint8 *pb = (const uint8 *)palette_buffer;
     const uint8 *lut = (const uint8 *)kCram555;
     /* (los lugares del cielo los pone fine_fix: escritos aquí y después allí, la CRAM se subía en cada cambio) */

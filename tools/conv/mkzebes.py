@@ -1253,7 +1253,10 @@ VIS_ROOMS = {0xA66A}
 PREF_LINES = {0xDD58: (3,)}
 # colores que no se juntan con otros (Genesis, RGB de gen_to_rgb): la tapa azul de la puerta de la izquierda de Mother
 # Brain (en la pelea la sala va en una línea y los azules se juntaban con los grises: la tapa salía gris)
-KEEP_COLORS = {0xDD58: {(0, 52, 144), (52, 116, 255), (144, 172, 255)}}
+KEEP_COLORS = {0xDD58: {(0, 52, 144), (52, 116, 255), (144, 172, 255)},
+               # AD5E (Norfair): los rojos oscuros de su capa 2 (las estalactitas del fondo) se juntaban todos con el
+               # negro y el fondo no se veía (con el peso por píxeles el verde de las gotas terminaba morado)
+               0xAD5E: {(52, 0, 0), (87, 0, 0), (116, 0, 0), (144, 0, 0)}}
 # índices del SNES que lee el lugar que los junta: Mother Brain, el fondo azulado (la línea 3: (32,40,48) sale gris
 # neutro en la Genesis, (24,32,32), el 58, verde azulado oscuro: así el fondo tira a azul como en el SNES)
 PREF_INDEX = {0xDD58: (58,)}
@@ -1713,7 +1716,7 @@ def main():
             tsz_ = {'uint8_t': 1, 'uint16_t': 2, 'FmImage': 16}
             sz = sum(tsz_[t] * int(x) + 2 for t, x in re.findall(r'FM_ATTR const (\w+) \w+\[(\d+)\]', ft))
             # (+ 12 KB: el código del menú de partidas, src/front/menu.c, también va ahí: md_ssf2.ld)
-            pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz + 16384 + 12288
+            pause_pages[int(pg.group(1))] = pause_pages.get(int(pg.group(1)), 0) + sz + 4096 + 12288   # (margen 4 KB: con 16 la página 23 tenía 16 KB sin usar)
     # lo que ocupa la intro en sus páginas (de las declaraciones de md_intro_data.c, con margen): el resto de esas
     # páginas también sirve para Zebes
     tsz = {'uint8': 1, 'int8': 1, 'uint16': 2, 'int16': 2, 'uint32': 4}

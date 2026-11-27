@@ -132,43 +132,45 @@ SECTIONS
 
   /* Páginas del mapeador SSF2 más allá de los 4 MB: se ven en la ventana 7 (0x380000-0x3FFFFF)
      después de escribir el número de página en $A130FF (mm_ssf2.h). */
-  .bank8 0x380000 : AT (0x400000) { KEEP(*(.bank8)) }
+  /* (en cada página los datos de la intro van primero: la nave lee sus cuadros como 0x380000 + el desplazamiento que
+     calculó mkintro.py, md_intro.c ship_rec; con un bloque de las cinemáticas delante en la 20 salía basura) */
+  .bank8 0x380000 : AT (0x400000) { KEEP(*md_intro_data.o(.bank8)) KEEP(*(.bank8)) }
   ASSERT(SIZEOF (.bank8) <= 0x80000, "MegaMetroid: la pagina 8 pasa de 512 KB")
-  .bank9 0x380000 : AT (0x480000) { KEEP(*(.bank9)) }
+  .bank9 0x380000 : AT (0x480000) { KEEP(*md_intro_data.o(.bank9)) KEEP(*(.bank9)) }
   ASSERT(SIZEOF (.bank9) <= 0x80000, "MegaMetroid: la pagina 9 pasa de 512 KB")
-  .bank10 0x380000 : AT (0x500000) { KEEP(*(.bank10)) }
+  .bank10 0x380000 : AT (0x500000) { KEEP(*md_intro_data.o(.bank10)) KEEP(*(.bank10)) }
   ASSERT(SIZEOF (.bank10) <= 0x80000, "MegaMetroid: la pagina 10 pasa de 512 KB")
-  .bank11 0x380000 : AT (0x580000) { KEEP(*(.bank11)) }
+  .bank11 0x380000 : AT (0x580000) { KEEP(*md_intro_data.o(.bank11)) KEEP(*(.bank11)) }
   ASSERT(SIZEOF (.bank11) <= 0x80000, "MegaMetroid: la pagina 11 pasa de 512 KB")
-  .bank12 0x380000 : AT (0x600000) { KEEP(*(.bank12)) }
+  .bank12 0x380000 : AT (0x600000) { KEEP(*md_intro_data.o(.bank12)) KEEP(*(.bank12)) }
   ASSERT(SIZEOF (.bank12) <= 0x80000, "MegaMetroid: la pagina 12 pasa de 512 KB")
-  .bank13 0x380000 : AT (0x680000) { KEEP(*(.bank13)) }
+  .bank13 0x380000 : AT (0x680000) { KEEP(*md_intro_data.o(.bank13)) KEEP(*(.bank13)) }
   ASSERT(SIZEOF (.bank13) <= 0x80000, "MegaMetroid: la pagina 13 pasa de 512 KB")
-  .bank14 0x380000 : AT (0x700000) { KEEP(*(.bank14)) }
+  .bank14 0x380000 : AT (0x700000) { KEEP(*md_intro_data.o(.bank14)) KEEP(*(.bank14)) }
   ASSERT(SIZEOF (.bank14) <= 0x80000, "MegaMetroid: la pagina 14 pasa de 512 KB")
-  .bank15 0x380000 : AT (0x780000) { KEEP(*(.bank15)) }
+  .bank15 0x380000 : AT (0x780000) { KEEP(*md_intro_data.o(.bank15)) KEEP(*(.bank15)) }
   ASSERT(SIZEOF (.bank15) <= 0x80000, "MegaMetroid: la pagina 15 pasa de 512 KB")
-  .bank16 0x380000 : AT (0x800000) { KEEP(*(.bank16)) }
+  .bank16 0x380000 : AT (0x800000) { KEEP(*md_intro_data.o(.bank16)) KEEP(*(.bank16)) }
   ASSERT(SIZEOF (.bank16) <= 0x80000, "MegaMetroid: la pagina 16 pasa de 512 KB")
-  .bank17 0x380000 : AT (0x880000) { KEEP(*(.bank17)) }
+  .bank17 0x380000 : AT (0x880000) { KEEP(*md_intro_data.o(.bank17)) KEEP(*(.bank17)) }
   ASSERT(SIZEOF (.bank17) <= 0x80000, "MegaMetroid: la pagina 17 pasa de 512 KB")
-  .bank18 0x380000 : AT (0x900000) { KEEP(*(.bank18)) }
+  .bank18 0x380000 : AT (0x900000) { KEEP(*md_intro_data.o(.bank18)) KEEP(*(.bank18)) }
   ASSERT(SIZEOF (.bank18) <= 0x80000, "MegaMetroid: la pagina 18 pasa de 512 KB")
-  .bank19 0x380000 : AT (0x980000) { KEEP(*(.bank19)) }
+  .bank19 0x380000 : AT (0x980000) { KEEP(*md_intro_data.o(.bank19)) KEEP(*(.bank19)) }
   ASSERT(SIZEOF (.bank19) <= 0x80000, "MegaMetroid: la pagina 19 pasa de 512 KB")
-  .bank20 0x380000 : AT (0xA00000) { KEEP(*(.bank20)) }
+  .bank20 0x380000 : AT (0xA00000) { KEEP(*md_intro_data.o(.bank20)) KEEP(*(.bank20)) }
   ASSERT(SIZEOF (.bank20) <= 0x80000, "MegaMetroid: la pagina 20 pasa de 512 KB")
-  .bank21 0x380000 : AT (0xA80000) { KEEP(*(.bank21)) }
+  .bank21 0x380000 : AT (0xA80000) { KEEP(*md_intro_data.o(.bank21)) KEEP(*(.bank21)) }
   ASSERT(SIZEOF (.bank21) <= 0x80000, "MegaMetroid: la pagina 21 pasa de 512 KB")
   /* el título (src/front/title.c) va al final de la página 22: se ve con la ventana 7 en MD_TITLE_PAGE (md.h) */
-  .bank22 0x380000 : AT (0xB00000) { KEEP(*(.bank22)) . = ALIGN(0x4); __mm_title_start = .; KEEP(*(.rodata_title)) __mm_title_end = .; }
+  .bank22 0x380000 : AT (0xB00000) { KEEP(*md_intro_data.o(.bank22)) KEEP(*(.bank22)) . = ALIGN(0x4); __mm_title_start = .; KEEP(*(.rodata_title)) __mm_title_end = .; }
   ASSERT(SIZEOF (.bank22) <= 0x80000, "MegaMetroid: la pagina 22 pasa de 512 KB")
-  .bank23 0x380000 : AT (0xB80000) { KEEP(*(.bank23)) *front_menu.o(.text .text.*) }   /* (el menú: md_main.c la pone) */
+  .bank23 0x380000 : AT (0xB80000) { KEEP(*md_intro_data.o(.bank23)) KEEP(*(.bank23)) *front_menu.o(.text .text.*) }   /* (el menú: md_main.c la pone) */
   ASSERT(SIZEOF (.bank23) <= 0x80000, "MegaMetroid: la pagina 23 pasa de 512 KB")
   /* 24 y 25: Zebes (los objetos de los enemigos de todas las áreas); el sonido va en la 6 y de la 26 a la 31 */
-  .bank24 0x380000 : AT (0xC00000) { KEEP(*(.bank24)) }
+  .bank24 0x380000 : AT (0xC00000) { KEEP(*md_intro_data.o(.bank24)) KEEP(*(.bank24)) }
   ASSERT(SIZEOF (.bank24) <= 0x80000, "MegaMetroid: la pagina 24 pasa de 512 KB")
-  .bank25 0x380000 : AT (0xC80000) { KEEP(*(.bank25)) }
+  .bank25 0x380000 : AT (0xC80000) { KEEP(*md_intro_data.o(.bank25)) KEEP(*(.bank25)) }
   ASSERT(SIZEOF (.bank25) <= 0x80000, "MegaMetroid: la pagina 25 pasa de 512 KB")
   /* sonido también en las páginas que Zebes deja libres (mkzebes.py: pages_free.txt; mksnd.py las usa antes que la 26):
      una página con Zebes y con sonido a la vez da superposición de secciones (el enlazador avisa) */

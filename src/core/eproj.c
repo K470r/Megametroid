@@ -337,6 +337,7 @@ __asm__(
   "    lsr.w #4,%d2\n"
   "    add.w %d2,%d2\n"
   "    move.w (%a1,%d2.w),%d2\n"
+  "    and.w #0xFFE0,%d2\n"                  /* (par siempre: lvl_at) */
   "    and.w #15,%d5\n"
   "    add.w %d5,%d5\n"
   "    add.w %d2,%d5\n"

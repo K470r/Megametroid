@@ -19,7 +19,10 @@ extern LvlMod lvl_ov[LVL_OV_N];
 extern const uint16 *lvl_rom;          /* del nivel actual (lvl_attach): filas de 16 bloques sin repetir (mkdata.py) */
 extern const uint16 *lvl_ridx;         /* una palabra por fila de 16 bloques: el byte de lvl_rom donde empieza */
 static inline uint16 lvl_at(uint16 i) {  /* el bloque i del nivel en la ROM */
-  return *(const uint16 *)((const uint8 *)lvl_rom + lvl_ridx[i >> 4] + ((i & 15) << 1));
+  /* (& 0xFFE0: las filas empiezan en múltiplos de 32. Con la ventana 7 en otra página (las cinemáticas de la llegada a
+     Ceres leen bloques igual) el índice es basura: sin la máscara podía salir impar y el 68000 se caía con ADDRESS
+     ERROR; antes, con el nivel entero, solo se leía basura) */
+  return *(const uint16 *)((const uint8 *)lvl_rom + (lvl_ridx[i >> 4] & 0xFFE0) + ((i & 15) << 1));
 }
 extern const uint8 *bts_rom;           /* (filas de 16 sin repetir si bts_idx; si no, el BTS entero) */
 extern const uint8 *bts_idx;           /* un byte por fila de 16 bloques: su fila en bts_rom (mkdata.py), o 0 */

@@ -104,6 +104,7 @@ void ProjectileReflection(uint16 r20);
 NT_BOSS uint8 ProcessSpriteTilesTransfers(uint8 db, uint16 k);
 NT_BOSS void ProcessCorpseRottingVramTransfers(uint16 k);
 NT_BOSS uint8 ProcessCorpseRotting(uint16 k);
+uint16 PrepareBitAccess(uint16 a);
 NT_BOSS void Phantoon_Func_2(uint16 k);
 NT_BOSS void PauseHook_Kraid(void);
 void NormalEnemyTouchAiSkipDeathAnim(void);
@@ -3211,11 +3212,9 @@ static Func_V *const off_A6CB21[9];
 static Func_V *const off_A9B887[4];
 static Func_CalcHdma *const off_ADE024[4];
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp);
-uint16 PrepareBitAccess(uint16 a);
 void WriteReg(uint16 reg, uint8 value);
 
 const uint8 * EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) { nt_unimpl("EprojInstr_GotoIfFunc1"); return 0; }
-uint16 PrepareBitAccess(uint16 a) { nt_unimpl("PrepareBitAccess"); return 0; }
 void WriteReg(uint16 reg, uint8 value) { nt_unimpl("WriteReg"); }
 
 static Func_Y_V *const funcs_A2A79[3] = { Etecoon_Func_13, Etecoon_Func_14, Etecoon_Func_15 };

@@ -11,7 +11,7 @@
 #include "room.h"
 #include "nmath.h"
 #include "tables.h"
-/* código de los jefes: en la página 25 del SSF2, con los niveles de sus salas (en ellas la ventana 7 la muestra) */
+/* código de los jefes: en la página 21 del SSF2, con los niveles de sus salas (en ellas la ventana 7 la muestra) */
 #ifdef NT_SSF2
 #define NT_BOSS __attribute__((section(".bank21")))
 /* (la Genesis) una función de la página de los jefes con la ventana 7 en otra página: no se llama (avisa) */

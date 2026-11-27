@@ -424,7 +424,7 @@ uint8 md_croco_wave(void) {
   return 0;
 }
 static uint8 lq_pal_dirty = 1;                  /* la paleta cambió (md_post) o se pisó el lugar de las tablas */
-static uint8 lq_bits[32], lq_any;                /* índices de palette_buffer que cambiaron (pocos) desde la última vez
+static uint8 lq_bits[32] __attribute__((aligned(4))), lq_any;                /* índices de palette_buffer que cambiaron (pocos) desde la última vez
                                                    (un bit por índice; lq_any: alguno) */
 /* los colores del líquido que salen de los índices marcados (tablas t: el cuerpo, u: la superficie) */
 static void lq_partial(const uint8 *t, const uint8 *u, uint16 *col, uint16 *cols) {
@@ -432,21 +432,26 @@ static void lq_partial(const uint8 *t, const uint8 *u, uint16 *col, uint16 *cols
   /* (todos los índices: los de los sprites del SNES, 128-255, también salen en lugares de las líneas 0-2 de la Genesis:
      la línea del jefe. Con solo 0-127, el Bomb Torizo bajo la neblina se quedaba con los colores de estatua y sin el
      blanco de Torizo_Hurt al recibir un disparo) */
-  for (uint16 b = 0; b < 32; b++) {
-    uint8 m = lq_bits[b];
-    if (!m) continue;
-    for (uint16 i = b * 8; m; i++, m >>= 1) {
-      if (!(m & 1)) continue;
-      for (uint8 sl = cram_rev[i]; sl != 0xFF; sl = cram_next[sl]) {
-        if (sl >= 48) continue;
-        uint16 c = *(const uint16 *)(pbb + cram_off[sl]);
-        col[sl] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
-        cols[sl] = u[c & 31] | (uint16)u[32 + ((c >> 5) & 31)] << 4 | (uint16)u[64 + ((c >> 10) & 31)] << 8;
+  /* (de a 4 bytes: casi siempre hay pocos marcados, y en las salas de calor la paleta cambia en cada cuadro) */
+  const uint32 *wq = (const uint32 *)lq_bits;
+  uint32 spr = 0;
+  for (uint16 q = 0; q < 8; q++) {
+    uint32 m4 = wq[q];
+    if (!m4) continue;
+    if (q >= 4) spr |= m4;
+    for (uint16 b = q * 4; b < q * 4 + 4; b++) {
+      uint8 m = lq_bits[b];
+      for (uint16 i = b * 8; m; i++, m >>= 1) {
+        if (!(m & 1)) continue;
+        for (uint8 sl = cram_rev[i]; sl != 0xFF; sl = cram_next[sl]) {
+          if (sl >= 48) continue;
+          uint16 c = *(const uint16 *)(pbb + cram_off[sl]);
+          col[sl] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
+          cols[sl] = u[c & 31] | (uint16)u[32 + ((c >> 5) & 31)] << 4 | (uint16)u[64 + ((c >> 10) & 31)] << 8;
+        }
       }
     }
   }
-  uint8 spr = 0;
-  for (uint16 b = 16; b < 32; b++) spr |= lq_bits[b];
   if (spr) {                                       /* (índices de los sprites: los colores de los objetos) */
     zebes_obj_colors_tab(t, col + 49);
     zebes_obj_colors_tab(u, cols + 49);

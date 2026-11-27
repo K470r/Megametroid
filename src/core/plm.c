@@ -24,7 +24,7 @@ static inline uint8 B84B(uint16 a) { return (uint8)B84W(a); }
 #define LOBYTE(x) ((uint8)(x))
 #define HIBYTE(x) ((uint8)((x) >> 8))
 static inline uint16 abs16(uint16 t) { return (t & 0x8000) ? (uint16)-t : t; }
-static uint16 PrepareBitAccess(uint16 a) {  // 0x80818E
+uint16 PrepareBitAccess(uint16 a) {  // 0x80818E (sin static: el código traducido, port_gen.c, también la usa)
   bitmask = 1 << (a & 7);
   return a >> 3;
 }

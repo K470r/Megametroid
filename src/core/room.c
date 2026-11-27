@@ -6,12 +6,15 @@ uint16 lvl_index = 0xFFFF;
 uint8 lvl_mod[ROOM_MAX_BLOCKS / 8];
 NT_GAMEHI LvlMod lvl_ov[LVL_OV_N];
 const uint16 *lvl_rom;
+const uint16 *lvl_ridx;
 const uint8 *bts_rom;
 const uint8 *bts_idx;
 uint16 lvl_blocks;
 uint16 lvl_fast;                                   /* room.h: lvl_blocks mientras no haya bloques cambiados */
 
 static const uint8 kZeroBts[512];
+static const uint16 kLvlRowsIdentity[32] = { 0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 480,
+  512, 544, 576, 608, 640, 672, 704, 736, 768, 800, 832, 864, 896, 928, 960, 992 };   /* los niveles de la intro (hasta 512 bloques) */
 
 /* lvl_fast: el camino corto de level_get/bts_get vale mientras ningún bloque de la sala esté cambiado */
 static void lvl_fast_update(void) {
@@ -24,9 +27,10 @@ uint16 lvl_ver;                                   /* (room.h) */
 void lvl_attach(void) {
   lvl_ver++;
   lvl_fast = 0;
-  if (lvl_index == 0xFFFF) { lvl_rom = 0; bts_rom = 0; bts_idx = 0; lvl_blocks = 0; return; }
+  if (lvl_index == 0xFFFF) { lvl_rom = 0; lvl_ridx = kLvlRowsIdentity; bts_rom = 0; bts_idx = 0; lvl_blocks = 0; return; }
   if (lvl_index == LVL_INTRO_MB || lvl_index == LVL_INTRO_BABY) {   /* recuerdos de la intro (ver intro.c) */
     lvl_rom = lvl_index == LVL_INTRO_MB ? kIntroLevelMotherBrain : kIntroLevelBabyMetroid;
+    lvl_ridx = kLvlRowsIdentity;                   /* (fila r en el byte 32 r: el nivel entero) */
     bts_rom = kZeroBts;
     bts_idx = 0;
     lvl_blocks = lvl_index == LVL_INTRO_MB ? 256 : 512;
@@ -36,6 +40,7 @@ void lvl_attach(void) {
   const LevelDataN *L = &kLevels[lvl_index];
   nt_map_level_page(L->page);
   lvl_rom = L->level;
+  lvl_ridx = L->level_idx;
   bts_rom = L->bts;
   bts_idx = L->bts_idx;
   lvl_blocks = L->size >> 1;
@@ -67,7 +72,7 @@ static LvlMod *lvl_mod_entry(uint16 i) {
     if (!lvl_ov[s].used) {
       LvlMod *m = &lvl_ov[s];
       m->idx = i;
-      m->lvl = i < lvl_blocks ? lvl_rom[i] : level_oob(i);
+      m->lvl = i < lvl_blocks ? lvl_at(i) : level_oob(i);
       m->bts = i < lvl_blocks ? bts_at(i) : 0;
       m->used = 1;
       lvl_mod[i >> 3] |= 1 << (i & 7);
@@ -80,7 +85,7 @@ static LvlMod *lvl_mod_entry(uint16 i) {
 
 void level_set(uint16 i, uint16 v) {
   if (i >= ROOM_MAX_BLOCKS) return;
-  if (!(lvl_mod[i >> 3] & (1 << (i & 7))) && v == (i < lvl_blocks ? lvl_rom[i] : level_oob(i))) return;
+  if (!(lvl_mod[i >> 3] & (1 << (i & 7))) && v == (i < lvl_blocks ? lvl_at(i) : level_oob(i))) return;
   LvlMod *m = lvl_mod_entry(i);
   if (m) m->lvl = v;
   lvl_ver++;

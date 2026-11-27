@@ -16,7 +16,11 @@ extern uint16 lvl_index;               /* nivel de la sala (kLevels); 0xFFFF = n
 #define LVL_INTRO_BABY 0xFFF1
 extern uint8 lvl_mod[ROOM_MAX_BLOCKS / 8];
 extern LvlMod lvl_ov[LVL_OV_N];
-extern const uint16 *lvl_rom;          /* del nivel actual (lvl_attach) */
+extern const uint16 *lvl_rom;          /* del nivel actual (lvl_attach): filas de 16 bloques sin repetir (mkdata.py) */
+extern const uint16 *lvl_ridx;         /* una palabra por fila de 16 bloques: el byte de lvl_rom donde empieza */
+static inline uint16 lvl_at(uint16 i) {  /* el bloque i del nivel en la ROM */
+  return *(const uint16 *)((const uint8 *)lvl_rom + lvl_ridx[i >> 4] + ((i & 15) << 1));
+}
 extern const uint8 *bts_rom;           /* (filas de 16 sin repetir si bts_idx; si no, el BTS entero) */
 extern const uint8 *bts_idx;           /* un byte por fila de 16 bloques: su fila en bts_rom (mkdata.py), o 0 */
 static inline uint8 bts_at(uint16 i) {  /* el BTS del nivel en la ROM */
@@ -54,8 +58,8 @@ static inline uint16 level_oob(uint16 i) {
   return 0x8000;
 }
 static inline uint16 level_get(uint16 i) {
-  if (i < lvl_fast) return lvl_rom[i];          /* lo común: la sala sin cambios */
-  if (i < lvl_blocks) return lvl_is_mod(i) ? lvl_find(i)->lvl : lvl_rom[i];
+  if (i < lvl_fast) return lvl_at(i);           /* lo común: la sala sin cambios */
+  if (i < lvl_blocks) return lvl_is_mod(i) ? lvl_find(i)->lvl : lvl_at(i);
   if (i >= ROOM_MAX_BLOCKS) return 0x8000;
   return lvl_is_mod(i) ? lvl_find(i)->lvl : level_oob(i);
 }

@@ -201,6 +201,23 @@ Reglas de Edwin (no negociables):
 9. Repositorio: copia limpia lista (abajo), licencia MIT a nombre de Edwin Trujillo y Claude (Anthropic); falta
    crear el repo (preguntar antes a Edwin).
 
+### Errores vistos en el recorrido en MiSTer (2026-11-27, ROM `megametroid_ad5e.bin`, hasta Phantoon): revisar al final
+
+- **Crocomire, al morir**: dos pausas de rendimiento (cuadros perdidos) durante la muerte.
+- **Crocomire, el esqueleto**: cuando llega por la izquierda, la pared de picos desaparece y se ve el polvo, pero el
+  esqueleto no se ve.
+- **Phantoon vencido**: después de eliminarlo, al volver a entrar a su sala (CD13, estado CD3F) la sala se ve rota.
+- **Wrecked Ship, estatua del Torizo con Samus en bolita en la mano**: la estatua no se ve y no suenan sus efectos.
+- **Flores carnívoras (Samus Eater)**: al atrapar a Samus desaparece su sprite; solo se ve a Samus atrapada.
+- **Piratas espaciales en la pared**: al ir a disparar su rayo desaparecen casi por completo (solo se ve una pierna);
+  al saltar de pared a pared desaparecen por completo.
+- **Shinespark en diagonal**: con el mando de 6 funciona (Edwin: L+R mantenidos y luego saltar; va en diagonal hacia
+  donde mira). En el SNES, desde la preparación (poses C7/C8, kPoseTransitionTable $91:9EE2) arriba + salto es vertical,
+  adelante + salto horizontal y R (apuntar en ángulo) + salto diagonal. El de 3 botones no tiene L ni R: ya está escrito
+  (md_main.c, sin probar) que durante la preparación arriba + adelante en la cruceta cuente como R (y no como arriba).
+  **Probar en otra sesión** en MiSTer con el mando de 3.
+- (Otros errores del recorrido: Edwin los anota y se revisan al final.)
+
 ## Cómo se trabaja (comandos)
 
     sh host/build.sh                       # motor en el PC: check, mkinit... y res/gen/engine/

@@ -10,7 +10,7 @@ ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 W=${W:-$ROOT/work/perf}; mkdir -p $W
 if [ "$1" = "--una" ]; then
   I=$2; A=$(awk '$3=="viewer_debug_next"{print $1}' $W/sym.txt); A=$((0x$A & 0xFFFF))
-  printf "hold 11700 -\npoke %X %X 2\nhold 10 S\nhold 3 SR\nhold 3 -\nhold 400 -\ndumpram $W/l${I}a.bin\nhold 300 X\ndumpram $W/l${I}m.bin\nhold 300 LX\ndumpram $W/l${I}b.bin\n" $A $I > $W/l$I.txt
+  printf "hold 11800 -\npoke %X %X 2\nhold 10 S\nhold 3 SR\nhold 3 -\nhold 400 -\ndumpram $W/l${I}a.bin\nhold 300 X\ndumpram $W/l${I}m.bin\nhold 300 LX\ndumpram $W/l${I}b.bin\n" $A $I > $W/l$I.txt
   $ROOT/tools/bin/retrorun $ROOT/tools/bin/genesis_plus_gx_libretro.so $W/rom.bin $W/l$I.txt >/dev/null 2>&1
   python3 - $W $I <<'PY'
 import sys

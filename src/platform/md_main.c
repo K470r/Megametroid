@@ -167,6 +167,12 @@ static u16 read_joy(void) {
     if (pad & BUTTON_C) s |= SNES_A;
     if (pad & BUTTON_A) s |= SNES_B;
     if (pad & BUTTON_B) s |= SNES_X;
+    /* shinespark en diagonal: desde la preparación (poses C7/C8) el SNES pide R (apuntar en ángulo) + salto
+       (kPoseTransitionTable $91:9EE2: arriba + salto vertical, adelante + salto horizontal, R + salto diagonal). Sin
+       L ni R, arriba + adelante en la cruceta cuenta como R durante la preparación (el de 6 botones: Z) */
+    { extern uint16_t samus_pose;
+      if ((samus_pose == 0xC7 || samus_pose == 0xC8) && (pad & BUTTON_UP) && (pad & (BUTTON_LEFT | BUTTON_RIGHT)))
+        s = (s & ~SNES_UP) | SNES_R; }
     /* destello de cristal (docs/69): sin L ni R, abajo + A + B + C cuenta como L + R + abajo + disparo, solo mientras
        hay una bomba de poder puesta (power_bomb_flag: desde que se pone hasta que termina la explosión o el
        destello). Fuera de eso los tres botones hacen lo de siempre */

@@ -324,6 +324,8 @@ _Static_assert(sizeof(EpQc) == 8, "ep_qc: el ensamblador (ep_qcache)");
 __asm__(
   "    .text\n"
   "eproj_quiet:\n"
+  "    move.l %a1,-(%sp)\n"
+  "    movea.l lvl_ridx,%a1\n"                /* (filas sin repetir: lvl_at, room.h) */
   "    movea.l lvl_rom,%a0\n"
   "    lea lvl_mod,%a2\n"
   "    move.l #0xBF22,%d0\n"                  /* EPROJ_REACTS: 1, 5, 8-0xD, 0xF */
@@ -331,7 +333,13 @@ __asm__(
   "    and.w #0x7FFF,%d5\n"
   "    cmp.w lvl_fast,%d5\n"
   "    bcc 3f\n"
-  "2:  add.w %d5,%d5\n"
+  "2:  move.w %d5,%d2\n"                     /* lvl_at (room.h): lvl_ridx[i >> 4] + (i & 15) * 2 */
+  "    lsr.w #4,%d2\n"
+  "    add.w %d2,%d2\n"
+  "    move.w (%a1,%d2.w),%d2\n"
+  "    and.w #15,%d5\n"
+  "    add.w %d5,%d5\n"
+  "    add.w %d2,%d5\n"
   "    move.b (%a0,%d5.w),%d2\n"              /* el byte alto del bloque: el tipo en los 4 bits altos */
   "    lsr.b #4,%d2\n"
   "    btst %d2,%d0\n"
@@ -342,6 +350,7 @@ __asm__(
   "    and.w #0x7FFF,%d4\n"
   "    move.w %d4,cur_block_index\n"
   "    moveq #0,%d2\n"
+  "    move.l (%sp)+,%a1\n"
   "    rts\n"
   "3:  cmp.w lvl_blocks,%d5\n"
   "    bcc 8f\n"                              /* fuera del nivel */
@@ -350,6 +359,7 @@ __asm__(
   "    btst %d5,(%a2,%d2.w)\n"                /* lvl_mod (en memoria: el bit módulo 8) */
   "    beq 2b\n"
   "8:  moveq #1,%d2\n"                        /* reacciona o cambiado por un PLM: el original */
+  "    move.l (%sp)+,%a1\n"
   "    rts\n"
   /* ep_qcache: eproj_quiet con lo ya visto (EprojBlocksQuietC, la referencia en C): a0 = su entrada de ep_qc
      (bi, versión, último, cuántos + 1); mismo tramo y nivel sin cambios -> ninguno reacciona, sin mirar */

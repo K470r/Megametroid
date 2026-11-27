@@ -253,3 +253,12 @@ Propuesta para que sea fácil: un solo archivo `tools/lang/es.txt` con todo el t
 mensaje del SNES, escena), el inglés de referencia sacado de la ROM al compilar, y un conversor que dibuja cada texto
 en tiles con la fuente del SNES más las tildes y la Ñ propias. El motor elige la tabla por `g_lang` (que hoy solo ve
 el menú: pasarlo a la capa de la Genesis y a la SRAM). Nada se traduce mientras se juega.
+
+## 2026-11-27: niveles en filas sin repetir
+
+Los niveles (`kLevels`, mkdata.py) guardan cada fila de 16 bloques una sola vez y una palabra por fila con el byte
+donde empieza (`kLevel{i}_DataI`): 906 KB → 518 KB (todos, también 93FE y 9D19 con más de 256 filas distintas). La
+lectura (`lvl_at`, room.h; el ensamblador de `eproj_quiet`, eproj.c) es una suma sin salto: con el índice de un byte y
+el salto para los niveles enteros se perdían 308 cuadros más en las 255 salas (9086 contra 8778 con los niveles
+enteros, `MM_LVL_FULL=1`); así quedan 8620. La página 9 queda con ~420 KB para Zebes (404 KB libres en las usadas):
+no alcanza para vaciar una página entera, la ROM sigue en 12,5 MB.

@@ -13,7 +13,7 @@ un índice con una resta (bankXX_ptr).
 
 Uso: mkdata.py sm.smc smsrc/src res/gen/engine
 """
-import re, struct, sys
+import os, re, struct, sys
 from pathlib import Path
 
 rom = Path(sys.argv[1]).read_bytes()
@@ -278,7 +278,7 @@ H.append('typedef struct { uint8 kind, arg; uint16 state; } StateSelectN;  /* ki
 H.append('typedef struct { uint16 addr; uint8 semiunique_room_number, area_index, x_coordinate_on_map, y_coordinate_on_map,'
          ' width, height, up_scroller, down_scroller, cre_bitset, ndoors, nsel; uint16 ptr_to_doorout;'
          ' const uint16 *doors; const StateSelectN *sel; } RoomDefN;')
-H.append('typedef struct { uint16 size; uint8 page; const uint16 *level; const uint8 *bts; const uint8 *bts_idx; } LevelDataN;  /* size: bytes de level_data; page: página del SSF2 (0 = fija); bts_idx: un byte por fila de 16 bloques, su fila en bts (filas sin repetir: room.h, bts_at); 0: bts entero */')
+H.append('typedef struct { uint16 size; uint8 page; const uint16 *level; const uint8 *bts; const uint8 *bts_idx; const uint16 *level_idx; } LevelDataN;  /* size: bytes de level_data; page: página del SSF2 (0 = fija); bts_idx: un byte por fila de 16 bloques, su fila en bts (filas sin repetir: room.h, bts_at; 0: entero); level_idx: una palabra por fila, el byte de level donde empieza (lvl_at) */')
 H.append('typedef struct { uint16 addr, door_ptr, base_y_pos, target_y_pos, y_vel; uint8 timer, type, default_layer_blend,'
          ' layer3_layer_blend, fx_liquid_options_, palette_fx_bitset, animtiles_bitset, palette_blend; } FxDefN;')
 doors, states, levels, fxs = {}, {}, {}, {}
@@ -382,6 +382,36 @@ def bts_rows(i, bts, page_):
     return len(u) + len(ix)
 
 
+lvl_has_idx = set()
+lvl_sz = [0, 0]
+
+
+def level_rows(i, lw, page_):
+    """las palabras del nivel i: cada fila de 16 bloques una sola vez (docs/48) y una palabra por fila, el byte de
+    kLevel{i}_Data donde empieza (room.h, lvl_at: sin salto ni multiplicación). MM_LVL_FULL: sin repetir nada (las
+    filas en orden; para comparar)"""
+    lw = lw + [0x8000] * (-len(lw) % 16)
+    rows, ix = {}, []
+    for q in range(0, len(lw), 16):
+        k = tuple(lw[q:q + 16]) if not os.environ.get('MM_LVL_FULL') else q
+        ix.append(rows.setdefault(k, len(rows)))
+    u = [x for r_ in sorted(rows, key=rows.get) for x in (r_ if not os.environ.get('MM_LVL_FULL') else lw[r_:r_ + 16])]
+    assert all(u[16 * ix[q // 16] + (q & 15)] == lw[q] for q in range(len(lw)))
+    assert 32 * len(rows) <= 0x8000
+    lvl_sz[0] += 2 * len(lw)
+    C.append(f'NT_BANK({page_}) const uint16 kLevel{i}_Data[{len(u)}] = {{' + ','.join('0x%X' % v for v in u) + '};')
+    C.append(f'NT_BANK({page_}) const uint16 kLevel{i}_DataI[{len(ix)}] = {{' + ','.join(str(32 * v) for v in ix) + '};')
+    lvl_has_idx.add(i)
+    lvl_sz[1] += 2 * len(u) + 2 * len(ix)
+
+
+def level_need(lw):
+    if os.environ.get('MM_LVL_FULL'):
+        return 2 * len(lw) + len(lw) // 8 + 2
+    rows = {tuple(lw[q:q + 16]) for q in range(0, len(lw), 16)}
+    return 32 * len(rows) + len(lw) // 8 + 2
+
+
 for i, lvl in enumerate(sorted(levels)):
     lvl_idx[lvl] = i
     d = decompress(lvl)
@@ -389,35 +419,34 @@ for i, lvl in enumerate(sorted(levels)):
     need = size + size // 2 + 4
     if lvl in ceres_lvls:
         lvl_page[lvl] = 7
-        C.append(f'NT_BANK(7) const uint16 kLevel{i}_Data[{size // 2}] = {{' + ','.join(
-            '0x%X' % v for v in struct.unpack('<%dH' % (size // 2), d[2:2 + size])) + '};')
+        level_rows(i, list(struct.unpack('<%dH' % (size // 2), d[2:2 + size])), 7)
         bts_rows(i, list(d[2 + size:2 + size + size // 2]), 7)
         continue
     if lvl in boss_lvls:
         lvl_page[lvl] = BOSS_PAGE
-        C.append(f'NT_BANK({BOSS_PAGE}) const uint16 kLevel{i}_Data[{size // 2}] = {{' + ','.join(
-            '0x%X' % v for v in struct.unpack('<%dH' % (size // 2), d[2:2 + size])) + '};')
+        level_rows(i, list(struct.unpack('<%dH' % (size // 2), d[2:2 + size])), BOSS_PAGE)
         bts_rows(i, list(d[2 + size:2 + size + size // 2]), BOSS_PAGE)
         continue
     bts = list(d[2 + size:2 + size + size // 2])
     nb_ = sum(1 for _ in range(0, len(bts), 16))
     nu_ = len({tuple(bts[q:q + 16]) for q in range(0, len(bts), 16)})
-    need = size + (16 * nu_ + nb_ if len(bts) % 16 == 0 and nu_ <= 256 else len(bts)) + 4
+    lw = list(struct.unpack('<%dH' % (size // 2), d[2:2 + size]))
+    need = level_need(lw) + (16 * nu_ + nb_ if len(bts) % 16 == 0 and nu_ <= 256 else len(bts)) + 4
     if used + need > 0x80000:
         page, used = page + 1, 0
     used += need
     lvl_page[lvl] = page
-    lw = list(struct.unpack('<%dH' % (size // 2), d[2:2 + size]))
-    C.append(f'NT_BANK({page}) const uint16 kLevel{i}_Data[{len(lw)}] = {{' + ','.join('0x%X' % v for v in lw) + '};')
+    level_rows(i, lw, page)
     bts_rows(i, bts, page)
 H.append(f'#define NT_LEVEL_PAGES {page - LEVEL_PAGE0 + 1}   /* páginas del SSF2 con niveles, desde la {LEVEL_PAGE0} */')
 H.append(f'#define NT_LEVEL_LAST_USED {used}   /* bytes de niveles en la última (mkzebes.py usa el resto) */')
 H.append(f'extern const LevelDataN kLevels[{len(levels)}];')
 print(f'mkdata: BTS de los niveles {bts_sz[0] // 1024} KB -> {bts_sz[1] // 1024} KB (filas de 16 sin repetir)', file=sys.stderr)
+print(f'mkdata: niveles {lvl_sz[0] // 1024} KB -> {lvl_sz[1] // 1024} KB (filas de 16 sin repetir)', file=sys.stderr)
 C.append(f'const LevelDataN kLevels[{len(levels)}] = {{')
 for lvl, i in sorted(lvl_idx.items(), key=lambda t: t[1]):
     d = decompress(lvl); size = d[0] | d[1] << 8
-    C.append(f'  {{ 0x{size:X}, {lvl_page[lvl]}, kLevel{i}_Data, kLevel{i}_Bts, {"kLevel%d_BtsI" % i if i in bts_has_idx else "0"} }},  /* ${lvl:06X} */')
+    C.append(f'  {{ 0x{size:X}, {lvl_page[lvl]}, kLevel{i}_Data, kLevel{i}_Bts, {"kLevel%d_BtsI" % i if i in bts_has_idx else "0"}, {"kLevel%d_DataI" % i if i in lvl_has_idx else "0"} }},  /* ${lvl:06X} */')
 C.append('};')
 H.append(f'extern const DoorDefN kDoorDefs[{len(doors)}];')
 C.append(f'const DoorDefN kDoorDefs[{len(doors)}] = {{')

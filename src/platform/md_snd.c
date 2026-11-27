@@ -191,7 +191,19 @@ void music_play(u8 t) {                            /* Music_HandleCmdFromSnes: l
   else XGM2_playPCMEx(m->data, m->len, SOUND_PCM_CH1, 15, FALSE, FALSE);
 }
 
+/* los últimos efectos buscados (el disparo suena cada pocos cuadros y la búsqueda recorre ~60 entradas): por
+   biblioteca, efecto y conjunto, con la página puesta o no */
+typedef struct { u8 lib, id, set, ok; const SndSfx *s; } SfxMemo;
+static SfxMemo sfx_memo[4];
+static const SndSfx *find_sfx_slow(u8 lib, u8 id);
 static const SndSfx *find_sfx(u8 lib, u8 id) {
+  SfxMemo *m = &sfx_memo[(id ^ (lib << 1)) & 3];
+  if (m->lib == lib && m->id == id && m->set == snd_set && m->ok == snd_page_ok) return m->s;
+  const SndSfx *s = find_sfx_slow(lib, id);
+  m->lib = lib; m->id = id; m->set = snd_set; m->ok = snd_page_ok; m->s = s;
+  return s;
+}
+static const SndSfx *find_sfx_slow(u8 lib, u8 id) {
   if (snd_page_ok) {                               /* la página del conjunto: la grabada con él, o la de cualquiera */
     const SndSfx *any = 0;
     for (const SndSfx *s = SND_PAGE->sfx; s->lib; s++)

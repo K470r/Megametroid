@@ -118,3 +118,14 @@ y de sus objetos (`md_zebes.c`).
 
 Observado y no tocado: en algunos cuadros Samus se ve en el SNES y no en la Genesis (el parpadeo de invencibilidad
 desfasado un cuadro).
+
+## 2026-11-26: colores bajo la neblina y franjas de la neblina
+
+- **El Torizo despierto salía con los colores de estatua y sin el blanco al recibir un disparo** (misiles incluidos):
+  la neblina reescribe la CRAM a media pantalla con tablas (`lq_col`/`lq_cols`, md_engine.c). Desde el punto 9 esas
+  tablas se rehacían solo para los índices cambiados (`lq_partial`), y solo recorría los índices 0-127; los colores del
+  Torizo salen de las paletas de sprites del SNES (144-175) en la línea del jefe. Ahora recorre los 256.
+- **Franjas de la neblina** (`mkmd.py`): eran las dos mitades del degradado de `SpawnBombTorizoHaze` (líneas 72 y 147)
+  con su promedio; en la Genesis la primera no se veía y la segunda era un salto gris neutro a media altura del Torizo.
+  Ahora empiezan donde el negro sube de verdad un nivel del DAC (`kLqExt`, 4 de 31): el azul en la línea 132 y el resto
+  en la 162, azulado como en el SNES.

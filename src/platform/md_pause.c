@@ -101,9 +101,7 @@ NT_LATE static void pz_set_cram(void) {                /* como md_use_room, con 
     cram_next[i] = 0xFF;
     if (s != 0xFF) { cram_next[i] = cram_rev[s]; cram_rev[s] = (uint8)i; }
   }
-  nt_palette_lo = 0;
-  nt_palette_hi = 255;
-  nt_palette_changed = 1;
+  nt_pal_all();
 }
 
 NT_LATE void PauseGfx(uint16 what) {
@@ -283,7 +281,7 @@ NT_LATE void md_pause_frame(void) {            /* md_post en los estados 12-18 *
   ncone = 0;
   nspr = (uint16)(sp_ptr - spr);
   md_frame_count++;
-  if (tint_on) { tint_on = 0; nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255; }   /* sin tinte */
+  if (tint_on) { tint_on = 0; nt_pal_all(); }   /* sin tinte */
   if (nt_palette_changed) {                    /* colores: como en md_post */
     nt_palette_changed = 0;
     if (nt_palette_hi - nt_palette_lo < 32) {  /* pocos índices (la flecha, la paleta animada): solo sus colores */
@@ -303,6 +301,7 @@ NT_LATE void md_pause_frame(void) {            /* md_post en los estados 12-18 *
         if (v != *c) { *c = v; cram_dirty = 1; }
       }
     }
+    memset(nt_pal_bits, 0, sizeof nt_pal_bits);
   }
   uint8 b = (reg_INIDISP & 0x80) ? 0 : (reg_INIDISP & 0xF);
   if (b != md_bright) { md_bright = b; cram_dirty = 1; }

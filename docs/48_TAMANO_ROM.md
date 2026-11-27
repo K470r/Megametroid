@@ -149,6 +149,62 @@ el primer cuadro después de cargar es siempre negro (dentro del negro de la tra
 Validación: regresión 0 distintos (intro, Ceres, Zebes: la imagen es la misma) y la VRAM de la sala igual antes y
 después de la pausa.
 
+## Hecho: fondos de biblioteca comprimidos (2026-11-25, punto 9)
+
+Los mapas del BG2 de las salas (fondos de biblioteca, 64x32 celdas o 64x64 en Kraid) se suben enteros a la VRAM al
+cargar la sala: ahora van comprimidos (`mkzebes.py`: trozos MZ de 16 filas, 2 KB, en `ZebesGfx.bg2z`, cada uno con su
+largo antes) y `zebes_load_vram` los descomprime en `md_scratch` (después rehace `meta_idx`: `meta_build`). Los cielos
+de la superficie (`sky`) se leen por fila al jugar: quedan sin comprimir. Con los rayos X el plano B se reescribe con
+otra prioridad: antes se leía el mapa de la ROM; ahora se lee la fila del plano B de la VRAM y se le pone la prioridad
+del mapa (`bg2p`: todas sus celdas tienen la misma, salvo Kraid, que no pasa por ahí).
+Resultado: 167 mapas, 672 KB -> 56 KB (MZ; zlib daba 47). La página 21 queda vacía y sobran 122 KB en las usadas.
+Comprobación: el plano B después de entrar a las 255 salas del visor es igual con la ROM anterior en 247; en las otras
+8 (agua, lava, Crocomire) la diferencia es del momento de la captura (las dos ROM llegan a otro cuadro del juego):
+las capturas a la vista son iguales. Regresión: 0 distintos.
+
+## Hecho: datos sin repetir y el sonido en las páginas libres (2026-11-26, punto 9)
+
+Lo que se lee al jugar no se puede comprimir (no hay RAM), pero sí guardar sin repeticiones, con un acceso directo:
+- **BTS de los niveles** (`mkdata.py`, `room.h` `bts_at`): cada fila de 16 bloques una sola vez y un byte por fila de la
+  sala (`LevelDataN.bts_idx`). 453 KB -> 109 KB. El nivel en sí (906 KB) no: se lee cientos de veces por cuadro en las
+  colisiones y la indirección costaría rendimiento.
+- **Capa 2 propia** (`mkzebes.py`, `ZebesGfx.l2i`, `block2_at`): igual, por sala. 355 KB -> 105 KB.
+- **Registros de sprites de los objetos**: muchos juegos repiten los mismos (el mismo enemigo con los mismos tiles). Los
+  juegos se reparten en depósitos comunes (`kZR`, hasta 0x7F00 palabras: la clave guarda el desplazamiento con 15 bits),
+  cada juego en el que más registros comparte; cada depósito va en una página con sus juegos. 1361 KB -> 758 KB (12
+  depósitos). Sale también lo que no usaba nadie (los registros de las salas por cuadro, Kraid, Draygon...).
+- **Salas especiales** (C001 Ceres explota, C002 Zebes, C0FF fin de juego): sus tiles y planos salían de la parte fija;
+  ahora los reparte mkzebes en las páginas como los bloques de las cinemáticas (`CINE_BLOBS`, `md_cine.h`) y
+  `md_engine.c` pone la página por sala al cargarlas (por sala: bloques de páginas distintas tienen la misma dirección).
+- **El sonido en las páginas que Zebes deja vacías**: mkzebes anota cuáles (`res/gen/md/pages_free.txt`) y `mksnd.py`
+  las usa antes que la 26 (`md_ssf2.ld` tiene páginas de sonido de la 8 a la 31; una página con las dos cosas da
+  superposición). Con las tres libres (16, 17, 21) el sonido termina en la 27: **la ROM pasa de 16 MB a 14,4 MB**.
+- `mkpbomb.py` usa la última página de los niveles solo si entra (si no, la siguiente, que cuenta mkzebes); el margen
+  por página de mkzebes es 4 KB (los arreglos nuevos de bytes suman alineaciones que la cuenta no ve).
+
+Comprobación: planos A y B de las 255 salas iguales a la ROM anterior (los tiles distintos son solo los de Samus y el
+HUD, por el momento de la captura); el cadáver del Torizo igual a los 700 y 3000 cuadros; regresión 0 distintos;
+lotes de salas en el PC contra el SNES (Crateria, Brinstar, Norfair, Maridia) 0 diferencias.
+
+## Hecho: 12,5 MB (2026-11-26, punto 9, tercera tanda)
+
+- **Celdas sin variantes**: cada bloque guardaba sus 4 variantes (sin volteo, horizontal, vertical, las dos); las otras
+  tres son siempre la misma con las columnas o las filas cambiadas y los bits de volteo de la Genesis (comprobado en los
+  23 150 bloques). Se guarda solo la base y `md_zebes.c` (`cell_of`) calcula la celda: 791 KB -> ~198 KB.
+- **Arreglos iguales una vez por página**: al final de mkzebes, cualquier arreglo `NT_BANK` igual a otro de la misma
+  página (los estados de una sala con las mismas celdas, las claves de juegos de un mismo depósito...) se emite una vez
+  y las referencias van al primero (~575). Los gráficos con las mismas celdas van juntos en una página.
+- **El reparto en las páginas** cuenta el tamaño exacto de lo que se emite (cada arreglo, sin repetir lo que la página
+  ya tiene) y, después, intenta vaciar la página propia de Zebes menos llena moviendo sus piezas a los huecos de las
+  demás. La última página de niveles y las anteriores (solo niveles) también prestan sus huecos. Margen por página
+  1,5 KB; reserva de la página de los jefes 312 KB (usa ~305).
+- **El sonido en 5 páginas** (`mksnd.py`: si el reparto voraz da N, prueba órdenes al azar para N-1).
+- **La página de los jefes pasa de la 25 a la 21** (`port.py`, `mkdata.py`, `mkzebes.py`, `port_gen.h`): con las páginas
+  14-17 para el sonido, lo último que se usa es la 24. **La ROM queda en 12,5 MB** (desde 16 MB).
+
+Lo fijo de cada página: 7 Ceres; 8-9 niveles; 22 el título; 23 el menú; 21 los jefes. Para bajar otra página habría que
+liberar ~500 KB más de Zebes (el nivel, 906 KB, es lo único grande que queda sin tocar: ver arriba por qué).
+
 ## Lo que sigue (en este orden)
 
 | Paso | Ganancia medida | Costo / riesgo |
@@ -156,8 +212,11 @@ después de la pausa.
 | Recortar las copias de bancos (`kBankXXB`, 782 KB) a lo que se lee | sin medir | todas las lecturas pasan por `A6W`/`BW_86`...: medir en `host/` con las grabaciones |
 | `make size`: parte fija libre y llenado de cada página | — | que falle antes de pasarse |
 
-No se puede comprimir lo que se lee al jugar (celdas, `l2`, claves, level data: ~5 MB): no hay RAM donde
-descomprimirlo (el SNES tiene 128 KB; la Genesis 64 KB, casi llenos).
+No se puede comprimir lo que se lee al jugar (celdas, `l2`, claves, registros de sprites, level data: ~5 MB): no hay
+RAM donde descomprimirlo (el SNES tiene 128 KB; la Genesis 64 KB, casi llenos: en 2026-11-25 quedan ~2,7 KB para la
+pila). Inventario de 2026-11-25 (KB en la ROM): registros de sprites de los objetos 1361, tiles comprimidos 1038, level
+data 906 + BTS 453, celdas 791, capa 2 propia 355, claves 356, depósito sin comprimir 227, operaciones de carga 253.
+De lo que solo se lee al cargar la sala quedan las operaciones (`kZG*_ops`, `kZO*_ops`: 253 KB): candidatas.
 
 ## Mega CD (decidido por Edwin)
 

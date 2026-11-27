@@ -499,6 +499,15 @@ def main():
     lut[0x4408] = gen_to_cram((2, 0, 4))
     binfile("kCram555", struct.pack(">32768H", *lut))
     Hh.append("extern const uint16 kCram555[32768];   /* color BGR555 del SNES -> CRAM (nivel del DAC más cercano) */")
+    # cada canal recortado (líquido, md_engine.c lq_tables): kLqExt[canal][v + 128] = el canal de la CRAM de v
+    # recortado a 0..31, ya en su lugar de 4 bits (r: kCram555[r] & 0xFF, g: kCram555[g << 5] >> 4, b: kCram555[b << 10] >> 8)
+    lqx = []
+    for ch in range(3):
+        for i in range(256):
+            v = min(31, max(0, i - 128))
+            lqx.append((lut[v] & 0xFF) if ch == 0 else ((lut[v << 5] >> 4) & 0xFF) if ch == 1 else ((lut[v << 10] >> 8) & 0xFF))
+    carray("uint8", "kLqExt", lqx, 32, "%d")
+    Hh.append("extern const uint8 kLqExt[768];   /* por canal (r, g, b) x 256: el canal de la CRAM de v - 128 recortado a 0..31 */")
 
     # haze de Ceres (color math del SNES: azul sumado por banda de líneas): azul de 5 bits + nivel -> azul de la Genesis
     from convert_rooms import quant_channel
@@ -741,9 +750,14 @@ def main():
                             col[l_][k] = bb & 31
             lines += n
             a += 1 + nb
-    hz0 = next(l_ for l_ in range(224) if any(col[l_]))
+    # las franjas donde la Genesis cambia de verdad: sumado al negro, cada canal sube un nivel del DAC desde cierto
+    # COLDATA (kLqExt; 4 de 31). La primera franja empieza donde algún canal sube y la segunda donde cambia otra vez
+    # (en el SNES el azul sube antes: línea 132, el resto en la 162). Antes eran dos mitades (72 y 147) con su
+    # promedio: la de arriba no se veía y la de abajo salía como una capa gris neutra a media altura del Torizo
+    lvl = lambda c: tuple(lqx[k * 256 + 128 + c[k]] for k in range(3))
     hz_end = max(l_ for l_ in range(224) if any(col[l_])) + 1
-    hz1 = (hz0 + hz_end) // 2
+    hz0 = next(l_ for l_ in range(224) if any(lvl(col[l_])))
+    hz1 = next((l_ for l_ in range(hz0, hz_end) if lvl(col[l_]) != lvl(col[hz0])), (hz0 + hz_end) // 2)
     for nm, (l0, l1) in (("1", (hz0, hz1)), ("2", (hz1, hz_end))):
         for k, ch in enumerate("RGB"):
             Hh.append("#define MD_TORIZO_HAZE%s_%s %d" % (nm, ch, round(sum(col[l_][k] for l_ in range(l0, l1)) / (l1 - l0))))
@@ -1738,6 +1752,10 @@ def write_out(out_dir, C, Hh, bins):
         # las salas de Ceres (tiles y planos) van en la página 7: se leen con la ventana 7 en 7, la página del nivel de
         # Ceres (nt_map_level_page(0)). Así lo común queda debajo de 0x300000 (docs/48, docs/55)
         m = re.match(r"kRoom(?:Tiles|PlaneA|PlaneB)_([0-9A-F]{4})$", sym)
+        # (las de las cinemáticas y el fin de juego, C001/C002/C0FF, las reparte mkzebes.py en las páginas, como los
+        # bloques de las cinemáticas: CINE_BLOBS, md_cine.s; md_engine.c pone su página al cargarlas)
+        if m and int(m.group(1), 16) in (0xC001, 0xC002, 0xC0FF):
+            continue
         sec = ".rodata_page7,\"a\"" if m and 0xDF45 <= int(m.group(1), 16) <= 0xE0B5 else ".rodata"
         s += [f"    .section {sec}", "    .align 2", f"    .global {sym}", f"{sym}:", f'    .incbin "bins/{f}"']
     (out_dir / "md_bins.s").write_text("\n".join(s) + "\n")

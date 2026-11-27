@@ -15,6 +15,18 @@ uint32 nt_unimpl_val;
 GameHooks g_hooks;
 uint8 nt_palette_changed = 1;
 uint8 nt_palette_lo = 0, nt_palette_hi = 255;
+uint8 nt_pal_bits[32] __attribute__((aligned(4))) = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                          0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+void nt_pal_mark(uint8 lo, uint8 hi) {
+  if (!lo && hi == 255) { uint32 *w = (uint32 *)nt_pal_bits; for (uint16 i = 0; i < 8; i++) w[i] = 0xFFFFFFFFu; return; }
+  if (lo == hi) { nt_pal_bits[lo >> 3] |= (uint8)(1 << (lo & 7)); return; }
+  uint8 b0 = lo >> 3, b1 = hi >> 3;
+  uint8 m0 = (uint8)(0xFF << (lo & 7)), m1 = (uint8)(0xFF >> (7 - (hi & 7)));
+  if (b0 == b1) { nt_pal_bits[b0] |= m0 & m1; return; }
+  nt_pal_bits[b0] |= m0;
+  for (uint8 b = b0 + 1; b < b1; b++) nt_pal_bits[b] = 0xFF;
+  nt_pal_bits[b1] |= m1;
+}
 const uint8 *nt_fade_list;
 uint16 nt_fade_count;
 

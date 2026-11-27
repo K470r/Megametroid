@@ -7,6 +7,7 @@ uint8 lvl_mod[ROOM_MAX_BLOCKS / 8];
 NT_GAMEHI LvlMod lvl_ov[LVL_OV_N];
 const uint16 *lvl_rom;
 const uint8 *bts_rom;
+const uint8 *bts_idx;
 uint16 lvl_blocks;
 uint16 lvl_fast;                                   /* room.h: lvl_blocks mientras no haya bloques cambiados */
 
@@ -23,10 +24,11 @@ uint16 lvl_ver;                                   /* (room.h) */
 void lvl_attach(void) {
   lvl_ver++;
   lvl_fast = 0;
-  if (lvl_index == 0xFFFF) { lvl_rom = 0; bts_rom = 0; lvl_blocks = 0; return; }
+  if (lvl_index == 0xFFFF) { lvl_rom = 0; bts_rom = 0; bts_idx = 0; lvl_blocks = 0; return; }
   if (lvl_index == LVL_INTRO_MB || lvl_index == LVL_INTRO_BABY) {   /* recuerdos de la intro (ver intro.c) */
     lvl_rom = lvl_index == LVL_INTRO_MB ? kIntroLevelMotherBrain : kIntroLevelBabyMetroid;
     bts_rom = kZeroBts;
+    bts_idx = 0;
     lvl_blocks = lvl_index == LVL_INTRO_MB ? 256 : 512;
     lvl_fast_update();
     return;
@@ -35,6 +37,7 @@ void lvl_attach(void) {
   nt_map_level_page(L->page);
   lvl_rom = L->level;
   bts_rom = L->bts;
+  bts_idx = L->bts_idx;
   lvl_blocks = L->size >> 1;
   if (lvl_blocks > ROOM_MAX_BLOCKS) { nt_unimpl("lvl_attach (sala más grande que el búfer del SNES)"); lvl_blocks = ROOM_MAX_BLOCKS; }
   lvl_fast_update();
@@ -65,7 +68,7 @@ static LvlMod *lvl_mod_entry(uint16 i) {
       LvlMod *m = &lvl_ov[s];
       m->idx = i;
       m->lvl = i < lvl_blocks ? lvl_rom[i] : level_oob(i);
-      m->bts = i < lvl_blocks ? bts_rom[i] : 0;
+      m->bts = i < lvl_blocks ? bts_at(i) : 0;
       m->used = 1;
       lvl_mod[i >> 3] |= 1 << (i & 7);
       lvl_fast = 0;
@@ -85,7 +88,7 @@ void level_set(uint16 i, uint16 v) {
 
 void bts_set(uint16 i, uint8 v) {
   if (i >= ROOM_MAX_BLOCKS) return;
-  if (!(lvl_mod[i >> 3] & (1 << (i & 7))) && v == (i < lvl_blocks ? bts_rom[i] : 0)) return;
+  if (!(lvl_mod[i >> 3] & (1 << (i & 7))) && v == (i < lvl_blocks ? bts_at(i) : 0)) return;
   LvlMod *m = lvl_mod_entry(i);
   if (m) m->bts = v;
 }

@@ -185,6 +185,8 @@ def main():
     import re
     th = (HERE.parent.parent / "res" / "gen" / "engine" / "tables.h").read_text()
     page = 7 + int(re.search(r'#define NT_LEVEL_PAGES (\d+)', th).group(1))   # la última de los niveles
+    if int(re.search(r'#define NT_LEVEL_LAST_USED (\d+)', th).group(1)) + len(tiles) + 8192 > 0x80000:
+        page += 1                                 # (si no entra: la siguiente, que reparte mkzebes.py y lo cuenta)
     H = ['/* Generado por tools/conv/mkpbomb.py desde la ROM del SNES: no editar. */',
          '#ifndef MD_PBOMB_DATA_H', '#define MD_PBOMB_DATA_H', '#include <stdint.h>',
          '/* luz de la bomba de poder (docs/58): formas por clave (nt_pb_shape), ordenadas. kPbShape: (primera caja,',

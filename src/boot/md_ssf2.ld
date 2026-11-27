@@ -170,6 +170,42 @@ SECTIONS
   ASSERT(SIZEOF (.bank24) <= 0x80000, "MegaMetroid: la pagina 24 pasa de 512 KB")
   .bank25 0x380000 : AT (0xC80000) { KEEP(*(.bank25)) }
   ASSERT(SIZEOF (.bank25) <= 0x80000, "MegaMetroid: la pagina 25 pasa de 512 KB")
+  /* sonido también en las páginas que Zebes deja libres (mkzebes.py: pages_free.txt; mksnd.py las usa antes que la 26):
+     una página con Zebes y con sonido a la vez da superposición de secciones (el enlazador avisa) */
+  .snd8 0x300000 : AT (0x400000) { KEEP(*(.snd_page8)) }
+  ASSERT(SIZEOF (.snd8) <= 0x80000, "MegaMetroid: la pagina de sonido 8 pasa de 512 KB")
+  .snd9 0x300000 : AT (0x480000) { KEEP(*(.snd_page9)) }
+  ASSERT(SIZEOF (.snd9) <= 0x80000, "MegaMetroid: la pagina de sonido 9 pasa de 512 KB")
+  .snd10 0x300000 : AT (0x500000) { KEEP(*(.snd_page10)) }
+  ASSERT(SIZEOF (.snd10) <= 0x80000, "MegaMetroid: la pagina de sonido 10 pasa de 512 KB")
+  .snd11 0x300000 : AT (0x580000) { KEEP(*(.snd_page11)) }
+  ASSERT(SIZEOF (.snd11) <= 0x80000, "MegaMetroid: la pagina de sonido 11 pasa de 512 KB")
+  .snd12 0x300000 : AT (0x600000) { KEEP(*(.snd_page12)) }
+  ASSERT(SIZEOF (.snd12) <= 0x80000, "MegaMetroid: la pagina de sonido 12 pasa de 512 KB")
+  .snd13 0x300000 : AT (0x680000) { KEEP(*(.snd_page13)) }
+  ASSERT(SIZEOF (.snd13) <= 0x80000, "MegaMetroid: la pagina de sonido 13 pasa de 512 KB")
+  .snd14 0x300000 : AT (0x700000) { KEEP(*(.snd_page14)) }
+  ASSERT(SIZEOF (.snd14) <= 0x80000, "MegaMetroid: la pagina de sonido 14 pasa de 512 KB")
+  .snd15 0x300000 : AT (0x780000) { KEEP(*(.snd_page15)) }
+  ASSERT(SIZEOF (.snd15) <= 0x80000, "MegaMetroid: la pagina de sonido 15 pasa de 512 KB")
+  .snd16 0x300000 : AT (0x800000) { KEEP(*(.snd_page16)) }
+  ASSERT(SIZEOF (.snd16) <= 0x80000, "MegaMetroid: la pagina de sonido 16 pasa de 512 KB")
+  .snd17 0x300000 : AT (0x880000) { KEEP(*(.snd_page17)) }
+  ASSERT(SIZEOF (.snd17) <= 0x80000, "MegaMetroid: la pagina de sonido 17 pasa de 512 KB")
+  .snd18 0x300000 : AT (0x900000) { KEEP(*(.snd_page18)) }
+  ASSERT(SIZEOF (.snd18) <= 0x80000, "MegaMetroid: la pagina de sonido 18 pasa de 512 KB")
+  .snd19 0x300000 : AT (0x980000) { KEEP(*(.snd_page19)) }
+  ASSERT(SIZEOF (.snd19) <= 0x80000, "MegaMetroid: la pagina de sonido 19 pasa de 512 KB")
+  .snd20 0x300000 : AT (0xA00000) { KEEP(*(.snd_page20)) }
+  ASSERT(SIZEOF (.snd20) <= 0x80000, "MegaMetroid: la pagina de sonido 20 pasa de 512 KB")
+  .snd21 0x300000 : AT (0xA80000) { KEEP(*(.snd_page21)) }
+  ASSERT(SIZEOF (.snd21) <= 0x80000, "MegaMetroid: la pagina de sonido 21 pasa de 512 KB")
+  .snd22 0x300000 : AT (0xB00000) { KEEP(*(.snd_page22)) }
+  ASSERT(SIZEOF (.snd22) <= 0x80000, "MegaMetroid: la pagina de sonido 22 pasa de 512 KB")
+  .snd23 0x300000 : AT (0xB80000) { KEEP(*(.snd_page23)) }
+  ASSERT(SIZEOF (.snd23) <= 0x80000, "MegaMetroid: la pagina de sonido 23 pasa de 512 KB")
+  .snd24 0x300000 : AT (0xC00000) { KEEP(*(.snd_page24)) }
+  ASSERT(SIZEOF (.snd24) <= 0x80000, "MegaMetroid: la pagina de sonido 24 pasa de 512 KB")
   .snd26 0x300000 : AT (0xD00000) { KEEP(*(.snd_page26)) }
   ASSERT(SIZEOF (.snd26) <= 0x80000, "MegaMetroid: la pagina de sonido 26 pasa de 512 KB")
   .snd27 0x300000 : AT (0xD80000) { KEEP(*(.snd_page27)) }

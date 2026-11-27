@@ -278,7 +278,7 @@ H.append('typedef struct { uint8 kind, arg; uint16 state; } StateSelectN;  /* ki
 H.append('typedef struct { uint16 addr; uint8 semiunique_room_number, area_index, x_coordinate_on_map, y_coordinate_on_map,'
          ' width, height, up_scroller, down_scroller, cre_bitset, ndoors, nsel; uint16 ptr_to_doorout;'
          ' const uint16 *doors; const StateSelectN *sel; } RoomDefN;')
-H.append('typedef struct { uint16 size; uint8 page; const uint16 *level; const uint8 *bts; } LevelDataN;  /* size: bytes de level_data; page: página del SSF2 (0 = fija) */')
+H.append('typedef struct { uint16 size; uint8 page; const uint16 *level; const uint8 *bts; const uint8 *bts_idx; } LevelDataN;  /* size: bytes de level_data; page: página del SSF2 (0 = fija); bts_idx: un byte por fila de 16 bloques, su fila en bts (filas sin repetir: room.h, bts_at); 0: bts entero */')
 H.append('typedef struct { uint16 addr, door_ptr, base_y_pos, target_y_pos, y_vel; uint8 timer, type, default_layer_blend,'
          ' layer3_layer_blend, fx_liquid_options_, palette_fx_bitset, animtiles_bitset, palette_blend; } FxDefN;')
 doors, states, levels, fxs = {}, {}, {}, {}
@@ -354,11 +354,34 @@ H.append('#endif')
 ceres_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if hb[1] == 6 for _, _, st in sels}
 # los niveles de las salas de los jefes van en la página de su código (tools/port/port.py, BOSS_PAGE: en esas salas la
 # ventana 7 muestra el nivel, así que el código del jefe está siempre a mano; docs/46)
-BOSS_PAGE = 25
+BOSS_PAGE = 21
 # (DC65: cadáveres de Tourian; 9804: el Bomb Torizo, su contacto es GoldTorizo_Touch, código de jefe; docs/59)
 BOSS_ROOMS = {0x9804, 0x9DC7, 0xA59F, 0xA98D, 0xB283, 0xB32E, 0xCD13, 0xD95E, 0xDA60, 0xDC65, 0xDCB1, 0xDD58}
 boss_lvls = {states[st][0] for ra, hb, _, sels, _ in rooms_c if ra in BOSS_ROOMS for _, _, st in sels}
 page, used, lvl_page = LEVEL_PAGE0, 0, {}
+bts_has_idx = set()
+bts_sz = [0, 0]
+
+
+def bts_rows(i, bts, page_):
+    """el BTS del nivel i: cada fila de 16 bloques una sola vez y un byte por fila (docs/48); devuelve los bytes"""
+    rows, ix = {}, []
+    for q in range(0, len(bts), 16):
+        ix.append(rows.setdefault(tuple(bts[q:q + 16]), len(rows)))
+    bts_sz[0] += len(bts)
+    if len(bts) % 16 or len(rows) > 256:
+        C.append(f'NT_BANK({page_}) const uint8 kLevel{i}_Bts[{len(bts)}] = {{' + ','.join(str(v) for v in bts) + '};')
+        bts_sz[1] += len(bts)
+        return len(bts)
+    u = [x for r in sorted(rows, key=rows.get) for x in r]
+    assert all(u[16 * ix[q // 16] + (q & 15)] == bts[q] for q in range(len(bts)))
+    C.append(f'NT_BANK({page_}) const uint8 kLevel{i}_Bts[{len(u)}] = {{' + ','.join(str(v) for v in u) + '};')
+    C.append(f'NT_BANK({page_}) const uint8 kLevel{i}_BtsI[{len(ix)}] = {{' + ','.join(str(v) for v in ix) + '};')
+    bts_has_idx.add(i)
+    bts_sz[1] += len(u) + len(ix)
+    return len(u) + len(ix)
+
+
 for i, lvl in enumerate(sorted(levels)):
     lvl_idx[lvl] = i
     d = decompress(lvl)
@@ -368,31 +391,33 @@ for i, lvl in enumerate(sorted(levels)):
         lvl_page[lvl] = 7
         C.append(f'NT_BANK(7) const uint16 kLevel{i}_Data[{size // 2}] = {{' + ','.join(
             '0x%X' % v for v in struct.unpack('<%dH' % (size // 2), d[2:2 + size])) + '};')
-        C.append(f'NT_BANK(7) const uint8 kLevel{i}_Bts[{size // 2}] = {{' + ','.join(
-            str(v) for v in d[2 + size:2 + size + size // 2]) + '};')
+        bts_rows(i, list(d[2 + size:2 + size + size // 2]), 7)
         continue
     if lvl in boss_lvls:
         lvl_page[lvl] = BOSS_PAGE
         C.append(f'NT_BANK({BOSS_PAGE}) const uint16 kLevel{i}_Data[{size // 2}] = {{' + ','.join(
             '0x%X' % v for v in struct.unpack('<%dH' % (size // 2), d[2:2 + size])) + '};')
-        C.append(f'NT_BANK({BOSS_PAGE}) const uint8 kLevel{i}_Bts[{size // 2}] = {{' + ','.join(
-            str(v) for v in d[2 + size:2 + size + size // 2]) + '};')
+        bts_rows(i, list(d[2 + size:2 + size + size // 2]), BOSS_PAGE)
         continue
+    bts = list(d[2 + size:2 + size + size // 2])
+    nb_ = sum(1 for _ in range(0, len(bts), 16))
+    nu_ = len({tuple(bts[q:q + 16]) for q in range(0, len(bts), 16)})
+    need = size + (16 * nu_ + nb_ if len(bts) % 16 == 0 and nu_ <= 256 else len(bts)) + 4
     if used + need > 0x80000:
         page, used = page + 1, 0
     used += need
     lvl_page[lvl] = page
     lw = list(struct.unpack('<%dH' % (size // 2), d[2:2 + size]))
-    bts = list(d[2 + size:2 + size + size // 2])
     C.append(f'NT_BANK({page}) const uint16 kLevel{i}_Data[{len(lw)}] = {{' + ','.join('0x%X' % v for v in lw) + '};')
-    C.append(f'NT_BANK({page}) const uint8 kLevel{i}_Bts[{len(bts)}] = {{' + ','.join(str(v) for v in bts) + '};')
+    bts_rows(i, bts, page)
 H.append(f'#define NT_LEVEL_PAGES {page - LEVEL_PAGE0 + 1}   /* páginas del SSF2 con niveles, desde la {LEVEL_PAGE0} */')
 H.append(f'#define NT_LEVEL_LAST_USED {used}   /* bytes de niveles en la última (mkzebes.py usa el resto) */')
 H.append(f'extern const LevelDataN kLevels[{len(levels)}];')
+print(f'mkdata: BTS de los niveles {bts_sz[0] // 1024} KB -> {bts_sz[1] // 1024} KB (filas de 16 sin repetir)', file=sys.stderr)
 C.append(f'const LevelDataN kLevels[{len(levels)}] = {{')
 for lvl, i in sorted(lvl_idx.items(), key=lambda t: t[1]):
     d = decompress(lvl); size = d[0] | d[1] << 8
-    C.append(f'  {{ 0x{size:X}, {lvl_page[lvl]}, kLevel{i}_Data, kLevel{i}_Bts }},  /* ${lvl:06X} */')
+    C.append(f'  {{ 0x{size:X}, {lvl_page[lvl]}, kLevel{i}_Data, kLevel{i}_Bts, {"kLevel%d_BtsI" % i if i in bts_has_idx else "0"} }},  /* ${lvl:06X} */')
 C.append('};')
 H.append(f'extern const DoorDefN kDoorDefs[{len(doors)}];')
 C.append(f'const DoorDefN kDoorDefs[{len(doors)}] = {{')

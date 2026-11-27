@@ -671,6 +671,10 @@ def pcm_track(a, gain):
 # ---------------------------------------------------------------- páginas (docs/55)
 PAGES = [6, 26, 27, 28, 29, 30, 31]                   # páginas de sonido del SSF2 (md_ssf2.ld: .snd6, .snd26...; la 24 y
                                                        # la 25 son de Zebes: los enemigos de todas las áreas)
+# antes que la 26: las que Zebes deja vacías (mkzebes.py corre antes y las anota): la ROM termina antes (docs/48)
+_pf = Path(__file__).resolve().parents[2] / "res" / "gen" / "md" / "pages_free.txt"
+if _pf.exists():
+    PAGES = [6] + sorted(int(x) for x in _pf.read_text().split() if 8 <= int(x) <= 24) + PAGES[1:]
 PAGE_SIZE = 0x80000
 ANY_SET = 0xFF                                        # en las tablas: el efecto suena igual con cualquier conjunto
 
@@ -728,7 +732,38 @@ def pack_pages(sets, size_of):
             pages.append([{st}, set()])
         else:
             best[1][0].add(st)
-    return [pg[0] for pg in pages]
+    res = [pg[0] for pg in pages]
+    # (una página menos si se puede: órdenes al azar, cada conjunto donde suma menos; la ROM termina antes, docs/48)
+    import random
+    rnd = random.Random(1)
+    order = sorted(sets, key=lambda x: -size_of({x}, set()))
+    for _ in range(3000):
+        if len(res) <= 1:
+            break
+        o = list(order)
+        if _:
+            for i in range(len(o)):                   # (desordena un poco el orden por tamaño)
+                j = min(len(o) - 1, i + rnd.randrange(4))
+                o[i], o[j] = o[j], o[i]
+        pgs, ok = [], True
+        for st in o:
+            best = None
+            for pg in pgs:
+                tot = size_of(pg | {st}, set())
+                if tot <= PAGE_SIZE:
+                    add = tot - size_of(pg, set())
+                    if best is None or add < best[0]:
+                        best = (add, pg)
+            if best is None:
+                if len(pgs) >= len(res) - 1:
+                    ok = False
+                    break
+                pgs.append({st})
+            else:
+                best[1].add(st)
+        if ok:
+            return pgs
+    return res
 
 
 def main():

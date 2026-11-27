@@ -37,7 +37,7 @@ def fbank(g, n):
     m = re.match(r'sm_([0-9a-f]{2})\.c', g.funcs[n][0])
     return int(m.group(1), 16) if m else None
 
-BOSS_PAGE = 25           # página del SSF2 del código de los jefes y de los niveles de sus salas (mkdata.py: BOSS_ROOMS)
+BOSS_PAGE = 21           # página del SSF2 del código de los jefes y de los niveles de sus salas (mkdata.py: BOSS_ROOMS)
 
 
 def native_refs_set():

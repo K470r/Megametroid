@@ -91,6 +91,7 @@ uint16 viewer_input(uint16 joy) {
     door_def_ptr = kViewerRooms[viewer_idx].door;
     game_state = 9;
     place_pending = nt_viewer_place;
+    start_held = start_used = 1;                 /* (ese START ya se usó: al soltarlo no es la pausa) */
   }
   /* START + izquierda/derecha cambia de sala; START solo es la pausa (docs/53): en el juego START llega al soltarlo
      si no se usó para cambiar de sala (un cuadro); fuera del juego (pausa), tal cual */

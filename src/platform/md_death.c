@@ -34,9 +34,7 @@ NT_LATE static void dh_set_cram(void) {
     cram_next[i] = 0xFF;
     if (s != 0xFFFF) { cram_next[i] = cram_rev[s]; cram_rev[s] = (uint8)i; }
   }
-  nt_palette_lo = 0;
-  nt_palette_hi = 255;
-  nt_palette_changed = 1;
+  nt_pal_all();
 }
 
 NT_LATE void md_death_frame(void) {            /* md_post desde el apagón de la muerte */
@@ -44,7 +42,7 @@ NT_LATE void md_death_frame(void) {            /* md_post desde el apagón de la
   nspr = (uint16)(sp_ptr - spr);
   md_frame_count++;
   md_zebes = 0; cine_stage = 0; rot_on = 0; cv_line = 0; hz_state = HZ_OFF;
-  if (tint_on) { tint_on = 0; nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255; }
+  if (tint_on) { tint_on = 0; nt_pal_all(); }
   md_tint = 0;
   if (dh_load) {
     dh_load = 0;

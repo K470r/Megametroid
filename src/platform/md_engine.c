@@ -112,6 +112,17 @@ static uint8 rot_on, rot_shown;
 static int16 ring_top;
 static int16 ring_q[64];
 static uint16 ring_n;
+/* la página de los tiles o planos de una sala de kMdRooms: las de Ceres en la 7; las de las cinemáticas y el fin de
+   juego donde las puso mkzebes.py (md_cine.h) */
+static uint8 room_blob_page(const MdRoom *R, uint8 plane) {   /* (por sala: en páginas distintas pueden tener la
+                                                                 misma dirección de la ventana) */
+  switch (R->room) {
+    case 0xC001: return plane ? CINE_PAGE_kRoomPlaneA_C001 : CINE_PAGE_kRoomTiles_C001;
+    case 0xC002: return plane ? CINE_PAGE_kRoomPlaneA_C002 : CINE_PAGE_kRoomTiles_C002;
+    case 0xC0FF: return plane ? CINE_PAGE_kRoomPlaneA_C0FF : CINE_PAGE_kRoomTiles_C0FF;
+  }
+  return 7;
+}
 static void ring_row_write(int16 R) {          /* con el VDP libre (vblank o pantalla apagada) */
   vdp_dma_vram(g_room->planeA + (uint16)(R & 127) * 32, MD_VRAM_PLANE_A + (uint16)(R & 63) * 128, 32);
 }
@@ -388,12 +399,10 @@ void zebes_obj_colors_add(int16 ar, int16 ag, int16 ab, uint16 *out);
 /* tablas por canal (5 bits -> el canal de la Genesis, como tint_tables): cada color, tres lecturas */
 #define lq_tab ((uint8 *)cinematic_text_tilemap + 3648)       /* 2 x 96: el cuerpo y la superficie */
 void zebes_obj_colors_tab(const uint8 *t, uint16 *out);
-static void lq_tables(int16 ar, int16 ag, int16 ab, uint8 *t) {
-  for (int16 v = 0; v < 32; v++) {
-    int16 r = v + ar, g = v + ag, b = v + ab;
-    r = r < 0 ? 0 : r > 31 ? 31 : r; g = g < 0 ? 0 : g > 31 ? 31 : g; b = b < 0 ? 0 : b > 31 ? 31 : b;
-    t[v] = (uint8)kCram555[r]; t[32 + v] = (uint8)(kCram555[g << 5] >> 4); t[64 + v] = (uint8)(kCram555[b << 10] >> 8);
-  }
+static inline int16 lq_clip(int16 a) { return a < -128 ? -128 : a > 96 ? 96 : a; }
+static void lq_tables(int16 ar, int16 ag, int16 ab, uint8 *t) {   /* (kLqExt: cada canal ya recortado, mkmd.py) */
+  const uint8 *r = kLqExt + 128 + lq_clip(ar), *g = kLqExt + 384 + lq_clip(ag), *b = kLqExt + 640 + lq_clip(ab);
+  for (uint16 v = 0; v < 32; v++) { t[v] = r[v]; t[32 + v] = g[v]; t[64 + v] = b[v]; }
 }
 static void lq_palette(const uint8 *t, uint16 *out) {   /* las 64: con el color sumado (tabla t) */
   const uint8 *pbb = (const uint8 *)palette_buffer;
@@ -415,8 +424,34 @@ uint8 md_croco_wave(void) {
   return 0;
 }
 static uint8 lq_pal_dirty = 1;                  /* la paleta cambió (md_post) o se pisó el lugar de las tablas */
-static uint8 lq_lo = 255, lq_hi;                 /* índices de palette_buffer que cambiaron (pocos) desde la última vez
-                                                   (lq_lo > lq_hi: ninguno) */
+static uint8 lq_bits[32], lq_any;                /* índices de palette_buffer que cambiaron (pocos) desde la última vez
+                                                   (un bit por índice; lq_any: alguno) */
+/* los colores del líquido que salen de los índices marcados (tablas t: el cuerpo, u: la superficie) */
+static void lq_partial(const uint8 *t, const uint8 *u, uint16 *col, uint16 *cols) {
+  const uint8 *pbb = (const uint8 *)palette_buffer;
+  /* (todos los índices: los de los sprites del SNES, 128-255, también salen en lugares de las líneas 0-2 de la Genesis:
+     la línea del jefe. Con solo 0-127, el Bomb Torizo bajo la neblina se quedaba con los colores de estatua y sin el
+     blanco de Torizo_Hurt al recibir un disparo) */
+  for (uint16 b = 0; b < 32; b++) {
+    uint8 m = lq_bits[b];
+    if (!m) continue;
+    for (uint16 i = b * 8; m; i++, m >>= 1) {
+      if (!(m & 1)) continue;
+      for (uint8 sl = cram_rev[i]; sl != 0xFF; sl = cram_next[sl]) {
+        if (sl >= 48) continue;
+        uint16 c = *(const uint16 *)(pbb + cram_off[sl]);
+        col[sl] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
+        cols[sl] = u[c & 31] | (uint16)u[32 + ((c >> 5) & 31)] << 4 | (uint16)u[64 + ((c >> 10) & 31)] << 8;
+      }
+    }
+  }
+  uint8 spr = 0;
+  for (uint16 b = 16; b < 32; b++) spr |= lq_bits[b];
+  if (spr) {                                       /* (índices de los sprites: los colores de los objetos) */
+    zebes_obj_colors_tab(t, col + 49);
+    zebes_obj_colors_tab(u, cols + 49);
+  }
+}
 static int8 lq_last[3] = { 127, 0, 0 };
 static void lq_prepare(void) {
   lq_on = 0;
@@ -437,22 +472,9 @@ static void lq_prepare(void) {
       lq_tables(MD_TORIZO_HAZE2_R, MD_TORIZO_HAZE2_G, MD_TORIZO_HAZE2_B, lq_tab);
       lq_palette(lq_tab, lq_col);
       lq_palette(lq_tab + 96, lq_cols);
-    } else if (lq_lo <= lq_hi) {
-      const uint8 *pbb = (const uint8 *)palette_buffer;
-      const uint8 *t = lq_tab, *u = lq_tab + 96;
-      for (uint16 i = lq_lo; i <= (uint16)lq_hi; i++)
-        for (uint8 sl = cram_rev[i]; sl != 0xFF; sl = cram_next[sl]) {
-          if (sl >= 48) continue;
-          uint16 c = *(const uint16 *)(pbb + cram_off[sl]);
-          lq_col[sl] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
-          lq_cols[sl] = u[c & 31] | (uint16)u[32 + ((c >> 5) & 31)] << 4 | (uint16)u[64 + ((c >> 10) & 31)] << 8;
-        }
-      if (lq_hi >= 128) {
-        zebes_obj_colors_tab(t, lq_col + 49);
-        zebes_obj_colors_tab(u, lq_cols + 49);
-      }
-    }
-    lq_lo = 255; lq_hi = 0;
+    } else if (lq_any)
+      lq_partial(lq_tab, lq_tab + 96, lq_col, lq_cols);
+    if (lq_any) { memset(lq_bits, 0, sizeof lq_bits); lq_any = 0; }
     static const LqStep kEndH = { 0, 0xFFFF, 0, 0x8A1F };
     /* líneas: 31 (los colores de los objetos), 63, y cada franja una línea antes de la suya en la Genesis (la imagen
        va 2 líneas más abajo que en el SNES; los colores tardan unas líneas en escribirse) */
@@ -509,22 +531,9 @@ static void lq_prepare(void) {
     lq_tables(ar + (ar >> 1), ag + (ag >> 1), ab + (ab >> 1), lq_tab + 96);   /* superficie: ~1,5 veces (SNES) */
     lq_palette(lq_tab, lq_col);
     lq_palette(lq_tab + 96, lq_cols);
-  } else if (lq_lo <= lq_hi) {                  /* solo los colores que salen de los índices que cambiaron */
-    const uint8 *pbb = (const uint8 *)palette_buffer;
-    const uint8 *t = lq_tab, *u = lq_tab + 96;
-    for (uint16 i = lq_lo; i <= (uint16)lq_hi; i++)
-      for (uint8 sl = cram_rev[i]; sl != 0xFF; sl = cram_next[sl]) {
-        if (sl >= 48) continue;
-        uint16 c = *(const uint16 *)(pbb + cram_off[sl]);
-        lq_col[sl] = t[c & 31] | (uint16)t[32 + ((c >> 5) & 31)] << 4 | (uint16)t[64 + ((c >> 10) & 31)] << 8;
-        lq_cols[sl] = u[c & 31] | (uint16)u[32 + ((c >> 5) & 31)] << 4 | (uint16)u[64 + ((c >> 10) & 31)] << 8;
-      }
-    if (lq_hi >= 128) {                         /* (índices de los sprites: los colores de los objetos) */
-      zebes_obj_colors_tab(t, lq_col + 49);
-      zebes_obj_colors_tab(u, lq_cols + 49);
-    }
-  }
-  lq_lo = 255; lq_hi = 0;
+  } else if (lq_any)                           /* solo los colores que salen de los índices que cambiaron */
+    lq_partial(lq_tab, lq_tab + 96, lq_col, lq_cols);
+  if (lq_any) { memset(lq_bits, 0, sizeof lq_bits); lq_any = 0; }
   /* sin apagar la interrupción: después del último paso salta cada 32 líneas sin hacer nada (paso final, n 0xFFFF)
      y en el cuadro siguiente vuelve a la línea 31, que empieza otra vez (md_hint_lq); así un cuadro atrasado en que
      el vblank no la reprograma (VDP ocupada) también lleva el líquido */
@@ -1284,7 +1293,7 @@ static void boss_flash_post(void) {              /* (después de zebes_obj_color
     boss_flash_was = 1;
   } else if (boss_flash_was) {                   /* la línea 1 vuelve a sus colores */
     boss_flash_was = 0;
-    nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
+    nt_pal_all();
   }
   boss_flash_req = 0;
 }
@@ -1348,6 +1357,8 @@ uint32 ep_lookup(uint16 v2, uint16 sm, uint16 g, int16 x, int16 y) {
   /* clave por cuadro (Kraid: las rocas): ep_cache la recuerda con el bit 31 (número de la entrada); se dibuja aquí,
      desde la página del depósito, con el lugar sumado (md_zebes.c, zebes_ep_draw), sin copiar sus registros */
   extern void zebes_ep_draw(uint16 n, int16 x, int16 y);
+  extern uint16 ep_cur_idx;
+  ep_cur_idx = v2;
   if (ep_zebes && ((uint32)c->rec & 0x80000000u) && c->sm == sm && c->g == g) {
     zebes_ep_draw((uint16)(uint32)c->rec, x, y);
     return (uint32)kNoRecs;
@@ -1653,6 +1664,7 @@ __asm__(
   "    moveq #0,%d1\n"
   "    move.w %d7,%d1\n"
   "    move.l %d1,-(%sp)\n"
+  "    move.w %d5,ep_cur_idx\n"                /* (el proyectil: su respaldo, md_zebes.c) */
   "    jsr zebes_ep_draw\n"
   "    lea 12(%sp),%sp\n"
   "    bra 9b\n"
@@ -2192,7 +2204,7 @@ static void samus_line_src(uint8 b) {
   }
   cram_relink();
   lq_pal_dirty = 1;
-  nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
+  nt_pal_all();
 }
 
 static void md_use_room(const MdRoom *R) {
@@ -2209,11 +2221,9 @@ static void md_use_room(const MdRoom *R) {
     cram_next[i] = 0xFF;
     if (!own && s != 0xFF) { cram_next[i] = cram_rev[s]; cram_rev[s] = (uint8)i; }
   }
-  nt_palette_lo = 0;
-  nt_palette_hi = 255;
   nt_fade_list = g_room->fade;
   nt_fade_count = g_room->nfade;
-  nt_palette_changed = 1;
+  nt_pal_all();
   room_pending = 1;
   m7_variant = m7_variant_shown = m7_variant_l = 0;
   door_seen = 0;
@@ -3039,7 +3049,7 @@ void md_post(void) {
     if (on != tint_on || r != tint_r || g != tint_g || b != tint_b) {
       tint_on = on; tint_r = (int8)r; tint_g = (int8)g; tint_b = (int8)b;
       if (on) tint_tables();
-      nt_palette_changed = 1; nt_palette_lo = 0; nt_palette_hi = 255;
+      nt_pal_all();
     }
   }
   /* destello de cristal (poses D3/D4): Samus y la burbuja usan la paleta 6 del SNES (palette_buffer 224-239, la que
@@ -3049,17 +3059,30 @@ void md_post(void) {
   if (nt_palette_changed) {
     nt_palette_changed = 0;
     rain_pal_dirty = 1;
-    if (nt_palette_hi - nt_palette_lo < 32) {   /* pocos índices: el líquido rehace solo sus colores (lq_prepare) */
-      if (nt_palette_lo < lq_lo) lq_lo = (uint8)nt_palette_lo;
-      if (nt_palette_hi > lq_hi) lq_hi = (uint8)nt_palette_hi;
+    /* (los índices que cambiaron, uno por uno: Mother Brain cambia colores lejos entre sí y el rango entero era casi
+       toda la paleta) */
+    uint8 narrow = nt_palette_hi - nt_palette_lo < 32, few = narrow;
+    if (!few) {                                 /* (rango grande: ¿pocos grupos de 8 sueltos? hasta 6) */
+      uint16 nb = 0;
+      for (uint16 b = nt_palette_lo >> 3; b <= (uint16)(nt_palette_hi >> 3) && nb <= 6; b++) if (nt_pal_bits[b]) nb++;
+      few = nb <= 6;
+    }
+    if (!md_zebes) ;                            /* (el líquido es solo de Zebes) */
+    else if (few) {                             /* pocos índices: el líquido rehace solo sus colores (lq_prepare) */
+      for (uint16 b = nt_palette_lo >> 3; b <= (uint16)(nt_palette_hi >> 3); b++) lq_bits[b] |= nt_pal_bits[b];
+      lq_any = 1;
     } else lq_pal_dirty = 1;
     const uint8 *pb = (const uint8 *)palette_buffer;
     const uint8 *lut = (const uint8 *)kCram555;
     /* (los lugares del cielo los pone fine_fix: escritos aquí y después allí, la CRAM se subía en cada cambio) */
     uint32 fine_on = md_zebes ? md_fine_mask : 0;
-    if (nt_palette_hi - nt_palette_lo < 32) {
+    if (few) {
       /* pocos índices (ciclo de color de la puerta, paleta de Samus): solo los colores que salen de ellos */
       for (uint16 i = nt_palette_lo; i <= nt_palette_hi; i++) {
+        if (!narrow) {                           /* (rango grande con pocos: los grupos de 8 sin cambio se saltan) */
+          if (!(i & 7) && !nt_pal_bits[i >> 3] && i + 7 <= nt_palette_hi) { i += 7; continue; }
+          if (!(nt_pal_bits[i >> 3] & (1 << (i & 7)))) continue;
+        }
         uint8 slot = cram_rev[i];
         if (slot == 0xFF) continue;
         do {
@@ -3081,6 +3104,7 @@ void md_post(void) {
         c++;
       }
     }
+    { uint32 *w = (uint32 *)nt_pal_bits; w[0] = w[1] = w[2] = w[3] = w[4] = w[5] = w[6] = w[7] = 0; }
     fine_fix();
     if (palette_buffer[0] != hz_last_c) hz_bd_dirty = 1;   /* el degradado sale solo del color de fondo */
     rl_pal_dirty = 1;
@@ -3268,7 +3292,13 @@ static void load_room_vram(void) {
     return;
   }
   vdp_reg(0x10, R->plane_w == 32 && !R->wall ? 0x30 : 0x11);             /* 32x128 o 64x64 */
+  /* (los tiles y planos de estas salas van en la página 7, mkmd.py: el fin de juego puede venir con la ventana 7 en
+     la página de un nivel de Zebes) */
+  extern uint8 md_cur_page;
+  uint8 lp7 = md_cur_page;
+  map_page_ext(room_blob_page(R, 0));
   vdp_dma_vram(R->tiles, (cine_stage ? CINE_BG_BASE : BG_BASE) * 32, R->tiles_total * 16);
+  map_page_ext(room_blob_page(R, 1));
   if (R->wall) {                                /* pozo de modo 7: pared a la derecha, el pozo alrededor de la cámara */
     for (uint16 r = 0; r < 64; r++) {
       vdp_set_vram_write(MD_VRAM_PLANE_A + r * 128 + 64);
@@ -3281,6 +3311,7 @@ static void load_room_vram(void) {
     vdp_dma_vram(R->planeA, MD_VRAM_PLANE_A, R->plane_w * R->plane_h);
   if (R->planeB) vdp_dma_vram(R->planeB, MD_VRAM_PLANE_B, R->plane_w * R->plane_h);
   else vdp_fill_vram(MD_VRAM_PLANE_B, 0, 0x1000);
+  map_page_ext(lp7);
   vdp_reg(0x12, cine_stage ? 0x00 : 0x04);     /* ventana del HUD: no en las cinemáticas ni en los menús */
   if (cine_stage == 1) {                        /* tiles del círculo de la explosión (donde va el HUD) */
     circ_vram();

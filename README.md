@@ -1,9 +1,12 @@
 # MegaMetroid
 
-Metroid 3 (Super Metroid) para Sega Genesis/Mega Drive. El código del juego está reescrito a mano para el 68000 a partir del
+Metroid 3 (Super Metroid) para Sega Genesis/MegaDrive. El código del juego está reescrito a mano para el 68000 a partir del
 decomp de snesrev (`sm/`), no incluye código fuente propietario ni código fuente sujeto a derechos de autor; todo lo que 
-viene de la ROM se convierte en el PC desde **un dump propio del cartucho**: este repositorio no contiene nada de la first-party 
+viene de la ROM se convierte desde **un dump propio del cartucho**: este repositorio no contiene nada de la first-party 
 (ni la ROM, ni datos extraídos, ni ROM compiladas).
+
+En Genesis/Megadrive el tamaño del juego protado es mayor a la ROM de SNES porque muchos de los datos están crudos, 
+la consola solo tiene 64 KB de RAM, no puedes descomprimir niveles enteros de golpe, por ello se usó el mapeador SSF2
 
 Estado (2026-11-19): el juego entero está portado, de la intro al final: Ceres, todo Zebes (salas, enemigos, efectos y
 sonido), todos los jefes, la huida, el final con los créditos, la muerte de Samus y las partidas guardadas. Falta
@@ -13,65 +16,67 @@ documentación: [docs/README.md](docs/README.md).
 
 ## Requisitos
 
-- Linux (Debian/Ubuntu probado) o Windows con WSL (Ubuntu). En una sola línea:
+- Linux (Debian/Ubuntu probado) o Windows con WSL (Ubuntu), con lo escencial escencial instalado y actualizado
 
-      sudo apt update && sudo apt install git build-essential gcc-m68k-linux-gnu python3 python3-numpy python3-pil util-linux default-jre-headless
-
-  (Java lo usan rescomp, lz4w y xgm2tool de SGDK.) Si `apt` da "404 Not Found", falta el `sudo apt update`.
 - Un volcado de tu propio cartucho de **Super Metroid (Japón / EE. UU.)**, 3 MB, sin cabecera de copiadora (la quita `check_rom.py`):
   SHA-1 `da957f0d63d14cb441d215462904c4fa8519c613`, MD5 `21f3e98df4780ee1c667b84e57d88675`.
 
 ## Compilar la ROM de la Genesis
 
 En Linux, o en Windows con WSL (Ubuntu). La primera vez tarda un rato (las herramientas, las grabaciones del SNES y
-`make full`, este solo de 12 a 15 minutos) y usa ~5 GB de disco; todo queda dentro de la carpeta del proyecto.
+`make full`, hasta 30 minutos) y usa ~5 GB de disco; todo queda dentro de la carpeta del proyecto.
 
-1. Instalar lo necesario (una vez): el comando de "Qué hace falta", arriba.
-2. Bajar el proyecto y entrar en la carpeta:
+1. Instalar lo necesario (una vez), en consola:
+   
+       sudo apt update && sudo apt install git build-essential gcc-m68k-linux-gnu python3 python3-numpy python3-pil util-linux default-jre-headless
+
+   (Java lo usan rescomp, lz4w y xgm2tool de SGDK.)
+   
+3. Bajar el proyecto y entrar en la carpeta:
 
        git clone https://github.com/K470r/Megametroid
        cd Megametroid
 
-3. Bajar y compilar las herramientas (decomp, SGDK, emuladores):
+   No cierres la consola, todos los comandos se deben ejecutar desde `/Megametroid`
+
+5. Bajar y compilar las herramientas (decomp, SGDK, emuladores):
 
        sh tools/setup/setup_tools.sh
 
-4. Poner tu volcado de Super Metroid (lo comprueba y lo copia a `sm/sm.smc`):
+6. Comprobar el volcado de tu propio cartucho de super metroid Super Metroid:
+   Se necesita que la rom dumpeada esté renombrada a `sm.smc` y debe estar dentro de la carpteta `Megametroid/sm`
+   En consola se verifica con:
 
-       python3 tools/check_rom.py /ruta/a/tu_volcado.smc
+       python3 tools/check_rom.py
 
-5. Extraer y grabar desde tu ROM lo que se necesita (unos minutos, ~4 GB en `work/`):
+7. Extraer y grabar desde tu ROM lo que se necesita (~4 GB en `work/`):
+   En consola:
 
        sh tools/inputs/make_inputs.sh
 
-   Deja en `work/inputs/` las grabaciones del SNES (`ref_full.bin`, `ref_intro0.bin`...), el SNES de referencia
+   El comando anterior deja en `work/inputs/` las grabaciones del SNES (`ref_full.bin`, `ref_intro0.bin`...), el SNES de referencia
    (`hlref`) y `env.sh`; en `res/snes_ref/` las capturas (salas, cinemáticas, título, menú y el final). No hay que
    borrar nada de eso: `make full` lo usa.
 
-6. Compilar:
+9. Compilar:
+    En consola:
 
        . work/inputs/env.sh && make full
 
-La ROM queda en **`out/rom.bin`** (15,25 MB de los 16 que permite el mapeador SSF2): se carga en MiSTer, en la Mega EverDrive o en un emulador
+La ROM queda en **`/Megametroid/out/rom.bin`** (12,5 MB MB de los 16 que permite el mapeador SSF2): se carga en MiSTer, en la Mega EverDrive o en un emulador
 con SSF2 (Genesis Plus GX, BlastEm). Sale igual byte a byte para cualquiera que use la misma ROM (ver
 [docs/45](docs/45_REPRODUCIBLE.md)): con `md5sum out/rom.bin` se puede comparar con la de otro.
 
-### Actualizar a lo último
+### Actualizar a lo último si hay cambios
+En consola:
 
-    cd Megametroid
+    cd ~/Megametroid
+    git fetch origin
     git checkout main
-    git pull
-    . work/inputs/env.sh && make full
-
-`make full` (12-15 min) cuando cambian los conversores (`tools/`); si solo cambió el código, basta `make`.
-
-Si cambió `tools/setup/`, `tools/emu_harness/` o `tools/inputs/` (o `tools/snes_ref/`: el SNES de referencia y las
-capturas), repetir antes los pasos 3 y 5. `make_inputs.sh` compila `hlref` solo si no existe: si cambió
-`tools/snes_ref/ceres_bot/hlref.c`, borrarlo antes para que se rehaga:
-
-    sh tools/setup/setup_tools.sh        # herramientas (también retrorun)
-    rm -f work/inputs/hlref              # solo si cambió hlref.c
-    sh tools/inputs/make_inputs.sh       # grabaciones y capturas
+    git reset --hard origin/main
+    sh tools/setup/setup_tools.sh
+    rm -f work/inputs/hlref
+    sh tools/inputs/make_inputs.sh
     . work/inputs/env.sh && make full
 
 ### Comandos
@@ -91,7 +96,7 @@ Detalle de la estructura y del `Makefile`: [docs/47](docs/47_ESTRUCTURA_SGDK.md)
 
 ### Instrumentos de la música (Furnace)
 
-La música sale de las secuencias del SNES de tu ROM, con un instrumento FM por muestra (`tools/snd/instrumentos.txt`,
+La música sale de las secuencias del SNES de la ROM dumpeada, con un instrumento FM por muestra (`tools/snd/instrumentos.txt`,
 en git: solo números). Para ajustarlos a oído ([docs/55](docs/55_SONIDO_XGM2.md)):
 
     make fur                                                       # proyectos en work/furnace/ (+ muestras/ y la lista)
@@ -176,7 +181,7 @@ Traducción al español ([docs/66](docs/66_TRADUCCION.md); el menú, las opcione
 15. El final (SEE YOU NEXT MISSION, CLEAR TIME, GENESIS DOES...).
 16. El mapa de la partida ("PLANET ZEBES", "MAP SCROLL / START / CANCEL").
 
-Extras ya acordados:
+Extras futuros:
 17. La música en CD (Mega CD, modo 1): si hay Mega CD y el disco de MegaMetroid, la música sale del CD; si no, la del
     cartucho ([docs/48](docs/48_TAMANO_ROM.md)).
 18. Los instrumentos ajustados a oído (el eco del SNES no existe en la Genesis).

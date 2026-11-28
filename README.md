@@ -6,7 +6,7 @@ viene de la ROM se convierte desde **un dump propio del cartucho**: este reposit
 (ni la ROM, ni datos extraídos, ni ROM compiladas).
 
 En Genesis/Megadrive el tamaño del juego protado es mayor a la ROM de SNES porque muchos de los datos están crudos, 
-la consola solo tiene 64 KB de RAM, no puedes descomprimir niveles enteros de golpe, por ello se usó el mapeador SSF2
+la consola solo tiene 64 KB de RAM, no pude descomprimir niveles enteros de golpe, por ello se usó el mapeador SSF2
 
 Estado (2026-11-19): el juego entero está portado, de la intro al final: Ceres, todo Zebes (salas, enemigos, efectos y
 sonido), todos los jefes, la huida, el final con los créditos, la muerte de Samus y las partidas guardadas. Falta

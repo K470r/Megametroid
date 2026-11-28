@@ -5,7 +5,7 @@ decomp de snesrev (`sm/`), no incluye código fuente propietario ni código fuen
 viene de la ROM se convierte desde **un dump propio del cartucho**: este repositorio no contiene nada de la first-party 
 (ni la ROM, ni datos extraídos, ni ROM compiladas).
 
-En Genesis/Megadrive el tamaño del juego protado es mayor a la ROM de SNES porque muchos de los datos están crudos, 
+En Genesis/Megadrive el tamaño del juego portado es mayor a la ROM de SNES porque muchos de los datos están crudos, 
 la consola solo tiene 64 KB de RAM, no pude descomprimir niveles enteros de golpe, por ello se usó el mapeador SSF2
 
 Estado (2026-11-19): el juego entero está portado, de la intro al final: Ceres, todo Zebes (salas, enemigos, efectos y
@@ -16,7 +16,7 @@ documentación: [docs/README.md](docs/README.md).
 
 ## Requisitos
 
-- Linux (Debian/Ubuntu probado) o Windows con WSL (Ubuntu), con lo escencial escencial instalado y actualizado
+- Linux (Debian/Ubuntu probado) o Windows con WSL (Ubuntu), con lo esencial instalado y actualizado
 
 - Un volcado de tu propio cartucho de **Super Metroid (Japón / EE. UU.)**, 3 MB, sin cabecera de copiadora (la quita `check_rom.py`):
   SHA-1 `da957f0d63d14cb441d215462904c4fa8519c613`, MD5 `21f3e98df4780ee1c667b84e57d88675`.
@@ -32,24 +32,24 @@ En Linux, o en Windows con WSL (Ubuntu). La primera vez tarda un rato (las herra
 
    (Java lo usan rescomp, lz4w y xgm2tool de SGDK.)
    
-3. Bajar el proyecto y entrar en la carpeta:
+2. Bajar el proyecto y entrar en la carpeta:
 
        git clone https://github.com/K470r/Megametroid
        cd Megametroid
 
    No cierres la consola, todos los comandos se deben ejecutar desde `/Megametroid`
 
-5. Bajar y compilar las herramientas (decomp, SGDK, emuladores):
+3. Bajar y compilar las herramientas (decomp, SGDK, emuladores):
 
        sh tools/setup/setup_tools.sh
 
-6. Comprobar el volcado de tu propio cartucho de super metroid Super Metroid:
+4. Comprobar el volcado de tu propio cartucho de super metroid:
    Se necesita que la rom dumpeada esté renombrada a `sm.smc` y debe estar dentro de la carpteta `Megametroid/sm`
    En consola se verifica con:
 
        python3 tools/check_rom.py
 
-7. Extraer y grabar desde tu ROM lo que se necesita (~4 GB en `work/`):
+5. Extraer y grabar desde tu ROM lo que se necesita (~4 GB en `work/`):
    En consola:
 
        sh tools/inputs/make_inputs.sh
@@ -58,7 +58,7 @@ En Linux, o en Windows con WSL (Ubuntu). La primera vez tarda un rato (las herra
    (`hlref`) y `env.sh`; en `res/snes_ref/` las capturas (salas, cinemáticas, título, menú y el final). No hay que
    borrar nada de eso: `make full` lo usa.
 
-9. Compilar:
+6. Compilar:
     En consola:
 
        . work/inputs/env.sh && make full
